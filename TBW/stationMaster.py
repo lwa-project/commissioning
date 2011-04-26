@@ -28,6 +28,7 @@ Usage: tbwSpectra.py [OPTIONS] file
 Options:
 -h, --help                  Display this help information
 -m, --metadata              Name of SSMIF file to use for mappings
+-f, --force                 Remake the NPZ file, even if it exists
 -t, --bartlett              Apply a Bartlett window to the data
 -b, --blackman              Apply a Blackman window to the data
 -n, --hanning               Apply a Hanning window to the data
@@ -47,6 +48,7 @@ def parseOptions(args):
 	config = {}
 	# Command line flags - default values
 	config['SSMIF'] = ''
+	config['force'] = False
 	config['LFFT'] = 4096
 	config['maxFrames'] = 30000*260
 	config['window'] = fxc.noWindow
@@ -58,7 +60,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hm:qtbnl:so:", ["help", "metadata=", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "stack", "output="])
+		opts, args = getopt.getopt(args, "hm:fqtbnl:so:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "stack", "output="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -70,6 +72,8 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-m', '--metadata'):
 			config['SSMIF'] = value
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		elif opt in ('-q', '--quiet'):
 			config['verbose'] = False
 		elif opt in ('-t', '--bartlett'):
@@ -94,12 +98,15 @@ def parseOptions(args):
 	return config
 
 def main(args):
-	# Set the station
-	station = stations.lwa1
-	antennas = station.getAntennas()
-	
 	# Parse command line options
 	config = parseOptions(args)
+	
+	# Set the station
+	if config['SSMIF'] != '':
+		station = stations.parseSSMIF(config['SSMIF'])
+	else:
+		station = stations.lwa1
+	antennas = station.getAntennas()
 
 	# Length of the FFT
 	LFFT = config['LFFT']
@@ -142,7 +149,7 @@ def main(args):
 	nChunks = 1
 
 	base, ext = os.path.splitext(config['args'][0])
-	if not os.path.exists("%s.npz" % base):
+	if (not os.path.exists("%s.npz" % base)) or config['force']:
 		# Master loop over all of the file chunks
 		masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1))
 		for i in range(nChunks):
@@ -225,7 +232,7 @@ def main(args):
 			fit = numpy.polyval(coeff, freq[toCompare]/1e6)	
 			resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
 		
-		numpy.savez("%s.npz" % base, freq=freq, masterSpectra=masterSpectra, resFreq=resFreq)
+		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq)
 	else:
 		dataDict = numpy.load("%s.npz" % base)
 		freq = dataDict['freq']

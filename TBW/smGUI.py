@@ -38,6 +38,7 @@ class TBW_GUI(object):
 		self.bestX = -1
 		self.bestY = 0
 
+		self.filename = ''
 		self.color = 0
 		self.antennas = antennas
 		self.freq = freq
@@ -47,6 +48,7 @@ class TBW_GUI(object):
 		
 		self.ax1 = None
 		self.ax2 = None
+		self.oldMark = None
 		
 	def loadData(self, filename):
 		"""
@@ -61,14 +63,33 @@ class TBW_GUI(object):
 		
 		self.spec = masterSpectra.mean(axis=0)
 		self.specTemplate = numpy.median(self.spec, axis=0)
-		try:
-			self.resFreq = dataDict['resFreq']
-		except KeyError:
-			self.resFreq = None
+		self.resFreq = dataDict['resFreq']
 
 		# Set the station
 		station = stations.lwa1
 		self.antennas = station.getAntennas()
+
+		# Set default colobars
+		self.limits = []
+		self.limits.append([0, 2])
+		self.limits.append([1, 2])
+		self.limits.append([1, 2])
+		self.limits.append([31, 50])
+		
+		# Save the filename and data
+		path, basename = os.path.split(filename)
+		self.filename = basename
+		self.date = dataDict['date']
+
+		try:
+			self.disconnect()
+		except:
+			pass
+
+		# Clear the mark and plots
+		self.oldMark = None
+		self.frame.figure1.clf()
+		self.frame.figure2.clf()
 
 		self.connect()
 	
@@ -96,8 +117,6 @@ class TBW_GUI(object):
 			toCompare = numpy.where( (self.freq>compLow) & (self.freq<compHigh) )[0]
 			for i in xrange(self.spec.shape[0]):
 				specDiff[i] = (self.spec[i,toCompare] / self.specTemplate[toCompare]).mean()
-			specDiff = numpy.where( specDiff < 2, specDiff, 2)
-			specDiff = numpy.where( specDiff > 0, specDiff, 0)
 			
 			cbTitle = '%i to %i MHz Mean Deviation' % (compLow/1e6, compHigh/1e6)
 		elif self.color == 1:
@@ -113,8 +132,6 @@ class TBW_GUI(object):
 			for i in xrange(self.spec.shape[0]):
 				specDiff[i] = (self.spec[i,rfi1] / self.specTemplate[rfi1]).max()
 				specDiff[i] /= (self.spec[i,corr] / self.specTemplate[corr]).mean()
-			specDiff = numpy.where( specDiff < 2, specDiff, 4)
-			specDiff = numpy.where( specDiff > 1, specDiff, 1)
 				
 			cbTitle = 'RFI-46 Index'
 		elif self.color == 2:
@@ -130,8 +147,6 @@ class TBW_GUI(object):
 			for i in xrange(self.spec.shape[0]):
 				specDiff[i] = (self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
 				specDiff[i] /= (self.spec[i,corr] / self.specTemplate[corr]).mean()
-			specDiff = numpy.where( specDiff < 2, specDiff, 4)
-			specDiff = numpy.where( specDiff > 1, specDiff, 1)
 				
 			cbTitle = 'RFI-64 Index'
 		else:
@@ -157,40 +172,49 @@ class TBW_GUI(object):
 					coeff = numpy.polyfit(self.freq[toCompare]/1e6, to_dB(self.spec[i,toCompare]), bestOrder)
 					fit = numpy.polyval(coeff, self.freq[toCompare]/1e6)	
 					specDiff[i] = self.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
-				specDiff = numpy.where( specDiff < 50, specDiff, 50 )
 				self.resFreq = specDiff
 			else:
 				specDiff = self.resFreq
-				specDiff = numpy.where( specDiff < 50, specDiff, 50 )
 			
 			cbTitle = 'Est. Resonance Point (MHz)'
 
-		self.frame.figure.clf()
-		ax1 = self.frame.figure.gca()
+		# Clip range
+		specDiff = numpy.where( specDiff < self.limits[self.color][1], specDiff, self.limits[self.color][1])
+		specDiff = numpy.where( specDiff > self.limits[self.color][0], specDiff, self.limits[self.color][0])
+
+		self.frame.figure1.clf()
+		self.ax1 = self.frame.figure1.gca()
 		# Stands 
-		m = ax1.scatter(standPos[:,0], standPos[:,1]+0.8, c=specDiff[0::2], s=45.0, alpha=0.80, marker='^')
-		ax1.scatter(standPos[:,0], standPos[:,1]-0.8, c=specDiff[1::2], s=45.0, alpha=0.80, marker='v')
+		m = self.ax1.scatter(standPos[:,0], standPos[:,1]+0.8, c=specDiff[0::2], s=45.0, alpha=0.80, marker='^')
+		self.ax1.scatter(standPos[:,0], standPos[:,1]-0.8, c=specDiff[1::2], s=45.0, alpha=0.80, marker='v')
 
 		## Add the fence as a dashed line
-		ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
+		self.ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
 				[59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
 
 		## Add the shelter
-		ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
+		self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
 				[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
 
-		## Set the limits to just zoom in on the main stations
-		ax1.set_xlim([-65, 65])
-		ax1.set_ylim([-65, 65])
+		## Set the limits to just zoom in on the main station and the plot title
+		if self.date is None:
+			self.ax1.set_title("Filename: '%s'" % self.filename)
+		else:
+			self.ax1.set_title('Date: UT %s' % self.date)
+		self.ax1.set_xlim([-65, 65])
+		self.ax1.set_ylim([-65, 65])
 
 		## Set the color bar, its title, and the axis labels
-		cm = self.frame.figure.colorbar(m, ax=ax1)
+		cm = self.frame.figure1.colorbar(m, ax=self.ax1)
 		cm.ax.set_ylabel(cbTitle)
-		ax1.set_xlabel('$\Delta$ X [m]')
-		ax1.set_ylabel('$\Delta$ Y [m]')
+		self.ax1.set_xlabel('$\Delta$ X [m]')
+		self.ax1.set_ylabel('$\Delta$ Y [m]')
+		
+		if self.oldMark is not None:
+			self.ax1.lines.extend(self.oldMark)
 		
 		## Draw it
-		self.frame.canvas.draw()
+		self.frame.canvas1.draw()
 		
 		wx.EndBusyCursor()
 
@@ -217,15 +241,16 @@ class TBW_GUI(object):
 		## (self.specTemplate) in green, the X polarization in blue, and 
 		## the Y polarization in red.  
 		self.frame.figure2.clf()
-		ax2 = self.frame.figure2.gca()
-		ax2.plot(self.freq/1e6, to_dB(self.specTemplate), alpha=0.6, color='g', label='Composite')
-		ax2.plot(self.freq/1e6, to_dB(self.spec[self.bestX-1,:]), color='b', label='X')
-		ax2.plot(self.freq/1e6, to_dB(self.spec[self.bestY-1,:]), color='r', label='Y')
+		self.ax2 = self.frame.figure2.gca()
+		self.ax2.plot(self.freq/1e6, to_dB(self.specTemplate), alpha=0.6, color='g', label='Composite')
+		self.ax2.plot(self.freq/1e6, to_dB(self.spec[self.bestX-1,:]), color='b', label='X')
+		self.ax2.plot(self.freq/1e6, to_dB(self.spec[self.bestY-1,:]), color='r', label='Y')
 		
-		## Set the axis labels and add a legend
-		ax2.set_xlabel('Frequency [MHz]')
-		ax2.set_ylabel('PSD [dB/RBW]')
-		ax2.legend(loc=0)
+		## Set the title, axis labels and add a legend
+		self.ax2.set_title('Stand #%i' % self.antennas[self.bestX-1].stand.id)
+		self.ax2.set_xlabel('Frequency [MHz]')
+		self.ax2.set_ylabel('PSD [dB/RBW]')
+		self.ax2.legend(loc=0)
 		
 		## Draw and save the click (Why?)
 		self.frame.canvas2.draw()
@@ -239,33 +264,31 @@ class TBW_GUI(object):
 		closest.
 		"""
 		
-		ax = self.frame.figure.gca()
-		
-		try:
-			if self.oldMark is not None:
-				del ax.lines[-1]
-		except AttributeError:
-			pass
+		if self.oldMark is not None:
+			try:
+				del self.ax1.lines[-1]
+			except:
+				pass
 		
 		## Figure out who is who
 		xy = [self.antennas[self.bestX-1].stand.x, self.antennas[self.bestX-1].stand.y]
 
-		self.oldMark = ax.plot([xy[0], xy[0]], [xy[1], xy[1]], linestyle=' ', marker='o', ms=15.0, mfc='None', color='k')
+		self.oldMark = self.ax1.plot([xy[0], xy[0]], [xy[1], xy[1]], linestyle=' ', marker='o', ms=15.0, mfc='None', color='k')
 		
 		## Set the limits to just zoom in on the main stations
-		ax.set_xlim([-65, 65])
-		ax.set_ylim([-65, 65])
+		self.ax1.set_xlim([-65, 65])
+		self.ax1.set_ylim([-65, 65])
 
 
-		self.frame.canvas.draw()
+		self.frame.canvas1.draw()
 	
 	def connect(self):
 		"""
 		Connect to all the events we need to interact with the plots.
 		"""
 		
-		self.cidpress = self.frame.figure.canvas.mpl_connect('button_press_event', self.on_press)
-		self.cidmotion = self.frame.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+		self.cidpress   = self.frame.figure1.canvas.mpl_connect('button_press_event',  self.on_press)
+		self.cidmotion  = self.frame.figure1.canvas.mpl_connect('motion_notify_event', self.on_motion)
 		self.cidmotion2 = self.frame.figure2.canvas.mpl_connect('motion_notify_event', self.on_motion2)
 	
 	def on_press(self, event):
@@ -280,9 +303,6 @@ class TBW_GUI(object):
 				
 			self.drawSpectrum(clickX, clickY)
 			self.makeMark(clickX, clickY)
-
-			self.frame.statusbar.SetStatusText("x=%.3f m, y=%.3f m; stand #%i selected" % 
-					(clickX, clickY, self.antennas[self.bestX-1].stand.id))
 			
 	def on_motion(self, event):
 		"""
@@ -295,13 +315,7 @@ class TBW_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			if self.bestX == -1:
-				# No stand selected
-				self.frame.statusbar.SetStatusText("x=%.3f m, y=%.3f m" % (clickX, clickY))
-			else:
-				# Stand selected
-				self.frame.statusbar.SetStatusText("x=%.3f m, y=%.3f m; stand #%i selected" % 
-					(clickX, clickY, self.antennas[self.bestX-1].stand.id))
+			self.frame.statusbar.SetStatusText("x=%.3f m, y=%.3f m" % (clickX, clickY))
 		else:
 			self.frame.statusbar.SetStatusText("")
 			
@@ -320,8 +334,7 @@ class TBW_GUI(object):
 			if self.bestX == -1:
 				self.frame.status.bar.SetStatusText("")
 			else:
-				self.frame.statusbar.SetStatusText("freq=%.3f MHz, PSD=%.3f dB/RBW; stand #%i selected" % 
-					(clickX, clickY, self.antennas[self.bestX-1].stand.id))
+				self.frame.statusbar.SetStatusText("freq=%.3f MHz, PSD=%.3f dB/RBW" % (clickX, clickY))
 		else:
 			self.frame.statusbar.SetStatusText("")
 			
@@ -331,8 +344,8 @@ class TBW_GUI(object):
 		Disconnect all the stored connection ids.
 		"""
 		
-		self.frame.figure.canvas.mpl_disconnect(self.cidpress)
-		self.frame.figure.canvas.mpl_disconnect(self.cidmotion)
+		self.frame.figure1.canvas.mpl_disconnect(self.cidpress)
+		self.frame.figure1.canvas.mpl_disconnect(self.cidmotion)
 		self.frame.figure2.canvas.mpl_disconnect(self.cidmotion2)
 
 
@@ -342,6 +355,7 @@ ID_COLOR_0 = 20
 ID_COLOR_1 = 21
 ID_COLOR_2 = 22
 ID_COLOR_3 = 23
+ID_COLOR_ADJUST = 24
 ID_DETAIL_ANT = 30
 ID_DETAIL_STAND = 31
 ID_DETAIL_FEE = 32
@@ -360,6 +374,7 @@ class MainWindow(wx.Frame):
 		self.initEvents()
 		self.Show()
 		
+		self.cAdjust = None
 		
 	def initUI(self):
 		"""
@@ -385,10 +400,13 @@ class MainWindow(wx.Frame):
 		fileMenu.AppendItem(quit)
 		
 		# Color menu
-		colorMenu.AppendRadioItem(ID_COLOR_0, 'Median Comparison')
-		colorMenu.AppendRadioItem(ID_COLOR_3, 'Resonance Point')
-		colorMenu.AppendRadioItem(ID_COLOR_1, 'RFI-46 Index')
-		colorMenu.AppendRadioItem(ID_COLOR_2, 'RFI-64 Index')
+		colorMenu.AppendRadioItem(ID_COLOR_0, '&Median Comparison')
+		colorMenu.AppendRadioItem(ID_COLOR_3, '&Resonance Point')
+		colorMenu.AppendRadioItem(ID_COLOR_1, 'RFI-&46 Index')
+		colorMenu.AppendRadioItem(ID_COLOR_2, 'RFI-&64 Index')
+		colorMenu.AppendSeparator()
+		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
+		colorMenu.AppendItem(cadj)
 		
 		# Detail menu
 		dant = wx.MenuItem(detailMenu, ID_DETAIL_ANT, '&Antenna')
@@ -414,26 +432,23 @@ class MainWindow(wx.Frame):
 		# Add plots
 		panel1 = wx.Panel(self, -1)
 		vbox1 = wx.BoxSizer(wx.VERTICAL)
-		self.figure = Figure()
-		self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-		vbox1.Add(self.canvas, 1, wx.EXPAND)
+		self.figure1 = Figure()
+		self.canvas1 = FigureCanvasWxAgg(panel1, -1, self.figure1)
+		vbox1.Add(self.canvas1, 1, wx.EXPAND)
 		panel1.SetSizer(vbox1)
 		hbox.Add(panel1, 1, wx.EXPAND)
 		
 		# Add a spectrum plot
-		panel3 = wx.Panel(self, -1)
-		vbox3 = wx.BoxSizer(wx.VERTICAL)
+		panel2 = wx.Panel(self, -1)
+		vbox2 = wx.BoxSizer(wx.VERTICAL)
 		self.figure2 = Figure()
-		self.canvas2 = FigureCanvasWxAgg(panel3, -1, self.figure2)
+		self.canvas2 = FigureCanvasWxAgg(panel2, -1, self.figure2)
 		self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
 		self.toolbar.Realize()
-		vbox3.Add(self.canvas2, 1, wx.EXPAND)
-		vbox3.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
-		panel3.SetSizer(vbox3)
-		hbox.Add(panel3, 1, wx.EXPAND)
-		
-		# Make the images resizable
-		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		vbox2.Add(self.canvas2, 1, wx.EXPAND)
+		vbox2.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		panel2.SetSizer(vbox2)
+		hbox.Add(panel2, 1, wx.EXPAND)
 		
 		# Use some sizers to see layout options
 		self.SetSizer(hbox)
@@ -454,6 +469,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onColor1, id=ID_COLOR_1)
 		self.Bind(wx.EVT_MENU, self.onColor2, id=ID_COLOR_2)
 		self.Bind(wx.EVT_MENU, self.onColor3, id=ID_COLOR_3)
+		self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
 		
 		# Detail menu events
 		self.Bind(wx.EVT_MENU, self.onAntenna, id=ID_DETAIL_ANT)
@@ -461,6 +477,9 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onFEE, id=ID_DETAIL_FEE)
 		self.Bind(wx.EVT_MENU, self.onCable, id=ID_DETAIL_CABLE)
 		self.Bind(wx.EVT_MENU, self.onRFI, id=ID_DETAIL_RFI)
+		
+		# Make the images resizable
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
 	
 	def onOpen(self,e):
 		"""
@@ -474,6 +493,13 @@ class MainWindow(wx.Frame):
 			self.data = TBW_GUI(self)
 			self.data.loadData(os.path.join(self.dirname, self.filename))
 			self.data.draw()
+			
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
+				self.cAdjust = None
 		dlg.Destroy()
 		
 	def onQuit(self, event):
@@ -493,6 +519,11 @@ class MainWindow(wx.Frame):
 		if self.data.color != 0:
 			self.data.color = 0
 			self.data.draw()
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
 			
 	def onColor1(self, event):
 		"""
@@ -503,6 +534,11 @@ class MainWindow(wx.Frame):
 		if self.data.color != 1:
 			self.data.color = 1
 			self.data.draw()
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
 			
 	def onColor2(self, event):
 		"""
@@ -513,6 +549,11 @@ class MainWindow(wx.Frame):
 		if self.data.color != 2:
 			self.data.color = 2
 			self.data.draw()
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
 			
 	def onColor3(self, event):
 		"""
@@ -523,6 +564,18 @@ class MainWindow(wx.Frame):
 		if self.data.color != 3:
 			self.data.color = 3
 			self.data.draw()
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
+			
+	def onAdjust(self, event):
+		"""
+		Bring up the colorbar adjustment dialog window.
+		"""
+		
+		ContrastAdjust(self)
 		
 	def onAntenna(self, event):
 		"""
@@ -802,6 +855,140 @@ corrected = %.3f
 		# You will need to override GetToolBar if you are using an 
 		# unmanaged toolbar in your frame
 		return self.toolbar
+
+
+ID_CONTRAST_UPR_INC = 100
+ID_CONTRAST_UPR_DEC = 101
+ID_CONTRAST_LWR_INC = 102
+ID_CONTRAST_LWR_DEC = 103
+ID_CONTRAST_OK = 104
+
+class ContrastAdjust(wx.Frame):
+	def __init__ (self, parent):	
+		wx.Frame.__init__(self, parent, title='Contrast Adjustment', size=(330, 175))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+		self.parent.cAdjust = self
+		
+	def initUI(self):
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		if self.parent.data.color == 0:
+			mode = 'Median Comparision'
+		elif self.parent.data.color == 1:
+			mode = 'RFI-46 Index'
+		elif self.parent.data.color == 2:
+			mode = 'RFI-64 Index'
+		else:
+			mode = 'Resonance Point'
+		typ = wx.StaticText(panel, label='Color Coding Mode: %s' % mode)
+		sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		row += 1
+		
+		upr = wx.StaticText(panel, label='Upper Limit:')
+		uprText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
+		uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
+		
+		lwr = wx.StaticText(panel, label='Lower Limit:')
+		lwrText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
+		lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
+		
+		rng = wx.StaticText(panel, label='Range:')
+		rngText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		
+		sizer.Add(upr,     pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprText, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprDec,  pos=(row+0, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprInc,  pos=(row+0, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwr,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(rng,     pos=(row+2, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(rngText, pos=(row+2, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		line = wx.StaticLine(panel)
+		sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
+		
+		row += 4
+		
+		#
+		# Buttons
+		#
+		
+		ok = wx.Button(panel, ID_CONTRAST_OK, 'Ok', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		panel.SetSizerAndFit(sizer)
+
+		self.uText = uprText
+		self.lText = lwrText
+		self.rText = rngText
+		
+		#
+		# Set current values
+		#
+		color = self.parent.data.color
+		self.uText.SetValue('%.1f' % self.parent.data.limits[color][1])
+		self.lText.SetValue('%.1f' % self.parent.data.limits[color][0])
+		self.rText.SetValue('%.1f' % self.__getRange(color))
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_BUTTON, self.onUpperDecrease, id=ID_CONTRAST_UPR_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onUpperIncrease, id=ID_CONTRAST_UPR_INC)
+		self.Bind(wx.EVT_BUTTON, self.onLowerDecrease, id=ID_CONTRAST_LWR_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onLowerIncrease, id=ID_CONTRAST_LWR_INC)
+		
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
+		
+	def onUpperDecrease(self, event):
+		color = self.parent.data.color
+		self.parent.data.limits[color][1] -= self.__getIncrement(color)
+		self.uText.SetValue('%.1f' % self.parent.data.limits[color][1])
+		self.rText.SetValue('%.1f' % self.__getRange(color))
+		self.parent.data.draw()
+		
+	def onUpperIncrease(self, event):
+		color = self.parent.data.color
+		self.parent.data.limits[color][1] += self.__getIncrement(color)
+		self.uText.SetValue('%.1f' % self.parent.data.limits[color][1])
+		self.rText.SetValue('%.1f' % self.__getRange(color))
+		self.parent.data.draw()
+		
+	def onLowerDecrease(self, event):
+		color = self.parent.data.color
+		self.parent.data.limits[color][0] -= self.__getIncrement(color)
+		self.lText.SetValue('%.1f' % self.parent.data.limits[color][0])
+		self.rText.SetValue('%.1f' % self.__getRange(color))
+		self.parent.data.draw()
+		
+	def onLowerIncrease(self, event):
+		color = self.parent.data.color
+		self.parent.data.limits[color][0] += self.__getIncrement(color)
+		self.lText.SetValue('%.1f' % self.parent.data.limits[color][0])
+		self.rText.SetValue('%.1f' % self.__getRange(color))
+		self.parent.data.draw()
+		
+	def onOk(self, event):
+		self.parent.cAdjust = None
+		self.Close()
+	
+	def __getRange(self, color):
+		return (self.parent.data.limits[color][1] - self.parent.data.limits[color][0])
+		
+	def __getIncrement(self, color):
+		return 0.1*self.__getRange(color)
+	
 
 def main(args):
 	app = wx.App(0)
