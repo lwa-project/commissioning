@@ -20,6 +20,13 @@ Simple script to check the time tag sequence in a DRX file and look for strange
 jumps and other badness.  It can also be used to check the DRX decimate (sample 
 rate) field and if the time has been set correctly on the various boards.
 
+getTuningOffset.py
+-------------------
+Check for an offset in the time tags associated with the two tunings beyond what is
+controlled by the time offset stored in the frame header.  This should read in the 
+first complete set of frame from all four beamtunepols and compare tunings 1 and 2.  
+Any differences between the times are noted.
+
 drxTimeseries.py
 ----------------
 Script for plotting time series data from a DRX file.  This file is also available 

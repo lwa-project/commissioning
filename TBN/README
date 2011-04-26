@@ -7,6 +7,12 @@ Simple script for making sure that time tags update properly on the prototype DP
 system.  This script won't work for the full DP system because of how the packets 
 are interleaved.
 
+checkTimetags2.py
+-----------------
+Modified version of checkTimetags.py that uses the LSL TBN ring buffer to reorder
+the interleaved packets.  The script not only checks time tags like its predecessor
+but also checks for dropped packets and synchronization problems.
+
 eyeDiagram.py
 -------------
 Create an eye diagram for some portion of a TBN file.
