@@ -1,6 +1,19 @@
 DRX Commissioning Scripts
 =========================
 
+gain.py
+-------
+JPL-created script for creating gain files to be used by DRX.
+
+delay.py
+--------
+JPL-create script for created delay files to be used by DRX.
+
+test_analog_in2.py
+------------------
+Script for setting up a test DRX observation with a variety of tuning, frequency, 
+bandwidth, and gain settings.  Needs gain.py and delay.py to work.
+
 checkTimetags.py
 ----------------
 Simple script to check the time tag sequence in a DRX file and look for strange 
@@ -20,20 +33,11 @@ plots.  Like drxTimeseries.py, this file is also available as part of the LSL
 package (version >= 0.4.0) but is included here since this is the script we actually 
 used at JPL for pre-acceptance testing.
 
-gain.py
--------
-JPL-created script for creating gain files to be used by DRX.
+eyeDiagram.py
+-------------
+Create an eye diagram for some portion of a DRX file.
 
-delay.py
---------
-JPL-create script for created delay files to be used by DRX.
-
-test_analog_in2.py
-------------------
-Script for setting up a test DRX observation with a variety of tuning, frequency, 
-bandwidth, and gain settings.  Needs gain.py and delay.py to work.
-
-
-
-
+eyeDiagram2.py
+--------------
+Look for glitches in a DRX file by fitting a quantized sine wave to the data.
 

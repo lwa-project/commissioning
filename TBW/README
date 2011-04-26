@@ -1,6 +1,12 @@
 TBW Commissioning Scripts
 =========================
 
+checkTimetags.py
+----------------
+Script for checking for missing frames and bad time tags in a full DP TBW capture.  
+If problems are found the error are noted and printed out.  It shouldn't be too hard
+to modify this for fewer inputs.
+
 stationMaster.py
 ----------------
 Modified version of tbwSpectra.py that is included with LSL (version >= 0.4.0) that 

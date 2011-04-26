@@ -1,7 +1,17 @@
 TBN Commissioning Scripts
 =========================
-checkTimetags.py - Simple script for making sure that time tags update properly
-                   on the prototype DP system.  Won't work for the full DP 
-                   system because of how the packets are interleaved.
 
+checkTimetags.py
+----------------
+Simple script for making sure that time tags update properly on the prototype DP 
+system.  This script won't work for the full DP system because of how the packets 
+are interleaved.
+
+eyeDiagram.py
+-------------
+Create an eye diagram for some portion of a TBN file.
+
+eyeDiagram2.py
+--------------
+Look for glitches in a TBN file by fitting a quantized sine wave to the data.
 
