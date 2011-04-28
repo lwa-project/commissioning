@@ -16,6 +16,67 @@ matplotlib.interactive(True)
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
 from matplotlib.figure import Figure
 
+class PlotPanel(wx.Panel):
+	"""
+	The PlotPanel has a Figure and a Canvas. OnSize events simply set a 
+	flag, and the actual resizing of the figure is triggered by an Idle event.
+	
+	From: http://www.scipy.org/Matplotlib_figure_in_a_wx_panel
+	"""
+	
+	def __init__(self, parent, color=None, dpi=None, **kwargs):
+		from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg
+		from matplotlib.figure import Figure
+
+		# initialize Panel
+		if 'id' not in kwargs.keys():
+			kwargs['id'] = wx.ID_ANY
+		if 'style' not in kwargs.keys():
+			kwargs['style'] = wx.NO_FULL_REPAINT_ON_RESIZE
+		wx.Panel.__init__(self, parent, **kwargs)
+
+		# initialize matplotlib stuff
+		self.figure = Figure(None, dpi)
+		self.canvas = FigureCanvasWxAgg(self, -1, self.figure)
+		self.SetColor(color)
+
+		self._SetSize()
+		self.draw()
+
+		self._resizeflag = False
+
+		self.Bind(wx.EVT_IDLE, self._onIdle)
+		self.Bind(wx.EVT_SIZE, self._onSize)
+
+	def SetColor( self, rgbtuple=None ):
+		"""
+		Set figure and canvas colours to be the same.
+		"""
+		
+		if rgbtuple is None:
+			rgbtuple = wx.SystemSettings.GetColour( wx.SYS_COLOUR_BTNFACE ).Get()
+		clr = [c/255. for c in rgbtuple]
+		self.figure.set_facecolor(clr)
+		self.figure.set_edgecolor(clr)
+		self.canvas.SetBackgroundColour(wx.Colour(*rgbtuple))
+
+	def _onSize(self, event):
+		self._resizeflag = True
+
+	def _onIdle(self, evt):
+		if self._resizeflag:
+			self._resizeflag = False
+			self._SetSize()
+
+	def _SetSize(self):
+		pixels = tuple(self.parent.GetClientSize())
+		self.SetSize(pixels)
+		self.canvas.SetSize(pixels)
+		self.figure.set_size_inches(float( pixels[0] )/self.figure.get_dpi(), float( pixels[1] )/self.figure.get_dpi())
+
+	def draw(self):
+		pass # abstract, to be overridden by child classes
+
 
 class TBW_GUI(object):
 	"""
@@ -45,6 +106,7 @@ class TBW_GUI(object):
 		self.spec = spec
 		self.specTemplate = specTemplate
 		self.resFreq = resFreq
+		self.avgPower = None
 		
 		self.ax1 = None
 		self.ax2 = None
@@ -64,6 +126,10 @@ class TBW_GUI(object):
 		self.spec = masterSpectra.mean(axis=0)
 		self.specTemplate = numpy.median(self.spec, axis=0)
 		self.resFreq = dataDict['resFreq']
+		try:
+			self.avgPower = dataDict['avgPower']
+		except KeyError:
+			self.avgPower = None
 
 		# Set the station
 		station = stations.lwa1
@@ -362,6 +428,7 @@ ID_DETAIL_FEE = 32
 ID_DETAIL_CABLE = 33
 ID_DETAIL_RFI = 34
 ID_DETAIL_SUMMARY = 35
+ID_AVG_POWER = 40
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id, title):
@@ -391,6 +458,7 @@ class MainWindow(wx.Frame):
 		fileMenu = wx.Menu()
 		colorMenu = wx.Menu()
 		detailMenu = wx.Menu()
+		powerMenu = wx.Menu()
 		
 		# File menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, '&Open')
@@ -421,10 +489,15 @@ class MainWindow(wx.Frame):
 		dshl = wx.MenuItem(detailMenu, ID_DETAIL_RFI, 'Shelter &RFI Index')
 		detailMenu.AppendItem(dshl)
 		
+		# Power
+		apwr = wx.MenuItem(powerMenu, ID_AVG_POWER, '&Plot')
+		powerMenu.AppendItem(apwr)
+		
 		# Creating the menubar.
 		menubar.Append(fileMenu, '&File')
 		menubar.Append(colorMenu, '&Color Coding')
 		menubar.Append(detailMenu, '&Details')
+		menubar.Append(powerMenu, '&Average Power')
 		self.SetMenuBar(menubar)
 		
 		hbox = wx.BoxSizer(wx.HORIZONTAL)
@@ -477,6 +550,9 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onFEE, id=ID_DETAIL_FEE)
 		self.Bind(wx.EVT_MENU, self.onCable, id=ID_DETAIL_CABLE)
 		self.Bind(wx.EVT_MENU, self.onRFI, id=ID_DETAIL_RFI)
+		
+		# Power menu events
+		self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
 		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
@@ -839,6 +915,13 @@ corrected = %.3f
 			box.ShowModal()
 		else:
 			pass
+		
+	def onAvgPower(self, event):
+		"""
+		Display the average power plots.
+		"""
+		
+		TimeseriesDisplay(self)
 
 	def resizePlots(self, event):
 		w, h = self.GetSize()
@@ -988,7 +1071,104 @@ class ContrastAdjust(wx.Frame):
 		
 	def __getIncrement(self, color):
 		return 0.1*self.__getRange(color)
-	
+
+
+class TSPanel(PlotPanel):
+	def __init__(self, parent, data=None, **kwargs):
+		self.parent = parent
+		self.data = data
+		
+		# initiate plotter
+		PlotPanel.__init__( self, parent, **kwargs )
+		self.SetColor( (255,255,255) )
+		
+	def __nextTen(self, value):
+		"""
+		Round a positive value to the next highest multiple of ten.
+		"""
+		
+		return 10*numpy.ceil(value/10.0)
+
+	def draw(self):
+		"""
+		Draw data.
+		"""
+		
+		if self.data.avgPower is None:
+			return False
+		if self.data.bestX < 1:
+			return False
+		
+		if not hasattr( self, 'subplot' ):
+			self.ax1 = self.figure.add_subplot(1, 1, 1)
+		
+		ant1 = self.data.antennas[self.data.bestX-1]
+		ant2 = self.data.antennas[self.data.bestY-1]
+		
+		# Average power plot
+		t = numpy.arange(0,61) + 0.5
+		#self.ax1.plot(t, self.data.avgPower[self.data.bestX-1,:], label='Pol. %i' % ant1.pol)
+		#self.ax1.plot(t, self.data.avgPower[self.data.bestY-1,:], label='Pol. %i' % ant2.pol)
+		self.ax1.errorbar(t, self.data.avgPower[self.data.bestX-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
+		self.ax1.errorbar(t, self.data.avgPower[self.data.bestY-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
+		
+		# Set ranges
+		self.ax1.set_xlim([0, 61])
+		self.ax1.set_ylim([0, self.__nextTen(self.data.avgPower.max())])
+		
+		# Labels
+		self.ax1.set_title('Stand #%i' % ant1.stand.id)
+		self.ax1.set_xlabel('Time [ms]')
+		self.ax1.set_ylabel('Average Power')
+
+
+ID_AVG_POWER_CLOSE = 200
+
+class TimeseriesDisplay(wx.Frame):
+	def __init__(self, parent):
+		wx.Frame.__init__(self, parent, title='Time-Averaged Power', size=(800, 375))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+	def initUI(self):
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		#
+		# Plot
+		#
+		
+		plotPanel = TSPanel(panel, data=self.parent.data)
+		sizer.Add(plotPanel, pos=(0, 0), span=(2, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+			
+		line = wx.StaticLine(panel)
+		sizer.Add(line, pos=(row+2, 0), span=(1, 2), flag=wx.EXPAND|wx.BOTTOM, border=10)
+			
+		row += 3
+		
+		#
+		# Buttons
+		#
+		
+		cancel = wx.Button(panel, ID_AVG_POWER_CLOSE, 'Cancel', size=(90, 28))
+		sizer.Add(cancel, pos=(row+0, 2), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		sizer.AddGrowableCol(0)
+		sizer.AddGrowableRow(0)
+		
+		panel.SetSizerAndFit(sizer)
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_AVG_POWER_CLOSE)
+		
+	def onCancel(self, event):
+		self.Close()
+
 
 def main(args):
 	app = wx.App(0)

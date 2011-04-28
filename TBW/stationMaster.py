@@ -145,8 +145,18 @@ def main(args):
 	print "Sample Length: %i-bit" % dataBits
 	print "Frames: %i" % nFrames
 	print "Chunks: %i" % nChunks
+	print "==="
 
 	nChunks = 1
+
+	# Skip over any non-TBW frames at the beginning of the file
+	i = 0
+	junkFrame = tbw.readFrame(fh)
+	while not junkFrame.header.isTBW():
+		junkFrame = tbw.readFrame(fh)
+		i += 1
+	fh.seek(-tbw.FrameSize, 1)
+	print "Skipped %i non-TBW frames at the beginning of the file" % i
 
 	base, ext = os.path.splitext(config['args'][0])
 	if (not os.path.exists("%s.npz" % base)) or config['force']:
@@ -175,7 +185,7 @@ def main(args):
 				except errors.eofError:
 					break
 				except errors.syncError:
-					#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+					print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
 					continue
 				
 				stand = cFrame.header.parseID()
@@ -198,6 +208,12 @@ def main(args):
 			freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
 			for stand in xrange(masterSpectra.shape[1]):
 				masterSpectra[i,stand,:] = tempSpec[stand,:]
+
+			# Compute the 1 ms average power
+			avgPower = numpy.zeros((antpols, 61), dtype=numpy.float32)
+			for s in xrange(masterSpectra.shape[1]):
+				for p in xrange(61):
+					avgPower[s,p] = numpy.mean( numpy.abs(data[s,(p*196000):((p+1)*196000)]) )
 
 			# We don't really need the data array anymore, so delete it
 			del(data)
@@ -232,7 +248,7 @@ def main(args):
 			fit = numpy.polyval(coeff, freq[toCompare]/1e6)	
 			resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
 		
-		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq)
+		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, avgPower=avgPower)
 	else:
 		dataDict = numpy.load("%s.npz" % base)
 		freq = dataDict['freq']

@@ -51,8 +51,18 @@ def main(args):
 	print "Sample Length: %i-bit" % dataBits
 	print "Frames: %i" % nFrames
 	print "Chunks: %i" % nChunks
+	print "==="
 
 	nChunks = 1
+
+	# Skip over any non-TBW frames at the beginning of the file
+	i = 0
+	junkFrame = tbw.readFrame(fh)
+	while not junkFrame.header.isTBW():
+		junkFrame = tbw.readFrame(fh)
+		i += 1
+	fh.seek(-tbw.FrameSize, 1)
+	print "Skipped %i non-TBW frames at the beginning of the file" % i
 
 	# Master loop over all of the file chunks
 	timeTags = numpy.zeros((antpols, 30000), dtype=numpy.int64) - 1
@@ -83,7 +93,7 @@ def main(args):
 			# can use this little trick to populate the data array
 			aStand = 2*(stand-1)
 			if cFrame.header.frameCount % 10000 == 0:
-				print "%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
+				print "%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frameCount, cFrame.data.timeTag), cFrame.data.xy[0,:].std()
 
 			# Actually load the data.  x pol goes into the even numbers, y pol into the 
 			# odd numbers
@@ -92,12 +102,10 @@ def main(args):
 			timeTags[aStand+1, count] = cFrame.data.timeTag
 
 	# Check for missing frames
-	missing = numpy.where( timeTags < 0 )[0]
+	missing = numpy.where( timeTags < 0 )
 	if len(missing) != 0:
-		print "Found %i missing frames (%i missing time tags).  Missing data from:" % (len(missing)/2, len(missing))
-		for m in missing:
-			i = m % antpols
-			f = m / antpols
+		print "Found %i missing frames (%i missing time tags).  Missing data from:" % (len(missing[0])/2, len(missing[0]))
+		for i,f in zip(missing[0], missing[1]):
 			print "  stand %3i, pol. %1i (dig. %3i) @ frame %5i" % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer, f+1)
 
 	# Check time tags to make sure every ant/pol as the same time as each frame

@@ -14,6 +14,16 @@ test_analog_in2.py
 Script for setting up a test DRX observation with a variety of tuning, frequency, 
 bandwidth, and gain settings.  Needs gain.py and delay.py to work.
 
+generateDelays.py
+-----------------
+Generate gain and delay files for a particular topocentric pointing (azimuth and 
+elevation in degrees) at a specified frequency.
+
+.. note::
+	genernateDelays.py generates text files for gains and delays that need to
+	be converted to binary packed files with the MCS/Executive commands megfg 
+	and medfg.
+
 checkTimetags.py
 ----------------
 Simple script to check the time tag sequence in a DRX file and look for strange 

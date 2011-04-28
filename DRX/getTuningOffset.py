@@ -34,41 +34,46 @@ def main(args):
 	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
 	print "==="
 
-	beamIDs = [0,0,0,0]
-	timeTags = numpy.zeros(4, dtype=numpy.int64) - 1
-	timeOffsets = numpy.zeros(4, dtype=numpy.int64) - 1
-	timeValues = numpy.zeros(4, dtype=numpy.float64)
-	for i in xrange(16):
-		# Read in the next frame and anticipate any problems that could occur
-		try:
-			cFrame = drx.readFrame(fh, Verbose=False)
-		except errors.eofError:
-			break
-		except errors.syncError:
-			#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
-			continue
+	tuningOffset = numpy.zeros(nFramesFile/8, dtype=numpy.int64)
+	for i in xrange(tuningOffset.size):
+		beamIDs = [0,0,0,0]
+		timeTags = numpy.zeros(4, dtype=numpy.int64) - 1
+		timeOffsets = numpy.zeros(4, dtype=numpy.int64) - 1
+		timeValues = numpy.zeros(4, dtype=numpy.float64)
+		for j in xrange(4):
+			# Read in the next frame and anticipate any problems that could occur
+			try:
+				cFrame = drx.readFrame(fh, Verbose=False)
+			except errors.eofError:
+				break
+			except errors.syncError:
+				#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+				continue
 		
-		## Save the time time, time offset, and computed time values
-		beam,tune,pol = cFrame.parseID()
-		aStand = 2*(tune-1) + pol
-		if timeTags[aStand] == -1:
-			beamIDs[aStand] = (beam,tune,pol)
-			timeTags[aStand] = cFrame.data.timeTag
-			timeOffsets[aStand] = cFrame.header.timeOffset
-			timeValues[aStand] = cFrame.getTime()
+			## Save the time time, time offset, and computed time values
+			beam,tune,pol = cFrame.parseID()
+			aStand = 2*(tune-1) + pol
+			if timeTags[aStand] == -1:
+				beamIDs[aStand] = (beam,tune,pol)
+				timeTags[aStand] = cFrame.data.timeTag
+				timeOffsets[aStand] = cFrame.header.timeOffset
+				timeValues[aStand] = cFrame.getTime()
 
-	for id,tt,to,tv in zip(beamIDs, timeTags, timeOffsets, timeValues):
-		b,t,p = id
-		print "B%i, T%i, P%i: t.t. is %i with offset %i -> %.9f" % (b,t,p,tt,to,tv)
+		for id,tt,to,tv in zip(beamIDs, timeTags, timeOffsets, timeValues):
+			b,t,p = id
+			print "B%i, T%i, P%i: t.t. is %i with offset %i -> %.9f" % (b,t,p,tt,to,tv)
 
-	print "==="
-	t1t = timeTags[0] - timeOffsets[0]
-	t2t = timeTags[3] - timeOffsets[3]
-	if (t2t-t1t) != 0:
-		print "T2 time tags appear to be offset from T1 by %i (%.9f s)" % (t2t-t1t, (t2t-t1t)/fS)
-	else:
-		print "T2 and T1 do not appear to have a time tag offset"
+		t1t = timeTags[0] - timeOffsets[0]
+		t2t = timeTags[3] - timeOffsets[3]
+		if (t2t-t1t) != 0:
+			print "-> T2 time tags appear to be offset from T1 by %i (%.9f s)" % (t2t-t1t, (t2t-t1t)/fS)
+		else:
+			print "-> T2 and T1 do not appear to have a time tag offset"
+		print " "
 
+		tuningOffset[i] = t2t - t1t
+
+	print "T2-T1 time tag offset range: %i to %i" % (tuningOffset.min(), tuningOffset.max())
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
