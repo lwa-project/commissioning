@@ -107,6 +107,7 @@ class TBW_GUI(object):
 		self.specTemplate = specTemplate
 		self.resFreq = resFreq
 		self.avgPower = None
+		self.dataRange = None
 		
 		self.ax1 = None
 		self.ax2 = None
@@ -130,6 +131,10 @@ class TBW_GUI(object):
 			self.avgPower = dataDict['avgPower']
 		except KeyError:
 			self.avgPower = None
+		try:
+			self.dataRange = dataDict['dataRange']
+		except KeyError:
+			self.dataRange = None
 
 		# Set the station
 		station = stations.lwa1
@@ -429,6 +434,8 @@ ID_DETAIL_CABLE = 33
 ID_DETAIL_RFI = 34
 ID_DETAIL_SUMMARY = 35
 ID_AVG_POWER = 40
+ID_AVG_RANGE = 41
+ID_AVG_SUMMARY = 42
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id, title):
@@ -490,8 +497,13 @@ class MainWindow(wx.Frame):
 		detailMenu.AppendItem(dshl)
 		
 		# Power
-		apwr = wx.MenuItem(powerMenu, ID_AVG_POWER, '&Plot')
+		apwr = wx.MenuItem(powerMenu, ID_AVG_POWER, '&Plot Power')
 		powerMenu.AppendItem(apwr)
+		drng = wx.MenuItem(powerMenu, ID_AVG_RANGE, '&Plot Data Range')
+		powerMenu.AppendItem(drng)
+		powerMenu.AppendSeparator()
+		spwr = wx.MenuItem(powerMenu, ID_AVG_SUMMARY, '&Summary')
+		powerMenu.AppendItem(spwr)
 		
 		# Creating the menubar.
 		menubar.Append(fileMenu, '&File')
@@ -553,6 +565,8 @@ class MainWindow(wx.Frame):
 		
 		# Power menu events
 		self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
+		self.Bind(wx.EVT_MENU, self.onDataRange, id=ID_AVG_RANGE)
+		self.Bind(wx.EVT_MENU, self.onAvgPowerSummary, id=ID_AVG_SUMMARY)
 		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
@@ -921,16 +935,64 @@ corrected = %.3f
 		Display the average power plots.
 		"""
 		
-		TimeseriesDisplay(self)
+		if self.data.avgPower is not None:
+			AvgPowerDisplay(self)
+			
+	def onDataRange(self, event):
+		"""
+		Display the data range plots.
+		"""
+		
+		if self.data.dataRange is not None:
+			DataRangeDisplay(self)
+		
+	def onAvgPowerSummary(self, event):
+		"""
+		Display a message box with the average power summary.
+		"""
+		
+		if self.data is None:
+			pass
+		if self.data.avgPower is None:
+			pass
+		
+		if self.data.bestX != -1:
+			ant1 = self.data.antennas[self.data.bestX-1]
+			dat1 = self.data.avgPower[self.data.bestX-1,:]
+			ant2 = self.data.antennas[self.data.bestY-1]
+			dat2 = self.data.avgPower[self.data.bestY-1,:]
+		
+			outString = """Antenna: %i
+Polarization: %i
+
+Global Mean:
+%.2f +/- %.2f
+Global Range:
+%.2f to %.2f
+
+Antenna: %i
+Polarization: %i
+
+Global Mean:
+%.2f +/- %.2f
+Global Range:
+%.2f to %.2f
+""" % (ant1.id, ant1.pol, dat1.mean(), dat1.std(), dat1.min(), dat1.max(), 
+		ant2.id, ant2.pol, dat2.mean(), dat2.std(), dat2.min(), dat2.max())
+		
+			box = wx.MessageDialog(self, outString, "Average Power Details")
+			box.ShowModal()
+		else:
+			pass
 
 	def resizePlots(self, event):
 		w, h = self.GetSize()
-		dpi = self.figure.get_dpi()
+		dpi = self.figure1.get_dpi()
 		newW = 1.0*w/dpi
 		newH1 = 1.0*(h/2-100)/dpi
 		newH2 = 1.0*(h/2-75)/dpi
-		self.figure.set_size_inches((newW, newH1))
-		self.figure.canvas.draw()
+		self.figure1.set_size_inches((newW, newH1))
+		self.figure1.canvas.draw()
 		self.figure2.set_size_inches((newW, newH2))
 		self.figure2.canvas.draw()
 
@@ -1073,60 +1135,9 @@ class ContrastAdjust(wx.Frame):
 		return 0.1*self.__getRange(color)
 
 
-class TSPanel(PlotPanel):
-	def __init__(self, parent, data=None, **kwargs):
-		self.parent = parent
-		self.data = data
-		
-		# initiate plotter
-		PlotPanel.__init__( self, parent, **kwargs )
-		self.SetColor( (255,255,255) )
-		
-	def __nextTen(self, value):
-		"""
-		Round a positive value to the next highest multiple of ten.
-		"""
-		
-		return 10*numpy.ceil(value/10.0)
-
-	def draw(self):
-		"""
-		Draw data.
-		"""
-		
-		if self.data.avgPower is None:
-			return False
-		if self.data.bestX < 1:
-			return False
-		
-		if not hasattr( self, 'subplot' ):
-			self.ax1 = self.figure.add_subplot(1, 1, 1)
-		
-		ant1 = self.data.antennas[self.data.bestX-1]
-		ant2 = self.data.antennas[self.data.bestY-1]
-		
-		# Average power plot
-		t = numpy.arange(0,61) + 0.5
-		#self.ax1.plot(t, self.data.avgPower[self.data.bestX-1,:], label='Pol. %i' % ant1.pol)
-		#self.ax1.plot(t, self.data.avgPower[self.data.bestY-1,:], label='Pol. %i' % ant2.pol)
-		self.ax1.errorbar(t, self.data.avgPower[self.data.bestX-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
-		self.ax1.errorbar(t, self.data.avgPower[self.data.bestY-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
-		
-		# Set ranges
-		self.ax1.set_xlim([0, 61])
-		self.ax1.set_ylim([0, self.__nextTen(self.data.avgPower.max())])
-		
-		# Labels
-		self.ax1.set_title('Stand #%i' % ant1.stand.id)
-		self.ax1.set_xlabel('Time [ms]')
-		self.ax1.set_ylabel('Average Power')
-
-
-ID_AVG_POWER_CLOSE = 200
-
-class TimeseriesDisplay(wx.Frame):
+class AvgPowerDisplay(wx.Frame):
 	def __init__(self, parent):
-		wx.Frame.__init__(self, parent, title='Time-Averaged Power', size=(800, 375))
+		wx.Frame.__init__(self, parent, title='Time-Averaged Power', size=(400, 375))
 		
 		self.parent = parent
 		
@@ -1134,41 +1145,190 @@ class TimeseriesDisplay(wx.Frame):
 		self.initEvents()
 		self.Show()
 		
+		self.initPlot()
+		
+	def __nextTen(self, value):
+		"""
+		Round a positive value to the next highest multiple of ten.
+		"""
+		
+		return 10*numpy.ceil(value/10.0)
+		
 	def initUI(self):
-		row = 0
-		panel = wx.Panel(self)
-		sizer = wx.GridBagSizer(5, 5)
+		hbox = wx.BoxSizer(wx.HORIZONTAL)
 		
-		#
-		# Plot
-		#
+		# Add plots to panel 1
+		panel1 = wx.Panel(self, -1)
+		vbox1 = wx.BoxSizer(wx.VERTICAL)
+		self.figure = Figure()
+		self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
+		self.toolbar = NavigationToolbar2WxAgg(self.canvas)
+		self.toolbar.Realize()
+		vbox1.Add(self.canvas,  1, wx.EXPAND)
+		vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		panel1.SetSizer(vbox1)
+		hbox.Add(panel1, 1, wx.EXPAND)
 		
-		plotPanel = TSPanel(panel, data=self.parent.data)
-		sizer.Add(plotPanel, pos=(0, 0), span=(2, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-			
-		line = wx.StaticLine(panel)
-		sizer.Add(line, pos=(row+2, 0), span=(1, 2), flag=wx.EXPAND|wx.BOTTOM, border=10)
-			
-		row += 3
-		
-		#
-		# Buttons
-		#
-		
-		cancel = wx.Button(panel, ID_AVG_POWER_CLOSE, 'Cancel', size=(90, 28))
-		sizer.Add(cancel, pos=(row+0, 2), flag=wx.RIGHT|wx.BOTTOM, border=5)
-		
-		sizer.AddGrowableCol(0)
-		sizer.AddGrowableRow(0)
-		
-		panel.SetSizerAndFit(sizer)
+		# Use some sizers to see layout options
+		self.SetSizer(hbox)
+		self.SetAutoLayout(1)
+		hbox.Fit(self)
 		
 	def initEvents(self):
-		self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_AVG_POWER_CLOSE)
+		# Make the images resizable
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		
+	def initPlot(self):
+		avgPower = self.parent.data.avgPower
+		bestX = self.parent.data.bestX
+		bestY = self.parent.data.bestY
+		
+		if avgPower is None:
+			return False
+		if bestX < 1:
+			return False
+		
+		self.figure.clf()
+		self.ax1 = self.figure.gca()
+		
+		ant1 = self.parent.data.antennas[bestX-1]
+		ant2 = self.parent.data.antennas[bestY-1]
+		
+		# Average power plot
+		t = numpy.arange(0,61) + 0.5
+		#self.ax1.plot(t, avgPower[bestX-1,:], label='Pol. %i' % ant1.pol)
+		#self.ax1.plot(t, avgPower[bestY-1,:], label='Pol. %i' % ant2.pol)
+		self.ax1.errorbar(t, avgPower[bestX-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
+		self.ax1.errorbar(t, avgPower[bestY-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
+		
+		# Set ranges
+		self.ax1.set_xlim([0, 61])
+		self.ax1.set_ylim([0, self.__nextTen(avgPower.max())])
+		
+		# Labels
+		self.ax1.set_title('Stand #%i' % ant1.stand.id)
+		self.ax1.set_xlabel('Time [ms]')
+		self.ax1.set_ylabel('Average Power [counts]')
+		
+		## Draw and save the click (Why?)
+		self.canvas.draw()
 		
 	def onCancel(self, event):
 		self.Close()
+		
+	def resizePlots(self, event):
+		w, h = self.GetSize()
+		dpi = self.figure.get_dpi()
+		newW = 1.0*w/dpi
+		newH1 = 1.0*(h/2-100)/dpi
+		newH2 = 1.0*(h/2-75)/dpi
+		self.figure.set_size_inches((newW, newH1))
+		self.figure.canvas.draw()
 
+	def GetToolBar(self):
+		# You will need to override GetToolBar if you are using an 
+		# unmanaged toolbar in your frame
+		return self.toolbar
+
+
+class DataRangeDisplay(wx.Frame):
+	def __init__(self, parent):
+		wx.Frame.__init__(self, parent, title='Range of Raw Data', size=(400, 375))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+		self.initPlot()
+		
+	def __nextTen(self, value):
+		"""
+		Round a positive value to the next highest multiple of ten.
+		"""
+		
+		return 10*numpy.ceil(value/10.0)
+		
+	def initUI(self):
+		hbox = wx.BoxSizer(wx.HORIZONTAL)
+		
+		# Add plots to panel 1
+		panel1 = wx.Panel(self, -1)
+		vbox1 = wx.BoxSizer(wx.VERTICAL)
+		self.figure = Figure()
+		self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
+		self.toolbar = NavigationToolbar2WxAgg(self.canvas)
+		self.toolbar.Realize()
+		vbox1.Add(self.canvas,  1, wx.EXPAND)
+		vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		panel1.SetSizer(vbox1)
+		hbox.Add(panel1, 1, wx.EXPAND)
+		
+		# Use some sizers to see layout options
+		self.SetSizer(hbox)
+		self.SetAutoLayout(1)
+		hbox.Fit(self)
+		
+	def initEvents(self):
+		# Make the images resizable
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		
+	def initPlot(self):
+		dataRange = self.parent.data.dataRange
+		bestX = self.parent.data.bestX
+		bestY = self.parent.data.bestY
+		
+		if dataRange is None:
+			return False
+		if bestX < 1:
+			return False
+		
+		self.figure.clf()
+		self.ax1 = self.figure.gca()
+		
+		ant1 = self.parent.data.antennas[bestX-1]
+		ant2 = self.parent.data.antennas[bestY-1]
+		
+		# Data Range
+		t = numpy.arange(0,61) + 0.5
+		eb1 = numpy.zeros((2,t.size))
+		eb1[0,:] = dataRange[bestX-1,:,1] - dataRange[bestX-1,:,0]
+		eb1[1,:] = dataRange[bestX-1,:,2] - dataRange[bestX-1,:,1]
+		self.ax1.errorbar(t, dataRange[bestX-1,:,1], xerr=0.5, yerr=eb1, fmt=None, label='Pol. %i' % ant1.pol)
+		eb2 = numpy.zeros((2,t.size))
+		eb2[0,:] = dataRange[bestY-1,:,1] - dataRange[bestY-1,:,0]
+		eb2[1,:] = dataRange[bestY-1,:,2] - dataRange[bestY-1,:,1]
+		self.ax1.errorbar(t, dataRange[bestY-1,:,1], xerr=0.5, yerr=eb2, fmt=None, label='Pol. %i' % ant1.pol)
+		
+		# Set ranges
+		self.ax1.set_xlim([0, 61])
+		self.ax1.set_ylim([-2048, 2047])
+		
+		# Labels
+		self.ax1.set_title('Stand #%i' % ant1.stand.id)
+		self.ax1.set_xlabel('Time [ms]')
+		self.ax1.set_ylabel('Data Range [counts]')
+		
+		## Draw and save the click (Why?)
+		self.canvas.draw()
+		
+	def onCancel(self, event):
+		self.Close()
+		
+	def resizePlots(self, event):
+		w, h = self.GetSize()
+		dpi = self.figure.get_dpi()
+		newW = 1.0*w/dpi
+		newH1 = 1.0*(h/2-100)/dpi
+		newH2 = 1.0*(h/2-75)/dpi
+		self.figure.set_size_inches((newW, newH1))
+		self.figure.canvas.draw()
+
+	def GetToolBar(self):
+		# You will need to override GetToolBar if you are using an 
+		# unmanaged toolbar in your frame
+		return self.toolbar
 
 def main(args):
 	app = wx.App(0)

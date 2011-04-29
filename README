@@ -1,0 +1,23 @@
+LWA-1 Commissioning Scripts
+===========================
+This is a collection of scripts use for commissioning and testing at the LWA-1 
+station.  All of the scripts depend on the LSL 0.4.x branch.
+
+checkDRSU.sh
+------------
+Shell script to run on Linux machines with attached and powered-on DRSU to report 
+the firmware version of Seagate drives with model number "ST31000525SV".  This is 
+useful for identifying disks with the newer (and less reliable) firmware version 
+"CV12".
+
+TBW
+---
+See the TBW/README file.
+
+TBN
+---
+See the TBN/README file.
+
+DRX
+---
+See the DRX/README file.

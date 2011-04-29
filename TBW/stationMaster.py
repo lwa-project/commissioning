@@ -209,11 +209,15 @@ def main(args):
 			for stand in xrange(masterSpectra.shape[1]):
 				masterSpectra[i,stand,:] = tempSpec[stand,:]
 
-			# Compute the 1 ms average power
+			# Compute the 1 ms average power and the data range within each 1 ms window
 			avgPower = numpy.zeros((antpols, 61), dtype=numpy.float32)
+			dataRange = numpy.zeros((antpols, 61, 3), dtype=numpy.int16)
 			for s in xrange(masterSpectra.shape[1]):
 				for p in xrange(61):
 					avgPower[s,p] = numpy.mean( numpy.abs(data[s,(p*196000):((p+1)*196000)]) )
+					dataRange[s,p,0] = data[s,(p*196000):((p+1)*196000)].min()
+					dataRange[s,p,1] = int(data[s,(p*196000):((p+1)*196000)].mean())
+					dataRange[s,p,2] = data[s,(p*196000):((p+1)*196000)].max()
 
 			# We don't really need the data array anymore, so delete it
 			del(data)
@@ -248,7 +252,8 @@ def main(args):
 			fit = numpy.polyval(coeff, freq[toCompare]/1e6)	
 			resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
 		
-		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, avgPower=avgPower)
+		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
+					avgPower=avgPower, dataRange=dataRange)
 	else:
 		dataDict = numpy.load("%s.npz" % base)
 		freq = dataDict['freq']

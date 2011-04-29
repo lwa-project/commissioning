@@ -93,7 +93,7 @@ def main(args):
 			# can use this little trick to populate the data array
 			aStand = 2*(stand-1)
 			if cFrame.header.frameCount % 10000 == 0:
-				print "%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frameCount, cFrame.data.timeTag), cFrame.data.xy[0,:].std()
+				print "%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
 
 			# Actually load the data.  x pol goes into the even numbers, y pol into the 
 			# odd numbers
