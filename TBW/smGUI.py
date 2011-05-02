@@ -436,6 +436,9 @@ ID_DETAIL_SUMMARY = 35
 ID_AVG_POWER = 40
 ID_AVG_RANGE = 41
 ID_AVG_SUMMARY = 42
+ID_SELECT_DIGITIZER = 50
+ID_SELECT_ANTENNA = 51
+ID_SELECT_STAND = 52
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id, title):
@@ -466,6 +469,7 @@ class MainWindow(wx.Frame):
 		colorMenu = wx.Menu()
 		detailMenu = wx.Menu()
 		powerMenu = wx.Menu()
+		selectMenu = wx.Menu()
 		
 		# File menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, '&Open')
@@ -505,11 +509,21 @@ class MainWindow(wx.Frame):
 		spwr = wx.MenuItem(powerMenu, ID_AVG_SUMMARY, '&Summary')
 		powerMenu.AppendItem(spwr)
 		
+		# Select
+		sant = wx.MenuItem(selectMenu, ID_SELECT_ANTENNA, '&Antenna ID')
+		selectMenu.AppendItem(sant)
+		sstd = wx.MenuItem(selectMenu, ID_SELECT_STAND, '&Stand ID')
+		selectMenu.AppendItem(sstd)
+		selectMenu.AppendSeparator()
+		sdig = wx.MenuItem(selectMenu, ID_SELECT_DIGITIZER, '&Digitizer Number')
+		selectMenu.AppendItem(sdig)
+		
 		# Creating the menubar.
 		menubar.Append(fileMenu, '&File')
 		menubar.Append(colorMenu, '&Color Coding')
 		menubar.Append(detailMenu, '&Details')
 		menubar.Append(powerMenu, '&Average Power')
+		menubar.Append(selectMenu, 'F&ind')
 		self.SetMenuBar(menubar)
 		
 		hbox = wx.BoxSizer(wx.HORIZONTAL)
@@ -567,6 +581,11 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
 		self.Bind(wx.EVT_MENU, self.onDataRange, id=ID_AVG_RANGE)
 		self.Bind(wx.EVT_MENU, self.onAvgPowerSummary, id=ID_AVG_SUMMARY)
+		
+		# Select menu events
+		self.Bind(wx.EVT_MENU, self.onSelectAntenna, id=ID_SELECT_ANTENNA)
+		self.Bind(wx.EVT_MENU, self.onSelectStand, id=ID_SELECT_STAND)
+		self.Bind(wx.EVT_MENU, self.onSelectDigitizer, id=ID_SELECT_DIGITIZER)
 		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
@@ -935,7 +954,7 @@ corrected = %.3f
 		Display the average power plots.
 		"""
 		
-		if self.data.avgPower is not None:
+		if self.data.avgPower is not None and self.data.bestX > 0:
 			AvgPowerDisplay(self)
 			
 	def onDataRange(self, event):
@@ -943,7 +962,7 @@ corrected = %.3f
 		Display the data range plots.
 		"""
 		
-		if self.data.dataRange is not None:
+		if self.data.dataRange is not None and self.data.bestX > 0:
 			DataRangeDisplay(self)
 		
 	def onAvgPowerSummary(self, event):
@@ -984,6 +1003,70 @@ Global Range:
 			box.ShowModal()
 		else:
 			pass
+		
+	def onSelectAntenna(self, event):
+		"""
+		Bring up a dialog box to find an antenna based on its ID number.
+		"""
+		
+		box = SelectBox(self, mode='antenna')
+		if box.ShowModal() == wx.ID_OK:
+			antID = int(box.input.GetValue())
+			if antID < 1 or antID > 520:
+				pass
+			elif self.data.antennas is None:
+				pass
+			else:	
+				for ant in self.data.antennas:
+					if ant.id == antID:
+						self.data.drawSpectrum(ant.stand.x, ant.stand.y)
+						self.data.makeMark(ant.stand.x, ant.stand.y)
+						break
+				
+		box.Destroy()
+	
+	def onSelectStand(self, event):
+		"""
+		Bring up a dialog box to find a stand based on its ID number.
+		"""
+		
+		box = SelectBox(self, mode='stand')
+		if box.ShowModal() == wx.ID_OK:
+			stdID = int(box.input.GetValue())
+			if stdID < 1 or stdID > 260:
+				pass
+			elif self.data.antennas is None:
+				pass
+			else:	
+				for ant in self.data.antennas:
+					if ant.stand.id == stdID:
+						self.data.drawSpectrum(ant.stand.x, ant.stand.y)
+						self.data.makeMark(ant.stand.x, ant.stand.y)
+						break
+				
+		box.Destroy()
+	
+	def onSelectDigitizer(self, event):
+		"""
+		Bring up a dialog box to find a antenna associated with a particular 
+		digitizer number.
+		"""
+		
+		box = SelectBox(self, mode='digitizer')
+		if box.ShowModal() == wx.ID_OK:
+			digID = int(box.input.GetValue())
+			if digID < 1 or digID > 520:
+				pass
+			elif self.data.antennas is None:
+				pass
+			else:	
+				for ant in self.data.antennas:
+					if ant.digitizer == digID:
+						self.data.drawSpectrum(ant.stand.x, ant.stand.y)
+						self.data.makeMark(ant.stand.x, ant.stand.y)
+						break
+				
+		box.Destroy()
 
 	def resizePlots(self, event):
 		w, h = self.GetSize()
@@ -1136,6 +1219,10 @@ class ContrastAdjust(wx.Frame):
 
 
 class AvgPowerDisplay(wx.Frame):
+	"""
+	Window for displaying the average power with time for the selected stand.
+	"""
+	
 	def __init__(self, parent):
 		wx.Frame.__init__(self, parent, title='Time-Averaged Power', size=(400, 375))
 		
@@ -1155,6 +1242,12 @@ class AvgPowerDisplay(wx.Frame):
 		return 10*numpy.ceil(value/10.0)
 		
 	def initUI(self):
+		"""
+		Start the user interface.
+		"""
+		
+		self.statusbar = self.CreateStatusBar()
+		
 		hbox = wx.BoxSizer(wx.HORIZONTAL)
 		
 		# Add plots to panel 1
@@ -1175,10 +1268,19 @@ class AvgPowerDisplay(wx.Frame):
 		hbox.Fit(self)
 		
 	def initEvents(self):
+		"""
+		Set all of the various events in the average power window.
+		"""
+		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
 		
 	def initPlot(self):
+		"""
+		Populate the figure/canvas areas with a plot.  We only need to do this
+		once for this type of window.
+		"""
+		
 		avgPower = self.parent.data.avgPower
 		bestX = self.parent.data.bestX
 		bestY = self.parent.data.bestY
@@ -1195,11 +1297,12 @@ class AvgPowerDisplay(wx.Frame):
 		ant2 = self.parent.data.antennas[bestY-1]
 		
 		# Average power plot
-		t = numpy.arange(0,61) + 0.5
+		tScale = float(round(avgPower.shape[1] / 61.2244898))
+		t = numpy.arange(0,avgPower.shape[1])/tScale + 0.5/tScale
 		#self.ax1.plot(t, avgPower[bestX-1,:], label='Pol. %i' % ant1.pol)
 		#self.ax1.plot(t, avgPower[bestY-1,:], label='Pol. %i' % ant2.pol)
-		self.ax1.errorbar(t, avgPower[bestX-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
-		self.ax1.errorbar(t, avgPower[bestY-1,:], xerr=0.5, fmt=None, label='Pol. %i' % ant1.pol, capsize=0)
+		self.ax1.errorbar(t, avgPower[bestX-1,:], xerr=0.5/tScale, linestyle=' ', marker='+', label='Pol. %i' % ant1.pol, capsize=0)
+		self.ax1.errorbar(t, avgPower[bestY-1,:], xerr=0.5/tScale, linestyle=' ', marker='+', label='Pol. %i' % ant2.pol, capsize=0)
 		
 		# Set ranges
 		self.ax1.set_xlim([0, 61])
@@ -1210,8 +1313,48 @@ class AvgPowerDisplay(wx.Frame):
 		self.ax1.set_xlabel('Time [ms]')
 		self.ax1.set_ylabel('Average Power [counts]')
 		
+		# Legend
+		self.ax1.legend(loc=0)
+		self.tScale = tScale
+		
 		## Draw and save the click (Why?)
 		self.canvas.draw()
+		self.connect()
+		
+	def connect(self):
+		"""
+		Connect to all the events we need to interact with the plots.
+		"""
+		
+		self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+	
+	def on_motion(self, event):
+		"""
+		Deal with motion events in the stand field window.  This involves 
+		setting the status bar with the current x and y coordinates as well
+		as the stand number of the selected stand (if any).
+		"""
+		
+		if event.inaxes:
+			clickX = event.xdata
+			clickY = event.ydata
+			
+			try:
+				tScale = self.tScale
+				ap1 = self.parent.data.avgPower[self.parent.data.bestX-1,int(clickX*tScale)]
+				ap2 = self.parent.data.avgPower[self.parent.data.bestY-1,int(clickX*tScale)]
+				self.statusbar.SetStatusText("t=%.2f ms, X pol. Power=%.2f counts, Y pol. Power=%.2f" % (clickX, ap1, ap2))
+			except IndexError:
+				self.statusbar.SetStatusText("")
+		else:
+			self.statusbar.SetStatusText("")
+	
+	def disconnect(self):
+		"""
+		Disconnect all the stored connection ids.
+		"""
+		
+		self.figure.canvas.mpl_disconnect(self.cidmotion)
 		
 	def onCancel(self, event):
 		self.Close()
@@ -1232,6 +1375,11 @@ class AvgPowerDisplay(wx.Frame):
 
 
 class DataRangeDisplay(wx.Frame):
+	"""
+	Window for displaying the time series mean, min, and maximum raw data 
+	values.
+	"""
+	
 	def __init__(self, parent):
 		wx.Frame.__init__(self, parent, title='Range of Raw Data', size=(400, 375))
 		
@@ -1251,6 +1399,12 @@ class DataRangeDisplay(wx.Frame):
 		return 10*numpy.ceil(value/10.0)
 		
 	def initUI(self):
+		"""
+		Start the user interface.
+		"""
+		
+		self.statusbar = self.CreateStatusBar()
+		
 		hbox = wx.BoxSizer(wx.HORIZONTAL)
 		
 		# Add plots to panel 1
@@ -1271,10 +1425,19 @@ class DataRangeDisplay(wx.Frame):
 		hbox.Fit(self)
 		
 	def initEvents(self):
+		"""
+		Set all of the various events in the data range window.
+		"""
+		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
 		
 	def initPlot(self):
+		"""
+		Populate the figure/canvas areas with a plot.  We only need to do this
+		once for this type of window.
+		"""
+		
 		dataRange = self.parent.data.dataRange
 		bestX = self.parent.data.bestX
 		bestY = self.parent.data.bestY
@@ -1291,15 +1454,16 @@ class DataRangeDisplay(wx.Frame):
 		ant2 = self.parent.data.antennas[bestY-1]
 		
 		# Data Range
-		t = numpy.arange(0,61) + 0.5
+		tScale = float(round(dataRange.shape[1] / 61.2244898))
+		t = numpy.arange(0,dataRange.shape[1])/tScale + 0.5/tScale
 		eb1 = numpy.zeros((2,t.size))
 		eb1[0,:] = dataRange[bestX-1,:,1] - dataRange[bestX-1,:,0]
 		eb1[1,:] = dataRange[bestX-1,:,2] - dataRange[bestX-1,:,1]
-		self.ax1.errorbar(t, dataRange[bestX-1,:,1], xerr=0.5, yerr=eb1, fmt=None, label='Pol. %i' % ant1.pol)
+		self.ax1.errorbar(t, dataRange[bestX-1,:,1], xerr=0.5/tScale, yerr=eb1, linestyle=' ', marker='+', label='Pol. %i' % ant1.pol)
 		eb2 = numpy.zeros((2,t.size))
 		eb2[0,:] = dataRange[bestY-1,:,1] - dataRange[bestY-1,:,0]
 		eb2[1,:] = dataRange[bestY-1,:,2] - dataRange[bestY-1,:,1]
-		self.ax1.errorbar(t, dataRange[bestY-1,:,1], xerr=0.5, yerr=eb2, fmt=None, label='Pol. %i' % ant1.pol)
+		self.ax1.errorbar(t, dataRange[bestY-1,:,1], xerr=0.5/tScale, yerr=eb2, linestyle=' ', marker='+', label='Pol. %i' % ant2.pol)
 		
 		# Set ranges
 		self.ax1.set_xlim([0, 61])
@@ -1310,8 +1474,48 @@ class DataRangeDisplay(wx.Frame):
 		self.ax1.set_xlabel('Time [ms]')
 		self.ax1.set_ylabel('Data Range [counts]')
 		
+		# Legend
+		self.ax1.legend(loc=0)
+		self.tScale = tScale
+		
 		## Draw and save the click (Why?)
 		self.canvas.draw()
+		self.connect()
+		
+	def connect(self):
+		"""
+		Connect to all the events we need to interact with the plots.
+		"""
+		
+		self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+	
+	def on_motion(self, event):
+		"""
+		Deal with motion events in the stand field window.  This involves 
+		setting the status bar with the current x and y coordinates as well
+		as the stand number of the selected stand (if any).
+		"""
+		
+		if event.inaxes:
+			clickX = event.xdata
+			clickY = event.ydata
+			
+			try:
+				tScale = self.tScale
+				dr1 = self.parent.data.dataRange[self.parent.data.bestX-1,int(clickX*tScale),:]
+				dr2 = self.parent.data.dataRange[self.parent.data.bestY-1,int(clickX*tScale),:]
+				self.statusbar.SetStatusText("t=%.2f ms, X pol. Range: %+i to %+i, Y Pol. Range: %+i to %+i counts" % (clickX, dr1[0], dr1[2], dr2[0], dr2[2]))
+			except IndexError:
+				self.statusbar.SetStatusText("")
+		else:
+			self.statusbar.SetStatusText("")
+	
+	def disconnect(self):
+		"""
+		Disconnect all the stored connection ids.
+		"""
+		
+		self.figure.canvas.mpl_disconnect(self.cidmotion)
 		
 	def onCancel(self, event):
 		self.Close()
@@ -1329,6 +1533,51 @@ class DataRangeDisplay(wx.Frame):
 		# You will need to override GetToolBar if you are using an 
 		# unmanaged toolbar in your frame
 		return self.toolbar
+
+
+class SelectBox(wx.Dialog):
+	"""
+	Window for displaying the a simple dialog to find an antenna/stand/digitizer.
+	"""
+	
+	def __init__(self, parent, mode='antenna'):
+		wx.Dialog.__init__(self, parent, title='Find %s by ID' % mode.capitalize(), size=(200, 125))
+		
+		self.parent = parent
+		self.mode = mode
+		
+		self.initUI()
+		self.initEvents()
+		
+	def initUI(self):
+		"""
+		Start the user interface.
+		"""
+		
+		panel = wx.Panel(self, -1)
+		vbox = wx.BoxSizer(wx.VERTICAL)
+		
+		wx.StaticBox(panel, -1, '%s ID' % self.mode.capitalize(), (5, 5), (190, 75))
+		self.input = wx.TextCtrl(panel, -1, '', (15, 30))
+		if self.mode == 'stand':
+			wx.StaticText(panel, -1, 'Limits: 1 - 260, inclusive', (15, 60))
+		else:
+			wx.StaticText(panel, -1, 'Limits: 1 - 520, inclusive', (15, 60))
+
+		hbox = wx.BoxSizer(wx.HORIZONTAL)
+		okButton = wx.Button(self, wx.ID_OK, 'Ok', size=(70, 30))
+		closeButton = wx.Button(self, wx.ID_CANCEL, 'Close', size=(70, 30))
+		hbox.Add(okButton, 1)
+		hbox.Add(closeButton, 1, wx.LEFT, 5)
+
+		vbox.Add(panel)
+		vbox.Add(hbox, 1, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 10)
+
+		self.SetSizer(vbox)
+		
+	def initEvents(self):
+		pass
+
 
 def main(args):
 	app = wx.App(0)
