@@ -289,24 +289,35 @@ class TBW_GUI(object):
 		
 		wx.EndBusyCursor()
 
-	def drawSpectrum(self, clickX, clickY):
+	def drawSpectrum(self, clickX, clickY, preferStand=None):
 		"""
 		Get the spectra (both polarizations) for the antennas connected to 
 		the selected stand.
 		"""
 		
-		## Figure out who is who and which antennas are cloests to the 
-		## clicked point.  This can be a little slow so the results are
-		## saved to the bestX and bestX attributes (depending on pol.)
-		dist = 1e9
-		for ant in self.antennas:
-			cDist = numpy.sqrt( (ant.stand.x - clickX)**2 + (ant.stand.y - clickY)**2 )
-			if cDist <= dist:
-				dist = cDist
-				if ant.pol == 0:
-					self.bestX = ant.digitizer
-				else:
-					self.bestY = ant.digitizer
+		if preferStand is None:
+			## Figure out who is who and which antennas are cloests to the 
+			## clicked point.  This can be a little slow so the results are
+			## saved to the bestX and bestX attributes (depending on pol.)
+			dist = 1e9
+			for ant in self.antennas:
+				cDist = numpy.sqrt( (ant.stand.x - clickX)**2 + (ant.stand.y - clickY)**2 )
+				if cDist <= dist:
+					dist = cDist
+					if ant.pol == 0:
+						self.bestX = ant.digitizer
+					else:
+						self.bestY = ant.digitizer
+		
+		else:
+			## Right now 259 and 260 are at 0,0,0 and sit on top of each other.  Using
+			## the preferStand keyword, we can break this at least for searches
+			for ant in self.antennas:
+				if preferStand == ant.stand.id:
+					if ant.pol == 0:
+						self.bestX = ant.digitizer
+					else:
+						self.bestY = ant.digitizer
 		
 		## Plot the spectra.  This plot includes the median composite 
 		## (self.specTemplate) in green, the X polarization in blue, and 
@@ -783,7 +794,7 @@ Status: %i
 			
 			fenDistA = numpy.zeros(4)
 			k = 0
-			for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752), (59.771,59.864)]):
+			for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752)]):
 				x1 = p1[0]
 				y1 = p1[1]
 				x2 = p2[0]
@@ -800,6 +811,19 @@ Status: %i
 				
 				fenDistA[k] = numpy.sqrt( (x3-x4)**2 + (y3-y4)**2 )
 				k += 1
+			
+			# Catch things outside the fence
+			if abs(std.x) > 60 or abs(std.y) > 60:
+				k = 0
+				for p1 in [(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)]:
+					x1 = p1[0]
+					y1 = p1[1]
+					
+					x3 = std.x
+					y3 = std.y
+					
+					fenDistA[k] = numpy.sqrt( (x3-x1)**2 + (y3-y1)**2 )
+					k += 1
 				
 			fenDist = fenDistA.min()
 			
@@ -1016,7 +1040,7 @@ Global Range:
 				pass
 			elif self.data.antennas is None:
 				pass
-			else:	
+			else:
 				for ant in self.data.antennas:
 					if ant.id == antID:
 						self.data.drawSpectrum(ant.stand.x, ant.stand.y)
@@ -1037,10 +1061,10 @@ Global Range:
 				pass
 			elif self.data.antennas is None:
 				pass
-			else:	
+			else:
 				for ant in self.data.antennas:
 					if ant.stand.id == stdID:
-						self.data.drawSpectrum(ant.stand.x, ant.stand.y)
+						self.data.drawSpectrum(ant.stand.x, ant.stand.y, preferStand=stdID)
 						self.data.makeMark(ant.stand.x, ant.stand.y)
 						break
 				
@@ -1059,7 +1083,7 @@ Global Range:
 				pass
 			elif self.data.antennas is None:
 				pass
-			else:	
+			else:
 				for ant in self.data.antennas:
 					if ant.digitizer == digID:
 						self.data.drawSpectrum(ant.stand.x, ant.stand.y)
@@ -1547,7 +1571,6 @@ class SelectBox(wx.Dialog):
 		self.mode = mode
 		
 		self.initUI()
-		self.initEvents()
 		
 	def initUI(self):
 		"""
@@ -1574,9 +1597,6 @@ class SelectBox(wx.Dialog):
 		vbox.Add(hbox, 1, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 10)
 
 		self.SetSizer(vbox)
-		
-	def initEvents(self):
-		pass
 
 
 def main(args):

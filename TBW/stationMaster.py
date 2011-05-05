@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-	print """tbwSpectra.py - Read in TBW files and create a collection of 
+	print """stationMaster.py - Read in TBW files and create a collection of 
 time-averaged spectra.
 
 Usage: tbwSpectra.py [OPTIONS] file
@@ -34,8 +34,6 @@ Options:
 -n, --hanning               Apply a Hanning window to the data
 -q, --quiet                 Run tbwSpectra in silent mode
 -l, --fft-length            Set FFT length (default = 4096)
--s, --stack                 Stack spectra in groups of 6 (if '-g' is enabled only)
--o, --output                Output file name for spectra image
 """
 
 	if exitCode is not None:
@@ -53,14 +51,12 @@ def parseOptions(args):
 	config['maxFrames'] = 30000*260
 	config['window'] = fxc.noWindow
 	config['applyGain'] = True
-	config['stack'] = False
-	config['output'] = None
 	config['verbose'] = True
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hm:fqtbnl:so:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "stack", "output="])
+		opts, args = getopt.getopt(args, "hm:fqtbnl:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -84,10 +80,6 @@ def parseOptions(args):
 			config['window'] = numpy.hanning
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
-		elif opt in ('-s', '--stack'):
-			config['stack'] = True
-		elif opt in ('-o', '--output'):
-			config['output'] = value
 		else:
 			assert False
 	
@@ -173,7 +165,7 @@ def main(args):
 				framesWork = framesRemaining
 			print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
 
-			data = numpy.zeros((antpols, 2*framesWork*nSamples/antpols), dtype=numpy.int16)
+			data = numpy.zeros((antpols, 2*30000*260*nSamples/antpols), dtype=numpy.int16)
 			# If there are fewer frames than we need to fill an FFT, skip this chunk
 			if data.shape[1] < 2*LFFT:
 				break
@@ -210,14 +202,27 @@ def main(args):
 				masterSpectra[i,stand,:] = tempSpec[stand,:]
 
 			# Compute the 1 ms average power and the data range within each 1 ms window
-			avgPower = numpy.zeros((antpols, 61), dtype=numpy.float32)
-			dataRange = numpy.zeros((antpols, 61, 3), dtype=numpy.int16)
-			for s in xrange(masterSpectra.shape[1]):
-				for p in xrange(61):
-					avgPower[s,p] = numpy.mean( numpy.abs(data[s,(p*196000):((p+1)*196000)]) )
-					dataRange[s,p,0] = data[s,(p*196000):((p+1)*196000)].min()
-					dataRange[s,p,1] = int(data[s,(p*196000):((p+1)*196000)].mean())
-					dataRange[s,p,2] = data[s,(p*196000):((p+1)*196000)].max()
+			subSize = 1960
+			nSegments = data.shape[1] / subSize
+			
+			avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
+			dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
+			for s in xrange(data.shape[0]):
+				for p in xrange(nSegments):
+					subData = data[s,(p*subSize):((p+1)*subSize)]
+					avgPower[s,p] = numpy.mean( numpy.abs(subData) )
+					dataRange[s,p,0] = subData.min()
+					dataRange[s,p,1] = subData.mean()
+					dataRange[s,p,2] = subData.max()
+
+					### This little block here looks for likely saturation events and save
+					### the raw time series around them into individual NPZ files for stand
+					### number 14.
+					#if (dataRange[s,p,0] < -1000 or dataRange[s,p,0] > 1000) and antennas[s].stand.id == 14:
+						#subData = data[s,((p-1)*1960):((p+2)*1960)]
+						#satFileName = 'stand-14-pol-%i-%i.npz' % (antennas[s].pol, (p-1)*1960)
+						#print satFileName
+						#numpy.savez(satFileName, start=(p-1)*1960, data=subData)
 
 			# We don't really need the data array anymore, so delete it
 			del(data)

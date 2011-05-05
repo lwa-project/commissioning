@@ -10,6 +10,12 @@ the firmware version of Seagate drives with model number "ST31000525SV".  This i
 useful for identifying disks with the newer (and less reliable) firmware version 
 "CV12".
 
+time2time.py
+------------
+Given a date/time in the format of "YYYY-MM-DD HH:MM:SS[.SSS]" in local time, 
+compute the corresponding MJD and MPM in UTC.  If no date/time is specified, the
+current local date/time is used for the conversion. 
+
 TBW
 ---
 See the TBW/README file.
