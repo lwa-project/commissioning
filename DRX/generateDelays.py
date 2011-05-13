@@ -10,7 +10,7 @@ import delay
 from lsl.misc import beamformer
 from lsl.common.stations import parseSSMIF
 
-def usage(Code=None):
+def usage(exitCode=None):
 	print """generateDelays.py - Read in SSMIF file and create a set of DRX
 gain and delay files for a given frequency and topogentric pointing center.
 

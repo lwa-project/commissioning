@@ -32,6 +32,7 @@ Options:
 -a, --average               Number of seconds of data to average for spectra 
                             (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode
+-f, --freq                  Center frequency in MHz (default 38)
 -l, --fft-length            Set FFT length (default = 4096)
 -d, --disable-chunks        Display plotting chunks in addition to the global 
                             average
@@ -50,6 +51,7 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['average'] = 10.0
 	config['LFFT'] = 4096
+	config['freq'] = 38e6
 	config['maxFrames'] = 19144*4
 	config['window'] = fxc.noWindow
 	config['output'] = None
@@ -59,7 +61,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "disable-chunks"])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:df:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "disable-chunks", "freq="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -79,6 +81,8 @@ def parseOptions(args):
 			config['window'] = numpy.hanning
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
+		elif opt in ('-f', '--freq'):
+			config['freq'] = float(value)*1e6
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
@@ -102,7 +106,7 @@ def bestFreqUnits(freq):
 	frequencies in the best units possible (kHz, MHz, etc.)."""
 
 	# Figure out how large the data are
-	scale = int(math.log10(freq.max()))
+	scale = int(math.log10((freq - freq.mean()).max()))
 	if scale >= 9:
 		divis = 1e9
 		units = 'GHz'
@@ -242,7 +246,7 @@ def main(args):
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
-		freq, tempSpec = fxc.calcSpectra(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate)
+		freq, tempSpec = fxc.calcSpectra(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, CentralFreq=config['freq'])
 		for stand in count.keys():
 			masterSpectra[i,stand,:] = tempSpec[stand,:]
 			masterWeight[i,stand,:] = count[stand]

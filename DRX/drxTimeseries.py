@@ -132,6 +132,14 @@ def main(args):
 	if nFrames > (nFramesFile - offset):
 		raise RuntimeError("Requested integration time+offset is greater than file length")
 
+	# Align the file handle so that the first frame read in the
+	# main analysis loop is from tuning 1, polarization 0
+	b,t,p = junkFrame.parseID()
+	while 2*(t-1)+p != 0:
+		junkFrame = drx.readFrame(fh)
+		b,t,p = junkFrame.parseID()
+	fh.seek(-drx.FrameSize, 1)
+
 	# Master loop over all of the file chuncks
 	standMapper = []
 	for i in range(nChunks):
