@@ -21,3 +21,8 @@ eyeDiagram2.py
 --------------
 Look for glitches in a TBN file by fitting a quantized sine wave to the data.
 
+tbnTimeseries.py
+----------------
+Alpha-version script to plot out time series I/Q data from a TBN file.  
+
+
