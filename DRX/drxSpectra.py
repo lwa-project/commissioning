@@ -32,7 +32,8 @@ Options:
 -a, --average               Number of seconds of data to average for spectra 
                             (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode
--f, --freq                  Center frequency in MHz (default 38)
+-1, --freq1                 Center frequency of tuning 1 in MHz (default 38)
+-2, --freq2                 Center frequency of tuning 2 in MHz (default 74)
 -l, --fft-length            Set FFT length (default = 4096)
 -d, --disable-chunks        Display plotting chunks in addition to the global 
                             average
@@ -51,7 +52,8 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['average'] = 10.0
 	config['LFFT'] = 4096
-	config['freq'] = 38e6
+	config['freq1'] = 38e6
+	config['freq2'] = 74e6
 	config['maxFrames'] = 19144*4
 	config['window'] = fxc.noWindow
 	config['output'] = None
@@ -61,7 +63,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:df:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "disable-chunks", "freq="])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d1:2:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "disable-chunks", "freq1=", "freq2="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -81,8 +83,10 @@ def parseOptions(args):
 			config['window'] = numpy.hanning
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
-		elif opt in ('-f', '--freq'):
-			config['freq'] = float(value)*1e6
+		elif opt in ('-1', '--freq1'):
+			config['freq1'] = float(value)*1e6
+		elif opt in ('-2', '--freq2'):
+			config['freq2'] = float(value)*1e6
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
@@ -246,13 +250,16 @@ def main(args):
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
-		freq, tempSpec = fxc.calcSpectra(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, CentralFreq=config['freq'])
+		freq1, tempSpec = fxc.calcSpectra(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, CentralFreq=config['freq1'])
 		for stand in count.keys():
 			masterSpectra[i,stand,:] = tempSpec[stand,:]
 			masterWeight[i,stand,:] = count[stand]
 
 		# We don't really need the data array anymore, so delete it
 		del(data)
+
+	# Create the frequency array for the second tuning
+	freq2 = freq1 - config['freq1'] + config['freq2']
 
 	# Now that we have read through all of the chunks, peform the final averaging by
 	# dividing by all of the chunks
@@ -263,11 +270,18 @@ def main(args):
 	figsX = int(round(math.sqrt(beampols)))
 	figsY = beampols / figsX
 	# Put the freqencies in the best units possible
-	freq, units = bestFreqUnits(freq)
+	freq1, units1 = bestFreqUnits(freq1)
+	freq2, units2 = bestFreqUnits(freq2)
 
 	sortedMapper = sorted(standMapper)
 	for k, aStand in enumerate(sortedMapper):
 		i = standMapper.index(aStand)
+		if standMapper[i]%4/2+1 == 1:
+			freq = freq1
+			units = units1
+		else:
+			freq = freq2
+			units = units2
 
 		ax = fig.add_subplot(figsX,figsY,k+1)
 		currSpectra = numpy.squeeze( numpy.log10(spec[i,:])*10.0 )
@@ -295,12 +309,13 @@ def main(args):
 		
 		print "For beam %i, tune. %i, pol. %i maximum in PSD at %.3f %s" % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2, freq[numpy.where( spec[i,:] == spec[i,:].max() )][0], units)
 
-	print "RBW: %.4f %s" % ((freq[1]-freq[0]), units)
+	print "RBW 1: %.4f %s" % ((freq1[1]-freq1[0]), units1)
+	print "RBW 2: %.4f %s" % ((freq2[1]-freq2[0]), units2)
 	plt.subplots_adjust(hspace=0.35, wspace=0.30)
 	plt.show()
 
 	outfile = config['args'][0].replace('.dat', '.npz')
-	numpy.savez(outfile, freq=freq, units=units, spec=spec, standMapper=standMapper)
+	numpy.savez(outfile, freq1=freq1, freq2=freq2, units1=units1, units2=units2, spec=spec, standMapper=standMapper)
 
 	# Save spectra image if requested
 	if config['output'] is not None:

@@ -24,6 +24,17 @@ elevation in degrees) at a specified frequency.
 	be converted to binary packed files with the MCS/Executive commands megfg 
 	and medfg.
 
+estimateBeam.py
+---------------
+Use the LSL misc.beamformer's integer delay and sum to estimate the beam shape 
+towards a particular azimuth and elevation and save the beam to a Numpy NPZ file.
+
+driftcurve.py
+-------------
+Using the beam created by estimateBeam.py, generate a temperature as a function of 
+time for that pointing over an entire day.  This script is based on the LSL 
+driftcurve.py script.
+
 checkTimetags.py
 ----------------
 Simple script to check the time tag sequence in a DRX file and look for strange 
@@ -43,6 +54,11 @@ Script for plotting time series data from a DRX file.  This file is also availab
 as part of the LSL package (version >= 0.4.0) but is included here since this is 
 the script we actually used at JPL for pre-acceptance testing.
 
+drxPower.py
+-----------
+Modified version of drxTimeseries.py that plots the power for each DRX sample instead
+of the raw I/Q values.
+
 drxSpectra.py
 -------------
 Script for reading in DRX data and created time-averaged power spectral density 
@@ -57,4 +73,5 @@ Create an eye diagram for some portion of a DRX file.
 eyeDiagram2.py
 --------------
 Look for glitches in a DRX file by fitting a quantized sine wave to the data.
+
 

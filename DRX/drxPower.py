@@ -193,7 +193,10 @@ def main(args):
 			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
-			
+		
+		# Compute the power
+		data = numpy.abs(data)
+		
 		# The plots:  This is setup for the current configuration of 20 beampols
 		fig = plt.figure()
 		figsX = int(round(math.sqrt(beampols)))
@@ -214,7 +217,7 @@ def main(args):
 			else:
 				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].real, label='%i (real)' % (i+1))
 				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].imag, label='%i (imag)' % (i+1))
-			ax.set_ylim([-8, 7])
+			ax.set_ylim([0, 12])
 			ax.legend(loc=0)
 			
 			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
