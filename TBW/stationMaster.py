@@ -96,8 +96,10 @@ def main(args):
 	# Set the station
 	if config['SSMIF'] != '':
 		station = stations.parseSSMIF(config['SSMIF'])
+		ssmifContents = open(config['SSMIF']).readlines()
 	else:
 		station = stations.lwa1
+		ssmifContents = ''
 	antennas = station.getAntennas()
 
 	# Length of the FFT
@@ -258,7 +260,7 @@ def main(args):
 			resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
 		
 		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
-					avgPower=avgPower, dataRange=dataRange)
+					avgPower=avgPower, dataRange=dataRange, ssmifContents=ssmifContents)
 	else:
 		dataDict = numpy.load("%s.npz" % base)
 		freq = dataDict['freq']
@@ -282,24 +284,25 @@ def main(args):
 	standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in antennas if ant.pol == 0])
 	
 	# Plots
-	fig = plt.figure()
-	ax1 = fig.add_subplot(1, 2, 1)
-	ax1.scatter(standPos[:,0], standPos[:,1], c=specDiff[0::2], s=40.0, alpha=0.50)
-	## Add the fence as a dashed line
-	ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
-			[59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
-	## Add the shelter
-	ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
-			[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
-	## Set the limits to just zoom in on the main stations
-	ax1.set_xlim([-65, 65])
-	ax1.set_ylim([-65, 65])		
-	
-	ax2 = fig.add_subplot(1, 2, 2)
-	ax2.plot(freq/1e6, numpy.log10(specTemplate)*10, alpha=0.50)
-	
-	print "RBW: %.1f Hz" % (freq[1]-freq[0])
-	plt.show()
+	if config['verbose']:
+		fig = plt.figure()
+		ax1 = fig.add_subplot(1, 2, 1)
+		ax1.scatter(standPos[:,0], standPos[:,1], c=specDiff[0::2], s=40.0, alpha=0.50)
+		## Add the fence as a dashed line
+		ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
+				[59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
+		## Add the shelter
+		ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
+				[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
+		## Set the limits to just zoom in on the main stations
+		ax1.set_xlim([-65, 65])
+		ax1.set_ylim([-65, 65])		
+		
+		ax2 = fig.add_subplot(1, 2, 2)
+		ax2.plot(freq/1e6, numpy.log10(specTemplate)*10, alpha=0.50)
+		
+		print "RBW: %.1f Hz" % (freq[1]-freq[0])
+		plt.show()
 
 
 if __name__ == "__main__":

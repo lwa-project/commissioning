@@ -4,6 +4,7 @@
 import os
 import sys
 import numpy
+import tempfile
 
 from lsl.common import stations
 from lsl.misc.mathutil import to_dB
@@ -137,8 +138,25 @@ class TBW_GUI(object):
 			self.dataRange = None
 
 		# Set the station
-		station = stations.lwa1
-		self.antennas = station.getAntennas()
+		try:
+			ssmifContents = dataDict['ssmifContents']
+			if ssmifContents.shape == ():
+				station = stations.lwa1
+				self.antennas = station.getAntennas()
+			else:
+				fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
+				fh = open(tempSSMIF, 'w')
+				for line in ssmifContents:
+					fh.write('%s\n' % line)
+				fh.close()
+				
+				station = stations.parseSSMIF(tempSSMIF)
+				self.antennas = station.getAntennas()
+				os.unlink(tempSSMIF)
+			
+		except KeyError:
+			station = stations.lwa1
+			self.antennas = station.getAntennas()
 
 		# Set default colobars
 		self.limits = []
