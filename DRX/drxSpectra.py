@@ -32,8 +32,8 @@ Options:
 -a, --average               Number of seconds of data to average for spectra 
                             (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode
--1, --freq1                 Center frequency of tuning 1 in MHz (default 38)
--2, --freq2                 Center frequency of tuning 2 in MHz (default 74)
+-1, --freq1                 Center frequency of tuning 1 in MHz (default 0 for unknown)
+-2, --freq2                 Center frequency of tuning 2 in MHz (default 0 for unknown)
 -l, --fft-length            Set FFT length (default = 4096)
 -d, --disable-chunks        Display plotting chunks in addition to the global 
                             average
@@ -52,8 +52,8 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['average'] = 10.0
 	config['LFFT'] = 4096
-	config['freq1'] = 38e6
-	config['freq2'] = 74e6
+	config['freq1'] = 0
+	config['freq2'] = 0
 	config['maxFrames'] = 19144*4
 	config['window'] = fxc.noWindow
 	config['output'] = None
@@ -302,7 +302,10 @@ def main(args):
 				#ax.plot(freq, diff, label='%i' % j)
 
 		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
-		ax.set_xlabel('Frequency Offset [%s]' % units)
+		if freq.min() < 0:
+			ax.set_xlabel('Frequency Offset [%s]' % units)
+		else:
+			ax.set_xlabel('Frequency [%s]' % units)
 		ax.set_ylabel('P.S.D. [dB/RBW]')
 		ax.set_xlim([freq.min(), freq.max()])
 		ax.legend(loc=0)
