@@ -20,10 +20,11 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-	print """stationMaster.py - Read in TBW files and create a collection of 
-time-averaged spectra.
+	print """stationMaster2.py - Read in TBW files and create a collection of 
+time-averaged spectra.  This script differs from stationMaster.py in that it uses
+the 'ClipLevel' keyword fx.SpecMaster to mask impulsive RFI events.
 
-Usage: stationMaster.py [OPTIONS] file
+Usage: stationMaster2.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
@@ -34,6 +35,8 @@ Options:
 -n, --hanning               Apply a Hanning window to the data
 -q, --quiet                 Run tbwSpectra in silent mode
 -l, --fft-length            Set FFT length (default = 4096)
+-c, --clip-level            FFT blanking clipping level in counts (default = 750, 
+                            0 disables)
 """
 
 	if exitCode is not None:
@@ -52,11 +55,12 @@ def parseOptions(args):
 	config['window'] = fxc.noWindow
 	config['applyGain'] = True
 	config['verbose'] = True
+	config['clip'] = 750
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hm:fqtbnl:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length="])
+		opts, args = getopt.getopt(args, "hm:fqtbnl:c:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "clip-level="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -80,6 +84,8 @@ def parseOptions(args):
 			config['window'] = numpy.hanning
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
+		elif opt in ('-c', '--clip-level'):
+			config['clip'] = int(value)
 		else:
 			assert False
 	
@@ -130,7 +136,6 @@ def main(args):
 	# of the frame.  This is needed to get the list of stands.
 	junkFrame = tbw.readFrame(fh)
 	fh.seek(0)
-	beginTime = junkFrame.getTime()
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 
 	# File summary
@@ -200,7 +205,7 @@ def main(args):
 			# the total number of frames read.  This is needed to keep the averages correct.
 			# NB:  The weighting is the same for the x and y polarizations because of how 
 			# the data are packed in TBW
-			freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
+			freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], ClipLevel=config['clip'])
 			for stand in xrange(masterSpectra.shape[1]):
 				masterSpectra[i,stand,:] = tempSpec[stand,:]
 
@@ -258,7 +263,10 @@ def main(args):
 					
 			coeff = numpy.polyfit(freq[toCompare]/1e6, numpy.log10(spec[i,toCompare])*10, bestOrder)
 			fit = numpy.polyval(coeff, freq[toCompare]/1e6)	
-			resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
+			try:
+				resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0][0]]] / 1e6
+			except:
+				pass
 		
 		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
 					avgPower=avgPower, dataRange=dataRange, ssmifContents=ssmifContents)
