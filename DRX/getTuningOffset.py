@@ -3,10 +3,22 @@
 import os
 import sys
 import numpy
+import curses
+import string
 
 from lsl.common.dp import fS
 from lsl.reader import drx
 from lsl.reader import errors
+
+display = string.Template("""$preamble
+
+B$b0, T$t0, P$p0: t.t. is $tt0 with offset $os0 -> $tv0
+B$b1, T$t1, P$p1: t.t. is $tt1 with offset $os1 -> $tv1
+B$b2, T$t2, P$p2: t.t. is $tt2 with offset $os2 -> $tv2
+B$b3, T$t3, P$p3: t.t. is $tt3 with offset $os3 -> $tv3
+-> T2 time tags appear to be offset from T1 by $ttd ($tvd s)
+
+""")
 
 def main(args):
 	filename = args[0]
@@ -27,53 +39,90 @@ def main(args):
 	beampols = tunepol
 
 	# File summary
-	print "Filename: %s" % filename
-	print "Beams: %i" % beams
-	print "Tune/Pols: %i %i %i %i" % tunepols
-	print "Sample Rate: %i Hz" % srate
-	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
-	print "==="
+	out = "Filename: %s" % filename
+	out += "\nBeams: %i" % beams
+	out += "\nTune/Pols: %i %i %i %i" % tunepols
+	out += "\nSample Rate: %i Hz" % srate
+	out += "\nFrames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
+	out += "\n==="
+	print out
 
 	tuningOffset = numpy.zeros(nFramesFile/8, dtype=numpy.int64)
-	for i in xrange(tuningOffset.size):
-		beamIDs = [0,0,0,0]
-		timeTags = numpy.zeros(4, dtype=numpy.int64) - 1
-		timeOffsets = numpy.zeros(4, dtype=numpy.int64) - 1
-		timeValues = numpy.zeros(4, dtype=numpy.float64)
-		for j in xrange(4):
-			# Read in the next frame and anticipate any problems that could occur
-			try:
-				cFrame = drx.readFrame(fh, Verbose=False)
-			except errors.eofError:
-				break
-			except errors.syncError:
-				#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
-				continue
+	try:
+		screen = curses.initscr()
+		curses.noecho()
+		curses.cbreak()
+		screen.nodelay(1)
+
+		strdict = {'preamble': out}
+		for i in xrange(tuningOffset.size):
+			screen.clear()
+
+			beamIDs = [0,0,0,0]
+			timeTags = numpy.zeros(4, dtype=numpy.int64) - 1
+			timeOffsets = numpy.zeros(4, dtype=numpy.int64) - 1
+			timeValues = numpy.zeros(4, dtype=numpy.float64)
+			for j in xrange(4):
+				# Read in the next frame and anticipate any problems that could occur
+				try:
+					cFrame = drx.readFrame(fh, Verbose=False)
+				except errors.eofError:
+					break
+				except errors.syncError:
+					#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+					continue
 		
-			## Save the time time, time offset, and computed time values
-			beam,tune,pol = cFrame.parseID()
-			aStand = 2*(tune-1) + pol
-			if timeTags[aStand] == -1:
-				beamIDs[aStand] = (beam,tune,pol)
-				timeTags[aStand] = cFrame.data.timeTag
-				timeOffsets[aStand] = cFrame.header.timeOffset
-				timeValues[aStand] = cFrame.getTime()
+				## Save the time time, time offset, and computed time values
+				beam,tune,pol = cFrame.parseID()
+				aStand = 2*(tune-1) + pol
+				if timeTags[aStand] == -1:
+					beamIDs[aStand] = (beam,tune,pol)
+					timeTags[aStand] = cFrame.data.timeTag
+					timeOffsets[aStand] = cFrame.header.timeOffset
+					timeValues[aStand] = cFrame.getTime()
 
-		for id,tt,to,tv in zip(beamIDs, timeTags, timeOffsets, timeValues):
-			b,t,p = id
-			print "B%i, T%i, P%i: t.t. is %i with offset %i -> %.9f" % (b,t,p,tt,to,tv)
+			k = 0
+			for id,tt,to,tv in zip(beamIDs, timeTags, timeOffsets, timeValues):
+				strdict['b%i' % k] = id[0]
+				strdict['t%i' % k] = id[1]
+				strdict['p%i' % k] = id[2]
 
-		t1t = timeTags[0] - timeOffsets[0]
-		t2t = timeTags[3] - timeOffsets[3]
-		if (t2t-t1t) != 0:
-			print "-> T2 time tags appear to be offset from T1 by %i (%.9f s)" % (t2t-t1t, (t2t-t1t)/fS)
-		else:
-			print "-> T2 and T1 do not appear to have a time tag offset"
-		print " "
+				strdict['tt%i' % k] = tt
+				strdict['os%i' % k] = to
+				strdict['tv%i' % k] = tv
 
-		tuningOffset[i] = t2t - t1t
+				k += 1
 
-	print "T2-T1 time tag offset range: %i to %i" % (tuningOffset.min(), tuningOffset.max())
+			t1t = timeTags[0] - timeOffsets[0]
+			t2t = timeTags[3] - timeOffsets[3]
+			tuningOffset[i] = t2t - t1t
+
+			strdict['ttd'] = t2t - t1t
+			strdict['tvd'] = (t2t-t1t)/fS
+
+			screen.addstr(0,0,display.safe_substitute(strdict))
+			screen.refresh()
+				
+			# Check for keypress and exit if Q
+			c = screen.getch()
+			if (c > 0):
+				if chr(c) == 'q': 
+					break
+				if chr(c) == 'Q': 
+					break
+
+		curses.nocbreak()
+    		curses.echo()
+    		curses.endwin()
+
+	except KeyboardInterrupt:
+		curses.nocbreak()
+		curses.echo()
+		curses.endwin()
+
+		tuningOffset = tuningOffset[0:i]
+
+	print "T2-T1 time tag offset range: %i to %i (based on %i sets of frames)" % (tuningOffset.min(), tuningOffset.max(), len(tuningOffset))
 
 if __name__ == "__main__":
 	main(sys.argv[1:])

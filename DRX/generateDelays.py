@@ -24,7 +24,7 @@ Options:
                             (Default = 90 degrees)
 -e, --elevation             Elevation above the horizon in degrees for the pointing
                             center (Default = 90 degrees)
--g, --gain                  DRX antenna gain (Default = 0.7500)
+-g, --gain                  DRX antenna gain (Default = 1.0000)
 """
 	if exitCode is not None:
 		sys.exit(exitCode)
@@ -38,7 +38,7 @@ def parseOptions(args):
 	config['freq'] = 65.0e6
 	config['az'] = 90.0
 	config['el'] = 90.0
-	config['gain'] = 0.7500
+	config['gain'] = 1.0000
 	config['args'] = []
 
 	# Read in and process the command line flags
@@ -93,11 +93,14 @@ def main(args):
 	print "Total number bad inuts: %3i" % len(bad)
 	print " "
 
+	dftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
+	gftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
+
 	print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6)
 	delays = beamformer.calcDelay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
 	delays *= 1e9
 	delays[bad] = 0
-	junk = delay.list2delayfile('.', 'test_%iMHz_%iaz_%iel' % (config['freq']/1e6, config['az'], config['el']), delays)
+	junk = delay.list2delayfile('.', dftBase, delays)
 
 	print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
 	bgain = config['gain']
@@ -107,9 +110,9 @@ def main(args):
 		# Digitizers start at 1, list indicies at 0
 		i = d - 1
 		gains[i/2] = [0,0,0,0]
-	junk = gain.list2gainfile('.', 'test_%iMHz_%iaz_%iel' % (config['freq']/1e6, config['az'], config['el']), gains)
+	junk = gain.list2gainfile('.', gftBase, gains)
 
-	print "\nDelay and gain files are:\n test_%iMHz_%iaz_%iel.dft\n test_%iMHz_%iaz_%iel.gft" % (config['freq']/1e6, config['az'], config['el'], config['freq']/1e6, config['az'], config['el'])
+	print "\nDelay and gain files are:\n %s.dft\n %s.gft" % (dftBase, gftBase)
 
 
 if __name__ == "__main__":

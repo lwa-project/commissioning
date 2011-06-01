@@ -18,7 +18,7 @@ def main(args):
 	# rate, estimate how the time tag should advance between frames.
 	junkFrame = drx.readFrame(fh)
 	sampleRate = junkFrame.getSampleRate()
-	tagSkip = fS / sampleRate * junkFrame.data.iq.shape[0]
+	tagSkip = int(fS / sampleRate * junkFrame.data.iq.shape[0])
 	fh.seek(0)
 
 	# Store the information about the first frame and convert the timetag to 
@@ -34,6 +34,22 @@ def main(args):
 	print "Time tag skip per frame: %i" % tagSkip
 
 	k = 0
+	#k = 1
+	prevTime = [0, 0, 0, 0]
+	prevDate = ['', '', '', '']
+	prevNumb = [0, 0, 0, 0]
+	for i in xrange(4):
+		currFrame = drx.readFrame(fh)
+		beam, tune, pol = currFrame.parseID()
+		rID = 2*(tune-1) + pol
+
+		prevTime[rID] = currFrame.data.timeTag
+		prevDate[rID] = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
+		prevNumb[rID] = 1 + k / 4
+		#prevNumb[rID] = k
+		
+		k += 1
+	
 	while True:
 		try:
 			currFrame = drx.readFrame(fh)
@@ -43,32 +59,32 @@ def main(args):
 			continue
 		
 		beam, tune, pol = currFrame.parseID()
+		rID = 2*(tune-1) + pol
 		currTime = currFrame.data.timeTag
 		currDate = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
-		currFrame = 1 + k / 4
-		
-		#print k, currFrame, beam, tune, pol, currTime
-		#print beam, tune, pol, prevTime, currTime, currTime-prevTime
+		currNumb = 1 + k / 4
+		#currNumb = k
 
-		if k == 0 or (currFrame % 50000 == 0 and tune == 1 and pol == 0):
-			print "At beam %i, tuning %i, pol %i:  frame %i -> %i (%s)" % (beam, tune, pol, currFrame, currTime, currDate)
+		if tune == 1 and pol == 0 and currNumb % 50000 == 0:
+			print "Beam %i, tune %i, pol %i: frame %8i -> %i (%s)" % (beam, tune, pol, currNumb, currTime, currDate)
 
-		if currTime < prevTime:
-			print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currFrame, prevTime, prevFrame)
-			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate))
-		elif (currTime-prevTime) > tagSkip:
-			print "Error: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currFrame, prevTime, prevFrame)
-			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate))
-		elif (currTime-prevTime) == 0 or (currTime-prevTime) == tagSkip:
-			pass
+		if currTime < prevTime[rID]:
+			print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
+			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+		elif currTime > (prevTime[rID] + tagSkip):
+			print "Error: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
+			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+		elif currTime < (prevTime[rID] + tagSkip):
+			print "Warning: t.t %i @ frame %i < t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
+			print "         -> difference: %i (%.5f seconds; %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+			print "         -> beam %i tune %i pol %i" % (beam, tune, pol)
 		else:
-			print "Warning: t.t %i @ frame %i is more or less than expected" % (currTime, currFrame)
-			print "         -> difference: %i (%.5f seconds; %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate))
-			print "         -> %i %i %i" % (beam, tune, pol)
+			pass
 		
-		prevTime = currTime
-		prevFrame = currFrame
-		k = k + 1
+		prevTime[rID] = currTime
+		prevDate[rID] = currDate
+		prevNumb[rID] = currNumb
+		k += 1
 
 	fh.close()
 

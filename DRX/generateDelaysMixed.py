@@ -95,16 +95,19 @@ def main(args):
 	print "Total number bad inuts: %3i" % len(bad)
 	print " "
 
+	dftBase = 'mixed_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
+	gftBase = 'mixed_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
+
 	print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6)
 	delays = beamformer.calcDelay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
 	delays *= 1e9
 	delays[bad] = 0
-	junk = delay.list2delayfile('.', 'test_%iMHz_%iaz_%iel' % (config['freq']/1e6, config['az'], config['el']), delays)
+	junk = delay.list2delayfile('.', dftBase, delays)
 
 	print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
 	bgain = config['gain']
-        bgain_cross = 0.0001
-        gains = [[bgain, bgain_cross, bgain_cross, 0.00]]*260 # initialize gain list
+        bgain_cross = 0.0000
+        gains = [[bgain, bgain_cross, bgain_cross, 0.0000]]*260 # initialize gain list
 	for d in digs[bad]:
 		# Digitizers start at 1, list indicies at 0
 		i = d - 1
@@ -112,13 +115,13 @@ def main(args):
 	for i in xrange(len(stands)/2):
 		# Put the outlier (#258) all by itself
 		if stands[2*i] == 258:
-			gains[i] = [0, 0.001, 0.001, bgain]
+			gains[i] = [0, 0, 0, 1]
 
 	for g,s,p in zip(gains, stands[::2], pols[::2]):
 		print g, s, p
-	junk = gain.list2gainfile('.', 'test_%iMHz_%iaz_%iel' % (config['freq']/1e6, config['az'], config['el']), gains)
+	junk = gain.list2gainfile('.', gftBase, gains)
 
-	print "\nDelay and gain files are:\n test_%iMHz_%iaz_%iel.dft\n test_%iMHz_%iaz_%iel.gft" % (config['freq']/1e6, config['az'], config['el'], config['freq']/1e6, config['az'], config['el'])
+	print "\nDelay and gain files are:\n %s.dft\n %s.gft" % (dftBase, gftBase)
 
 
 if __name__ == "__main__":
