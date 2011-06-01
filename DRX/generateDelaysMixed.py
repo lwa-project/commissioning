@@ -26,7 +26,7 @@ Options:
                             (Default = 90 degrees)
 -e, --elevation             Elevation above the horizon in degrees for the pointing
                             center (Default = 90 degrees)
--g, --gain                  DRX antenna gain (Default = 0.7500)
+-g, --gain                  DRX antenna gain (Default = 1.0000)
 """
 	if exitCode is not None:
 		sys.exit(exitCode)
@@ -40,7 +40,7 @@ def parseOptions(args):
 	config['freq'] = 65.0e6
 	config['az'] = 90.0
 	config['el'] = 90.0
-	config['gain'] = 0.7500
+	config['gain'] = 1.0000
 	config['args'] = []
 
 	# Read in and process the command line flags

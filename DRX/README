@@ -1,6 +1,11 @@
 DRX Commissioning Scripts
 =========================
 
+decodeStatus.py
+---------------
+Take the status code returned by a DP_ BOARD_STAT query and break it down into its
+constituent parts.
+
 gain.py
 -------
 JPL-created script for creating gain files to be used by DRX.
