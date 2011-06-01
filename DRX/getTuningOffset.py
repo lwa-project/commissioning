@@ -17,7 +17,6 @@ B$b1, T$t1, P$p1: t.t. is $tt1 with offset $os1 -> $tv1
 B$b2, T$t2, P$p2: t.t. is $tt2 with offset $os2 -> $tv2
 B$b3, T$t3, P$p3: t.t. is $tt3 with offset $os3 -> $tv3
 -> T2 time tags appear to be offset from T1 by $ttd ($tvd s)
-
 """)
 
 def main(args):
@@ -121,6 +120,8 @@ def main(args):
 		curses.endwin()
 
 		tuningOffset = tuningOffset[0:i]
+
+	print display.safe_substitute(strdict)
 
 	print "T2-T1 time tag offset range: %i to %i (based on %i sets of frames)" % (tuningOffset.min(), tuningOffset.max(), len(tuningOffset))
 
