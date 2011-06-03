@@ -15,6 +15,7 @@ from lsl.reader import tbw
 from lsl.reader import errors
 from lsl.correlator import fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
+from lsl.common.progress import ProgressBar
 
 import matplotlib.pyplot as plt
 
@@ -213,6 +214,8 @@ def main(args):
 			subSize = 1960
 			nSegments = data.shape[1] / subSize
 			
+			print "Computing average power and data range in %i-sample intervals" % subSize
+			pb = ProgressBar(max=data.shape[0])
 			avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
 			dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
 			for s in xrange(data.shape[0]):
@@ -231,6 +234,13 @@ def main(args):
 						#satFileName = 'stand-14-pol-%i-%i.npz' % (antennas[s].pol, (p-1)*1960)
 						#print satFileName
 						#numpy.savez(satFileName, start=(p-1)*1960, data=subData)
+				pb.inc(amount=1)
+				if pb.amount != 0 and pb.amount % 10 == 0:
+					sys.stdout.write(pb.show()+'\r')
+					sys.stdout.flush()
+			sys.stdout.write(pb.show()+'\r')
+			sys.stdout.write('\n')
+			sys.stdout.flush()
 
 			# We don't really need the data array anymore, so delete it
 			del(data)
@@ -248,6 +258,8 @@ def main(args):
 		spec = masterSpectra.mean(axis=0)
 		
 		# Estimate the dipole resonance frequencies
+		print "Computing dipole resonance frequencies"
+		pb = ProgressBar(max=spec.shape[0])
 		resFreq = numpy.zeros(spec.shape[0])
 		toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
 		for i in xrange(spec.shape[0]):
@@ -267,6 +279,14 @@ def main(args):
 				resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0][0]]] / 1e6
 			except:
 				pass
+			
+			pb.inc(amount=1)
+			if pb.amount != 0 and pb.amount % 10 == 0:
+				sys.stdout.write(pb.show()+'\r')
+				sys.stdout.flush()
+		sys.stdout.write(pb.show()+'\r')
+		sys.stdout.write('\n')
+		sys.stdout.flush()
 		
 		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
 					avgPower=avgPower, dataRange=dataRange, ssmifContents=ssmifContents)
