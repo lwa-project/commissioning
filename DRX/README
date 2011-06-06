@@ -58,6 +58,13 @@ controlled by the time offset stored in the frame header.  This should read in t
 first complete set of frame from all four beamtunepols and compare tunings 1 and 2.  
 Any differences between the times are noted.
 
+checkTuningCoherency.py
+-----------------------
+Given a a DRX file with both tunings set to the same parameters, check for coherency
+across the tunings via cross-correlation.  For each set of data, print out the lag
+(in DRX samples) where the cross-correlation function has its peak and the normalized
+correlation magnitude relative to the previous set of tuning 1 data.
+
 drxTimeseries.py
 ----------------
 Script for plotting time series data from a DRX file.  This file is also available 
