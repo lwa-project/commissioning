@@ -238,8 +238,10 @@ def main(args):
 
 				if standMapper[i] % 2 == 0:
 					ref = data[0,:]
+					t1R = t1X
 				else:
 					ref = data[1,:]
+					t1R = t1Y
 				
 				(lag, cc), junkI, junkQ = crossCorrelate(data[i,sec*samples:(sec+1)*samples], 
 									  ref[offset+sec*samples:offset+(sec+1)*samples])
@@ -247,7 +249,7 @@ def main(args):
 				if config['verbose']:
 					print 'tune %i pol. %s' % (standMapper[i]%4/2+1, standMapper[i]%2)
 					print ' -> best peak of %.0f at a lag of %i samples' % (cc.max(), lag[best])
-					print ' -> NCM with tuning 1 of %.3f' % (cc.max()/t1X)
+					print ' -> NCM with tuning 1 of %.3f' % (cc.max()/t1R)
 				
 				# Plot
 				ax = fig.add_subplot(figsX,figsY,k+1)
@@ -261,6 +263,7 @@ def main(args):
 				ax.set_xlabel('Lag [samples]')
 				ax.set_ylabel('Analysis Sets')
 
+				# Save the tuning 1 values for the peak of the CC function
 				if standMapper[i]%4/2+1 == 1:
 					if standMapper[i]%2 == 0:
 						t1X = cc.max()
