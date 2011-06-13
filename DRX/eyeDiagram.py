@@ -213,9 +213,9 @@ def main(args):
 			
 			#last = 0
 			#for i in xrange(1,len(dtime[s,0:endPt])):
-				#if dtime[s,i-1] > dtime[s,i]:
-			ax1.plot(dtime[s,last:i]*2*numpy.pi, data[s,last:i].real - data[s,:].real.min(), color='blue')
-			ax1.plot(dtime[s,last:i]*2*numpy.pi, data[s,last:i].imag - data[s,:].imag.min(), color='green')
+			#	if dtime[s,i-1] > dtime[s,i]:
+			ax1.plot(dtime[s,:]*2*numpy.pi, data[s,:].real - data[s,:].real.min(), color='blue')
+			ax1.plot(dtime[s,:]*2*numpy.pi, data[s,:].imag - data[s,:].imag.min(), color='green')
 					#last = i
 			
 			ninety = dtime[s, numpy.where( data[s,:].real == data[s,:].real.max() )[0]].mean()

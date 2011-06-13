@@ -245,7 +245,7 @@ def main(args):
 				
 				(lag, cc), junkI, junkQ = crossCorrelate(data[i,sec*samples:(sec+1)*samples], 
 									  ref[offset+sec*samples:offset+(sec+1)*samples])
-				best = numpy.where( cc == cc.max() )
+				best = numpy.where( cc == cc.max() )[0][0]
 				if config['verbose']:
 					print 'tune %i pol. %s' % (standMapper[i]%4/2+1, standMapper[i]%2)
 					print ' -> best peak of %.0f at a lag of %i samples' % (cc.max(), lag[best])

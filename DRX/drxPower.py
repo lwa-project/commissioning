@@ -212,17 +212,14 @@ def main(args):
 
 			ax = fig.add_subplot(figsX,figsY,k+1)
 			if toClip:
-				ax.plot(numpy.arange(0,samples)/srate, data[i,0:samples].real, label='%i (real)' % (i+1))
-				ax.plot(numpy.arange(0,samples)/srate, data[i,0:samples].imag, label='%i (imag)' % (i+1))
+				ax.plot(numpy.arange(0,samples)/srate, data[i,0:samples])
 			else:
-				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].real, label='%i (real)' % (i+1))
-				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].imag, label='%i (imag)' % (i+1))
+				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:])
 			ax.set_ylim([0, 12])
-			ax.legend(loc=0)
 			
 			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
 			ax.set_xlabel('Time [seconds]')
-			ax.set_ylabel('Output Level')
+			ax.set_ylabel('Output Power Level')
 		plt.show()
 
 		# Save image if requested
