@@ -43,7 +43,7 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['offset'] = 0.0
 	config['average'] = 0.0001
-	config['maxFrames'] = 19144
+	config['maxFrames'] = 19144*3
 	config['output'] = None
 	config['verbose'] = True
 	config['args'] = []
@@ -155,7 +155,7 @@ def main(args):
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
 		count = {}
-		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
+		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
 		
 		# Inner loop that actually reads the frames into the data array
 		print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
@@ -190,13 +190,21 @@ def main(args):
 			#	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
 
 			#print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.data.iq.shape
-			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
-		
-		# Compute the power
-		data = numpy.abs(data)
-		
+
+		# Check for transient gain changes
+		samples = 4096*1000
+		print "Check for Transient Gain Changes"
+		for i in xrange(data.shape[0]):
+			mean = data[i,0:samples].mean()
+			std = data[i,0:samples].std()
+			print "Beam: %i; Data mean=%.2f, Data std=%.2f" % (i, mean, std)
+			for j in xrange(int(mean),13):
+				nOver = len(numpy.where( data[i,:] > j)[0])
+				print "-> Samples above %i count (%.2f sigma): %i (%.2f%%)" % (j, (j-mean)/std, nOver, 100.0*nOver/data.shape[1])
+
 		# The plots:  This is setup for the current configuration of 20 beampols
 		fig = plt.figure()
 		figsX = int(round(math.sqrt(beampols)))
@@ -215,7 +223,7 @@ def main(args):
 				ax.plot(numpy.arange(0,samples)/srate, data[i,0:samples])
 			else:
 				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:])
-			ax.set_ylim([0, 12])
+			ax.set_ylim([-1, 11])
 			
 			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
 			ax.set_xlabel('Time [seconds]')

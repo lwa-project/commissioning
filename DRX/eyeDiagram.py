@@ -10,6 +10,7 @@ import numpy
 
 import getopt
 
+from lsl.common.dp import fS
 from lsl.reader import errors, tbn, drx
 
 from matplotlib import pyplot as plt
@@ -191,7 +192,7 @@ def main(args):
 		if aStand not in count.keys():
 			count[aStand] = 0
 
-		dtime[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = cFrame.getTime() + 1.0 / sampleRate * numpy.arange(0.0, cFrame.data.iq.size)
+		dtime[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = 4096*count[aStand]/sampleRate + 1.0 / sampleRate * numpy.arange(0.0, cFrame.data.iq.size, dtype=numpy.float64)
 		data[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = cFrame.data.iq
 		
 		count[aStand] = count[aStand] + 1
@@ -208,26 +209,36 @@ def main(args):
 	
 	fig = plt.figure()
 	if config['polar']:
-		for s in xrange(len(config['keep'])):
-			ax1 = fig.add_subplot(2, 2, s+1, polar=True)
+		sortedMapper = sorted(standMapper)
+		for k, aStand in enumerate(sortedMapper):
+			s = standMapper.index(aStand)
+			if s+1 not in config['keep']:
+				continue
 			
-			#last = 0
-			#for i in xrange(1,len(dtime[s,0:endPt])):
-			#	if dtime[s,i-1] > dtime[s,i]:
+			ax1 = fig.add_subplot(2, 2, k+1, polar=True)
+			
 			ax1.plot(dtime[s,:]*2*numpy.pi, data[s,:].real - data[s,:].real.min(), color='blue')
 			ax1.plot(dtime[s,:]*2*numpy.pi, data[s,:].imag - data[s,:].imag.min(), color='green')
-					#last = i
 			
-			ninety = dtime[s, numpy.where( data[s,:].real == data[s,:].real.max() )[0]].mean()
-			ax1.plot(dtime[s,0:200]*2*numpy.pi, (numpy.cos((dtime[s,0:200]-ninety+0.75)*2*numpy.pi)+1)/2*(data[s,:].real.max()-data[s,:].real.min()), color='cyan')
+			#ninety = dtime[s, numpy.where( data[s,:].real == data[s,:].real.max() )[0]].mean()
+			#ax1.plot(dtime[s,0:200]*2*numpy.pi, (numpy.cos((dtime[s,0:200]-ninety+0.75)*2*numpy.pi)+1)/2*(data[s,:].real.max()-data[s,:].real.min()), color='cyan')
 			
-			ninety = dtime[s, numpy.where( data[s,:].imag == data[s,:].imag.max() )[0]].mean()
-			ax1.plot(dtime[s,0:200]*2*numpy.pi, (numpy.cos((dtime[s,0:200]-ninety+0.75)*2*numpy.pi)+1)/2*(data[s,:].imag.max()-data[s,:].imag.min()), color='magenta')
+			#ninety = dtime[s, numpy.where( data[s,:].imag == data[s,:].imag.max() )[0]].mean()
+			#ax1.plot(dtime[s,0:200]*2*numpy.pi, (numpy.cos((dtime[s,0:200]-ninety+0.75)*2*numpy.pi)+1)/2*(data[s,:].imag.max()-data[s,:].imag.min()), color='magenta')
+			
+			ax1.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[s]/4+1, standMapper[s]%4/2+1, standMapper[s]%2))
 	else:
-		for s in xrange(len(config['keep'])):
-			ax1 = fig.add_subplot(2, 2, s+1)
+		sortedMapper = sorted(standMapper)
+		for k, aStand in enumerate(sortedMapper):
+			s = standMapper.index(aStand)
+			if s+1 not in config['keep']:
+				continue
+			
+			ax1 = fig.add_subplot(2, 2, k+1)
 			ax1.plot(dtime[s,0:endPt], data[s,0:endPt].real, marker='+', linestyle=' ', color='blue')
 			ax1.plot(dtime[s,0:endPt], data[s,0:endPt].imag, marker='+', linestyle=' ', color='green')
+			
+			ax1.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[s]/4+1, standMapper[s]%4/2+1, standMapper[s]%2))
 		
 	plt.show()
 

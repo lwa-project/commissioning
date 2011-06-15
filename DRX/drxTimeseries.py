@@ -214,7 +214,7 @@ def main(args):
 			else:
 				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].real, label='%i (real)' % (i+1))
 				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].imag, label='%i (imag)' % (i+1))
-			ax.set_ylim([-8, 7])
+			ax.set_ylim([-8, 8])
 			ax.legend(loc=0)
 			
 			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
