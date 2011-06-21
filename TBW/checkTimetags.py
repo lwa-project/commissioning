@@ -74,7 +74,7 @@ def main(args):
 		if framesRemaining > maxFrames:
 			framesWork = maxFrames
 		else:
-			break
+			framesWork = nFrames
 		print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
 
 		# Inner loop that actually reads the frames into the data array
@@ -85,7 +85,7 @@ def main(args):
 			except errors.eofError:
 				break
 			except errors.syncError:
-				#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+				print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
 				continue
 			
 			stand = cFrame.header.parseID()
