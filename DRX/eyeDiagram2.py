@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""
+Given a DRX file, look for glitches in a DRX or TBN data by fitting a sine wave 
+to the data.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import sys
@@ -41,7 +47,6 @@ Usage:  eyeDiagram2.py [OPTIONS] data_file
 
 Options:
 -h, --help                  Display this help information
--n, --tbn                   TBN data is being supplied (default = DRX)
 -f, --freq                  Set the frequency of the observations in MHz (default = 
                             38.00 MHz)
 -i, --input-freq            Set the frequency of the input sinusoid in MHz (default = 
@@ -67,7 +72,7 @@ def parseOptions(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hnf:i:k:", ["help", "tbn", "freq=", "input-freq=", "keep="])
+		opts, args = getopt.getopt(args, "hf:i:k:", ["help", "freq=", "input-freq=", "keep="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"

@@ -1,7 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# this script tests the beam path with an input sine wave 
-#
+
+"""
+Set DRX beams and start a recording.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import datetime
 import os
 import math
@@ -19,7 +26,7 @@ import getopt
 
 
 def usage(exitCode=None):
-	print """test_analog_in2.py - Set DRX beams and start a recording
+	print """test_analog_in2.py - Set DRX beams and start a recording.
 	
 Usage: test_analog_in2.py [OPTIONS]
 

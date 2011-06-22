@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+"""
+Read in a DRX file and look at the time tag difference between tuning 1 and 
+tuning 2 to and if that difference changes throughout a file.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import os
 import sys
 import numpy

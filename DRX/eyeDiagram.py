@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""
+Create an eye diagram for some portion of a TBN or DRX file.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import sys
@@ -24,7 +29,6 @@ Usage:  eyeDiagram.py [OPTIONS] data_file
 
 Options:
 -h, --help                  Display this help information
--n, --tbn                   TBN data is being supplied (default = DRX)
 -f, --freq                  Set the frequency of the observations in MHz (default = 
                             38.00 MHz)
 -i, --input-freq            Set the frequency of the input sinusoid in MHz (default = 
@@ -56,7 +60,7 @@ def parseOptions(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hnf:i:s:t:k:r", ["help", "tbn", "freq=", "input-freq=", "skip=", "time=", "keep=", "rectilinear"])
+		opts, args = getopt.getopt(args, "hf:i:s:t:k:r", ["help", "freq=", "input-freq=", "skip=", "time=", "keep=", "rectilinear"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"

@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Read in a SSMIF file and estimate the DRX beam for a given frequency and 
+topocentric pointing center.  The estimate is based off a simple delay-and-sum 
+beam former so it won't be an exact match.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import sys
 import numpy
 import getopt
@@ -9,8 +19,8 @@ from lsl.misc import beamformer
 from lsl.common.stations import parseSSMIF
 
 def usage(exitCode=None):
-	print """estimateBeam.py - Read in SSMIF file and estimate the DRX beam 
-for a given frequency and topogentric pointing center.  The estimate is based 
+	print """estimateBeam.py - Read in a SSMIF file and estimate the DRX beam 
+for a given frequency and topocentric pointing center.  The estimate is based 
 off a simple delay-and-sum beam former so it won't be an exact match.
 
 Usage: generateDelays.py [OPTIONS] file

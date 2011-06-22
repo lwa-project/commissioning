@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Check the time times in a DRX file for flow.  This script should be immune to the 
+various DRX cross-tuning time tag issues because it does comparisons on a tuning/
+polarization basis.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import os
 import sys
 import ephem

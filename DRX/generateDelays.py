@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Read in SSMIF file and create a set of DRX gain and delay files for a given 
+frequency and topogentric pointing center.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import sys
 import numpy
 import getopt
@@ -11,7 +20,7 @@ from lsl.misc import beamformer
 from lsl.common.stations import parseSSMIF
 
 def usage(exitCode=None):
-	print """generateDelays.py - Read in SSMIF file and create a set of DRX
+	print """generateDelays.py - Read in a SSMIF file and create a set of DRX
 gain and delay files for a given frequency and topogentric pointing center.
 
 Usage: generateDelays.py [OPTIONS] file

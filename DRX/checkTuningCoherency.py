@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Given a DRX file with both tunings set to the same parameters, check for coherency."""
+"""
+Given a DRX file with both tunings set to the same parameters, check for coherency.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import sys
