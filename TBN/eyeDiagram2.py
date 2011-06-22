@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""
+Look for glitches in a DRX or TBN data by fitting a sine wave to the data.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import sys

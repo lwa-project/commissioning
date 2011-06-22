@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Check the time tags in a full 520 antenna stand data set.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import os
 import sys
 import ephem

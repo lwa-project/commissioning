@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Given a TBN file, plot the time averaged spectra for each digitizer input."""
+"""
+Given a TBN file, plot the time series I and Q data as a function of time.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import sys

@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""
+Given a TBN file, create an eye diagram for some portion of a TBN or DRX file.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import sys
