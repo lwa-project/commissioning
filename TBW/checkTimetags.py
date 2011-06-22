@@ -3,6 +3,10 @@
 
 """
 Given a TBW file, check the time tags.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os

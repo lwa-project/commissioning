@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Display NPZ data from stationMaster in an interactive GUI sort of way.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import os
 import sys
 import numpy
