@@ -23,6 +23,12 @@ Look for glitches in a TBN file by fitting a quantized sine wave to the data.
 
 tbnTimeseries.py
 ----------------
-Alpha-version script to plot out time series I/Q data from a TBN file.  
+Alpha-version script to plot out time series I/Q data from a TBN file.
+
+checkMissing.py
+---------------
+Look at what is coming out of the TBN ring buffer and plot of what frames are missing,
+if any, as a function of time in the file.
+
 
 

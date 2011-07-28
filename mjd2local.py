@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+For a given MJD value or list of MJD values, return the range of local times 
+associated with that MJD.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import sys
 import pytz
 import getopt

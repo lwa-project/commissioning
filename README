@@ -21,6 +21,12 @@ mjd2local.py
 For a given MJD value or list of MJD values, return the range of local times 
 associated with that MJD.
 
+plotShelterTemp.py
+------------------
+Short script to read in a shelter.txt file (log of shelter temperature with each
+line consisting of a UNIX time stamp and a shelter temperature) and plot all of 
+the avaliable data.
+
 TBW
 ---
 See the TBW/README file.

@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Convert a local date/time string in the format of "YYYY-MM-DD HH:MM:SS[.SSS]" into 
+MJD and MPM UTC values.  If no date/time string is supplied, the current local 
+date/time is used.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import sys
 import math
 import pytz

@@ -15,6 +15,10 @@
 # Outputs:
 # List of firmware versions for all attached drives with the above model number.
 #
+# $Rev$
+# $LastChangedBy$
+# $LastChangedDate$
+# 
 
 cat /proc/scsi/scsi | grep ST31000525SV | sed -e 's/.*Rev:\s*//g;'
 
