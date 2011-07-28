@@ -28,16 +28,16 @@ def main(args):
 	if len(args) < 1:
 		print 'Need a filename to plot.'
 		sys.exit(1)
-	filename = args[0]
 	
-	# Read in the data
-	fh = open(filename)
 	data = []
-	for line in fh:
-		line = line.replace('\n', '')
-		fields = line.split()
-		fields = [float(f) for f in fields]
-		data.append( fields )
+	for filename in args:
+		# Read in the data
+		fh = open(filename)
+		for line in fh:
+			line = line.replace('\n', '')
+			fields = line.split()
+			fields = [float(f) for f in fields]
+			data.append( fields )
 
 	# Split out the time and interperate it
 	data = numpy.array(data)
@@ -47,7 +47,7 @@ def main(args):
 	# Plot
 	fig = plt.figure()
 	ax1 = fig.add_subplot(1, 1, 1)
-	ax1.plot_date(dates, data[:,1], fmt='-', tz=MST7MDT)
+	ax1.plot_date(dates, data[:,1], fmt='-', tz=MST7MDT, marker='x', linestyle=' ')
 
 	# Label and format dates
 	ax1.set_title('Shelter Temperature')
