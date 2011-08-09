@@ -71,6 +71,7 @@ def main(args):
 	fig.autofmt_xdate()
 
 	# Show
+	ax1.set_ylim(-5, 95)
 	plt.show()
 
 
