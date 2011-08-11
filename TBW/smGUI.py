@@ -171,6 +171,7 @@ class TBW_GUI(object):
 		self.limits.append([0, 2])
 		self.limits.append([1, 2])
 		self.limits.append([1, 2])
+		self.limits.append([0, 3])
 		self.limits.append([31, 50])
 		
 		# Save the filename and data
@@ -246,6 +247,13 @@ class TBW_GUI(object):
 				specDiff[i] /= (self.spec[i,corr] / self.specTemplate[corr]).mean()
 				
 			cbTitle = 'RFI-64 Index'
+		elif self.color == 3:
+			# Color by antenna status code.
+			specDiff = numpy.zeros(self.spec.shape[0])
+			for i in xrange(self.spec.shape[0]):
+				specDiff[i] = self.antennas[i].status
+				
+			cbTitle = 'Antenna Status'
 		else:
 			# Color by the estimated resonsonce point frequency.  This is done 
 			# by finding the best-fit polynomial in between orders 3 and 12 
@@ -458,18 +466,20 @@ class TBW_GUI(object):
 
 
 ID_OPEN = 10
-ID_QUIT = 11
+ID_SSMIF = 11
+ID_QUIT = 12
 ID_COLOR_0 = 20
 ID_COLOR_1 = 21
 ID_COLOR_2 = 22
 ID_COLOR_3 = 23
-ID_COLOR_ADJUST = 24
+ID_COLOR_4 = 24
+ID_COLOR_ADJUST = 25
 ID_DETAIL_ANT = 30
 ID_DETAIL_STAND = 31
 ID_DETAIL_FEE = 32
 ID_DETAIL_CABLE = 33
 ID_DETAIL_RFI = 34
-ID_DETAIL_SUMMARY = 35
+ID_DETAIL_CHANGE_STATUS = 35
 ID_AVG_POWER = 40
 ID_AVG_RANGE = 41
 ID_AVG_SUMMARY = 42
@@ -508,18 +518,21 @@ class MainWindow(wx.Frame):
 		powerMenu = wx.Menu()
 		selectMenu = wx.Menu()
 		
-		# File menu
+		## File menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, '&Open')
 		fileMenu.AppendItem(open)
+		ssmif = wx.MenuItem(fileMenu, ID_SSMIF, '&Show SSMIF Status')
+		fileMenu.AppendItem(ssmif)
 		fileMenu.AppendSeparator()
 		quit = wx.MenuItem(fileMenu, ID_QUIT, '&Quit')
 		fileMenu.AppendItem(quit)
 		
 		# Color menu
 		colorMenu.AppendRadioItem(ID_COLOR_0, '&Median Comparison')
-		colorMenu.AppendRadioItem(ID_COLOR_3, '&Resonance Point')
+		colorMenu.AppendRadioItem(ID_COLOR_4, '&Resonance Point')
 		colorMenu.AppendRadioItem(ID_COLOR_1, 'RFI-&46 Index')
 		colorMenu.AppendRadioItem(ID_COLOR_2, 'RFI-&64 Index')
+		colorMenu.AppendRadioItem(ID_COLOR_3, 'Antenna Status')
 		colorMenu.AppendSeparator()
 		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
 		colorMenu.AppendItem(cadj)
@@ -536,6 +549,9 @@ class MainWindow(wx.Frame):
 		detailMenu.AppendSeparator()
 		dshl = wx.MenuItem(detailMenu, ID_DETAIL_RFI, 'Shelter &RFI Index')
 		detailMenu.AppendItem(dshl)
+		detailMenu.AppendSeparator()
+		dcst = wx.MenuItem(detailMenu, ID_DETAIL_CHANGE_STATUS, 'Change Antenna/FEE Status')
+		detailMenu.AppendItem(dcst)
 		
 		# Power
 		apwr = wx.MenuItem(powerMenu, ID_AVG_POWER, '&Plot Power')
@@ -598,6 +614,7 @@ class MainWindow(wx.Frame):
 		
 		# File menu events
 		self.Bind(wx.EVT_MENU, self.onOpen, id=ID_OPEN)
+		self.Bind(wx.EVT_MENU, self.onSSMIF, id=ID_SSMIF)
 		self.Bind(wx.EVT_MENU, self.onQuit, id=ID_QUIT)
 		
 		# Color menu events
@@ -605,6 +622,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onColor1, id=ID_COLOR_1)
 		self.Bind(wx.EVT_MENU, self.onColor2, id=ID_COLOR_2)
 		self.Bind(wx.EVT_MENU, self.onColor3, id=ID_COLOR_3)
+		self.Bind(wx.EVT_MENU, self.onColor4, id=ID_COLOR_4)
 		self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
 		
 		# Detail menu events
@@ -613,6 +631,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onFEE, id=ID_DETAIL_FEE)
 		self.Bind(wx.EVT_MENU, self.onCable, id=ID_DETAIL_CABLE)
 		self.Bind(wx.EVT_MENU, self.onRFI, id=ID_DETAIL_RFI)
+		self.Bind(wx.EVT_MENU, self.onStatus, id=ID_DETAIL_CHANGE_STATUS)
 		
 		# Power menu events
 		self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
@@ -627,7 +646,7 @@ class MainWindow(wx.Frame):
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
 	
-	def onOpen(self,e):
+	def onOpen(self, event):
 		"""
 		Open and load in a new NPZ file created by stationMaster.py.
 		"""
@@ -647,6 +666,13 @@ class MainWindow(wx.Frame):
 					pass
 				self.cAdjust = None
 		dlg.Destroy()
+		
+	def onSSMIF(self, event):
+		"""
+		Display the SSMIF antenna and FEE status codes.
+		"""
+		
+		DisplaySSMIF(self)
 		
 	def onQuit(self, event):
 		"""
@@ -700,15 +726,30 @@ class MainWindow(wx.Frame):
 					self.cAdjust.Close()
 				except:
 					pass
-			
+				
 	def onColor3(self, event):
+		"""
+		Set the stand field color coding to the antenna status.  Re-draw if 
+		necessary.
+		"""
+		
+		if self.data.color != 3:
+			self.data.color = 3
+			self.data.draw()
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
+			
+	def onColor4(self, event):
 		"""
 		Set the stand field color coding to the estimates resonance point
 		frequency in MHz.  Re-draw if necessary.
 		"""
 		
-		if self.data.color != 3:
-			self.data.color = 3
+		if self.data.color != 4:
+			self.data.color = 4
 			self.data.draw()
 			if self.cAdjust is not None:
 				try:
@@ -721,7 +762,8 @@ class MainWindow(wx.Frame):
 		Bring up the colorbar adjustment dialog window.
 		"""
 		
-		ContrastAdjust(self)
+		if self.data.color != 3:
+			ContrastAdjust(self)
 		
 	def onAntenna(self, event):
 		"""
@@ -999,6 +1041,14 @@ corrected = %.3f
 		else:
 			pass
 		
+	def onStatus(self, event):
+		"""
+		Display the change antenna/FEE status dialog.
+		"""
+		
+		if self.data.bestX > 0:
+			StatusChangeDialog(self)
+		
 	def onAvgPower(self, event):
 		"""
 		Display the average power plots.
@@ -1164,6 +1214,8 @@ class ContrastAdjust(wx.Frame):
 			mode = 'RFI-46 Index'
 		elif self.parent.data.color == 2:
 			mode = 'RFI-64 Index'
+		elif self.parent.data.color == 3:
+			mode = 'Antenna Status'
 		else:
 			mode = 'Resonance Point'
 		typ = wx.StaticText(panel, label='Color Coding Mode: %s' % mode)
@@ -1623,6 +1675,302 @@ class SelectBox(wx.Dialog):
 		vbox.Add(hbox, 1, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 10)
 
 		self.SetSizer(vbox)
+
+
+STATUS_CHANGE_OK = 201
+STATUS_CHANGE_CANCEL = 202
+
+class StatusChangeDialog(wx.Frame):
+	"""
+	Window for chaning the status of an antenna or FEE.
+	"""
+	
+	def __init__ (self, parent):	
+		wx.Frame.__init__(self, parent, title='Change Antenna/FEE Status', size=(450, 225))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+	def initUI(self):
+		bestX = self.parent.data.bestX
+		bestY = self.parent.data.bestY
+		
+		ant1 = self.parent.data.antennas[bestX-1]
+		ant2 = self.parent.data.antennas[bestY-1]
+		
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		std = wx.StaticText(panel, label='Stand #%i' % ant1.stand.id)
+		sizer.Add(std, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		polX = wx.StaticText(panel, label='X Pol.')
+		sizer.Add(polX, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		asX = wx.StaticText(panel, label='Antenna Status')
+		sizer.Add(asX, pos=(row+0, 0), span=(1,1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		self.as10 = wx.RadioButton(panel, -1, 'Not Installed', style=wx.RB_GROUP)
+		self.as11 = wx.RadioButton(panel, -1, 'Bad')
+		self.as12 = wx.RadioButton(panel, -1, 'Suspect')
+		self.as13 = wx.RadioButton(panel, -1, 'Good')
+		sizer.Add(self.as10, pos=(row+0, 1), span=(1,1))
+		sizer.Add(self.as11, pos=(row+0, 2), span=(1,1))
+		sizer.Add(self.as12, pos=(row+0, 3), span=(1,1))
+		sizer.Add(self.as13, pos=(row+0, 4), span=(1,1))
+		row += 1
+		
+		polY = wx.StaticText(panel, label='Y Pol.')
+		sizer.Add(polY, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		asY = wx.StaticText(panel, label='Antenna Status')
+		sizer.Add(asY, pos=(row+0, 0), span=(1,1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		self.as20 = wx.RadioButton(panel, -1, 'Not Installed', style=wx.RB_GROUP)
+		self.as21 = wx.RadioButton(panel, -1, 'Bad')
+		self.as22 = wx.RadioButton(panel, -1, 'Suspect')
+		self.as23 = wx.RadioButton(panel, -1, 'Good')
+		sizer.Add(self.as20, pos=(row+0, 1), span=(1,1))
+		sizer.Add(self.as21, pos=(row+0, 2), span=(1,1))
+		sizer.Add(self.as22, pos=(row+0, 3), span=(1,1))
+		sizer.Add(self.as23, pos=(row+0, 4), span=(1,1))
+		row += 1
+		
+		line = wx.StaticLine(panel)
+		sizer.Add(line, pos=(row+0, 0), span=(1, 5), flag=wx.EXPAND|wx.BOTTOM, border=10)
+		row += 1
+		
+		fs =  wx.StaticText(panel, label='FEE Status')
+		sizer.Add(fs, pos=(row+0, 0), span=(1,1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		self.fs0 = wx.RadioButton(panel, -1, 'Not Installed', style=wx.RB_GROUP)
+		self.fs1 = wx.RadioButton(panel, -1, 'Bad')
+		self.fs2 = wx.RadioButton(panel, -1, 'Suspect')
+		self.fs3 = wx.RadioButton(panel, -1, 'Good')
+		sizer.Add(self.fs0, pos=(row+0, 1), span=(1,1))
+		sizer.Add(self.fs1, pos=(row+0, 2), span=(1,1))
+		sizer.Add(self.fs2, pos=(row+0, 3), span=(1,1))
+		sizer.Add(self.fs3, pos=(row+0, 4), span=(1,1))
+		row += 1
+		
+		line = wx.StaticLine(panel)
+		sizer.Add(line, pos=(row+0, 0), span=(1, 5), flag=wx.EXPAND|wx.BOTTOM, border=10)
+		row += 1
+		
+		#
+		# Buttons
+		#
+		ok = wx.Button(panel, STATUS_CHANGE_OK, 'Ok', size=(56, 28))
+		cancel = wx.Button(panel, STATUS_CHANGE_CANCEL, 'Cancel', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		sizer.Add(cancel, pos=(row+0, 4), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		panel.SetSizerAndFit(sizer)
+		
+		#
+		# Set current values
+		#
+		
+		## Antenna 1
+		if ant1.status == 0:
+			self.as10.SetValue(True)
+			self.as11.SetValue(False)
+			self.as12.SetValue(False)
+			self.as13.SetValue(False)
+		elif ant1.status == 1:
+			self.as10.SetValue(False)
+			self.as11.SetValue(True)
+			self.as12.SetValue(False)
+			self.as13.SetValue(False)
+		elif ant1.status == 2:
+			self.as10.SetValue(False)
+			self.as11.SetValue(False)
+			self.as12.SetValue(True)
+			self.as13.SetValue(False)
+		else:
+			self.as10.SetValue(False)
+			self.as11.SetValue(False)
+			self.as12.SetValue(False)
+			self.as13.SetValue(True)
+		
+		## Antenna 2
+		if ant2.status == 0:
+			self.as20.SetValue(True)
+			self.as21.SetValue(False)
+			self.as22.SetValue(False)
+			self.as23.SetValue(False)
+		elif ant2.status == 1:
+			self.as20.SetValue(False)
+			self.as21.SetValue(True)
+			self.as22.SetValue(False)
+			self.as23.SetValue(False)
+		elif ant2.status == 2:
+			self.as20.SetValue(False)
+			self.as21.SetValue(False)
+			self.as22.SetValue(True)
+			self.as23.SetValue(False)
+		else:
+			self.as20.SetValue(False)
+			self.as21.SetValue(False)
+			self.as22.SetValue(False)
+			self.as23.SetValue(True)
+		
+		## FEE
+		if ant1.fee.status == 0:
+			self.fs0.SetValue(True)
+			self.fs1.SetValue(False)
+			self.fs2.SetValue(False)
+			self.fs3.SetValue(False)
+		elif ant1.fee.status == 1:
+			self.fs0.SetValue(False)
+			self.fs1.SetValue(True)
+			self.fs2.SetValue(False)
+			self.fs3.SetValue(False)
+		elif ant1.fee.status == 2:
+			self.fs0.SetValue(False)
+			self.fs1.SetValue(False)
+			self.fs2.SetValue(True)
+			self.fs3.SetValue(False)
+		else:
+			self.fs0.SetValue(False)
+			self.fs1.SetValue(False)
+			self.fs2.SetValue(False)
+			self.fs3.SetValue(True)
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=STATUS_CHANGE_OK)
+		self.Bind(wx.EVT_BUTTON, self.onCancel, id=STATUS_CHANGE_CANCEL)
+		
+	def onOk(self, event):
+		# Antenna 1
+		if self.as10.GetValue():
+			self.parent.data.antennas[self.parent.data.bestX-1].status = 0
+		elif self.as11.GetValue():
+			self.parent.data.antennas[self.parent.data.bestX-1].status = 1
+		elif self.as12.GetValue():
+			self.parent.data.antennas[self.parent.data.bestX-1].status = 2
+		else:
+			self.parent.data.antennas[self.parent.data.bestX-1].status = 3
+			
+		# Antenna 2
+		if self.as20.GetValue():
+			self.parent.data.antennas[self.parent.data.bestY-1].status = 0
+		elif self.as21.GetValue():
+			self.parent.data.antennas[self.parent.data.bestY-1].status = 1
+		elif self.as22.GetValue():
+			self.parent.data.antennas[self.parent.data.bestY-1].status = 2
+		else:
+			self.parent.data.antennas[self.parent.data.bestY-1].status = 3
+		
+		# FEE
+		if self.fs0.GetValue():
+			self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 0
+			self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 0
+		elif self.fs1.GetValue():
+			self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 1
+			self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 1
+		elif self.fs2.GetValue():
+			self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 2
+			self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 2
+		else:
+			self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 3
+			self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 3
+			
+		# Refresh if we are in the antenna status color coding
+		if self.parent.data.color == 3:
+			self.parent.data.draw()
+		
+		self.Close()
+		
+	def onCancel(self, event):
+		self.Close()
+
+
+SSMIF_OK = 301
+
+class DisplaySSMIF(wx.Frame):
+	"""
+	Text display window for printing out the new SSMIF entries for antenna status.
+	FEE status is currently not supported because of a limitation in the LSL SSMIF
+	parser.
+	"""
+	
+	def __init__ (self, parent):	
+		wx.Frame.__init__(self, parent, title='SSMIF Status Codes', size=(600, 600))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.generateText()
+		self.Show()
+		
+	def initUI(self):
+		vbox = wx.BoxSizer(wx.VERTICAL)
+		self.textCtrl = wx.TextCtrl(self, -1, "", style=wx.TE_MULTILINE|wx.TE_READONLY, size=(600,500))
+		vbox.Add(self.textCtrl, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.TOP|wx.EXPAND, border=5)
+		
+		
+		ok = wx.Button(self, SSMIF_OK, 'Ok', size=(56, 28))
+		vbox.Add(ok, 0, flag=wx.ALIGN_RIGHT|wx.LEFT|wx.RIGHT|wx.BOTTOM, border=5)
+		
+		self.SetSizer(vbox)
+		self.SetAutoLayout(1)
+		vbox.Fit(self)
+			
+	def initEvents(self):
+		self.Bind(wx.EVT_BUTTON, self.onOk,  id=SSMIF_OK)
+		
+	def generateText(self):
+		def sortAnts(x, y):
+			"""
+			Small function to re-sort a list of Antenna instances by antenna number.
+			"""
+			
+			if x.id > y.id:
+				return 1
+			elif x.id < y.id:
+				return -1
+			else:
+				return 0
+		# Sort antennas by antenna number
+		ants = sorted(self.parent.data.antennas, cmp=sortAnts)
+		
+		#
+		# Antenna status codes
+		#
+		
+		self.textCtrl.AppendText('# -----------------------------\n# --- Antenna Status ---\n# -----------------------------\n# Status codes 0-3 summarized defined at end of this document (and in MCS0031)\n# This refers to the *antenna*, not the FEE or some combination of the two.\n# This will be set to 3 ("OK") for any antenna n <= 2*N_STD not identified.\n# *** ANT_STAT[antenna_id] goes here:\n')
+		for ant in ants:
+			if ant.status == 3:
+				continue
+			
+			if ant.id < 10:
+				self.textCtrl.AppendText('ANT_STAT[%i]    %i\n' % (ant.id, ant.status))
+			elif ant.id < 100:
+				self.textCtrl.AppendText('ANT_STAT[%i]   %i\n' % (ant.id, ant.status))
+			else:
+				self.textCtrl.AppendText('ANT_STAT[%i]  %i\n' % (ant.id, ant.status))
+		self.textCtrl.AppendText('\n\n')
+		
+		#
+		# FEE status codes
+		#
+		
+		#self.textCtrl.AppendText('# ----------------------\n# --- FEE Status ---\n# ----------------------\n# Status codes 0-3 summarized defined at end of this document (and in MCS0031)\n# This will be set to 3 ("OK") for any FEE #\'s <= N_FEE not identified\n# *** FEE_STAT[fee_id] goes here:\n')
+		#for ant in ants:
+			#if ant.pol == 0:
+				#self.textCtrl.AppendText('FEE_STAT[%s]  %i\n' % (ant.fee.id, ant.fee.status))
+		#self.textCtrl.AppendText('\n')
+		
+		self.textCtrl.ShowPosition(0)
+		
+	def onOk(self, event):
+		self.Close()
 
 
 def main(args):

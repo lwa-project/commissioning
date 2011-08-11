@@ -21,7 +21,12 @@ from lsl.reader import errors
 from lsl.common.dp import fS
 
 def main(args):
-	fh = open(args[0], "rb", buffering=drx.FrameSize*10000)
+	if args[0] == '-s':
+		skip = float(args[1])
+		fh = open(args[2], "rb")
+	else:
+		skip = 0
+		fh = open(args[0], "rb")
 
 	# Get the first frame and find out what the firt time tag is, which the
 	# first frame number is, and what the sample rate it.  From the sample 
@@ -37,11 +42,16 @@ def main(args):
 	prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
 	prevFrame = junkFrame.header.frameCount
 
+	# Skip ahead
+	fh.seek(int(skip*sampleRate/4096)*4*drx.FrameSize)
+
 	# Report on the file
 	print "Filename: %s" % os.path.basename(args[0])
 	print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
 	print "Sample rate: %i Hz" % sampleRate
 	print "Time tag skip per frame: %i" % tagSkip
+	if skip != 0:
+		print "Skipping ahead %i frames (%.6f seconds)" % (int(skip*sampleRate/4096)*4, int(skip*sampleRate/4096)*4096/sampleRate)
 
 	k = 0
 	#k = 1
