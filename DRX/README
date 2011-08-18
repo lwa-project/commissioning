@@ -65,6 +65,14 @@ across the tunings via cross-correlation.  For each set of data, print out the l
 (in DRX samples) where the cross-correlation function has its peak and the normalized
 correlation magnitude relative to the previous set of tuning 1 data.
 
+beamCoherency.py
+----------------
+Given two or more DRX files from different beams, check for coherency between the 
+beams and make sure that the beams agree with the T_NOM values.  For each 
+beam/tuning/pair, print out the lag (converted to ticks), the time tag differences
+(both raw and T_NOM corrected) and the normalized correlation magnitude relative to 
+the same-beam tuning cross-correlation.
+
 drxTimeseries.py
 ----------------
 Script for plotting time series data from a DRX file.  This file is also available 
@@ -74,7 +82,8 @@ the script we actually used at JPL for pre-acceptance testing.
 drxPower.py
 -----------
 Modified version of drxTimeseries.py that plots the power for each DRX sample instead
-of the raw I/Q values.
+of the raw I/Q values.  The power is summed for the integration time (listed as 
+average) and displayed for the duration that it is computed.
 
 drxSpectra.py
 -------------

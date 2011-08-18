@@ -32,8 +32,10 @@ Options:
 -h, --help                  Display this help information
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
--p, --plot-range            Number of seconds of data to show in the I/Q plots
+-a, --average               Number of seconds of data to average together for power
                             (default = 0.0001)
+-d, --duration              Number of seconds to calculate the waterfall for 
+                            (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode
 -o, --output                Output file name for time series image
 """
@@ -49,6 +51,7 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['offset'] = 0.0
 	config['average'] = 0.0001
+	config['duration'] = 10.0
 	config['maxFrames'] = 19144*3
 	config['output'] = None
 	config['verbose'] = True
@@ -56,7 +59,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:p:", ["help", "quiet", "output=", "skip=", "plot-range="])
+		opts, args = getopt.getopt(args, "hqo:s:a:d:", ["help", "quiet", "output=", "skip=", "average=", "duration="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -72,8 +75,10 @@ def parseOptions(args):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
 			config['offset'] = float(value)
-		elif opt in ('-p', '--plot-range'):
+		elif opt in ('-a', '--average'):
 			config['average'] = float(value)
+		elif opt in('-d', '--duration'):
+			config['duration'] = float(value)
 		else:
 			assert False
 	
@@ -106,20 +111,14 @@ def main(args):
 
 	# Make sure that the file chunk size contains is an intger multiple
 	# of the beampols.
-	maxFrames = int(config['maxFrames']/beampols)*beampols
-
-	# Number of frames to integrate over
-	toClip = False
-	oldAverage = config['average']
-	if config['average'] < 4096/srate:		
-		toClip = True
-		config['average'] = 4096/srate
-	nFrames = int(config['average'] * srate / 4096 * beampols)
-	nFrames = int(1.0 * nFrames / beampols) * beampols
-	config['average'] = 1.0 * nFrames / beampols * 4096 / srate
+	maxFrames = int(round(config['average']*srate/4096))*beampols
+	if maxFrames < beampols:
+		maxFrames = beampols
+	config['average'] = 1.0*maxFrames/beampols*4096/srate
 
 	# Number of remaining chunks
-	nChunks = int(math.ceil(1.0*(nFrames)/maxFrames))
+	nChunks = int(round(config['duration'] / config['average']))
+	nFrames = maxFrames * nChunks
 
 	# File summary
 	print "Filename: %s" % config['args'][0]
@@ -129,8 +128,8 @@ def main(args):
 	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
 	print "---"
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-	print "Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols)
-	print "Chunks: %i" % nChunks
+	print "Integration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], maxFrames, maxFrames / beampols)
+	print "Duration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols)
 
 	# Sanity check
 	if offset > nFramesFile:
@@ -149,6 +148,7 @@ def main(args):
 
 	# Master loop over all of the file chuncks
 	standMapper = []
+	masterData = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	for i in range(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -164,7 +164,7 @@ def main(args):
 		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
 		
 		# Inner loop that actually reads the frames into the data array
-		print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+		print "Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
 		t0 = time.time()
 		
 		for j in xrange(framesWork):
@@ -196,49 +196,37 @@ def main(args):
 			#	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
 
 			#print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.data.iq.shape
-			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)
+			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
 
-		# Check for transient gain changes
-		samples = 4096*1000
-		print "Check for Transient Gain Changes"
-		for i in xrange(data.shape[0]):
-			mean = data[i,0:samples].mean()
-			std = data[i,0:samples].std()
-			print "Beam: %i; Data mean=%.2f, Data std=%.2f" % (i, mean, std)
-			for j in xrange(int(mean),13):
-				nOver = len(numpy.where( data[i,:] > j)[0])
-				print "-> Samples above %i count (%.2f sigma): %i (%.2f%%)" % (j, (j-mean)/std, nOver, 100.0*nOver/data.shape[1])
+		# Save the data
+		masterData[i,:] = data.sum(axis=1)
 
-		# The plots:  This is setup for the current configuration of 20 beampols
-		fig = plt.figure()
-		figsX = int(round(math.sqrt(beampols)))
-		figsY = beampols / figsX
+	# The plots:  This is setup for the current configuration of 20 beampols
+	fig = plt.figure()
+	figsX = int(round(math.sqrt(beampols)))
+	figsY = beampols / figsX
+	
+	# Scale
+	masterData /= masterData.max()
 
-		samples = int(oldAverage * srate)
-		if toClip:
-			print "Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0)
+	sortedMapper = sorted(standMapper)
+	for k, aStand in enumerate(sortedMapper):
+		i = standMapper.index(aStand)
 
-		sortedMapper = sorted(standMapper)
-		for k, aStand in enumerate(sortedMapper):
-			i = standMapper.index(aStand)
+		ax = fig.add_subplot(figsX,figsY,k+1)
+		ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,i])
+		ax.set_ylim([0, 1])
+		
+		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
+		ax.set_xlabel('Time [seconds]')
+		ax.set_ylabel('Output Power Level')
+	plt.show()
 
-			ax = fig.add_subplot(figsX,figsY,k+1)
-			if toClip:
-				ax.plot(numpy.arange(0,samples)/srate, data[i,0:samples])
-			else:
-				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:])
-			ax.set_ylim([-1, 11])
-			
-			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
-			ax.set_xlabel('Time [seconds]')
-			ax.set_ylabel('Output Power Level')
-		plt.show()
-
-		# Save image if requested
-		if config['output'] is not None:
-			fig.savefig(config['output'])
+	# Save image if requested
+	if config['output'] is not None:
+		fig.savefig(config['output'])
 
 
 if __name__ == "__main__":
