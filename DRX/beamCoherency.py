@@ -7,7 +7,7 @@ and make sure that the beams agree with the T_NOM values.
 
 $Rev$
 $LastChangedBy$
-$LastChangedDate: 2011-06-22 14:30:07 -0600 (Wed, 22 Jun 2011) $
+$LastChangedDate$
 """
 
 import os
@@ -98,7 +98,8 @@ def main(args):
 	print "Sample Rate: %s Hz" % ' '.join([str(s) for s in srate])
 	print " "
 
-
+	# Main reader loop - save the data to the `data` list and the raw time tag values
+	# to the `times` list.
 	nFrames = 2000
 	data = numpy.zeros((len(files), 4, 4096*nFrames), dtype=numpy.csingle)
 	times = numpy.zeros((len(files), 4, nFrames), dtype=numpy.int64)
@@ -113,6 +114,7 @@ def main(args):
 				times[i,pair,j] = frame.data.timeTag
 				#print i, j, k, beam, tune, pol, frame.data.timeTag
 	
+	# Cross-correlate
 	refs = [0,0,0,0]
 	for i in xrange(len(files)):
 		for j in xrange(i, len(files)):

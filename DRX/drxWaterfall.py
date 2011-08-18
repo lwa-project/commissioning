@@ -1,7 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Given a DRX file, plot the time averaged spectra for each beam output."""
+"""
+Given a DRX file, plot the time averaged spectra for each beam output over some 
+period.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import sys
@@ -20,7 +27,7 @@ import matplotlib.pyplot as plt
 
 def usage(exitCode=None):
 	print """drxWaterfall.py - Read in DRX files and create a collection of 
-time-averaged spectra.
+time-averaged spectra.  These spectra are saved to a NPZ file called drx-waterfall.npz.
 
 Usage: drxSpectra.py [OPTIONS] file
 
