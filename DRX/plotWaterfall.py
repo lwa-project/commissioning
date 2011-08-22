@@ -27,8 +27,11 @@ class Waterfall(object):
 		self.data = data
 		self.press = None
 		
+		self.index = 0
 		self.ax = None
 		self.ax2 = None
+		
+		self.spectrumClick = None
 		
 	def loadData(self, filename):
 		"""Load in data from an NPZ file."""
@@ -41,7 +44,7 @@ class Waterfall(object):
 		
 		freq = dataDictionary['freq']
 		LFFT = freq.size
-		timeBlocks = numpy.log10(dataDictionary['spec'][:,0,:])*10.0
+		timeBlocks = numpy.log10(dataDictionary['spec'])*10.0
 		integrationTime = dataDictionary['tInt']
 		
 		self.orig = dataDictionary
@@ -62,11 +65,9 @@ class Waterfall(object):
 		self.frame.disableButtons()
 		self.frame.setTextRange()
 		
-		toPlot = self.data
-		
 		self.frame.figure.clf()
 		ax = self.frame.figure.gca()
-		m = ax.imshow(toPlot[1], 
+		m = ax.imshow(self.data[1][:,self.index,:], 
 					extent=(self.data[0][0]/1e6, self.data[0][-1]/1e6, 0, self.intTime*(self.data[1].shape[0]-1)), 
 					vmin=self.crange[0], vmax=self.crange[1])
 		cm = self.frame.figure.colorbar(m, ax=ax)
@@ -74,6 +75,7 @@ class Waterfall(object):
 		ax.axis('auto')
 		ax.set_xlabel('Frequency [MHz]')
 		ax.set_ylabel('Time [s]')
+		ax.set_title('Tuning %i, Pol. %s' % (self.index/2+1, 'Y' if self.index %2 else 'X'))
 		
 		try:
 			if self.oldLine is not None:
@@ -90,7 +92,7 @@ class Waterfall(object):
 		"""Get the spectrum at a particular point in time."""
 		
 		freq = self.data[0]
-		spec = self.data[1][int(round(clickY)),:]
+		spec = self.data[1][int(round(clickY)),self.index,:]
 		
 		self.frame.figure2.clf()
 		ax2 = self.frame.figure2.gca()
@@ -147,7 +149,7 @@ class Waterfall(object):
 			
 			dataX = numpy.where(numpy.abs(clickX-self.data[0]/1e6) == (numpy.abs(clickX-self.data[0]/1e6).min()))[0][0]
 			
-			value = self.data[1][int(round(clickY)), int(round(dataX))]
+			value = self.data[1][int(round(clickY)), self.index, int(round(dataX))]
 			self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
 		else:
 			self.frame.statusbar.SetStatusText("")
@@ -161,34 +163,49 @@ class Waterfall(object):
 		self.frame.figure.canvas.mpl_disconnect(self.cidmotion)
 
 
+ID_OPEN = 10
+ID_QUIT = 11
+ID_TUNING1_X = 20
+ID_TUNING1_Y = 21
+ID_TUNING2_X = 22
+ID_TUNING2_Y = 23
+
 class MainWindow(wx.Frame):
-	def __init__(self, parent, id, title):
+	def __init__(self, parent, id):
 		self.dirname = ''
 		self.data = None
 		
-		wx.Frame.__init__(self, parent, id, title=title, size=(600,800))
+		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(600,800))
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+	def initUI(self):
 		self.statusbar = self.CreateStatusBar() # A Statusbar in the bottom of the window
 		
 		font = wx.SystemSettings_GetFont(wx.SYS_SYSTEM_FONT)
 		font.SetPointSize(10)
 		
 		menuBar = wx.MenuBar()
-		filemenu = wx.Menu()
-		menuItem = filemenu.Append(wx.ID_OPEN, "&Open"," Open a file to edit")
-		self.Bind(wx.EVT_MENU, self.OnOpen, menuItem)
-		#menuItem = filemenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
-		#self.Bind(wx.EVT_MENU, self.OnAbout, menuItem)
-		filemenu.AppendSeparator()
-		menuItem = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
-		self.Bind(wx.EVT_MENU, self.OnExit, menuItem)
 		
-		datamenu = wx.Menu()
-		menuItem = datamenu.Append(wx.ID_ABOUT, "&About", "Information about the data")
-		self.Bind(wx.EVT_MENU, self.DataAbout, menuItem)
+		fileMenu = wx.Menu()
+		open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
+		fileMenu.AppendItem(open)
+		fileMenu.AppendSeparator()
+		exit = wx.MenuItem(fileMenu, ID_QUIT, "E&xit")
+		fileMenu.AppendItem(exit)
+		
+		dataMenu = wx.Menu()
+		dataMenu.AppendRadioItem(ID_TUNING1_X, 'Tuning 1, Pol. X')
+		dataMenu.AppendRadioItem(ID_TUNING1_Y, 'Tuning 1, Pol. Y')
+		dataMenu.AppendSeparator()
+		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
+		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
 
 		# Creating the menubar.
-		menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
-		menuBar.Append(datamenu, "&Data")
+		menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
+		menuBar.Append(dataMenu, "&Data")
 		self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 		
 		vbox = wx.BoxSizer(wx.VERTICAL)
@@ -253,9 +270,6 @@ class MainWindow(wx.Frame):
 		panel3.SetSizer(hbox3)
 		vbox.Add(panel3, 1, wx.EXPAND)
 		
-		# Make the images resizable
-		self.Bind(wx.EVT_PAINT, self.resizePlots)
-		
 		# Use some sizers to see layout options
 		self.SetSizer(vbox)
 		self.SetAutoLayout(1)
@@ -263,8 +277,20 @@ class MainWindow(wx.Frame):
 		
 		#Layout sizers
 		self.Show()
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_MENU, self.onOpen, id=ID_OPEN)
+		self.Bind(wx.EVT_MENU, self.onExit, id=ID_QUIT)
+		
+		self.Bind(wx.EVT_MENU, self.onTuning1X, id=ID_TUNING1_X)
+		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
+		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
+		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
+		
+		# Make the images resizable
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
 	
-	def OnOpen(self,e):
+	def onOpen(self,e):
 		""" Open a file"""
 		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
 		if dlg.ShowModal() == wx.ID_OK:
@@ -274,39 +300,33 @@ class MainWindow(wx.Frame):
 			self.data.loadData(os.path.join(self.dirname, self.filename))
 			self.data.draw()
 		dlg.Destroy()
-	
-	def OnAbout(self, event):
-		dlg = wx.MessageDialog( self, "Plotter for HALO data", "About", wx.OK)
-		dlg.ShowModal() # Show it
-		dlg.Destroy() # finally destroy it when finished.
 		
-	def OnExit(self, event):
+	def onExit(self, event):
 		self.Close(True)
 		
-	
-	def DataAbout(self, event):
-		if self.data is None:
-			info = "No file loaded."
-		else:
-			try:
-				usrp = self.data.orig['usrp']
-			except KeyError:
-				usrp = False
-
-			info = ''
-			info = "%sFilename: '%s'\n" % (info, self.data.filename)
-			info = "%sUSRP Data: %s\n" % (info, str(usrp))
-			info = "%s\n" % info
-			info = "%sIntegration Time:  %.1f ms\n" % (info, self.data.orig['integrationTime']*1000.0)
-			info = "%sLength of File: %.2f s\n" % (info, self.data.orig['timeBlocks'].shape[0]*self.data.orig['integrationTime'])
-			info = "%s\n" % info
-			info = "%sChannel Count: %i\n" % (info, self.data.orig['timeBlocks'].shape[1])
-			info = "%sFrequency Range: %.2f to %.2f MHz\n""" % (info, self.data.orig['freq'].min()/1e6, self.data.orig['freq'].max()/1e6)
-			info = "%sFrequency Step: %.2f Hz" % (info, abs(self.data.orig['freq'][1]-self.data.orig['freq'][0]))
-
-		dlg = wx.MessageDialog( self, info, "About", wx.OK)
-		dlg.ShowModal() # Show it
-		dlg.Destroy() # finally destroy it when finished.
+	def onTuning1X(self, event):
+		self.data.index = 0
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
+		
+	def onTuning1Y(self, event):
+		self.data.index = 1
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
+		
+	def onTuning2X(self, event):
+		self.data.index = 2
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
+		
+	def onTuning2Y(self, event):
+		self.data.index = 3
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
 
 	def decRange(self, event):
 		if self.data is not None:
@@ -371,7 +391,7 @@ class MainWindow(wx.Frame):
 
 def main(args):
 	app = wx.App(0)
-	frame = MainWindow(None, -1, "HALO Viewer")
+	frame = MainWindow(None, -1)
 	if len(args) == 1:
 		frame.data = Waterfall(frame)
 		frame.data.loadData(args[0])

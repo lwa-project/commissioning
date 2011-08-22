@@ -14,6 +14,7 @@ $LastChangedDate$
 import os
 import sys
 import ephem
+import gc
 
 from lsl import astro
 from lsl.reader import drx
@@ -105,6 +106,10 @@ def main(args):
 		prevDate[rID] = currDate
 		prevNumb[rID] = currNumb
 		k += 1
+		
+		del currFrame
+		if k % 100 == 0:
+			gc.collect()
 
 	fh.close()
 
