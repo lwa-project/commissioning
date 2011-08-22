@@ -43,6 +43,8 @@ Options:
 -l, --fft-length            Set FFT length (default = 4096)
 -d, --disable-chunks        Display plotting chunks in addition to the global 
                             average
+-c, --clip-level            FFT blanking clipping level in counts (default = 0, 
+                            0 disables)
 -o, --output                Output file name for spectra image
 """
 
@@ -65,11 +67,12 @@ def parseOptions(args):
 	config['output'] = None
 	config['displayChunks'] = True
 	config['verbose'] = True
+	config['clip'] = 0
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d1:2:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "disable-chunks", "freq1=", "freq2="])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d1:2:c:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "disable-chunks", "freq1=", "freq2=", "clip-level="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -101,6 +104,8 @@ def parseOptions(args):
 			config['average'] = float(value)
 		elif opt in ('-d', '--disable-chunks'):
 			config['displayChunks'] = False
+		elif opt in ('-c', '--clip-level'):
+			config['clip'] = int(value)
 		else:
 			assert False
 	
@@ -256,7 +261,7 @@ def main(args):
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
-		freq1, tempSpec = fxc.calcSpectra(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, CentralFreq=config['freq1'])
+		freq1, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, CentralFreq=config['freq1'], ClipLevel=config['clip'])
 		for stand in count.keys():
 			masterSpectra[i,stand,:] = tempSpec[stand,:]
 			masterWeight[i,stand,:] = count[stand]
@@ -315,8 +320,6 @@ def main(args):
 		ax.set_ylabel('P.S.D. [dB/RBW]')
 		ax.set_xlim([freq.min(), freq.max()])
 		ax.legend(loc=0)
-		
-		print "For beam %i, tune. %i, pol. %i maximum in PSD at %.3f %s" % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2, freq[numpy.where( spec[i,:] == spec[i,:].max() )][0], units)
 
 	print "RBW 1: %.4f %s" % ((freq1[1]-freq1[0]), units1)
 	print "RBW 2: %.4f %s" % ((freq2[1]-freq2[0]), units2)

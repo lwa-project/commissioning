@@ -15,7 +15,9 @@ import math
 import time
 import numpy
 import getopt
+import ephem
 
+from lsl import astro
 import lsl.reader.drx as drx
 import lsl.reader.errors as errors
 
@@ -120,11 +122,17 @@ def main(args):
 	nChunks = int(round(config['duration'] / config['average']))
 	nFrames = maxFrames * nChunks
 
+	# Store the information about the first frame and convert the timetag to 
+	# an ephem.Date object.
+	prevTime = junkFrame.data.timeTag
+	prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
+
 	# File summary
 	print "Filename: %s" % config['args'][0]
 	print "Beams: %i" % beams
 	print "Tune/Pols: %i %i %i %i" % tunepols
 	print "Sample Rate: %i Hz" % srate
+	print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
 	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
 	print "---"
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
@@ -148,7 +156,8 @@ def main(args):
 
 	# Master loop over all of the file chuncks
 	standMapper = []
-	masterData = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
+	masterData  = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
+	masterData2 = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	for i in range(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -161,7 +170,8 @@ def main(args):
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
 		count = {}
-		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
+		data  = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
+		data2 = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
 		
 		# Inner loop that actually reads the frames into the data array
 		print "Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
@@ -197,11 +207,13 @@ def main(args):
 
 			#print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.data.iq.shape
 			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
+			data2[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.where( numpy.abs(cFrame.data.iq)**2 < 49, numpy.abs(cFrame.data.iq)**2, 0 )
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
 
 		# Save the data
-		masterData[i,:] = data.sum(axis=1)
+		masterData[i,:]  = data.sum(axis=1)
+		masterData2[i,:] = data2.sum(axis=1)
 
 	# The plots:  This is setup for the current configuration of 20 beampols
 	fig = plt.figure()
@@ -209,19 +221,62 @@ def main(args):
 	figsY = beampols / figsX
 	
 	# Scale
-	masterData /= masterData.max()
+	maxValue = masterData.max()
+	masterData  /= maxValue
+	masterData2 /= maxValue
 
 	sortedMapper = sorted(standMapper)
 	for k, aStand in enumerate(sortedMapper):
 		i = standMapper.index(aStand)
 
 		ax = fig.add_subplot(figsX,figsY,k+1)
-		ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,i])
+		ax.plot(numpy.arange(0, masterData.shape[0] )*config['average'], masterData[:,i],  label='Full')
+		ax.plot(numpy.arange(0, masterData2.shape[0])*config['average'], masterData2[:,i], label='Trimmed')
 		ax.set_ylim([0, 1])
 		
 		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
 		ax.set_xlabel('Time [seconds]')
 		ax.set_ylabel('Output Power Level')
+
+		ax.legend(loc=0)
+
+	# Part 2, polarization stuff
+	t1x = standMapper.index(sortedMapper[0])
+	t1y = standMapper.index(sortedMapper[1])
+	t2x = standMapper.index(sortedMapper[2])
+	t2y = standMapper.index(sortedMapper[3])
+
+	fig2 = plt.figure()
+	ax = fig2.add_subplot(3, 2, 1)
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,t1x]**2 + masterData[:,t1y]**2))
+	ax.set_title('$\\sqrt{X1^2 + Y1^2}$')
+	ax.set_xlabel('Time [seconds]')
+
+	ax = fig2.add_subplot(3, 2, 2)
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,t1y] / masterData[:,t1x])
+	ax.set_title('$Y1 / X1$')
+	ax.set_xlabel('Time [seconds]')
+
+	ax = fig2.add_subplot(3, 2, 3)
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,t2x]**2 + masterData[:,t2y]**2))
+	ax.set_title('$\\sqrt{X2^2 + Y2^2}$')
+	ax.set_xlabel('Time [seconds]')
+
+	ax = fig2.add_subplot(3, 2, 4)
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,t2y] / masterData[:,t2x])
+	ax.set_title('$Y2 / X2$')
+	ax.set_xlabel('Time [seconds]')
+
+	ax = fig2.add_subplot(3, 2, 5)
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,t2x]**2 + masterData[:,t2y]**2) / numpy.sqrt(masterData[:,t1x]**2 + masterData[:,t1y]**2))
+	ax.set_title('$\\sqrt{X2^2 + Y2^2} / \\sqrt{X1^2 + Y1^2}$')
+	ax.set_xlabel('Time [seconds]')
+
+	ax = fig2.add_subplot(3, 2, 6)
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], (masterData[:,t2y]/masterData[:,t2x]) / (masterData[:,t1y]/masterData[:,t1x]))
+	ax.set_title('$(Y2 / X2) / (Y1 / X1)$')
+	ax.set_xlabel('Time [seconds]')
+
 	plt.show()
 
 	# Save image if requested
