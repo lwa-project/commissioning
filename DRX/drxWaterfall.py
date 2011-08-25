@@ -29,7 +29,7 @@ def usage(exitCode=None):
 	print """drxWaterfall.py - Read in DRX files and create a collection of 
 time-averaged spectra.  These spectra are saved to a NPZ file called drx-waterfall.npz.
 
-Usage: drxSpectra.py [OPTIONS] file
+Usage: drxWaterfall.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
@@ -42,8 +42,10 @@ Options:
                             (default = 1)
 -d, --duration              Number of seconds to calculate the waterfall for 
                             (default = 10)
--q, --quiet                 Run drxSpectra in silent mode
+-q, --quiet                 Run drxSpectra in silent mode and do not show the plots
 -l, --fft-length            Set FFT length (default = 4096)
+-c, --clip-level            FFT blanking clipping level in counts (default = 0, 
+                            0 disables)
 -o, --output                Output file name for waterfall image
 """
 
@@ -64,11 +66,12 @@ def parseOptions(args):
 	config['output'] = None
 	config['duration'] = 10.0
 	config['verbose'] = True
+	config['clip'] = 0
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration="])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:c:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration=", "clip-level="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -96,6 +99,8 @@ def parseOptions(args):
 			config['average'] = float(value)
 		elif opt in ('-d', '--duration'):
 			config['duration'] = float(value)
+		elif opt in ('-c', '--clip-level'):
+			config['clip'] = int(value)
 		else:
 			assert False
 	
@@ -198,8 +203,7 @@ def main(args):
 		raise RuntimeError("Requested integration time+offset is greater than file length")
 
 	# Master loop over all of the file chunks
-	masterCount = {}
-	standMapper = []
+	masterCount = {0:0, 1:0, 2:0, 3:0}
 	masterWeight = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterSpectra = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterTimes = numpy.zeros(nChunks)
@@ -214,7 +218,7 @@ def main(args):
 			framesWork = framesRemaining
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
-		count = {}
+		count = {0:0, 1:0, 2:0, 3:0}
 		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
 		# If there are fewer frames than we need to fill an FFT, skip this chunk
 		if data.shape[1] < LFFT:
@@ -230,37 +234,19 @@ def main(args):
 			except errors.eofError:
 				break
 			except errors.syncError:
-				#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
 				continue
 
 			beam,tune,pol = cFrame.parseID()
-			aStand = 4*(beam-1) + 2*(tune-1) + pol
-			if aStand not in standMapper:
-				standMapper.append(aStand)
-				oStand = 1*aStand
-				aStand = standMapper.index(aStand)
-				print "Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand)
-			else:
-				aStand = standMapper.index(aStand)
-
-			if aStand not in count.keys():
-				count[aStand] = 0
-				masterCount[aStand] = 0
-			#if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-			#	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, j/4, cFrame.data.timeTag)
-
+			aStand = 2*(tune-1) + pol
+			
 			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
 			# Update the counters so that we can average properly later on
-			count[aStand] = count[aStand] + 1
-			masterCount[aStand] = masterCount[aStand] + 1
-
-		## Calculate the data mean for each signal
-		#for stand in range(data.shape[0]):
-		#	print "Stand %i:  mean is %.4f + %.4f j" % (stand, data[stand,:].mean().real, data[stand,:].mean().imag)
+			count[aStand] +=  1
+			masterCount[aStand] += 1
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
-		freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=6)
+		freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=config['clip'])
 		for stand in count.keys():
 			masterTimes[i] = cFrame.getTime()
 			masterSpectra[i,stand,:] = tempSpec[stand,:]
@@ -271,7 +257,7 @@ def main(args):
 
 	# Now that we have read through all of the chunks, perform the final averaging by
 	# dividing by all of the chunks
-	numpy.savez('drx-waterfall.npz', freq=freq, times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), standMapper=standMapper)
+	numpy.savez('drx-waterfall.npz', freq=freq, times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 	spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
 
 	# The plots:  This is setup for the current configuration of 20 beampols
@@ -281,12 +267,8 @@ def main(args):
 	# Put the frequencies in the best units possible
 	freq, units = bestFreqUnits(freq)
 
-	sortedMapper = sorted(standMapper)
-	for k, aStand in enumerate(sortedMapper):
-		i = standMapper.index(aStand)
-		print k, aStand, i
-
-		ax = fig.add_subplot(figsX,figsY,k+1)
+	for i in xrange(masterSpectra.shape[1]):
+		ax = fig.add_subplot(figsX,figsY,i+1)
 		currSpectra = numpy.squeeze( numpy.log10(masterSpectra[:,i,:])*10.0 )
 		currSpectra = numpy.where( numpy.isfinite(currSpectra), currSpectra, -10)
 		
@@ -294,7 +276,7 @@ def main(args):
 		ax.imshow(currSpectra, extent=(freq.min(), freq.max(), 0, config['average']*nChunks))
 		print currSpectra.min(), currSpectra.max()
 
-		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
+		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i+1, i%2))
 		ax.set_xlabel('Frequency Offset [%s]' % units)
 		ax.set_ylabel('Time [s]')
 		ax.set_xlim([freq.min(), freq.max()])
@@ -303,7 +285,8 @@ def main(args):
 
 	print "RBW: %.4f %s" % ((freq[1]-freq[0]), units)
 	plt.subplots_adjust(hspace=0.35, wspace=0.30)
-	plt.show()
+	if config['verbose']:
+		plt.show()
 
 	# Save spectra image if requested
 	if config['output'] is not None:

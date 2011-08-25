@@ -41,8 +41,6 @@ Options:
 -1, --freq1                 Center frequency of tuning 1 in MHz (default 0 for unknown)
 -2, --freq2                 Center frequency of tuning 2 in MHz (default 0 for unknown)
 -l, --fft-length            Set FFT length (default = 4096)
--d, --disable-chunks        Display plotting chunks in addition to the global 
-                            average
 -c, --clip-level            FFT blanking clipping level in counts (default = 0, 
                             0 disables)
 -o, --output                Output file name for spectra image
@@ -72,7 +70,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d1:2:c:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "disable-chunks", "freq1=", "freq2=", "clip-level="])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:1:2:c:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "freq1=", "freq2=", "clip-level="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -102,8 +100,6 @@ def parseOptions(args):
 			config['offset'] = float(value)
 		elif opt in ('-a', '--average'):
 			config['average'] = float(value)
-		elif opt in ('-d', '--disable-chunks'):
-			config['displayChunks'] = False
 		elif opt in ('-c', '--clip-level'):
 			config['clip'] = int(value)
 		else:
@@ -198,8 +194,7 @@ def main(args):
 		raise RuntimeError("Requestion integration time+offset is greater than file length")
 
 	# Master loop over all of the file chuncks
-	masterCount = {}
-	standMapper = []
+	masterCount = {0:0, 1:0, 2:0, 3:0}
 	masterWeight = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterSpectra = numpy.zeros((nChunks, beampols, LFFT-1))
 	for i in range(nChunks):
@@ -213,7 +208,7 @@ def main(args):
 			framesWork = framesRemaining
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
-		count = {}
+		count = {0:0, 1:0, 2:0, 3:0}
 		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
 		# If there are fewer frames than we need to fill an FFT, skip this chunk
 		if data.shape[1] < LFFT:
@@ -229,31 +224,17 @@ def main(args):
 			except errors.eofError:
 				break
 			except errors.syncError:
-				#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
 				continue
 			except errors.numpyError:
 				break
 
 			beam,tune,pol = cFrame.parseID()
-			aStand = 4*(beam-1) + 2*(tune-1) + pol
-			if aStand not in standMapper:
-				standMapper.append(aStand)
-				oStand = 1*aStand
-				aStand = standMapper.index(aStand)
-				print "Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand)
-			else:
-				aStand = standMapper.index(aStand)
-
-			if aStand not in count.keys():
-				count[aStand] = 0
-				masterCount[aStand] = 0
-			#if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-			#	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, j/4, cFrame.data.timeTag)
+			aStand = 2*(tune-1) + pol
 
 			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
 			# Update the counters so that we can average properly later on
-			count[aStand] = count[aStand] + 1
-			masterCount[aStand] = masterCount[aStand] + 1
+			count[aStand] += 1
+			masterCount[aStand] += 1
 
 		## Calculate the data mean for each signal
 		#for stand in range(data.shape[0]):
@@ -284,35 +265,19 @@ def main(args):
 	freq1, units1 = bestFreqUnits(freq1)
 	freq2, units2 = bestFreqUnits(freq2)
 
-	sortedMapper = sorted(standMapper)
-	for k, aStand in enumerate(sortedMapper):
-		i = standMapper.index(aStand)
-		if standMapper[i]%4/2+1 == 1:
+	for i in xrange(masterSpectra.shape[1]):
+		if i/2+1 == 1:
 			freq = freq1
 			units = units1
 		else:
 			freq = freq2
 			units = units2
 
-		ax = fig.add_subplot(figsX,figsY,k+1)
+		ax = fig.add_subplot(figsX,figsY,i+1)
 		currSpectra = numpy.squeeze( numpy.log10(spec[i,:])*10.0 )
 		ax.plot(freq, currSpectra, label='%i (avg)' % (i+1))
 
-		## If there is more than one chunk, plot the difference between the global 
-		## average and each chunk
-		#if nChunks > 1 and config['displayChunks']:
-			#for j in range(nChunks):
-				## Some files are padded by zeros at the end and, thus, carry no 
-				## weight in the average spectra.  Skip over those.
-				#if masterWeight[j,i,:].sum() == 0:
-					#continue
-
-				## Calculate the difference between the spectra and plot
-				#subspectra = numpy.squeeze( numpy.log10(masterSpectra[j,i,:])*10.0 )
-				#diff = subspectra - currSpectra
-				#ax.plot(freq, diff, label='%i' % j)
-
-		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
+		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1, i%2))
 		if freq.min() < 0:
 			ax.set_xlabel('Frequency Offset [%s]' % units)
 		else:

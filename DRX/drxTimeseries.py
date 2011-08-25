@@ -34,6 +34,7 @@ Options:
                             of the file (default = 0)
 -p, --plot-range            Number of seconds of data to show in the I/Q plots
                             (default = 0.0001)
+-i, --instanenous-power     Plot I*I + Q*Q instead of the raw samples
 -q, --quiet                 Run drxSpectra in silent mode
 -o, --output                Output file name for time series image
 """
@@ -52,11 +53,12 @@ def parseOptions(args):
 	config['maxFrames'] = 19144
 	config['output'] = None
 	config['verbose'] = True
+	config['doPower'] = False
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:p:", ["help", "quiet", "output=", "skip=", "plot-range="])
+		opts, args = getopt.getopt(args, "hqo:s:p:i", ["help", "quiet", "output=", "skip=", "plot-range=", "instanenous-power"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -74,6 +76,8 @@ def parseOptions(args):
 			config['offset'] = float(value)
 		elif opt in ('-p', '--plot-range'):
 			config['average'] = float(value)
+		elif opt in ('-i', '--instanenous-power'):
+			config['doPower'] = True
 		else:
 			assert False
 	
@@ -160,7 +164,7 @@ def main(args):
 			framesWork = framesRemaining
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
-		count = {}
+		count = {0:0, 1:0, 2:0, 3:0}
 		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
 		
 		# Inner loop that actually reads the frames into the data array
@@ -180,23 +184,13 @@ def main(args):
 				break
 			
 			beam,tune,pol = cFrame.parseID()
-			aStand = 4*(beam-1) + 2*(tune-1) + pol
-			#print aStand, beam, tune, pol
-			if aStand not in standMapper:
-				standMapper.append(aStand)
-				oStand = 1*aStand
-				aStand = standMapper.index(aStand)
-				print "Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand)
+			aStand = 2*(tune-1) + pol
+			
+			if config['doPower']:
+				data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
 			else:
-				aStand = standMapper.index(aStand)
-
-			if aStand not in count.keys():
-				count[aStand] = 0
-			#if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-			#	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
-
-			#print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.data.iq.shape
-			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+				data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+			
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
 			
@@ -208,24 +202,34 @@ def main(args):
 		samples = int(oldAverage * srate)
 		if toClip:
 			print "Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0)
-
+			
 		sortedMapper = sorted(standMapper)
 		for k, aStand in enumerate(sortedMapper):
 			i = standMapper.index(aStand)
 
 			ax = fig.add_subplot(figsX,figsY,k+1)
-			if toClip:
-				ax.plot(numpy.arange(0,samples)/srate, data[i,0:samples].real, label='%i (real)' % (i+1))
-				ax.plot(numpy.arange(0,samples)/srate, data[i,0:samples].imag, label='%i (imag)' % (i+1))
+			if config['doPower']:
+				if toClip:
+					ax.plot(config['offset'] + numpy.arange(0,samples)/srate, data[i,0:samples])
+				else:
+					ax.plot(config['offset'] + numpy.arange(0,data.shape[1])/srate, data[i,:])
+				ax.set_ylim([-10, 100])
 			else:
-				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].real, label='%i (real)' % (i+1))
-				ax.plot(numpy.arange(0,data.shape[1])/srate, data[i,:].imag, label='%i (imag)' % (i+1))
-			ax.set_ylim([-8, 8])
-			ax.legend(loc=0)
+				if toClip:
+					ax.plot(config['offset'] + numpy.arange(0,samples)/srate, data[i,0:samples].real, label='I')
+					ax.plot(config['offset'] + numpy.arange(0,samples)/srate, data[i,0:samples].imag, label='Q')
+				else:
+					ax.plot(config['offset'] + numpy.arange(0,data.shape[1])/srate, data[i,:].real, label='I')
+					ax.plot(config['offset'] + numpy.arange(0,data.shape[1])/srate, data[i,:].imag, label='Q')
+				ax.set_ylim([-8, 8])
+				ax.legend(loc=0)
 			
-			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
+			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, standMapper[i]/2+1, standMapper[i]%2))
 			ax.set_xlabel('Time [seconds]')
-			ax.set_ylabel('Output Level')
+			if config['doPower']:
+				ax.set_ylabel('I$^2$ + Q$^2$')
+			else:
+				ax.set_ylabel('Output Level')
 		plt.show()
 
 		# Save image if requested

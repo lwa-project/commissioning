@@ -155,7 +155,6 @@ def main(args):
 	fh.seek(-drx.FrameSize, 1)
 
 	# Master loop over all of the file chuncks
-	standMapper = []
 	masterData  = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	masterData2 = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	for i in range(nChunks):
@@ -169,7 +168,7 @@ def main(args):
 			framesWork = framesRemaining
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
-		count = {}
+		count = {0:0, 1:0, 2:0, 3:0}
 		data  = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
 		data2 = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
 		
@@ -177,6 +176,7 @@ def main(args):
 		print "Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
 		t0 = time.time()
 		
+		firstTimeTag = numpy.zeros(beampols, dtype=numpy.int64)
 		for j in xrange(framesWork):
 			# Read in the next frame and anticipate any problems that could occur
 			try:
@@ -190,24 +190,14 @@ def main(args):
 				break
 			
 			beam,tune,pol = cFrame.parseID()
-			aStand = 4*(beam-1) + 2*(tune-1) + pol
-			#print aStand, beam, tune, pol
-			if aStand not in standMapper:
-				standMapper.append(aStand)
-				oStand = 1*aStand
-				aStand = standMapper.index(aStand)
-				print "Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand)
-			else:
-				aStand = standMapper.index(aStand)
+			aStand = 2*(tune-1) + pol
+			
+			if j < 4:
+				firstTimeTag[aStand] = cFrame.data.timeTag
 
-			if aStand not in count.keys():
-				count[aStand] = 0
-			#if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-			#	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
-
-			#print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.data.iq.shape
-			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
-			data2[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.where( numpy.abs(cFrame.data.iq)**2 < 49, numpy.abs(cFrame.data.iq)**2, 0 )
+			data[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
+			data2[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.where( numpy.abs(cFrame.data.iq)**2 <= 49, numpy.abs(cFrame.data.iq)**2, 0 )
+			
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
 
@@ -225,26 +215,23 @@ def main(args):
 	masterData  /= maxValue
 	masterData2 /= maxValue
 
-	sortedMapper = sorted(standMapper)
-	for k, aStand in enumerate(sortedMapper):
-		i = standMapper.index(aStand)
-
-		ax = fig.add_subplot(figsX,figsY,k+1)
+	for i in xrange(masterData.shape[1]):
+		ax = fig.add_subplot(figsX,figsY,i+1)
 		ax.plot(numpy.arange(0, masterData.shape[0] )*config['average'], masterData[:,i],  label='Full')
 		ax.plot(numpy.arange(0, masterData2.shape[0])*config['average'], masterData2[:,i], label='Trimmed')
 		ax.set_ylim([0, 1])
 		
-		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
+		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1, i%2))
 		ax.set_xlabel('Time [seconds]')
 		ax.set_ylabel('Output Power Level')
 
 		ax.legend(loc=0)
 
 	# Part 2, polarization stuff
-	t1x = standMapper.index(sortedMapper[0])
-	t1y = standMapper.index(sortedMapper[1])
-	t2x = standMapper.index(sortedMapper[2])
-	t2y = standMapper.index(sortedMapper[3])
+	t1x = 0
+	t1y = 1
+	t2x = 2
+	t2y = 3
 
 	fig2 = plt.figure()
 	ax = fig2.add_subplot(3, 2, 1)
