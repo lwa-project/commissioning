@@ -52,7 +52,9 @@ class Waterfall(object):
 		self.intTime = integrationTime
 		self.xrange = [freq.min(), freq.max()]
 		self.yrange = [0, timeBlocks.shape[0]]
-		self.crange = [-10.0, 20.0]
+		self.crange = [timeBlocks.min()*1.05, timeBlocks.max()*1.05]
+		
+		self.mask = numpy.zeros((timeBlocks.shape[1], freq.shape[0]))
 		
 		self.connect()
 		wx.EndBusyCursor()
@@ -65,12 +67,18 @@ class Waterfall(object):
 		self.frame.disableButtons()
 		self.frame.setTextRange()
 		
-		self.frame.figure.clf()
-		ax = self.frame.figure.gca()
-		m = ax.imshow(self.data[1][:,self.index,:], 
-					extent=(self.data[0][0]/1e6, self.data[0][-1]/1e6, 0, self.intTime*(self.data[1].shape[0]-1)), 
+		freq = self.data[0]
+		spec = self.data[1][:,self.index,:]
+		spec = numpy.ma.array(spec, mask=numpy.zeros_like(spec))
+		for i in xrange(spec.shape[0]):
+			spec.mask[i,:] = self.mask[self.index,:]
+		
+		self.frame.figure1a.clf()
+		ax = self.frame.figure1a.gca()
+		m = ax.imshow(spec, 
+					extent=(freq[0]/1e6, freq[-1]/1e6, 0, self.intTime*(spec.shape[0]-1)), 
 					vmin=self.crange[0], vmax=self.crange[1])
-		cm = self.frame.figure.colorbar(m, ax=ax)
+		cm = self.frame.figure1a.colorbar(m, ax=ax)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		ax.axis('auto')
 		ax.set_xlabel('Frequency [MHz]')
@@ -78,25 +86,49 @@ class Waterfall(object):
 		ax.set_title('Tuning %i, Pol. %s' % (self.index/2+1, 'Y' if self.index %2 else 'X'))
 		
 		try:
-			if self.oldLine is not None:
-				ax.lines.extend(self.oldLine)
+			if self.oldLine1a is not None:
+				ax.lines.extend(self.oldLine1a)
 		except AttributeError:
 			pass
 		
-		self.frame.canvas.draw()
+		self.frame.canvas1a.draw()
+		
+		tp = 10.0**(spec/10.0)
+		tp = tp.sum(axis=1)
+		tp = numpy.log10(tp)*10
+		
+		self.frame.figure1b.clf()
+		ax = self.frame.figure1b.gca()
+		ax.plot(tp, numpy.arange(spec.shape[0])*self.intTime)
+		ax.set_ylim([0, self.intTime*(spec.shape[0]-1)])
+		ax.set_xlabel('Total Power [arb. dB]')
+		ax.set_ylabel('Time [s]')
+		
+		try:
+			if self.oldLine1b is not None:
+				ax.lines.extend(self.oldLine1b)
+		except AttributeError:
+			pass
+		
+		self.frame.canvas1b.draw()
 		
 		wx.EndBusyCursor()
 		self.frame.enableButtons()
 	
 	def drawSpectrum(self, clickY):
 		"""Get the spectrum at a particular point in time."""
-		
+
 		freq = self.data[0]
 		spec = self.data[1][int(round(clickY)),self.index,:]
+		spec = numpy.ma.array(spec, mask=self.mask[self.index,:])
+		medianSpec = numpy.median(self.data[1][:,self.index,:], axis=0)
 		
 		self.frame.figure2.clf()
 		ax2 = self.frame.figure2.gca()
-		ax2.plot(freq/1e6, spec)
+		ax2.plot(freq/1e6, spec, label='Current')
+		ax2.plot(freq/1e6, medianSpec, label='Median', alpha=0.5)
+		ax2.legend(loc=0)
+		ax2.set_ylim(self.crange)
 		ax2.set_xlabel('Frequency [MHz]')
 		ax2.set_ylabel('PSD [arb. dB]')
 		
@@ -104,10 +136,10 @@ class Waterfall(object):
 		self.spectrumClick = clickY
 	
 	def makeMark(self, clickY):
-		ax = self.frame.figure.gca()
+		ax = self.frame.figure1a.gca()
 		
 		try:
-			if self.oldLine is not None:
+			if self.oldLine1a is not None:
 				del ax.lines[-1]
 		except AttributeError:
 			pass
@@ -117,39 +149,77 @@ class Waterfall(object):
 		oldXSize = ax.get_xlim()
 		oldYSize = ax.get_ylim()
 		
-		self.oldLine = ax.plot(freq/1e6, freq*0+round(clickY), color='red')
+		self.oldLine1a = ax.plot(freq/1e6, freq*0+round(clickY), color='red')
 		ax.set_xlim(oldXSize)
 		ax.set_ylim(oldYSize)
 		
-		self.frame.canvas.draw()
+		self.frame.canvas1a.draw()
+		
+		###
+		
+		ax = self.frame.figure1b.gca()
+		
+		try:
+			if self.oldLine1b is not None:
+				del ax.lines[-1]
+		except AttributeError:
+			pass
+			
+		oldXSize = ax.get_xlim()
+		oldYSize = ax.get_ylim()
+		
+		self.oldLine1b = ax.plot(oldXSize, [round(clickY)]*2, color='red')
+		ax.set_xlim(oldXSize)
+		ax.set_ylim(oldYSize)
+		
+		self.frame.canvas1b.draw()
 	
 	def connect(self):
 		'connect to all the events we need'
 		
-		self.cidpress = self.frame.figure.canvas.mpl_connect('button_press_event', self.on_press)
-		#self.cidrelease = self.figure.canvas.mpl_connect('button_release_event', self.on_release)
-		self.cidmotion = self.frame.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+		self.cidpress1a = self.frame.figure1a.canvas.mpl_connect('button_press_event', self.on_press)
+		self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press)
+		self.cidpress2 = self.frame.figure2.canvas.mpl_connect('button_press_event', self.on_press2)
+		self.cidmotion = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
 	
 	def on_press(self, event):
 		'on button press we will see if the mouse is over us and store some data'
 		
-		if event.inaxes and self.frame.toolbar.mode == '':
+		if event.inaxes:
 			clickX = event.xdata
-			clickY = event.ydata
+			clickY = event.ydata / self.intTime
 			
 			freq = self.data[0]
 			
+			self.draw()
 			self.drawSpectrum(clickY)
-			self.makeMark(clickY)
+			self.makeMark(clickY*self.intTime)
+			
+	def on_press2(self, event):
+		if event.inaxes:
+			clickX = event.xdata*1e6
+			clickY = event.ydata
+			
+			freq = self.data[0]
+			best = numpy.where( numpy.abs(freq-clickX) == numpy.abs(freq-clickX).min() )[0][0]
+			
+			if event.button == 3:
+				self.mask[self.index, best] = 1
+			elif event.button == 2:
+				self.mask[self.index, best] = 0
+			else:
+				pass
+			self.drawSpectrum(self.spectrumClick)
 			
 	def on_motion(self, event):
 		if event.inaxes:
 			clickX = event.xdata
 			clickY = event.ydata
+			clickYp = clickY / self.intTime
 			
 			dataX = numpy.where(numpy.abs(clickX-self.data[0]/1e6) == (numpy.abs(clickX-self.data[0]/1e6).min()))[0][0]
 			
-			value = self.data[1][int(round(clickY)), self.index, int(round(dataX))]
+			value = self.data[1][int(round(clickYp)), self.index, int(round(dataX))]
 			self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
 		else:
 			self.frame.statusbar.SetStatusText("")
@@ -158,9 +228,10 @@ class Waterfall(object):
 	def disconnect(self):
 		'disconnect all the stored connection ids'
 		
-		self.frame.figure.canvas.mpl_disconnect(self.cidpress)
-		#self.figure.canvas.mpl_disconnect(self.cidrelease)
-		self.frame.figure.canvas.mpl_disconnect(self.cidmotion)
+		self.frame.figure1a.canvas.mpl_disconnect(self.cidpress1a)
+		self.frame.figure1b.canvas.mpl_disconnect(self.cidpress1b)
+		self.frame.figure2.canvas.mpl_disconnect(self.cidpress2)
+		self.frame.figure1a.canvas.mpl_disconnect(self.cidmotion)
 
 
 ID_OPEN = 10
@@ -212,13 +283,14 @@ class MainWindow(wx.Frame):
 		
 		# Add waterfall plot
 		panel1 = wx.Panel(self, -1)
-		hbox1 = wx.BoxSizer(wx.VERTICAL)
-		self.figure = Figure()
-		self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-		self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-		self.toolbar.Realize()
-		hbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
-		hbox1.Add(self.canvas, 1, wx.EXPAND)
+		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+		self.figure1a = Figure()
+		self.canvas1a = FigureCanvasWxAgg(panel1, -1, self.figure1a)
+		self.figure1b = Figure()
+		self.canvas1b = FigureCanvasWxAgg(panel1, -1, self.figure1b)
+		
+		hbox1.Add(self.canvas1a, 1, wx.EXPAND)
+		hbox1.Add(self.canvas1b, 1, wx.EXPAND)
 		panel1.SetSizer(hbox1)
 		vbox.Add(panel1, 1, wx.EXPAND)
 		
@@ -288,7 +360,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
 		
 		# Make the images resizable
-		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		#self.Bind(wx.EVT_PAINT, self.resizePlots)
 	
 	def onOpen(self,e):
 		""" Open a file"""
@@ -359,27 +431,11 @@ class MainWindow(wx.Frame):
 			hig += 1
 			self.data.crange = [low, hig]
 			self.data.draw()
-			
-	def resizePlots(self, event):
-		w, h = self.GetSize()
-		dpi = self.figure.get_dpi()
-		newW = 1.0*w/dpi
-		newH1 = 1.0*(h/2-100)/dpi
-		newH2 = 1.0*(h/2-75)/dpi
-		self.figure.set_size_inches((newW, newH1))
-		self.figure.canvas.draw()
-		self.figure2.set_size_inches((newW, newH2))
-		self.figure2.canvas.draw()
 		
 	def setTextRange(self):
 		low, hig = self.data.crange
 		self.maxText.SetLabel("%+.2f" % hig)
 		self.minText.SetLabel("%+.2f" % low)
-
-	def GetToolBar(self):
-		# You will need to override GetToolBar if you are using an 
-		# unmanaged toolbar in your frame
-		return self.toolbar
 		
 	def disableButtons(self):
 		for button in self.plotButtons:

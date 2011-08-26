@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 def usage(exitCode=None):
 	print """drxWaterfall.py - Read in DRX files and create a collection of 
-time-averaged spectra.  These spectra are saved to a NPZ file called drx-waterfall.npz.
+time-averaged spectra.  These spectra are saved to a NPZ file called <filename>-waterfall.npz.
 
 Usage: drxWaterfall.py [OPTIONS] file
 
@@ -257,7 +257,8 @@ def main(args):
 
 	# Now that we have read through all of the chunks, perform the final averaging by
 	# dividing by all of the chunks
-	numpy.savez('drx-waterfall.npz', freq=freq, times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
+	outname = config['args'][0].replace('.dat', '-waterfall.npz')
+	numpy.savez(outname, freq=freq, times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 	spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
 
 	# The plots:  This is setup for the current configuration of 20 beampols

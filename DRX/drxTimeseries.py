@@ -204,10 +204,8 @@ def main(args):
 			print "Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0)
 			
 		sortedMapper = sorted(standMapper)
-		for k, aStand in enumerate(sortedMapper):
-			i = standMapper.index(aStand)
-
-			ax = fig.add_subplot(figsX,figsY,k+1)
+		for i in xrange(data.shape[0]):
+			ax = fig.add_subplot(figsX,figsY,i+1)
 			if config['doPower']:
 				if toClip:
 					ax.plot(config['offset'] + numpy.arange(0,samples)/srate, data[i,0:samples])
@@ -224,7 +222,7 @@ def main(args):
 				ax.set_ylim([-8, 8])
 				ax.legend(loc=0)
 			
-			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, standMapper[i]/2+1, standMapper[i]%2))
+			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1,i%2))
 			ax.set_xlabel('Time [seconds]')
 			if config['doPower']:
 				ax.set_ylabel('I$^2$ + Q$^2$')
