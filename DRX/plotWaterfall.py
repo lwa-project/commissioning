@@ -457,13 +457,13 @@ class MainWindow(wx.Frame):
 		Save the current observation to a new SD file.
 		"""
 		
-		dialog = wx.FileDialog(self, "Select Output File", self.dirname, '', 'Text Files (*.txt)|*.txt|All Files (*.*)|*.*', wx.SAVE|wx.FD_OVERWRITE_PROMPT)
+		dialog = wx.FileDialog(self, "Select Output File", self.dirname, '', 'NPZ Files (*.npz)|*.npz|All Files (*.*)|*.*', wx.SAVE|wx.FD_OVERWRITE_PROMPT)
 			
 		if dialog.ShowModal() == wx.ID_OK:
 			self.dirname = dialog.GetDirectory()
 			self.filename = dialog.GetPath()
 			
-			numpy.savez(self.data.filename, freq=self.data.freq, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
+			numpy.savez(os.path.join(self.dirname, self.filename), freq=self.data.freq, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
 			
 		dialog.Destroy()
 		
