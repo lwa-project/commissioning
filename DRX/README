@@ -34,6 +34,12 @@ generateDelaysMixed.py
 Modified version of generateDelays.py that forms the beam only with the X pol. and 
 leaves only the outlier (#258) on the Y pol.
 
+fringeSets.py
+-------------
+Read in SSMIF file and create a set of DRX gain files (zero-delay for dipoles-only) 
+that puts a single dipole or beam on the X pol and the outlier on the other.  The 
+gain files are constructed such that all data is from X pol.
+
 estimateBeam.py
 ---------------
 Use the LSL misc.beamformer's integer delay and sum to estimate the beam shape 
@@ -91,6 +97,15 @@ Script for reading in DRX data and created time-averaged power spectral density
 plots.  Like drxTimeseries.py, this file is also available as part of the LSL 
 package (version >= 0.4.0) but is included here since this is the script we actually 
 used at JPL for pre-acceptance testing.
+
+drxWaterfall.py
+---------------
+Read in DRX files and create a collection of time-averaged spectra.  These spectra are
+saved to a NPZ file called <filename>-waterfall.npz.
+
+plotWaterfall.py
+----------------
+Given the NPZ output of drxWaterfall, plot it in an interative way.
 
 eyeDiagram.py
 -------------
