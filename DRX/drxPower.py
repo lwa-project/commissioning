@@ -161,7 +161,7 @@ def main(args):
 	fh.seek(-drx.FrameSize, 1)
 
 	# Master loop over all of the file chuncks
-	timeTags    = numpy.zeros((nChunks, beampols), dtype=numpy.int64)
+	masterTimes = numpy.zeros((nChunks, beampols), dtype=numpy.int64)
 	masterData  = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	masterData2 = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	for i in range(nChunks):
@@ -199,7 +199,7 @@ def main(args):
 			aStand = 2*(tune-1) + pol
 			
 			if j < 4:
-				timeTags[i,aStand] = cFrame.data.timeTag - cFrame.header.timeOffset
+				masterTimes[i,aStand] = cFrame.getTime()
 
 			data[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
 			data2[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.where( numpy.abs(cFrame.data.iq)**2 <= config['trimLevel'], numpy.abs(cFrame.data.iq)**2, 0 )
@@ -213,7 +213,7 @@ def main(args):
 		
 	# Really save the data to a NPZ file
 	outfile = config['args'][0].replace('.dat', '-power.npz')
-	numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, timeTags=timeTags, trimLevel=config['trimLevel'])
+	numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, times=masterTimes, trimLevel=config['trimLevel'])
 
 	# The plots:  This is setup for the current configuration of 20 beampols
 	fig = plt.figure()
