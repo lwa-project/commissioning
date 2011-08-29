@@ -190,6 +190,8 @@ def main(args):
 				except errors.syncError:
 					print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
 					continue
+				if not cFrame.header.isTBW():
+					continue
 				
 				stand = cFrame.header.parseID()
 				# In the current configuration, stands start at 1 and go up to 10.  So, we
