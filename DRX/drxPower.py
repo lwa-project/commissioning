@@ -26,16 +26,19 @@ import matplotlib.pyplot as plt
 
 def usage(exitCode=None):
 	print """drxTimeseries.py - Read in DRX files and create a collection of 
-timeseries (I/Q) plots.
+timeseries power (I*I + Q*Q) plots.  These power measurements are saved to a NPZ 
+file called <filename>-power.npz.
 
-Usage: drxTimeseries.py [OPTIONS] file
+Usage: drxPower.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
+-t, --trim-level            Trim level for power analysis with clipping
+                            (default = 49)
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
 -a, --average               Number of seconds of data to average together for power
-                            (default = 0.0001)
+                            (default = 0.0002 = 0.2 ms)
 -d, --duration              Number of seconds to calculate the waterfall for 
                             (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode
@@ -52,16 +55,17 @@ def parseOptions(args):
 	config = {}
 	# Command line flags - default values
 	config['offset'] = 0.0
-	config['average'] = 0.0001
+	config['average'] = 0.0002
 	config['duration'] = 10.0
 	config['maxFrames'] = 19144*3
 	config['output'] = None
 	config['verbose'] = True
+	config['trimLevel'] = 49
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:a:d:", ["help", "quiet", "output=", "skip=", "average=", "duration="])
+		opts, args = getopt.getopt(args, "hqt:o:s:a:d:", ["help", "quiet", "trim-level=", "output=", "skip=", "average=", "duration="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -73,6 +77,8 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-q', '--quiet'):
 			config['verbose'] = False
+		elif opt in ('-t', '--trim-level'):
+			config['trim'] = int(value)
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
@@ -193,10 +199,10 @@ def main(args):
 			aStand = 2*(tune-1) + pol
 			
 			if j < 4:
-				firstTimeTag[aStand] = cFrame.data.timeTag
+				firstTimeTag[aStand] = cFrame.data.timeTag - cFrame.header.timeOffset
 
 			data[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
-			data2[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.where( numpy.abs(cFrame.data.iq)**2 <= 49, numpy.abs(cFrame.data.iq)**2, 0 )
+			data2[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.where( numpy.abs(cFrame.data.iq)**2 <= config['trimLevel'], numpy.abs(cFrame.data.iq)**2, 0 )
 			
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
@@ -204,6 +210,10 @@ def main(args):
 		# Save the data
 		masterData[i,:]  = data.sum(axis=1)
 		masterData2[i,:] = data2.sum(axis=1)
+		
+	# Really save the data to a NPZ file
+	outfile = config['args'][0].replace('.dat', '-power.npz')
+	numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, startTimeTag=firstTimeTag, trimLevel=config['trimLevel'])
 
 	# The plots:  This is setup for the current configuration of 20 beampols
 	fig = plt.figure()
