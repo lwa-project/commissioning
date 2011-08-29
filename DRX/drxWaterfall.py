@@ -140,6 +140,7 @@ def bestFreqUnits(freq):
 def main(args):
 	# Parse command line options
 	config = parseOptions(args)
+	print config['clip']
 
 	# Length of the FFT
 	LFFT = config['LFFT']
@@ -227,7 +228,7 @@ def main(args):
 		# Inner loop that actually reads the frames into the data array
 		print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
 
-		for j in range(framesWork):
+		for j in xrange(framesWork):
 			# Read in the next frame and anticipate any problems that could occur
 			try:
 				cFrame = drx.readFrame(fh, Verbose=False)
@@ -238,6 +239,8 @@ def main(args):
 
 			beam,tune,pol = cFrame.parseID()
 			aStand = 2*(tune-1) + pol
+			if j is 0:
+				cTime = cFrame.getTime()
 			
 			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
 			# Update the counters so that we can average properly later on
@@ -248,7 +251,7 @@ def main(args):
 		# the total number of frames read.  This is needed to keep the averages correct.
 		freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=config['clip'])
 		for stand in count.keys():
-			masterTimes[i] = cFrame.getTime()
+			masterTimes[i] = cTime
 			masterSpectra[i,stand,:] = tempSpec[stand,:]
 			masterWeight[i,stand,:] = count[stand]
 
@@ -277,6 +280,7 @@ def main(args):
 		ax.imshow(currSpectra, extent=(freq.min(), freq.max(), 0, config['average']*nChunks))
 		print currSpectra.min(), currSpectra.max()
 
+		ax.axis('auto')
 		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i+1, i%2))
 		ax.set_xlabel('Frequency Offset [%s]' % units)
 		ax.set_ylabel('Time [s]')

@@ -12,11 +12,14 @@ $LastChangedDate$
 """
 
 import sys
+import time
 import numpy
 import getopt
 
 from lsl.misc import beamformer
 from lsl.common.stations import parseSSMIF
+
+from matplotlib import pyplot as plt
 
 def usage(exitCode=None):
 	print """estimateBeam.py - Read in a SSMIF file and estimate the DRX beam 
@@ -97,14 +100,31 @@ def main(args):
 	print "---------------------------"
 	print "Total number bad inuts: %3i" % len(bad)
 	print " "
-
-	print "Calculating beam for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6)
-	beam = beamformer.intBeamShape(antennas, azimuth=config['az'], elevation=config['el'], progress=True)
 	
-	import pylab
-	pylab.imshow(beam)
-	numpy.savez('test_%iMHz_%iaz_%iel.npz' % (config['freq']/1e6, config['az'], config['el']), beam=beam, az=config['az'], el=config['el'])
-	pylab.show()
+	beams = []
+	for p,name in enumerate(('NS', 'EW')):
+		antennas2 = []
+		for ant in antennas:
+			if ant.status == 3 and ant.fee.status == 3 and ant.pol == p:
+				antennas2.append(ant)
+				
+
+		print "Calculating beam for az. %.2f, el. %.2f at %.2f MHz - %s with %i antennas" % (config['az'], config['el'], config['freq']/1e6, name, len(antennas2))
+		tStart = time.time()
+		beam = beamformer.intBeamShape(antennas2, azimuth=config['az'], elevation=config['el'], progress=True)
+		print "-> Finished in %.3f seconds" % (time.time() - tStart)
+		
+		beams.append(beam)
+		
+		numpy.savez('test_%iMHz_%iaz_%iel_%s.npz' % (config['freq']/1e6, config['az'], config['el'], name), beam=beam, freq=config['freq'], pol=name, az=config['az'], el=config['el'])
+	
+	fig = plt.figure()
+	ax1 = fig.add_subplot(2, 1, 1)
+	ax2 = fig.add_subplot(2, 1, 2)
+	ax1.imshow( beams[0] )
+	ax2.imshow( beams[1] )
+	plt.show()
+	
 
 
 if __name__ == "__main__":

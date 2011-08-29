@@ -10,216 +10,286 @@ $LastChangedDate$
 """
 
 import os
-import wx
 import sys
 import numpy
+from datetime import datetime
 
+from lsl.misc.mathutil import to_dB
+
+import wx
 import matplotlib
 matplotlib.use('WXAgg')
 matplotlib.interactive(True)
+
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
 from matplotlib.figure import Figure
 
 
-class Waterfall(object):
-	def __init__(self, frame, data=None):
+class Waterfall_GUI(object):
+	def __init__(self, frame, freq=None, spec=None, tInt=None):
 		self.frame = frame
-		self.data = data
 		self.press = None
 		
+		self.filename = ''
 		self.index = 0
-		self.ax = None
+		
+		self.freq = freq
+		self.spec = spec
+		self.tInt = None
+		
+		self.ax1a = None
+		self.ax1b = None
 		self.ax2 = None
 		
 		self.spectrumClick = None
 		
 	def loadData(self, filename):
-		"""Load in data from an NPZ file."""
+		"""
+		Load in data from an NPZ file.
+		"""
 		
-		wx.BeginBusyCursor()
-		self.frame.disableButtons()
-		
+		# Save the filename
 		self.filename = filename
 		dataDictionary = numpy.load(filename)
 		
-		freq = dataDictionary['freq']
-		LFFT = freq.size
-		timeBlocks = numpy.log10(dataDictionary['spec'])*10.0
-		integrationTime = dataDictionary['tInt']
+		# Load the Data
+		self.freq = dataDictionary['freq']
+		try:
+			mask = dataDictionary['mask']
+		except KeyError:
+			mask = numpy.zeros(dataDictionary['spec'].shape, dtype=numpy.int16)
+		self.spec = numpy.ma.array(dataDictionary['spec'], mask=mask)
+		self.tInt = dataDictionary['tInt']
+		self.time = self.tInt * numpy.arange(self.spec.shape[0])
 		
-		self.orig = dataDictionary
-		self.data = (freq, timeBlocks)
-		self.intTime = integrationTime
-		self.xrange = [freq.min(), freq.max()]
-		self.yrange = [0, timeBlocks.shape[0]]
-		self.crange = [timeBlocks.min()*1.05, timeBlocks.max()*1.05]
+		# Other data to keep around in case we save
+		self.timesNPZ = dataDictionary['times']
+		self.standMapperNPZ = dataDictionary['standMapper']
 		
-		self.mask = numpy.zeros((timeBlocks.shape[1], freq.shape[0]))
-		
-		self.connect()
-		wx.EndBusyCursor()
-		self.frame.enableButtons()
-	
-	def draw(self):
-		"""Draw the waterfall diagram"""
-		
-		wx.BeginBusyCursor()
-		self.frame.disableButtons()
-		self.frame.setTextRange()
-		
-		freq = self.data[0]
-		spec = self.data[1][:,self.index,:]
-		spec = numpy.ma.array(spec, mask=numpy.zeros_like(spec))
-		for i in xrange(spec.shape[0]):
-			spec.mask[i,:] = self.mask[self.index,:]
-		
-		self.frame.figure1a.clf()
-		ax = self.frame.figure1a.gca()
-		m = ax.imshow(spec, 
-					extent=(freq[0]/1e6, freq[-1]/1e6, 0, self.intTime*(spec.shape[0]-1)), 
-					vmin=self.crange[0], vmax=self.crange[1])
-		cm = self.frame.figure1a.colorbar(m, ax=ax)
-		cm.ax.set_ylabel('PSD [arb. dB]')
-		ax.axis('auto')
-		ax.set_xlabel('Frequency [MHz]')
-		ax.set_ylabel('Time [s]')
-		ax.set_title('Tuning %i, Pol. %s' % (self.index/2+1, 'Y' if self.index %2 else 'X'))
+		# Set default colobars
+		self.limits = []
+		for i in xrange(self.spec.shape[1]):
+			self.limits.append( [to_dB(self.spec[:,i,:]).min(), to_dB(self.spec[:,i,:]).max()] )
 		
 		try:
-			if self.oldLine1a is not None:
-				ax.lines.extend(self.oldLine1a)
-		except AttributeError:
+			self.diconnect()
+		except:
 			pass
+		
+		# Clear the old marks
+		self.oldMarkA = None
+		self.oldMarkB = None
+		self.frame.figure1a.clf()
+		self.frame.figure1a.clf()
+		self.frame.figure2.clf()
+		
+		self.connect()
+	
+	def draw(self):
+		"""
+		Draw the waterfall diagram and the total power with time.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		# Plot 1(a) - Waterfall
+		self.frame.figure1a.clf()
+		self.ax1a = self.frame.figure1a.gca()
+		m = self.ax1a.imshow(to_dB(self.spec[:,self.index,:]), extent=(self.freq[0]/1e6, self.freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=self.limits[self.index][0], vmax=self.limits[self.index][1])
+		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
+		cm.ax.set_ylabel('PSD [arb. dB]')
+		self.ax1a.axis('auto')
+		self.ax1a.set_xlabel('Frequency [MHz]')
+		self.ax1a.set_ylabel('Elapsed Time [s]')
+		self.ax1a.set_title('Tuning %i, Pol. %s' % (self.index/2+1, 'Y' if self.index %2 else 'X'))
+		
+		if self.oldMarkA is not None:
+			self.ax1a.lines.extend(self.oldMarkA)
 		
 		self.frame.canvas1a.draw()
 		
-		tp = 10.0**(spec/10.0)
-		tp = tp.sum(axis=1)
-		tp = numpy.log10(tp)*10
+		# Plot 1(b) - Drift
+		self.drift = self.spec[:,:,256:768].sum(axis=2)
 		
 		self.frame.figure1b.clf()
-		ax = self.frame.figure1b.gca()
-		ax.plot(tp, numpy.arange(spec.shape[0])*self.intTime)
-		ax.set_ylim([0, self.intTime*(spec.shape[0]-1)])
-		ax.set_xlabel('Total Power [arb. dB]')
-		ax.set_ylabel('Time [s]')
+		self.ax1b = self.frame.figure1b.gca()
+		self.ax1b.plot(self.drift[:,self.index], self.time, linestyle=' ', marker='x')
+		self.ax1b.set_ylim([self.time[0], self.time[-1]])
+		self.ax1b.set_xlabel('Total Power [arb. dB]')
+		self.ax1b.set_ylabel('Elapsed Time [s]')
 		
-		try:
-			if self.oldLine1b is not None:
-				ax.lines.extend(self.oldLine1b)
-		except AttributeError:
-			pass
+		if self.oldMarkB is not None:
+			self.ax1b.lines.extend(self.oldMarkB)
 		
 		self.frame.canvas1b.draw()
 		
 		wx.EndBusyCursor()
-		self.frame.enableButtons()
 	
 	def drawSpectrum(self, clickY):
 		"""Get the spectrum at a particular point in time."""
 
-		freq = self.data[0]
-		spec = self.data[1][int(round(clickY)),self.index,:]
-		spec = numpy.ma.array(spec, mask=self.mask[self.index,:])
-		medianSpec = numpy.median(self.data[1][:,self.index,:], axis=0)
+		dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
+		if self.frame.toolbar.mode == 'zoom rect':
+			try:
+				oldXlim = self.ax2.get_xlim()
+				oldYlim = self.ax2.get_ylim()
+			except:
+				oldXlim = [self.freq[0]/1e6, self.freq[-1]/1e6]
+				oldYlim = self.limits[self.index]
+		else:
+			oldXlim = [self.freq[0]/1e6, self.freq[-1]/1e6]
+			oldYlim = self.limits[self.index]
+		
+		spec = self.spec[:,self.index,:]
+		medianSpec = numpy.median(spec, axis=0)
 		
 		self.frame.figure2.clf()
-		ax2 = self.frame.figure2.gca()
-		ax2.plot(freq/1e6, spec, label='Current')
-		ax2.plot(freq/1e6, medianSpec, label='Median', alpha=0.5)
-		ax2.legend(loc=0)
-		ax2.set_ylim(self.crange)
-		ax2.set_xlabel('Frequency [MHz]')
-		ax2.set_ylabel('PSD [arb. dB]')
+		self.ax2 = self.frame.figure2.gca()
+		self.ax2.plot(self.freq/1e6, spec[dataY,:], linestyle=' ', marker='o', label='Current', color='blue')
+		self.ax2.plot(self.freq/1e6, medianSpec, label='Median', alpha=0.5, color='green')
+		self.ax2.set_xlim(oldXlim)
+		self.ax2.set_ylim(oldYlim)
+		self.ax2.legend(loc=0)
+		self.ax2.set_xlabel('Frequency [MHz]')
+		self.ax2.set_ylabel('PSD [arb. dB]')
+		
+		self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
 		
 		self.frame.canvas2.draw()
 		self.spectrumClick = clickY
 	
 	def makeMark(self, clickY):
-		ax = self.frame.figure1a.gca()
 		
-		try:
-			if self.oldLine1a is not None:
-				del ax.lines[-1]
-		except AttributeError:
-			pass
+		dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
 		
-		freq = self.data[0]
+		if self.oldMarkA is not None:
+			try:
+				del self.ax1a.lines[-1]
+			except:
+				pass
 			
-		oldXSize = ax.get_xlim()
-		oldYSize = ax.get_ylim()
+		if self.oldMarkB is not None:
+			try:
+				del self.ax1b.lines[-1]
+			except:
+				pass
 		
-		self.oldLine1a = ax.plot(freq/1e6, freq*0+round(clickY), color='red')
-		ax.set_xlim(oldXSize)
-		ax.set_ylim(oldYSize)
+		oldXSizeA = self.ax1a.get_xlim()
+		oldYSizeA = self.ax1a.get_ylim()
+		
+		oldXSizeB = self.ax1b.get_xlim()
+		oldYSizeB = self.ax1b.get_ylim()
+		
+		self.oldMarkA = self.ax1a.plot([-1e6, 1e6], [self.time[dataY],]*2, color='red')
+		self.oldMarkB = self.ax1b.plot([-1e6, 1e6], [self.time[dataY],]*2, color='red')
+		
+		self.ax1a.set_xlim(oldXSizeA)
+		self.ax1a.set_ylim(oldYSizeA)
+		
+		self.ax1b.set_xlim(oldXSizeB)
+		self.ax1b.set_ylim(oldYSizeB)
 		
 		self.frame.canvas1a.draw()
-		
-		###
-		
-		ax = self.frame.figure1b.gca()
-		
-		try:
-			if self.oldLine1b is not None:
-				del ax.lines[-1]
-		except AttributeError:
-			pass
-			
-		oldXSize = ax.get_xlim()
-		oldYSize = ax.get_ylim()
-		
-		self.oldLine1b = ax.plot(oldXSize, [round(clickY)]*2, color='red')
-		ax.set_xlim(oldXSize)
-		ax.set_ylim(oldYSize)
-		
 		self.frame.canvas1b.draw()
 	
 	def connect(self):
-		'connect to all the events we need'
+		"""
+		Connect to all the events we need
+		"""
 		
-		self.cidpress1a = self.frame.figure1a.canvas.mpl_connect('button_press_event', self.on_press)
-		self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press)
-		self.cidpress2 = self.frame.figure2.canvas.mpl_connect('button_press_event', self.on_press2)
-		self.cidmotion = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
+		self.cidpress1a = self.frame.figure1a.canvas.mpl_connect('button_press_event', self.on_press1a)
+		self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press1b)
+		self.cidpress2  = self.frame.figure2.canvas.mpl_connect('button_press_event', self.on_press2)
+		self.cidmotion  = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
 	
-	def on_press(self, event):
-		'on button press we will see if the mouse is over us and store some data'
+	def on_press1a(self, event):
+		"""
+		On button press we will see if the mouse is over us and store some data
+		"""
 		
 		if event.inaxes:
 			clickX = event.xdata
-			clickY = event.ydata / self.intTime
+			clickY = event.ydata
 			
-			freq = self.data[0]
+			dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
 			
-			self.draw()
-			self.drawSpectrum(clickY)
-			self.makeMark(clickY*self.intTime)
+			if event.button == 1:
+				self.drawSpectrum(clickY)
+				self.makeMark(clickY)
+			elif event.button == 3:
+				self.spec.mask[dataY, self.index, :] = 1
+				self.draw()
+			elif event.button == 2:
+				self.spec.mask[dataY, self.index, :] = 0
+				self.draw()
+			else:
+				pass
+				
+	def on_press1b(self, event):
+		"""
+		On button press we will see if the mouse is over us and store some data
+		"""
+		
+		if event.inaxes:
+			clickX = event.xdata
+			clickY = event.ydata
+			
+			scaleX = self.ax1b.get_xlim()
+			rangeX = scaleX[1] - scaleX[0]
+			
+			scaleY = self.ax1b.get_ylim()
+			rangeY = scaleY[1] - scaleY[0]
+			
+			drift = numpy.ma.getdata(self.drift.data)
+			
+			best = -1
+			bestD = 1e9
+			for i in xrange(len(self.time)):
+				d = numpy.sqrt( ((clickX - drift[i,self.index])/rangeX)**2 + ((clickY - self.time[i])/rangeY)**2 )
+				if d < bestD:
+					best = i
+					bestD = d
+					
+			print best, bestD, clickX, clickY, self.drift.data[best,self.index], self.time[best]
+			
+			if event.button == 1:
+				self.drawSpectrum(clickY)
+				self.makeMark(clickY)
+			elif event.button == 3:
+				self.spec.mask[best, self.index, :] = 1
+				self.draw()
+			elif event.button == 2:
+				self.spec.mask[best, self.index, :] = 0
+				self.draw()
+			else:
+				pass
 			
 	def on_press2(self, event):
 		if event.inaxes:
-			clickX = event.xdata*1e6
+			clickX = event.xdata
 			clickY = event.ydata
 			
-			freq = self.data[0]
-			best = numpy.where( numpy.abs(freq-clickX) == numpy.abs(freq-clickX).min() )[0][0]
+			dataX = numpy.where(numpy.abs(clickX-self.freq/1e6) == (numpy.abs(clickX-self.freq/1e6).min()))[0][0]
 			
 			if event.button == 3:
-				self.mask[self.index, best] = 1
+				self.spec.mask[:, self.index, dataX] = 1
 			elif event.button == 2:
-				self.mask[self.index, best] = 0
+				self.spec.mask[:, self.index, dataX] = 0
 			else:
 				pass
+			
+			self.draw()
 			self.drawSpectrum(self.spectrumClick)
 			
 	def on_motion(self, event):
 		if event.inaxes:
 			clickX = event.xdata
 			clickY = event.ydata
-			clickYp = clickY / self.intTime
 			
-			dataX = numpy.where(numpy.abs(clickX-self.data[0]/1e6) == (numpy.abs(clickX-self.data[0]/1e6).min()))[0][0]
+			dataX = numpy.where(numpy.abs(clickX-self.freq/1e6) == (numpy.abs(clickX-self.freq/1e6).min()))[0][0]
+			dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
 			
-			value = self.data[1][int(round(clickYp)), self.index, int(round(dataX))]
+			value = to_dB(self.spec[dataY, self.index, dataX])
 			self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
 		else:
 			self.frame.statusbar.SetStatusText("")
@@ -234,16 +304,20 @@ class Waterfall(object):
 		self.frame.figure1a.canvas.mpl_disconnect(self.cidmotion)
 
 
-ID_OPEN = 10
-ID_QUIT = 11
-ID_TUNING1_X = 20
-ID_TUNING1_Y = 21
-ID_TUNING2_X = 22
-ID_TUNING2_Y = 23
+ID_OPEN    = 10
+ID_SAVE    = 11
+ID_SAVE_AS = 12
+ID_QUIT    = 13
+ID_COLOR_ADJUST = 20
+ID_TUNING1_X = 30
+ID_TUNING1_Y = 31
+ID_TUNING2_X = 32
+ID_TUNING2_Y = 33
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
 		self.dirname = ''
+		self.filename = ''
 		self.data = None
 		
 		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(600,800))
@@ -251,6 +325,8 @@ class MainWindow(wx.Frame):
 		self.initUI()
 		self.initEvents()
 		self.Show()
+		
+		self.cAdjust = None
 		
 	def initUI(self):
 		self.statusbar = self.CreateStatusBar() # A Statusbar in the bottom of the window
@@ -261,13 +337,25 @@ class MainWindow(wx.Frame):
 		menuBar = wx.MenuBar()
 		
 		fileMenu = wx.Menu()
+		colorMenu = wx.Menu()
+		dataMenu = wx.Menu()
+		
+		## File Menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
 		fileMenu.AppendItem(open)
+		save = wx.MenuItem(fileMenu, ID_SAVE, "&Save")
+		fileMenu.AppendItem(save)
+		saveas = wx.MenuItem(fileMenu, ID_SAVE_AS, "Save &As")
+		fileMenu.AppendItem(saveas)
 		fileMenu.AppendSeparator()
 		exit = wx.MenuItem(fileMenu, ID_QUIT, "E&xit")
 		fileMenu.AppendItem(exit)
 		
-		dataMenu = wx.Menu()
+		## Color Menu
+		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
+		colorMenu.AppendItem(cadj)
+		
+		## Data Menu
 		dataMenu.AppendRadioItem(ID_TUNING1_X, 'Tuning 1, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING1_Y, 'Tuning 1, Pol. Y')
 		dataMenu.AppendSeparator()
@@ -276,6 +364,7 @@ class MainWindow(wx.Frame):
 
 		# Creating the menubar.
 		menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
+		menuBar.Append(colorMenu, "&Color")
 		menuBar.Append(dataMenu, "&Data")
 		self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 		
@@ -286,59 +375,24 @@ class MainWindow(wx.Frame):
 		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
 		self.figure1a = Figure()
 		self.canvas1a = FigureCanvasWxAgg(panel1, -1, self.figure1a)
+		hbox1.Add(self.canvas1a, 1, wx.EXPAND)
+		
+		# Add a total power with time plot
 		self.figure1b = Figure()
 		self.canvas1b = FigureCanvasWxAgg(panel1, -1, self.figure1b)
-		
-		hbox1.Add(self.canvas1a, 1, wx.EXPAND)
 		hbox1.Add(self.canvas1b, 1, wx.EXPAND)
 		panel1.SetSizer(hbox1)
 		vbox.Add(panel1, 1, wx.EXPAND)
 		
-		# Add a contrast control panel
-		self.plotButtons = []
-		panel2 = wx.Panel(self, -1)
-		hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-		## Range
-		sizerRange = wx.StaticBoxSizer(wx.StaticBox(panel2, -1, 'Range'), orient=wx.VERTICAL)
-		self.plotButtons.append(wx.Button(panel2, -1, "Decrease", size=(120, -1)))
-		self.Bind(wx.EVT_BUTTON, self.decRange, self.plotButtons[-1])
-		sizerRange.Add(self.plotButtons[-1])
-		self.plotButtons.append(wx.Button(panel2, -1, "Increase", size=(120, -1)))
-		self.Bind(wx.EVT_BUTTON, self.incRange, self.plotButtons[-1])
-		sizerRange.Add(self.plotButtons[-1])
-		hbox2.Add(sizerRange, 0, wx.EXPAND)
-		## Clip
-		sizerClip = wx.StaticBoxSizer(wx.StaticBox(panel2, -1, 'Clip'), orient=wx.VERTICAL)
-		self.plotButtons.append(wx.Button(panel2, -1, "Decrease", size=(120,-1)))
-		self.Bind(wx.EVT_BUTTON, self.decClip, self.plotButtons[-1])
-		sizerClip.Add(self.plotButtons[-1])
-		self.plotButtons.append(wx.Button(panel2, -1, "Increase", size=(120,-1)))
-		self.Bind(wx.EVT_BUTTON, self.incClip, self.plotButtons[-1])
-		sizerClip.Add(self.plotButtons[-1])
-		hbox2.Add(sizerClip, 0, wx.EXPAND)
-		## Display range
-		sizerMap = wx.StaticBoxSizer(wx.StaticBox(panel2, -1, 'Color Map'), orient=wx.VERTICAL)
-		gridMap = wx.GridSizer(2, 3)
-		gridMap.Add(wx.StaticText(panel2, id=-1, label='Max (red):  '))
-		self.maxText = wx.StaticText(panel2, id=-1, label='--', style=wx.ALIGN_RIGHT)
-		gridMap.Add(self.maxText)
-		gridMap.Add(wx.StaticText(panel2, id=-1, label='dB'))
-		gridMap.Add(wx.StaticText(panel2, id=-1, label='Min (blue):  '))
-		self.minText = wx.StaticText(panel2, id=-1, label='--', style=wx.ALIGN_RIGHT)
-		gridMap.Add(self.minText)
-		gridMap.Add(wx.StaticText(panel2, id=-1, label='dB'))
-		sizerMap.Add(gridMap)
-		hbox2.Add(sizerMap, 0, wx.EXPAND)
-		
-		panel2.SetSizer(hbox2)
-		vbox.Add(panel2, 0, wx.LEFT)
-		
-		# Add a spectrum plot
+		# Add a spectrum plot (with toolbar)
 		panel3 = wx.Panel(self, -1)
-		hbox3 = wx.BoxSizer(wx.HORIZONTAL)
+		hbox3 = wx.BoxSizer(wx.VERTICAL)
 		self.figure2 = Figure()
 		self.canvas2 = FigureCanvasWxAgg(panel3, -1, self.figure2)
-		hbox3.Add(self.canvas2, 1)
+		self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
+		self.toolbar.Realize()
+		hbox3.Add(self.canvas2, 1, wx.EXPAND)
+		hbox3.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
 		panel3.SetSizer(hbox3)
 		vbox.Add(panel3, 1, wx.EXPAND)
 		
@@ -347,109 +401,298 @@ class MainWindow(wx.Frame):
 		self.SetAutoLayout(1)
 		vbox.Fit(self)
 		
-		#Layout sizers
-		self.Show()
-		
 	def initEvents(self):
 		self.Bind(wx.EVT_MENU, self.onOpen, id=ID_OPEN)
+		self.Bind(wx.EVT_MENU, self.onSave, id=ID_SAVE)
+		self.Bind(wx.EVT_MENU, self.onSaveAs, id=ID_SAVE_AS)
 		self.Bind(wx.EVT_MENU, self.onExit, id=ID_QUIT)
+		
+		self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
 		
 		self.Bind(wx.EVT_MENU, self.onTuning1X, id=ID_TUNING1_X)
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
 		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
 		
+		# Key events
+		self.canvas1a.Bind(wx.EVT_KEY_UP, self.onKeyPress)
+		self.canvas1b.Bind(wx.EVT_KEY_UP, self.onKeyPress)
+		
 		# Make the images resizable
-		#self.Bind(wx.EVT_PAINT, self.resizePlots)
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
 	
-	def onOpen(self,e):
-		""" Open a file"""
+	def onOpen(self, event):
+		"""
+		Open a file.
+		"""
+		
 		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
 		if dlg.ShowModal() == wx.ID_OK:
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
-			self.data = Waterfall(self)
+			self.data = Waterfall_GUI(self)
 			self.data.loadData(os.path.join(self.dirname, self.filename))
 			self.data.draw()
+			
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
+				self.cAdjust = None
 		dlg.Destroy()
 		
+	def onSave(self, event):
+		"""
+		Save the data mask to a new NPZ file.
+		"""
+		
+		if self.data.filename == '':
+			self.onSaveAs(event)
+		else:
+			numpy.savez(self.filename, freq=self.data.freq, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
+
+	def onSaveAs(self, event):
+		"""
+		Save the current observation to a new SD file.
+		"""
+		
+		dialog = wx.FileDialog(self, "Select Output File", self.dirname, '', 'Text Files (*.txt)|*.txt|All Files (*.*)|*.*', wx.SAVE|wx.FD_OVERWRITE_PROMPT)
+			
+		if dialog.ShowModal() == wx.ID_OK:
+			self.dirname = dialog.GetDirectory()
+			self.filename = dialog.GetPath()
+			
+			numpy.savez(self.data.filename, freq=self.data.freq, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
+			
+		dialog.Destroy()
+		
 	def onExit(self, event):
+		"""
+		Quit plotWaterfall.
+		"""
+		
 		self.Close(True)
 		
+	def onAdjust(self, event):
+		"""
+		Bring up the colorbar adjustment dialog window.
+		"""
+		
+		ContrastAdjust(self)
+		
 	def onTuning1X(self, event):
+		"""
+		Display tuning 1, pol X.
+		"""
+		
 		self.data.index = 0
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
 		
 	def onTuning1Y(self, event):
+		"""
+		Display tuning 1, pol Y.
+		"""
+		
 		self.data.index = 1
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
 		
 	def onTuning2X(self, event):
+		"""
+		Display tuning 2, pol X.
+		"""
+		
 		self.data.index = 2
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
 		
 	def onTuning2Y(self, event):
+		"""
+		Display tuning 2, pol Y.
+		"""
+		
 		self.data.index = 3
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
+			
+	def onKeyPress(self, event):
+		"""
+		Move the current spectra mark up and down with a keypress.
+		"""
+		
+		keycode = event.GetKeyCode()
+		
+		if keycode == wx.WXK_UP:
+			if self.data.spectrumClick is not None:
+				self.data.drawSpectrum(self.data.spectrumClick + self.data.tInt)
+				self.data.makeMark(self.data.spectrumClick + self.data.tInt)
+		elif keycode == wx.WXK_DOWN:
+			if self.data.spectrumClick is not None:
+				self.data.drawSpectrum(self.data.spectrumClick - self.data.tInt)
+				self.data.makeMark(self.data.spectrumClick - self.data.tInt)
+		else:
+			pass
+			
+		event.Skip()
+	
+	def resizePlots(self, event):
+		w, h = self.GetSize()
+		dpi = self.figure1a.get_dpi()
+		newW0 = 1.0*w/dpi
+		newW1 = 1.0*(w/2-100)/dpi
+		newW2 = 1.0*(w/2-100)/dpi
+		newH0 = 1.0*(h/2-100)/dpi
+		newH1 = 1.0*(h/2-200)/dpi
+		self.figure1a.set_size_inches((newW1, newH0))
+		self.figure1a.canvas.draw()
+		self.figure1b.set_size_inches((newW2, newH0))
+		self.figure1b.canvas.draw()
+		self.figure2.set_size_inches((newW0, newH1))
+		self.figure2.canvas.draw()
+		
+	def GetToolBar(self):
+		# You will need to override GetToolBar if you are using an 
+		# unmanaged toolbar in your frame
+		return self.toolbar
 
-	def decRange(self, event):
-		if self.data is not None:
-			low, hig = self.data.crange
-			low += 1
-			hig -=1
-			self.data.crange = [low, hig]
-			self.data.draw()
+
+ID_CONTRAST_UPR_INC = 100
+ID_CONTRAST_UPR_DEC = 101
+ID_CONTRAST_LWR_INC = 102
+ID_CONTRAST_LWR_DEC = 103
+ID_CONTRAST_OK = 104
+
+class ContrastAdjust(wx.Frame):
+	def __init__ (self, parent):	
+		wx.Frame.__init__(self, parent, title='Contrast Adjustment', size=(330, 175))
 		
-	def incRange(self, event):
-		if self.data is not None:
-			low, hig = self.data.crange
-			low -= 1
-			hig +=1
-			self.data.crange = [low, hig]
-			self.data.draw()
-			
-	def decClip(self, event):
-		if self.data is not None:
-			low, hig = self.data.crange
-			low -= 1
-			hig -= 1
-			self.data.crange = [low, hig]
-			self.data.draw()
+		self.parent = parent
 		
-	def incClip(self, event):
-		if self.data is not None:
-			low, hig = self.data.crange
-			low += 1
-			hig += 1
-			self.data.crange = [low, hig]
-			self.data.draw()
+		self.initUI()
+		self.initEvents()
+		self.Show()
 		
-	def setTextRange(self):
-		low, hig = self.data.crange
-		self.maxText.SetLabel("%+.2f" % hig)
-		self.minText.SetLabel("%+.2f" % low)
+		self.parent.cAdjust = self
 		
-	def disableButtons(self):
-		for button in self.plotButtons:
-			button.Enable(False)
-			
-	def enableButtons(self):
-		for button in self.plotButtons:
-			button.Enable(True)
+	def initUI(self):
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index/2+1, self.parent.data.index%2))
+		sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		row += 1
+		
+		upr = wx.StaticText(panel, label='Upper Limit:')
+		uprText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
+		uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
+		
+		lwr = wx.StaticText(panel, label='Lower Limit:')
+		lwrText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
+		lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
+		
+		rng = wx.StaticText(panel, label='Range:')
+		rngText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		
+		sizer.Add(upr,     pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprText, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprDec,  pos=(row+0, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprInc,  pos=(row+0, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwr,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(rng,     pos=(row+2, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(rngText, pos=(row+2, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		line = wx.StaticLine(panel)
+		sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
+		
+		row += 4
+		
+		#
+		# Buttons
+		#
+		
+		ok = wx.Button(panel, ID_CONTRAST_OK, 'Ok', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		panel.SetSizerAndFit(sizer)
+
+		self.uText = uprText
+		self.lText = lwrText
+		self.rText = rngText
+		
+		#
+		# Set current values
+		#
+		index = self.parent.data.index
+		self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+		self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_BUTTON, self.onUpperDecrease, id=ID_CONTRAST_UPR_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onUpperIncrease, id=ID_CONTRAST_UPR_INC)
+		self.Bind(wx.EVT_BUTTON, self.onLowerDecrease, id=ID_CONTRAST_LWR_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onLowerIncrease, id=ID_CONTRAST_LWR_INC)
+		
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
+		
+	def onUpperDecrease(self, event):
+		index = self.parent.data.index
+		self.parent.data.limits[index][1] -= self.__getIncrement(index)
+		self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onUpperIncrease(self, event):
+		index = self.parent.data.index
+		self.parent.data.limits[index][1] += self.__getIncrement(index)
+		self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onLowerDecrease(self, event):
+		index = self.parent.data.index
+		self.parent.data.limits[index][0] -= self.__getIncrement(index)
+		self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onLowerIncrease(self, event):
+		index = self.parent.data.index
+		self.parent.data.limits[index][0] += self.__getIncrement(index)
+		self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onOk(self, event):
+		self.parent.cAdjust = None
+		self.Close()
+	
+	def __getRange(self, index):
+		return (self.parent.data.limits[index][1] - self.parent.data.limits[index][0])
+		
+	def __getIncrement(self, index):
+		return 0.1*self.__getRange(index)
+
 
 def main(args):
 	app = wx.App(0)
 	frame = MainWindow(None, -1)
 	if len(args) == 1:
-		frame.data = Waterfall(frame)
+		frame.filename = args[0]
+		frame.data = Waterfall_GUI(frame)
 		frame.data.loadData(args[0])
 		frame.data.draw()
 	app.MainLoop()
