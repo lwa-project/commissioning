@@ -14,6 +14,7 @@ import sys
 import numpy
 from datetime import datetime
 
+from lsl.common.dp import fS
 from lsl.misc.mathutil import to_dB
 
 import wx
@@ -24,6 +25,74 @@ matplotlib.interactive(True)
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
 from matplotlib.figure import Figure
 
+try:
+	from dp import drxFilter
+except ImportError:
+	from scipy.signal import freqz
+	from scipy.interpolate import interp1d
+	
+	_nPts = 500
+	
+	def drxFilter(sampleRate=19.6e6):
+		"""
+		Return a function that will generate the shape of a DRX filter for a given sample
+		rate.
+		
+		Based on memo DRX0001.
+		"""
+		
+		decimation = fS / sampleRate
+		decimationCIC = decimation / 2
+		
+		# CIC settings
+		N = 5
+		R = 5
+		
+		# FIR coefficients
+		drxFIR = [-6.2000000000000000e+001,  6.6000000000000000e+001,  1.4500000000000000e+002, 
+				3.4000000000000000e+001, -1.4400000000000000e+002, -5.9000000000000000e+001, 
+				1.9900000000000000e+002,  1.4500000000000000e+002, -2.2700000000000000e+002, 
+				-2.5700000000000000e+002,  2.3200000000000000e+002,  4.0500000000000000e+002, 
+				-1.9400000000000000e+002, -5.8300000000000000e+002,  9.2000000000000000e+001, 
+				7.8200000000000000e+002,  9.4000000000000000e+001, -9.9000000000000000e+002, 
+				-3.9700000000000000e+002,  1.1860000000000000e+003,  8.5900000000000000e+002, 
+				-1.3400000000000000e+003, -1.5650000000000000e+003,  1.3960000000000000e+003, 
+				2.7180000000000000e+003, -1.1870000000000000e+003, -4.9600000000000000e+003, 
+				-1.8900000000000000e+002,  1.1431000000000000e+004,  1.7747000000000000e+004, 
+				1.1431000000000000e+004, -1.8900000000000000e+002, -4.9600000000000000e+003, 
+				-1.1870000000000000e+003,  2.7180000000000000e+003,  1.3960000000000000e+003, 
+				-1.5650000000000000e+003, -1.3400000000000000e+003,  8.5900000000000000e+002, 
+				1.1860000000000000e+003, -3.9700000000000000e+002, -9.9000000000000000e+002,
+				9.4000000000000000e+001,  7.8200000000000000e+002,  9.2000000000000000e+001,
+				-5.8300000000000000e+002, -1.9400000000000000e+002,  4.0500000000000000e+002, 
+				2.3200000000000000e+002, -2.5700000000000000e+002, -2.2700000000000000e+002, 
+				1.4500000000000000e+002,  1.9900000000000000e+002, -5.9000000000000000e+001, 
+				-1.4400000000000000e+002,  3.4000000000000000e+001,  1.4500000000000000e+002, 
+				6.6000000000000000e+001, -6.2000000000000000e+001]
+			
+		# Part 1 - CIC filter
+		h = numpy.linspace(0, numpy.pi/decimationCIC/2, num=_nPts, endpoint=True)
+		wCIC = (numpy.sin(h*R)/numpy.sin(h/2))**N
+		wCIC[0] = (2*R)**N
+		
+		# Part 2 - FIR filter
+		h, wFIR = freqz(drxFIR, 1, _nPts)
+		
+		# Cascade
+		w = numpy.abs(wCIC) * numpy.abs(wFIR)
+		
+		# Convert to a "real" frequency and magnitude response
+		h *= fS / decimation / numpy.pi
+		w = numpy.abs(w)**2
+		
+		# Mirror
+		h = numpy.concatenate([-h[::-1], h[1:]])
+		w = numpy.concatenate([w[::-1], w[1:]])
+		
+		# Return the interpolating function
+		return interp1d(h, w/w.max(), kind='cubic', bounds_error=False)
+
+
 
 class Waterfall_GUI(object):
 	def __init__(self, frame, freq=None, spec=None, tInt=None):
@@ -33,6 +102,7 @@ class Waterfall_GUI(object):
 		self.filename = ''
 		self.index = 0
 		
+		self.bandpass = False
 		self.freq = freq
 		self.spec = spec
 		self.tInt = None
@@ -53,6 +123,10 @@ class Waterfall_GUI(object):
 		dataDictionary = numpy.load(filename)
 		
 		# Load the Data
+		try:
+			self.srate = dataDictionary['srate']
+		except KeyError:
+			self.srate = 19.6e6
 		self.freq = dataDictionary['freq']
 		try:
 			mask = dataDictionary['mask']
@@ -66,10 +140,21 @@ class Waterfall_GUI(object):
 		self.timesNPZ = dataDictionary['times']
 		self.standMapperNPZ = dataDictionary['standMapper']
 		
+		# Get the filter model
+		self.bpm = drxFilter(sampleRate=self.srate)(self.freq)
+		
+		# Compute the bandpass fit
+		self.computeBandpass()
+		
 		# Set default colobars
 		self.limits = []
 		for i in xrange(self.spec.shape[1]):
 			self.limits.append( [to_dB(self.spec[:,i,:]).min(), to_dB(self.spec[:,i,:]).max()] )
+			
+		self.limitsBandpass = []
+		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
+		for i in xrange(self.spec.shape[1]):
+			self.limitsBandpass.append( [to_dB(self.specBandpass[:,i,toUse]).min(), to_dB(self.specBandpass[:,i,toUse]).max()] )
 		
 		try:
 			self.diconnect()
@@ -85,17 +170,43 @@ class Waterfall_GUI(object):
 		
 		self.connect()
 	
+	def computeBandpass(self):
+		"""
+		Compute the bandpass fits.
+		"""
+		
+		# Account for the ARX bandpass by fitting to the inner 80% of the band
+		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
+		
+		medianSpec = numpy.median(self.spec, axis=0)
+		bpm2 = []
+		for i in xrange(self.spec.shape[1]):
+			coeff = numpy.polyfit(self.freq[toUse], self.bpm[toUse]/self.bpm.mean() * medianSpec[i,toUse].mean()/medianSpec[i,toUse], 9)
+			noiseSlope = numpy.polyval(coeff, self.freq)
+			bpm2.append( self.bpm / noiseSlope )
+			
+		# Apply the bandpass correction
+		self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
+		for i in xrange(self.spec.shape[1]):
+			for j in xrange(self.spec.shape[0]):
+				self.specBandpass[j,i,:] = bpm2[i].mean() / bpm2[i] * self.spec[j,i,:]
+	
 	def draw(self):
 		"""
 		Draw the waterfall diagram and the total power with time.
 		"""
 		
-		wx.BeginBusyCursor()
+		if self.bandpass:
+			spec = self.specBandpass
+			limits = self.limitsBandpass
+		else:
+			spec = self.spec
+			limits = self.limits
 		
 		# Plot 1(a) - Waterfall
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
-		m = self.ax1a.imshow(to_dB(self.spec[:,self.index,:]), extent=(self.freq[0]/1e6, self.freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=self.limits[self.index][0], vmax=self.limits[self.index][1])
+		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), extent=(self.freq[0]/1e6, self.freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
 		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1a.axis('auto')
@@ -109,7 +220,7 @@ class Waterfall_GUI(object):
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
-		self.drift = self.spec[:,:,256:768].sum(axis=2)
+		self.drift = spec[:,:,256:768].sum(axis=2)
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
@@ -122,26 +233,30 @@ class Waterfall_GUI(object):
 			self.ax1b.lines.extend(self.oldMarkB)
 		
 		self.frame.canvas1b.draw()
-		
-		wx.EndBusyCursor()
 	
 	def drawSpectrum(self, clickY):
 		"""Get the spectrum at a particular point in time."""
-
-		dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
+		
+		if self.bandpass:
+			spec = self.specBandpass[:,self.index,:]
+			limits = self.limitsBandpass
+		else:
+			spec = self.spec[:,self.index,:]
+			limits = self.limits
+		medianSpec = numpy.median(spec, axis=0)
+		
 		if self.frame.toolbar.mode == 'zoom rect':
 			try:
 				oldXlim = self.ax2.get_xlim()
 				oldYlim = self.ax2.get_ylim()
 			except:
 				oldXlim = [self.freq[0]/1e6, self.freq[-1]/1e6]
-				oldYlim = self.limits[self.index]
+				oldYlim = limits[self.index]
 		else:
 			oldXlim = [self.freq[0]/1e6, self.freq[-1]/1e6]
-			oldYlim = self.limits[self.index]
-		
-		spec = self.spec[:,self.index,:]
-		medianSpec = numpy.median(spec, axis=0)
+			oldYlim = limits[self.index]
+			
+		dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
 		
 		self.frame.figure2.clf()
 		self.ax2 = self.frame.figure2.gca()
@@ -153,7 +268,10 @@ class Waterfall_GUI(object):
 		self.ax2.set_xlabel('Frequency [MHz]')
 		self.ax2.set_ylabel('PSD [arb. dB]')
 		
-		self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+		if self.bandpass:
+			self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+		else:
+			self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
 		
 		self.frame.canvas2.draw()
 		self.spectrumClick = clickY
@@ -218,9 +336,11 @@ class Waterfall_GUI(object):
 				self.makeMark(clickY)
 			elif event.button == 3:
 				self.spec.mask[dataY, self.index, :] = 1
+				self.specBandpass.mask[dataY, self.index, :] = 1
 				self.draw()
 			elif event.button == 2:
 				self.spec.mask[dataY, self.index, :] = 0
+				self.specBandpass.mask[dataY, self.index, :] = 0
 				self.draw()
 			else:
 				pass
@@ -240,15 +360,9 @@ class Waterfall_GUI(object):
 			scaleY = self.ax1b.get_ylim()
 			rangeY = scaleY[1] - scaleY[0]
 			
-			drift = numpy.ma.getdata(self.drift.data)
-			
-			best = -1
-			bestD = 1e9
-			for i in xrange(len(self.time)):
-				d = numpy.sqrt( ((clickX - drift[i,self.index])/rangeX)**2 + ((clickY - self.time[i])/rangeY)**2 )
-				if d < bestD:
-					best = i
-					bestD = d
+			d = numpy.sqrt( ((clickX - self.drift.data[:,self.index])/rangeX)**2 + ((clickY - self.time)/rangeY)**2 )
+			best = numpy.where( d == d.min() )
+			bestD = d[best]
 					
 			print best, bestD, clickX, clickY, self.drift.data[best,self.index], self.time[best]
 			
@@ -257,9 +371,11 @@ class Waterfall_GUI(object):
 				self.makeMark(clickY)
 			elif event.button == 3:
 				self.spec.mask[best, self.index, :] = 1
+				self.specBandpass.mask[best, self.index, :] = 1
 				self.draw()
 			elif event.button == 2:
 				self.spec.mask[best, self.index, :] = 0
+				self.specBandpass.mask[best, self.index, :] = 0
 				self.draw()
 			else:
 				pass
@@ -273,8 +389,10 @@ class Waterfall_GUI(object):
 			
 			if event.button == 3:
 				self.spec.mask[:, self.index, dataX] = 1
+				self.specBandpass.mask[:, self.index, dataX] = 1
 			elif event.button == 2:
 				self.spec.mask[:, self.index, dataX] = 0
+				self.specBandpass.mask[:, self.index, dataX] = 0
 			else:
 				pass
 			
@@ -313,6 +431,9 @@ ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
 ID_TUNING2_X = 32
 ID_TUNING2_Y = 33
+ID_BANDPASS_ON = 40
+ID_BANDPASS_OFF = 41
+ID_BANDPASS_RECOMPUTE = 42
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
@@ -339,6 +460,7 @@ class MainWindow(wx.Frame):
 		fileMenu = wx.Menu()
 		colorMenu = wx.Menu()
 		dataMenu = wx.Menu()
+		bandpassMenu = wx.Menu()
 		
 		## File Menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
@@ -361,11 +483,19 @@ class MainWindow(wx.Frame):
 		dataMenu.AppendSeparator()
 		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
+		
+		## Bandpass Menu
+		bandpassMenu.AppendRadioItem(ID_BANDPASS_OFF, 'Off')
+		bandpassMenu.AppendRadioItem(ID_BANDPASS_ON,  'On')
+		bandpassMenu.AppendSeparator()
+		recompute = wx.MenuItem(bandpassMenu, ID_BANDPASS_RECOMPUTE, 'Recompute Fits')
+		bandpassMenu.AppendItem(recompute)
 
 		# Creating the menubar.
 		menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
 		menuBar.Append(colorMenu, "&Color")
 		menuBar.Append(dataMenu, "&Data")
+		menuBar.Append(bandpassMenu, "&Bandpass")
 		self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 		
 		vbox = wx.BoxSizer(wx.VERTICAL)
@@ -413,6 +543,10 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
 		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
+		
+		self.Bind(wx.EVT_MENU, self.onBandpassOn, id=ID_BANDPASS_ON)
+		self.Bind(wx.EVT_MENU, self.onBandpassOff, id=ID_BANDPASS_OFF)
+		self.Bind(wx.EVT_MENU, self.onBandpassRecompute, id=ID_BANDPASS_RECOMPUTE)
 		
 		# Key events
 		self.canvas1a.Bind(wx.EVT_KEY_UP, self.onKeyPress)
@@ -486,41 +620,103 @@ class MainWindow(wx.Frame):
 		Display tuning 1, pol X.
 		"""
 		
+		wx.BeginBusyCursor()
+		
 		self.data.index = 0
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
 		
 	def onTuning1Y(self, event):
 		"""
 		Display tuning 1, pol Y.
 		"""
 		
+		wx.BeginBusyCursor()
+		
 		self.data.index = 1
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
 		
 	def onTuning2X(self, event):
 		"""
 		Display tuning 2, pol X.
 		"""
 		
+		wx.BeginBusyCursor()
+		
 		self.data.index = 2
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
 		
 	def onTuning2Y(self, event):
 		"""
 		Display tuning 2, pol Y.
 		"""
 		
+		wx.BeginBusyCursor()
+		
 		self.data.index = 3
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
 			
+		wx.EndBusyCursor()
+	
+	def onBandpassOn(self, event):
+		"""
+		Enable bandpass correction.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.bandpass = True
+		
+		self.data.draw()
+		self.data.drawSpectrum(self.data.spectrumClick)
+		self.data.makeMark(self.data.spectrumClick)
+		
+		wx.EndBusyCursor()
+		
+	def onBandpassOff(self, event):
+		"""
+		Disable bandpass correction.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.bandpass = False
+		
+		self.data.draw()
+		self.data.drawSpectrum(self.data.spectrumClick)
+		self.data.makeMark(self.data.spectrumClick)
+		
+		wx.EndBusyCursor()
+		
+	def onBandpassRecompute(self, event):
+		"""
+		Recompute the bandpass fits and redraw the plots if needed.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.computeBandpass()
+		
+		if self.data.bandpass:
+			self.data.draw()
+			self.data.drawSpectrum(self.data.spectrumClick)
+			self.data.makeMark(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
+		
 	def onKeyPress(self, event):
 		"""
 		Move the current spectra mark up and down with a keypress.
