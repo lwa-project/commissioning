@@ -161,7 +161,7 @@ def main(args):
 	fh.seek(-drx.FrameSize, 1)
 
 	# Master loop over all of the file chuncks
-	masterTimes = numpy.zeros((nChunks, beampols), dtype=numpy.int64)
+	masterTimes = numpy.zeros((nChunks, beampols), dtype=numpy.float64)
 	masterData  = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	masterData2 = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
 	for i in range(nChunks):
