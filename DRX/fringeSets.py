@@ -141,7 +141,7 @@ def main(args):
 		for i in xrange(len(stands)/2):
 			# Put the reference stand in there all by itself
 			if stands[2*i] == config['ref']:
-				gains[i] = [0.0000, 0.0000, 1.0000, 0.0000]
+				gains[i] = [0.0000, bgain, 0.0000, 0.0000]
 	else:
 		print "Setting gains for dipoles %i and %i" % (config['dipole'], config['ref'])
 		
@@ -153,7 +153,7 @@ def main(args):
 			
 			# Put the reference stand in there all by itself
 			if stands[2*i] == config['ref']:
-				gains[i] = [0.0000, 0.0000, bgain, 0.0000]
+				gains[i] = [0.0000, bgain, 0.0000, 0.0000]
 
 	#for g,s,p in zip(gains, stands[::2], pols[::2]):
 		#print g, s, p

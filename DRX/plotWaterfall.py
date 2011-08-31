@@ -11,6 +11,7 @@ $LastChangedDate$
 
 import os
 import sys
+import time
 import numpy
 from datetime import datetime
 
@@ -118,20 +119,24 @@ class Waterfall_GUI(object):
 		Load in data from an NPZ file.
 		"""
 		
+		print "Loading file '%s'" % os.path.split(filename)[1]
+		tStart = time.time()
+		
 		# Save the filename
 		self.filename = filename
 		dataDictionary = numpy.load(filename)
 		
 		# Load the Data
+		print " %6.3f s - Extracting data" % (time.time() - tStart)
 		try:
 			self.srate = dataDictionary['srate']
 		except KeyError:
 			self.srate = 19.6e6
 		self.freq = dataDictionary['freq']
 		try:
-			mask = dataDictionary['mask']
+			mask = dataDictionary['mask'].astype(numpy.bool)
 		except KeyError:
-			mask = numpy.zeros(dataDictionary['spec'].shape, dtype=numpy.int16)
+			mask = numpy.zeros(dataDictionary['spec'].shape, dtype=numpy.bool)
 		self.spec = numpy.ma.array(dataDictionary['spec'], mask=mask)
 		self.tInt = dataDictionary['tInt']
 		self.time = self.tInt * numpy.arange(self.spec.shape[0])
@@ -140,13 +145,20 @@ class Waterfall_GUI(object):
 		self.timesNPZ = dataDictionary['times']
 		self.standMapperNPZ = dataDictionary['standMapper']
 		
+		# Find the median spectra
+		print " %6.3f s - Computing median spectra" % (time.time() - tStart)
+		self.median = numpy.median(self.spec, axis=0)
+		
 		# Get the filter model
+		print " %6.3f s - Building DRX bandpass model" % (time.time() - tStart)
 		self.bpm = drxFilter(sampleRate=self.srate)(self.freq)
 		
 		# Compute the bandpass fit
+		print " %6.3f s - Computing bandpass fits" % (time.time() - tStart)
 		self.computeBandpass()
 		
 		# Set default colobars
+		print " %6.3f s - Setting default colorbar ranges" % (time.time() - tStart)
 		self.limits = []
 		for i in xrange(self.spec.shape[1]):
 			self.limits.append( [to_dB(self.spec[:,i,:]).min(), to_dB(self.spec[:,i,:]).max()] )
@@ -169,6 +181,8 @@ class Waterfall_GUI(object):
 		self.frame.figure2.clf()
 		
 		self.connect()
+		
+		print " %6.3f s - Ready" % (time.time() - tStart)
 	
 	def computeBandpass(self):
 		"""
@@ -178,10 +192,10 @@ class Waterfall_GUI(object):
 		# Account for the ARX bandpass by fitting to the inner 80% of the band
 		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
 		
-		medianSpec = numpy.median(self.spec, axis=0)
+		medianSpec = numpy.mean(self.spec, axis=0)
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
-			coeff = numpy.polyfit(self.freq[toUse], self.bpm[toUse]/self.bpm.mean() * medianSpec[i,toUse].mean()/medianSpec[i,toUse], 9)
+			coeff = numpy.polyfit(self.freq[toUse], self.bpm[toUse]/self.bpm.mean() * medianSpec[i,toUse].mean()/medianSpec[i,toUse], 10)
 			noiseSlope = numpy.polyval(coeff, self.freq)
 			bpm2.append( self.bpm / noiseSlope )
 			
@@ -220,7 +234,7 @@ class Waterfall_GUI(object):
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
-		self.drift = spec[:,:,256:768].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
@@ -234,18 +248,23 @@ class Waterfall_GUI(object):
 		
 		self.frame.canvas1b.draw()
 	
-	def drawSpectrum(self, clickY):
+	def drawSpectrum(self, clickY, Home=False):
 		"""Get the spectrum at a particular point in time."""
 		
+		try:
+			dataY = int(round(clickY / self.tInt))
+		except TypeError:
+			return False
+		
 		if self.bandpass:
-			spec = self.specBandpass[:,self.index,:]
+			spec = self.specBandpass[dataY,self.index,:]
 			limits = self.limitsBandpass
 		else:
-			spec = self.spec[:,self.index,:]
+			spec = self.spec[dataY,self.index,:]
 			limits = self.limits
-		medianSpec = numpy.median(spec, axis=0)
+		medianSpec = self.median[self.index,:]
 		
-		if self.frame.toolbar.mode == 'zoom rect':
+		if self.frame.toolbar.mode == 'zoom rect' and not Home:
 			try:
 				oldXlim = self.ax2.get_xlim()
 				oldYlim = self.ax2.get_ylim()
@@ -255,13 +274,11 @@ class Waterfall_GUI(object):
 		else:
 			oldXlim = [self.freq[0]/1e6, self.freq[-1]/1e6]
 			oldYlim = limits[self.index]
-			
-		dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
 		
 		self.frame.figure2.clf()
 		self.ax2 = self.frame.figure2.gca()
-		self.ax2.plot(self.freq/1e6, spec[dataY,:], linestyle=' ', marker='o', label='Current', color='blue')
-		self.ax2.plot(self.freq/1e6, medianSpec, label='Median', alpha=0.5, color='green')
+		self.ax2.plot(self.freq/1e6, to_dB(spec), linestyle=' ', marker='o', label='Current', color='blue')
+		self.ax2.plot(self.freq/1e6, to_dB(medianSpec), label='Median', alpha=0.5, color='green')
 		self.ax2.set_xlim(oldXlim)
 		self.ax2.set_ylim(oldYlim)
 		self.ax2.legend(loc=0)
@@ -278,7 +295,7 @@ class Waterfall_GUI(object):
 	
 	def makeMark(self, clickY):
 		
-		dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
+		dataY = int(round(clickY / self.tInt))
 		
 		if self.oldMarkA is not None:
 			try:
@@ -319,6 +336,14 @@ class Waterfall_GUI(object):
 		self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press1b)
 		self.cidpress2  = self.frame.figure2.canvas.mpl_connect('button_press_event', self.on_press2)
 		self.cidmotion  = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
+		self.frame.toolbar.home = self.on_home
+		
+	def on_home(self, *args):
+		"""
+		Override of the toolbar 'home' operation.
+		"""
+		
+		self.drawSpectrum(self.spectrumClick, Home=True)
 	
 	def on_press1a(self, event):
 		"""
@@ -329,18 +354,18 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
+			dataY = int(round(clickY / self.tInt))
 			
 			if event.button == 1:
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
-			elif event.button == 3:
-				self.spec.mask[dataY, self.index, :] = 1
-				self.specBandpass.mask[dataY, self.index, :] = 1
-				self.draw()
 			elif event.button == 2:
-				self.spec.mask[dataY, self.index, :] = 0
-				self.specBandpass.mask[dataY, self.index, :] = 0
+				self.spec.mask[dataY, self.index, :] = False
+				self.specBandpass.mask[dataY, self.index, :] = False
+				self.draw()
+			elif event.button == 3:
+				self.spec.mask[dataY, self.index, :] = True
+				self.specBandpass.mask[dataY, self.index, :] = True
 				self.draw()
 			else:
 				pass
@@ -360,22 +385,30 @@ class Waterfall_GUI(object):
 			scaleY = self.ax1b.get_ylim()
 			rangeY = scaleY[1] - scaleY[0]
 			
-			d = numpy.sqrt( ((clickX - self.drift.data[:,self.index])/rangeX)**2 + ((clickY - self.time)/rangeY)**2 )
-			best = numpy.where( d == d.min() )
-			bestD = d[best]
-					
-			print best, bestD, clickX, clickY, self.drift.data[best,self.index], self.time[best]
+			dataY = int(round(clickY / self.tInt))
+			lower = dataY - 200
+			lower = 0 if lower < 0 else lower
+			upper = dataY + 200
+			upper = self.drift.shape[0]-1 if upper > self.drift.shape[0]-1 else upper
+			
+			d =  ((clickX - self.drift.data[lower:upper,self.index])/rangeX)**2
+			d += ((clickY - self.time[lower:upper])/rangeY)**2
+			d = numpy.sqrt(d)
+			best = numpy.where( d == d.min() )[0][0] + lower
+			bestD = d[best - lower]
+			
+			print "Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, self.drift.data[best, self.index], self.time[best])
 			
 			if event.button == 1:
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
-			elif event.button == 3:
-				self.spec.mask[best, self.index, :] = 1
-				self.specBandpass.mask[best, self.index, :] = 1
-				self.draw()
 			elif event.button == 2:
-				self.spec.mask[best, self.index, :] = 0
-				self.specBandpass.mask[best, self.index, :] = 0
+				self.spec.mask[best, self.index, :] = False
+				self.specBandpass.mask[best, self.index, :] = False
+				self.draw()
+			elif event.button == 3:
+				self.spec.mask[best, self.index, :] = True
+				self.specBandpass.mask[best, self.index, :] = True
 				self.draw()
 			else:
 				pass
@@ -387,12 +420,12 @@ class Waterfall_GUI(object):
 			
 			dataX = numpy.where(numpy.abs(clickX-self.freq/1e6) == (numpy.abs(clickX-self.freq/1e6).min()))[0][0]
 			
-			if event.button == 3:
-				self.spec.mask[:, self.index, dataX] = 1
-				self.specBandpass.mask[:, self.index, dataX] = 1
-			elif event.button == 2:
-				self.spec.mask[:, self.index, dataX] = 0
-				self.specBandpass.mask[:, self.index, dataX] = 0
+			if event.button == 2:
+				self.spec.mask[:, self.index, dataX] = False
+				self.specBandpass.mask[:, self.index, dataX] = False
+			elif event.button == 3:
+				self.spec.mask[:, self.index, dataX] = True
+				self.specBandpass.mask[:, self.index, dataX] = True
 			else:
 				pass
 			
@@ -551,6 +584,7 @@ class MainWindow(wx.Frame):
 		# Key events
 		self.canvas1a.Bind(wx.EVT_KEY_UP, self.onKeyPress)
 		self.canvas1b.Bind(wx.EVT_KEY_UP, self.onKeyPress)
+		self.canvas2.Bind(wx.EVT_KEY_UP,  self.onKeyPress)
 		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
@@ -725,13 +759,31 @@ class MainWindow(wx.Frame):
 		keycode = event.GetKeyCode()
 		
 		if keycode == wx.WXK_UP:
+			## Move forward one integration time
 			if self.data.spectrumClick is not None:
 				self.data.drawSpectrum(self.data.spectrumClick + self.data.tInt)
 				self.data.makeMark(self.data.spectrumClick + self.data.tInt)
 		elif keycode == wx.WXK_DOWN:
+			## Move backward one integration time
 			if self.data.spectrumClick is not None:
 				self.data.drawSpectrum(self.data.spectrumClick - self.data.tInt)
 				self.data.makeMark(self.data.spectrumClick - self.data.tInt)
+		elif keycode == wx.WXK_SPACE:
+			## Mask the current integration
+			if self.data.spectrumClick is not None:
+				dataY = int(round(self.data.spectrumClick / self.data.tInt ))
+				
+				self.data.spec.mask[dataY, self.data.index, :] = True
+				self.data.specBandpass.mask[dataY, self.data.index, :] = True
+				self.data.draw()
+		elif keycode == 85:
+			## Unmask the current integration
+			if self.data.spectrumClick is not None:
+				dataY = int(round(self.data.spectrumClick / self.data.tInt ))
+				
+				self.data.spec.mask[dataY, self.data.index, :] = False
+				self.data.specBandpass.mask[dataY, self.data.index, :] = False
+				self.data.draw()
 		else:
 			pass
 			
