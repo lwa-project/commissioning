@@ -292,7 +292,7 @@ def main(args):
 	plt.show()
 
 	outfile = config['args'][0].replace('.dat', '.npz')
-	numpy.savez(outfile, freq1=freq1, freq2=freq2, units1=units1, units2=units2, spec=spec, standMapper=standMapper)
+	numpy.savez(outfile, freq1=freq1, freq2=freq2, units1=units1, units2=units2, spec=spec, standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 
 	# Save spectra image if requested
 	if config['output'] is not None:

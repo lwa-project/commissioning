@@ -17,6 +17,8 @@ from datetime import datetime
 
 from lsl.common.dp import fS
 from lsl.misc.mathutil import to_dB
+from lsl.statistics.robust import mean as rMean
+from lsl.statistics.robust import std as rStd
 
 import wx
 import matplotlib
@@ -94,7 +96,6 @@ except ImportError:
 		return interp1d(h, w/w.max(), kind='cubic', bounds_error=False)
 
 
-
 class Waterfall_GUI(object):
 	def __init__(self, frame, freq=None, spec=None, tInt=None):
 		self.frame = frame
@@ -141,13 +142,13 @@ class Waterfall_GUI(object):
 		self.tInt = dataDictionary['tInt']
 		self.time = self.tInt * numpy.arange(self.spec.shape[0])
 		
+		# Construct frequency and time master masks to prevent some masked things from getting unmasked
+		self.freqMask = numpy.median(self.spec.mask, axis=0)
+		self.timeMask = numpy.median(self.spec.mask, axis=2)
+		
 		# Other data to keep around in case we save
 		self.timesNPZ = dataDictionary['times']
 		self.standMapperNPZ = dataDictionary['standMapper']
-		
-		# Find the median spectra
-		print " %6.3f s - Computing median spectra" % (time.time() - tStart)
-		self.median = numpy.median(self.spec, axis=0)
 		
 		# Get the filter model
 		print " %6.3f s - Building DRX bandpass model" % (time.time() - tStart)
@@ -156,6 +157,11 @@ class Waterfall_GUI(object):
 		# Compute the bandpass fit
 		print " %6.3f s - Computing bandpass fits" % (time.time() - tStart)
 		self.computeBandpass()
+		
+		# Find the mean spectra
+		print " %6.3f s - Computing mean spectra" % (time.time() - tStart)
+		self.mean = numpy.mean(self.spec, axis=0)
+		self.meanBandpass = numpy.mean(self.specBandpass, axis=0)
 		
 		# Set default colobars
 		print " %6.3f s - Setting default colorbar ranges" % (time.time() - tStart)
@@ -192,10 +198,10 @@ class Waterfall_GUI(object):
 		# Account for the ARX bandpass by fitting to the inner 80% of the band
 		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
 		
-		medianSpec = numpy.mean(self.spec, axis=0)
+		meanSpec = numpy.mean(self.spec, axis=0)
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
-			coeff = numpy.polyfit(self.freq[toUse], self.bpm[toUse]/self.bpm.mean() * medianSpec[i,toUse].mean()/medianSpec[i,toUse], 10)
+			coeff = numpy.polyfit(self.freq[toUse], self.bpm[toUse]/self.bpm.mean() * meanSpec[i,toUse].mean()/meanSpec[i,toUse], 10)
 			noiseSlope = numpy.polyval(coeff, self.freq)
 			bpm2.append( self.bpm / noiseSlope )
 			
@@ -258,11 +264,12 @@ class Waterfall_GUI(object):
 		
 		if self.bandpass:
 			spec = self.specBandpass[dataY,self.index,:]
+			medianSpec = self.meanBandpass[self.index,:]
 			limits = self.limitsBandpass
 		else:
 			spec = self.spec[dataY,self.index,:]
+			medianSpec = self.mean[self.index,:]
 			limits = self.limits
-		medianSpec = self.median[self.index,:]
 		
 		if self.frame.toolbar.mode == 'zoom rect' and not Home:
 			try:
@@ -277,8 +284,8 @@ class Waterfall_GUI(object):
 		
 		self.frame.figure2.clf()
 		self.ax2 = self.frame.figure2.gca()
-		self.ax2.plot(self.freq/1e6, to_dB(spec), linestyle=' ', marker='o', label='Current', color='blue')
-		self.ax2.plot(self.freq/1e6, to_dB(medianSpec), label='Median', alpha=0.5, color='green')
+		self.ax2.plot(self.freq/1e6, to_dB(spec), linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
+		self.ax2.plot(self.freq/1e6, to_dB(medianSpec), label='Mean', alpha=0.5, color='green')
 		self.ax2.set_xlim(oldXlim)
 		self.ax2.set_ylim(oldYlim)
 		self.ax2.legend(loc=0)
@@ -295,7 +302,10 @@ class Waterfall_GUI(object):
 	
 	def makeMark(self, clickY):
 		
-		dataY = int(round(clickY / self.tInt))
+		try:
+			dataY = int(round(clickY / self.tInt))
+		except TypeError:
+			return False
 		
 		if self.oldMarkA is not None:
 			try:
@@ -360,12 +370,14 @@ class Waterfall_GUI(object):
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
 			elif event.button == 2:
-				self.spec.mask[dataY, self.index, :] = False
-				self.specBandpass.mask[dataY, self.index, :] = False
+				self.spec.mask[dataY, self.index, :] = self.freqMask[self.index,:]
+				self.specBandpass.mask[dataY, self.index, :] = self.freqMask[self.index,:]
+				self.timeMask[dataY, self.index] = False
 				self.draw()
 			elif event.button == 3:
 				self.spec.mask[dataY, self.index, :] = True
 				self.specBandpass.mask[dataY, self.index, :] = True
+				self.timeMask[dataY, self.index] = True
 				self.draw()
 			else:
 				pass
@@ -403,12 +415,14 @@ class Waterfall_GUI(object):
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
 			elif event.button == 2:
-				self.spec.mask[best, self.index, :] = False
-				self.specBandpass.mask[best, self.index, :] = False
+				self.spec.mask[best, self.index, :] = self.freqMask[self.index,:]
+				self.specBandpass.mask[best, self.index, :] = self.freqMask[self.index,:]
+				self.timeMask[best, self.index] = False
 				self.draw()
 			elif event.button == 3:
 				self.spec.mask[best, self.index, :] = True
 				self.specBandpass.mask[best, self.index, :] = True
+				self.timeMask[best, self.index] = True
 				self.draw()
 			else:
 				pass
@@ -421,11 +435,13 @@ class Waterfall_GUI(object):
 			dataX = numpy.where(numpy.abs(clickX-self.freq/1e6) == (numpy.abs(clickX-self.freq/1e6).min()))[0][0]
 			
 			if event.button == 2:
-				self.spec.mask[:, self.index, dataX] = False
-				self.specBandpass.mask[:, self.index, dataX] = False
+				self.spec.mask[:, self.index, dataX] = self.timeMask[:,self.index]
+				self.specBandpass.mask[:, self.index, dataX] = self.timeMask[:,self.index]
+				self.freqMask[self.index, dataX] = False
 			elif event.button == 3:
 				self.spec.mask[:, self.index, dataX] = True
 				self.specBandpass.mask[:, self.index, dataX] = True
+				self.freqMask[self.index, dataX] = True
 			else:
 				pass
 			
@@ -464,9 +480,13 @@ ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
 ID_TUNING2_X = 32
 ID_TUNING2_Y = 33
-ID_BANDPASS_ON = 40
-ID_BANDPASS_OFF = 41
-ID_BANDPASS_RECOMPUTE = 42
+ID_MASK_SUGGEST_CURRENT = 40
+ID_MASK_SUGGEST_ALL = 41
+ID_MASK_RESET_CURRENT = 42
+ID_MASK_RESET_ALL = 43
+ID_BANDPASS_ON = 50
+ID_BANDPASS_OFF = 51
+ID_BANDPASS_RECOMPUTE = 52
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
@@ -493,6 +513,7 @@ class MainWindow(wx.Frame):
 		fileMenu = wx.Menu()
 		colorMenu = wx.Menu()
 		dataMenu = wx.Menu()
+		maskMenu = wx.Menu()
 		bandpassMenu = wx.Menu()
 		
 		## File Menu
@@ -517,6 +538,17 @@ class MainWindow(wx.Frame):
 		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
 		
+		## Mask Menu
+		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
+		maskMenu.AppendItem(suggestC)
+		suggestA = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_ALL, 'Suggest Mask - All')
+		maskMenu.AppendItem(suggestA)
+		maskMenu.AppendSeparator()
+		resetC = wx.MenuItem(maskMenu, ID_MASK_RESET_CURRENT, 'Reset Mask - Current')
+		maskMenu.AppendItem(resetC)
+		resetA = wx.MenuItem(maskMenu, ID_MASK_RESET_ALL, 'Reset Mask - All')
+		maskMenu.AppendItem(resetA)
+		
 		## Bandpass Menu
 		bandpassMenu.AppendRadioItem(ID_BANDPASS_OFF, 'Off')
 		bandpassMenu.AppendRadioItem(ID_BANDPASS_ON,  'On')
@@ -528,6 +560,7 @@ class MainWindow(wx.Frame):
 		menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
 		menuBar.Append(colorMenu, "&Color")
 		menuBar.Append(dataMenu, "&Data")
+		menuBar.Append(maskMenu, "&Mask")
 		menuBar.Append(bandpassMenu, "&Bandpass")
 		self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 		
@@ -576,6 +609,11 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
 		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
+		
+		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
+		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
+		self.Bind(wx.EVT_MENU, self.onMaskResetCurrent, id=ID_MASK_RESET_CURRENT)
+		self.Bind(wx.EVT_MENU, self.onMaskResetAll, id=ID_MASK_RESET_ALL)
 		
 		self.Bind(wx.EVT_MENU, self.onBandpassOn, id=ID_BANDPASS_ON)
 		self.Bind(wx.EVT_MENU, self.onBandpassOff, id=ID_BANDPASS_OFF)
@@ -704,6 +742,124 @@ class MainWindow(wx.Frame):
 			self.data.drawSpectrum(self.data.spectrumClick)
 			
 		wx.EndBusyCursor()
+		
+	def onMaskSuggestCurrent(self, event):
+		"""
+		Suggest a series of frequency and time-based masks to apply to 
+		the current tuning/polarization.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		spec = self.data.spec.data[:,self.data.index,:]
+		drift = spec.sum(axis=1)
+		mean = rMean(drift)
+		std = rStd(drift)
+		
+		bad = numpy.where( numpy.abs(drift - mean) >= 3*std )[0]		
+		for b in bad:
+			self.data.spec.mask[b,self.data.index,:] = True
+			self.data.specBandpass.mask[b,self.data.index,:] = True
+			self.data.timeMask[b,self.data.index] = True
+			
+		spec = self.data.specBandpass.data[:,self.data.index,:]
+		bandpass = spec.sum(axis=0)
+		mean = rMean(bandpass[bandpass.size/8:7*bandpass.size/8])
+		std = rStd(bandpass[bandpass.size/8:7*bandpass.size/8])
+		
+		bad = numpy.where( numpy.abs(bandpass - mean) >= 3*std )[0]
+		for b in bad:
+			try:
+				for i in xrange(b-2, b+3):
+					self.data.spec.mask[:,self.data.index,i] = True
+					self.data.specBandpass.mask[:,self.data.index,i] = True
+					self.data.freqMask[self.data.index,i] = True
+			except IndexError:
+				pass
+			
+		self.data.draw()
+		self.data.drawSpectrum(self.data.spectrumClick)
+		self.data.makeMark(self.data.spectrumClick)
+		
+		wx.EndBusyCursor()
+	
+	def onMaskSuggestAll(self, event):
+		"""
+		Suggest a series of frequency and time-based masks to apply to
+		all data streams.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		for j in xrange(4):
+			spec = self.data.spec.data[:,j,:]
+			drift = spec.sum(axis=1)
+			mean = rMean(drift)
+			std = rStd(drift)
+			
+			bad = numpy.where( numpy.abs(drift - mean) >= 3*std )[0]		
+			for b in bad:
+				self.data.spec.mask[b,j,:] = True
+				self.data.specBandpass.mask[b,j,:] = True
+				self.data.timeMask[b,j] = True
+				
+			spec = self.data.specBandpass.data[:,j,:]
+			bandpass = spec.sum(axis=0)
+			mean = rMean(bandpass[bandpass.size/8:7*bandpass.size/8])
+			std = rStd(bandpass[bandpass.size/8:7*bandpass.size/8])
+			
+			bad = numpy.where( numpy.abs(bandpass - mean) >= 3*std )[0]
+			for b in bad:
+				try:
+					for i in xrange(b-2, b+3):
+						self.data.spec.mask[:,j,i] = True
+						self.data.specBandpass.mask[:,j,i] = True
+						self.data.freqMask[j,i] = True
+				except IndexError:
+					pass
+			
+		self.data.draw()
+		self.data.drawSpectrum(self.data.spectrumClick)
+		self.data.makeMark(self.data.spectrumClick)
+		
+		wx.EndBusyCursor()
+	
+	def onMaskResetCurrent(self, event):
+		"""
+		Reset the current mask.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.spec.mask[:,self.data.index,:] = False
+		self.data.specBandpass.mask[:,self.data.index,:]= False
+		self.data.timeMask[:,self.data.index] = False
+		self.data.freqMask[self.data.index,:] = False
+		
+		self.data.draw()
+		self.data.drawSpectrum(self.data.spectrumClick)
+		self.data.makeMark(self.data.spectrumClick)
+		
+		wx.EndBusyCursor()
+		
+	def onMaskResetAll(self, event):
+		"""
+		Reset all masks.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		for i in xrange(4):
+			self.data.spec.mask[:,i,:] = False
+			self.data.specBandpass.mask[:,i,:]= False
+			self.data.timeMask[:,i] = False
+			self.data.freqMask[i,:] = False
+		
+		self.data.draw()
+		self.data.drawSpectrum(self.data.spectrumClick)
+		self.data.makeMark(self.data.spectrumClick)
+		
+		wx.EndBusyCursor()
 	
 	def onBandpassOn(self, event):
 		"""
@@ -775,14 +931,18 @@ class MainWindow(wx.Frame):
 				
 				self.data.spec.mask[dataY, self.data.index, :] = True
 				self.data.specBandpass.mask[dataY, self.data.index, :] = True
+				self.data.timeMask[dataY, self.data.index] = True
+				
 				self.data.draw()
 		elif keycode == 85:
 			## Unmask the current integration
 			if self.data.spectrumClick is not None:
 				dataY = int(round(self.data.spectrumClick / self.data.tInt ))
 				
-				self.data.spec.mask[dataY, self.data.index, :] = False
-				self.data.specBandpass.mask[dataY, self.data.index, :] = False
+				self.data.spec.mask[dataY, self.data.index, :] = self.data.freqMask[self.data.index,:]
+				self.data.specBandpass.mask[dataY, self.data.index, :] = self.data.freqMask[self.data.index,:]
+				self.data.timeMask[dataY, self.data.index] = False
+				
 				self.data.draw()
 		else:
 			pass

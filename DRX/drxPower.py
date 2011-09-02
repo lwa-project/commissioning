@@ -219,17 +219,12 @@ def main(args):
 	fig = plt.figure()
 	figsX = int(round(math.sqrt(beampols)))
 	figsY = beampols / figsX
-	
-	# Scale
-	maxValue = masterData.max()
-	masterData  /= maxValue
-	masterData2 /= maxValue
 
 	for i in xrange(masterData.shape[1]):
 		ax = fig.add_subplot(figsX,figsY,i+1)
 		ax.plot(numpy.arange(0, masterData.shape[0] )*config['average'], masterData[:,i],  label='Full')
 		ax.plot(numpy.arange(0, masterData2.shape[0])*config['average'], masterData2[:,i], label='Trimmed')
-		ax.set_ylim([0, 1])
+		ax.set_ylim([0, masterData.max()])
 		
 		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1, i%2))
 		ax.set_xlabel('Time [seconds]')
@@ -238,39 +233,34 @@ def main(args):
 		ax.legend(loc=0)
 
 	# Part 2, polarization stuff
-	t1x = 0
-	t1y = 1
-	t2x = 2
-	t2y = 3
-
 	fig2 = plt.figure()
 	ax = fig2.add_subplot(3, 2, 1)
-	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,t1x]**2 + masterData[:,t1y]**2))
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,0]**2 + masterData[:,1]**2))
 	ax.set_title('$\\sqrt{X1^2 + Y1^2}$')
 	ax.set_xlabel('Time [seconds]')
 
 	ax = fig2.add_subplot(3, 2, 2)
-	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,t1y] / masterData[:,t1x])
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,1] / masterData[:,0])
 	ax.set_title('$Y1 / X1$')
 	ax.set_xlabel('Time [seconds]')
 
 	ax = fig2.add_subplot(3, 2, 3)
-	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,t2x]**2 + masterData[:,t2y]**2))
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,2]**2 + masterData[:,3]**2))
 	ax.set_title('$\\sqrt{X2^2 + Y2^2}$')
 	ax.set_xlabel('Time [seconds]')
 
 	ax = fig2.add_subplot(3, 2, 4)
-	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,t2y] / masterData[:,t2x])
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,3] / masterData[:,2])
 	ax.set_title('$Y2 / X2$')
 	ax.set_xlabel('Time [seconds]')
 
 	ax = fig2.add_subplot(3, 2, 5)
-	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,t2x]**2 + masterData[:,t2y]**2) / numpy.sqrt(masterData[:,t1x]**2 + masterData[:,t1y]**2))
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,2]**2 + masterData[:,3]**2) / numpy.sqrt(masterData[:,0]**2 + masterData[:,1]**2))
 	ax.set_title('$\\sqrt{X2^2 + Y2^2} / \\sqrt{X1^2 + Y1^2}$')
 	ax.set_xlabel('Time [seconds]')
 
 	ax = fig2.add_subplot(3, 2, 6)
-	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], (masterData[:,t2y]/masterData[:,t2x]) / (masterData[:,t1y]/masterData[:,t1x]))
+	ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], (masterData[:,3]/masterData[:,2]) / (masterData[:,1]/masterData[:,0]))
 	ax.set_title('$(Y2 / X2) / (Y1 / X1)$')
 	ax.set_xlabel('Time [seconds]')
 
