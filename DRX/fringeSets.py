@@ -37,7 +37,7 @@ Options:
                             the pointing center (Default = 90 degrees)
 -d, --dipole                Using a dipole instead of the beam (Default = use beam)
 -r, --reference             Reference for the fringing (Default = stand #258)
--g, --gain                  DRX antenna gain (Default = 1.0000)
+-g, --gain                  Beam only, DRX antenna gain (Default = 1.0000)
 """
 	if exitCode is not None:
 		sys.exit(exitCode)
@@ -141,7 +141,7 @@ def main(args):
 		for i in xrange(len(stands)/2):
 			# Put the reference stand in there all by itself
 			if stands[2*i] == config['ref']:
-				gains[i] = [0.0000, bgain, 0.0000, 0.0000]
+				gains[i] = [0.0000, 1.000, 0.0000, 0.0000]
 	else:
 		print "Setting gains for dipoles %i and %i" % (config['dipole'], config['ref'])
 		
@@ -149,11 +149,11 @@ def main(args):
 		for i in xrange(len(stands)/2):
 			# Put the fringing stand in there all by itself
 			if stands[2*i] == config['dipole']:
-				gains[i] = [bgain, 0.0000, 0.0000, 0.0000]
+				gains[i] = [1.0000, 0.0000, 0.0000, 0.0000]
 			
 			# Put the reference stand in there all by itself
 			if stands[2*i] == config['ref']:
-				gains[i] = [0.0000, bgain, 0.0000, 0.0000]
+				gains[i] = [0.0000, 1.0000, 0.0000, 0.0000]
 
 	#for g,s,p in zip(gains, stands[::2], pols[::2]):
 		#print g, s, p
