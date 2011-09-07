@@ -16,6 +16,8 @@ import time
 import numpy
 import getopt
 
+from scipy.special import erf
+
 import lsl.reader.drx as drx
 import lsl.reader.errors as errors
 import lsl.statistics.robust as robust
@@ -201,7 +203,7 @@ def main(args):
 			counts = [1,]*data.shape[0]
 			while (means[i]+j*stds[i] <= 98) and max(counts) != 0:
 				counts =[len(numpy.where( numpy.abs(data[i,:] - means[i]) >= j*stds[i] )[0]) for i in xrange(data.shape[0])]
-				print " %2isigma: %s" % (j, ' '.join(["%7i (%5.1f%%)" % (c, 100.0*c/data.shape[1]) for c in counts]))
+				print " %2isigma (%5.1f%%): %s" % (j, 100.0*(1-erf(j/numpy.sqrt(2))), ' '.join(["%7i (%5.1f%%)" % (c, 100.0*c/data.shape[1]) for c in counts]))
 				j += 1
 			
 			## Why j-2?  Well, j is 1 more than the last iteration.  So, that last iteration 

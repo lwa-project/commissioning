@@ -19,6 +19,7 @@ import getopt
 
 import lsl.reader.drx as drx
 import lsl.reader.errors as errors
+import lsl.statistics.robust as robust
 import lsl.correlator.fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
@@ -46,6 +47,8 @@ Options:
 -l, --fft-length            Set FFT length (default = 4096)
 -c, --clip-level            FFT blanking clipping level in counts (default = 0, 
                             0 disables)
+-e, --estimate-clip         Use robust statistics to estimate an approprite clip 
+                            level (overrides the `-c` option)
 -o, --output                Output file name for waterfall image
 """
 
@@ -67,11 +70,12 @@ def parseOptions(args):
 	config['duration'] = 10.0
 	config['verbose'] = True
 	config['clip'] = 0
+	config['estimate'] = False
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:c:", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration=", "clip-level="])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:c:e", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration=", "clip-level=", "estimate-clip"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -101,6 +105,8 @@ def parseOptions(args):
 			config['duration'] = float(value)
 		elif opt in ('-c', '--clip-level'):
 			config['clip'] = int(value)
+		elif opt in ('-e', '--estimate-clip'):
+			config['estimate'] = True
 		else:
 			assert False
 	
@@ -202,13 +208,75 @@ def main(args):
 		raise RuntimeError("Requested offset is greater than file length")
 	if nFrames > (nFramesFile - offset):
 		raise RuntimeError("Requested integration time+offset is greater than file length")
+	
+	# Estimate clip level (if needed)
+	if config['estimate']:
+		filePos = fh.tell()
+		
+		# Read in the first 100 frames for each tuning/polarization
+		count = {0:0, 1:0, 2:0, 3:0}
+		data = numpy.zeros((4, 4096*100), dtype=numpy.csingle)
+		for i in xrange(4*100):
+			try:
+				cFrame = drx.readFrame(fh, Verbose=False)
+			except errors.eofError:
+				break
+			except errors.syncError:
+				continue
+			
+			beam,tune,pol = cFrame.parseID()
+			aStand = 2*(tune-1) + pol
+			
+			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+			count[aStand] +=  1
+		
+		# Go back to where we started
+		fh.seek(filePos)
+		
+		# Compute the robust mean and standard deviation for I and Q for each
+		# tuning/polarization
+		meanI = []
+		meanQ = []
+		stdsI = []
+		stdsQ = []
+		for i in xrange(4):
+			meanI.append( robust.mean(data[i,:].real) )
+			meanQ.append( robust.mean(data[i,:].imag) )
+			
+			stdsI.append( robust.std(data[i,:].real) )
+			stdsQ.append( robust.std(data[i,:].imag) )
+		
+		# Report
+		print "Statistics:"
+		for i in xrange(4):
+			print " Mean %i: %.3f + %.3f j" % (i+1, meanI[i], meanQ[i])
+			print " Std  %i: %.3f + %.3f j" % (i+1, stdsI[i], stdsQ[i])
+		
+		# Come up with the clip levels based on 4 sigma
+		clip1 = (meanI[0] + meanI[1] + meanQ[0] + meanQ[1]) / 4.0
+		clip2 = (meanI[2] + meanI[3] + meanQ[2] + meanQ[3]) / 4.0
+		
+		clip1 += 4*(stdsI[0] + stdsI[1] + stdsQ[0] + stdsQ[1]) / 4.0
+		clip2 += 4*(stdsI[2] + stdsI[3] + stdsQ[2] + stdsQ[3]) / 4.0
+		
+		clip1 = int(round(clip1))
+		clip2 = int(round(clip2))
+		
+		# Report again
+		print "Clip Levels:"
+		print " Tuning 1: %i" % clip1
+		print " Tuning 2: %i" % clip2
+		
+	else:
+		clipLevel1 = config['clip']
+		clipLevel2 = config['clip']
 
 	# Master loop over all of the file chunks
 	masterCount = {0:0, 1:0, 2:0, 3:0}
 	masterWeight = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterSpectra = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterTimes = numpy.zeros(nChunks)
-	for i in range(nChunks):
+	for i in xrange(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
 		# only deal with that chunk
@@ -249,11 +317,22 @@ def main(args):
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
-		freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=config['clip'])
-		for stand in count.keys():
-			masterTimes[i] = cTime
-			masterSpectra[i,stand,:] = tempSpec[stand,:]
-			masterWeight[i,stand,:] = count[stand]
+		freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
+		
+		freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
+		
+		# Save the results to the various master arrays
+		masterTimes[i] = cTime
+		
+		masterSpectra[i,0,:] = tempSpec1[0,:]
+		masterSpectra[i,1,:] = tempSpec1[1,:]
+		masterSpectra[i,2,:] = tempSpec2[0,:]
+		masterSpectra[i,3,:] = tempSpec2[1,:]
+		
+		masterWeight[i,0,:] = count[0]
+		masterWeight[i,1,:] = count[1]
+		masterWeight[i,2,:] = count[2]
+		masterWeight[i,3,:] = count[3]
 
 		# We don't really need the data array anymore, so delete it
 		del(data)
