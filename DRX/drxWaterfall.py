@@ -268,8 +268,8 @@ def main(args):
 		print " Tuning 2: %i" % clip2
 		
 	else:
-		clipLevel1 = config['clip']
-		clipLevel2 = config['clip']
+		clip1 = config['clip']
+		clip2 = config['clip']
 
 	# Master loop over all of the file chunks
 	masterCount = {0:0, 1:0, 2:0, 3:0}
@@ -361,7 +361,7 @@ def main(args):
 		print currSpectra.min(), currSpectra.max()
 
 		ax.axis('auto')
-		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i+1, i%2))
+		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1, i%2))
 		ax.set_xlabel('Frequency Offset [%s]' % units)
 		ax.set_ylabel('Time [s]')
 		ax.set_xlim([freq.min(), freq.max()])
