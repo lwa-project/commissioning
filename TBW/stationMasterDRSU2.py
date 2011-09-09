@@ -133,7 +133,7 @@ def main(args):
 	tbwFile = drsu.getFileByName(config['args'][0], config['args'][1])
 
 	tbwFile.open()
-	nFrames = tbwFile.getSize / tbw.FrameSize
+	nFrames = tbwFile.size / tbw.FrameSize
 	dataBits = tbw.getDataBits(tbwFile.fh)
 	# The number of ant/pols in the file is hard coded because I cannot figure out 
 	# a way to get this number in a systematic fashion
@@ -147,7 +147,7 @@ def main(args):
 	# Read in the first frame and get the date/time of the first sample 
 	# of the frame.  This is needed to get the list of stands.
 	junkFrame = tbw.readFrame(tbwFile.fh)
-	tbwFile.fh.seek(0)
+	tbwFile.seek(-tbw.FrameSize, 1)
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 
 	# File summary
@@ -167,7 +167,7 @@ def main(args):
 	while not junkFrame.header.isTBW():
 		junkFrame = tbw.readFrame(tbwFile.fh)
 		i += 1
-	tbwFile.fh.seek(-tbw.FrameSize, 1)
+	tbwFile.seek(-tbw.FrameSize, 1)
 	print "Skipped %i non-TBW frames at the beginning of the file" % i
 
 	base, ext = os.path.splitext(config['args'][1])
@@ -197,7 +197,7 @@ def main(args):
 				except errors.eofError:
 					break
 				except errors.syncError:
-					print "WARNING: Mark 5C sync error on frame #%i" % (int(tbwFile.fh.tell())/tbw.FrameSize-1)
+					print "WARNING: Mark 5C sync error on frame #%i" % (int(tbwFile.tell())/tbw.FrameSize-1)
 					continue
 				if not cFrame.header.isTBW():
 					continue
@@ -312,6 +312,8 @@ def main(args):
 		# Now that we have read through all of the chunks, perform the final averaging by
 		# dividing by all of the chunks
 		spec = masterSpectra.mean(axis=0)
+	
+	tbwFile.close()
 	
 	# Create a good template spectra
 	specTemplate = numpy.median(spec, axis=0)
