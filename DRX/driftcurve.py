@@ -123,7 +123,7 @@ def main(args):
 			alt[i,:] = i
 		pylab.figure(1)
 		pylab.title("Beam Response: %s pol. @ %0.2f MHz" % (pol, freq/1e6))
-		pylab.imshow(BeamPattern(az, alt), extent=(0,359, 0,89), origin='lower')
+		pylab.imshow(BeamPattern(az, alt), interpolation='nearest', extent=(0,359, 0,89), origin='lower')
 		pylab.xlabel("Azimuth [deg]")
 		pylab.ylabel("Altitude [deg]")
 		pylab.grid(1)

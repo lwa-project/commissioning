@@ -1,0 +1,29 @@
+DRX Commissioning Scripts - Fringing
+====================================
+
+fringeSets.py
+-------------
+Read in SSMIF file and create a set of DRX gain files (zero-delay for dipoles-only) 
+that puts a single dipole or beam on the X pol and the outlier on the other.  The 
+gain files are constructed such that all data is from X pol.
+
+fringeDipole.py
+---------------
+Script to fringe DRX files that have one dipole on X pol. and another dipole (the
+outlier probably) on Y pol.  Accepts five command line arguments:  
+ 1) frequency in MHz of tuning 1
+ 2) frequency in MHz of tuning 2
+ 3) stand number on X pol.
+ 4) stand number on Y pol.
+ 5) DRX filename
+At the end of the correlation, the visibilities are written to a NPZ file.
+
+fringeBeam.py
+-------------
+Simlar to fringeDipole.py, but expects the beam to be on X pol. and the dipole on
+Y pol.  Accepts four command line arguments:
+ 1) frequency in MHz of tuning 1
+ 2) frequency in MHz of tuning 2
+ 3) stand number on Y pol.
+ 4) DRX filename
+

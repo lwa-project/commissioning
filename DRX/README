@@ -34,12 +34,6 @@ generateDelaysMixed.py
 Modified version of generateDelays.py that forms the beam only with the X pol. and 
 leaves only the outlier (#258) on the Y pol.
 
-fringeSets.py
--------------
-Read in SSMIF file and create a set of DRX gain files (zero-delay for dipoles-only) 
-that puts a single dipole or beam on the X pol and the outlier on the other.  The 
-gain files are constructed such that all data is from X pol.
-
 estimateBeam.py
 ---------------
 Use the LSL misc.beamformer's integer delay and sum to estimate the beam shape 

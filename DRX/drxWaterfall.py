@@ -357,7 +357,7 @@ def main(args):
 		currSpectra = numpy.where( numpy.isfinite(currSpectra), currSpectra, -10)
 		
 		#ax.plot(freq, currSpectra, label='%i (avg)' % (i+1))
-		ax.imshow(currSpectra, extent=(freq.min(), freq.max(), 0, config['average']*nChunks))
+		ax.imshow(currSpectra, interpolation='nearest', extent=(freq.min(), freq.max(), offset+0, offset+config['average']*nChunks), origin='lower')
 		print currSpectra.min(), currSpectra.max()
 
 		ax.axis('auto')

@@ -119,10 +119,10 @@ def main(args):
 		numpy.savez('test_%iMHz_%iaz_%iel_%s.npz' % (config['freq']/1e6, config['az'], config['el'], name), beam=beam, freq=config['freq'], pol=name, az=config['az'], el=config['el'])
 	
 	fig = plt.figure()
-	ax1 = fig.add_subplot(2, 1, 1)
-	ax2 = fig.add_subplot(2, 1, 2)
-	ax1.imshow( beams[0] )
-	ax2.imshow( beams[1] )
+	ax1 = fig.add_subplot(1, 2, 1)
+	ax2 = fig.add_subplot(1, 2, 2)
+	ax1.imshow( beams[0], interpolation='nearest' )
+	ax2.imshow( beams[1], interpolation='nearest' )
 	plt.show()
 	
 

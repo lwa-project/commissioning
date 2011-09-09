@@ -241,7 +241,7 @@ class Waterfall_GUI(object):
 		# Plot 1(a) - Waterfall
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
-		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), extent=(self.freq[0]/1e6, self.freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
+		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(self.freq[0]/1e6, self.freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
 		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1a.axis('auto')
@@ -255,13 +255,13 @@ class Waterfall_GUI(object):
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].mean(axis=2)
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
 		self.ax1b.plot(self.drift[:,self.index], self.time, linestyle=' ', marker='x')
 		self.ax1b.set_ylim([self.time[0], self.time[-1]])
-		self.ax1b.set_xlabel('Total Power [arb. dB]')
+		self.ax1b.set_xlabel('Mean Power [arb. dB]')
 		self.ax1b.set_ylabel('Elapsed Time [s]')
 		
 		if self.oldMarkB is not None:
@@ -501,6 +501,7 @@ ID_MASK_SUGGEST_CURRENT = 40
 ID_MASK_SUGGEST_ALL = 41
 ID_MASK_RESET_CURRENT = 42
 ID_MASK_RESET_ALL = 43
+ID_MASK_TWEAK = 44
 ID_BANDPASS_ON = 50
 ID_BANDPASS_OFF = 51
 ID_BANDPASS_RECOMPUTE = 52
@@ -576,6 +577,9 @@ class MainWindow(wx.Frame):
 		maskMenu.AppendItem(resetC)
 		resetA = wx.MenuItem(maskMenu, ID_MASK_RESET_ALL, 'Reset Mask - All')
 		maskMenu.AppendItem(resetA)
+		maskMenu.AppendSeparator()
+		tweak = wx.MenuItem(maskMenu, ID_MASK_TWEAK, 'Adjust Masking Parameters')
+		maskMenu.AppendItem(tweak)
 		
 		## Bandpass Menu
 		bandpassMenu.AppendRadioItem(ID_BANDPASS_OFF, 'Off')
@@ -644,6 +648,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
 		self.Bind(wx.EVT_MENU, self.onMaskResetCurrent, id=ID_MASK_RESET_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskResetAll, id=ID_MASK_RESET_ALL)
+		self.Bind(wx.EVT_MENU, self.onMaskTweak, id=ID_MASK_TWEAK)
 		
 		self.Bind(wx.EVT_MENU, self.onBandpassOn, id=ID_BANDPASS_ON)
 		self.Bind(wx.EVT_MENU, self.onBandpassOff, id=ID_BANDPASS_OFF)
@@ -795,7 +800,7 @@ class MainWindow(wx.Frame):
 		
 		wx.BeginBusyCursor()
 		
-		bad = numpy.where( (self.data.freq < -self.data.srate/2*0.85) | (self.data.freq > self.data.srate/2*0.85) )[0]
+		bad = numpy.where( (self.data.freq < -self.data.srate/2*self.bandpassCut) | (self.data.freq > self.data.srate/2*self.bandpassCut) )[0]
 		for b in bad:
 			self.data.spec.mask[:,self.data.index,b] = True
 			self.data.specBandpass.mask[:,self.data.index,b] = True
@@ -803,24 +808,30 @@ class MainWindow(wx.Frame):
 		
 		spec = self.data.spec.data[:,self.data.index,:]
 		drift = spec.sum(axis=1)
-		coeff = robust.polyfit(numpy.arange(drift.size), drift, 5)
+		coeff = robust.polyfit(numpy.arange(drift.size), drift, self.driftOrder)
 		fit = numpy.polyval(coeff, numpy.arange(drift.size))
 		rDrift = drift / fit
 		
 		mean = robust.mean(rDrift)
 		std  = robust.std(rDrift)
 		
-		bad = numpy.where( numpy.abs(rDrift - mean) >= 3*std )[0]
+		bad = numpy.where( numpy.abs(rDrift - mean) >= self.driftCut*std )[0]
 		for b in bad:
 			self.data.spec.mask[b,self.data.index,:] = True
 			self.data.specBandpass.mask[b,self.data.index,:] = True
 			self.data.timeMask[b,self.data.index] = True
 		
 		N = self.data.srate/(self.data.freq.size+1)*self.data.tInt
-		kurtosis = numpy.zeros(self.data.spec.shape[2])
-		for j in xrange(self.data.spec.shape[2]):
-			channel = self.data.spec.data[:,self.data.index,j]
-			kurtosis[j] = spectralKurtosis(channel, N=N)
+		kurtosis = numpy.zeros((self.kurtosisSec, self.data.spec.shape[2]))
+		
+		secSize = self.data.spec.shape[0]/self.kurtosisSec
+		for k in xrange(self.kurtosisSec):
+			tStart = k*secSize
+			tStop  = (k+1)*secSize
+			
+			for j in xrange(self.data.spec.shape[2]):
+				channel = self.data.spec.data[tStart:tStop,self.data.index,j]
+				kurtosis[k,j] = spectralKurtosis(channel, N=N)
 		
 		try:
 			kMean = robust.mean(kurtosis)
@@ -828,12 +839,15 @@ class MainWindow(wx.Frame):
 			kMean = 1.0
 		kStd  = robust.std(kurtosis)
 		
-		bad = numpy.where( numpy.abs(kurtosis - kMean) >= 3*kStd )[0]
-		for b in bad:
+		bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
+		for k,b in zip(bad[0], bad[1]):
+			tStart = k*secSize
+			tStop  = (k+1)*secSize
+			
 			try:
 				for j in xrange(b-2, b+3):
-					self.data.spec.mask[:,self.data.index,j] = True
-					self.data.specBandpass.mask[:,self.data.index,j] = True
+					self.data.spec.mask[tStart:tStop,self.data.index,j] = True
+					self.data.specBandpass.mask[tStart:tStop,self.data.index,j] = True
 					self.data.freqMask[self.data.index,j] = True
 			except IndexError:
 				pass
@@ -853,7 +867,7 @@ class MainWindow(wx.Frame):
 		wx.BeginBusyCursor()
 		
 		for i in xrange(self.data.spec.shape[1]):
-			bad = numpy.where( (self.data.freq < -self.data.srate/2*0.85) | (self.data.freq > self.data.srate/2*0.85) )[0]
+			bad = numpy.where( (self.data.freq < -self.data.srate/2*self.bandpassCut) | (self.data.freq > self.data.srate/2*self.bandpassCut) )[0]
 			for b in bad:
 				self.data.spec.mask[:,i,b] = True
 				self.data.specBandpass.mask[:,i,b] = True
@@ -861,24 +875,30 @@ class MainWindow(wx.Frame):
 			
 			spec = self.data.spec.data[:,i,:]
 			drift = spec.sum(axis=1)
-			coeff = robust.polyfit(numpy.arange(drift.size), drift, 5)
+			coeff = robust.polyfit(numpy.arange(drift.size), drift, self.driftOrder)
 			fit = numpy.polyval(coeff, numpy.arange(drift.size))
 			rDrift = drift / fit
 			
 			mean = robust.mean(rDrift)
 			std  = robust.std(rDrift)
 			
-			bad = numpy.where( numpy.abs(rDrift - mean) >= 3*std )[0]
+			bad = numpy.where( numpy.abs(rDrift - mean) >= self.driftCut*std )[0]
 			for b in bad:
 				self.data.spec.mask[b,i,:] = True
 				self.data.specBandpass.mask[b,i,:] = True
 				self.data.timeMask[b,i] = True
 			
 			N = self.data.srate/(self.data.freq.size+1)*self.data.tInt
-			kurtosis = numpy.zeros(self.data.spec.shape[2])
-			for j in xrange(self.data.spec.shape[2]):
-				channel = self.data.spec.data[:,i,j]
-				kurtosis[j] = spectralKurtosis(channel, N=N)
+			kurtosis = numpy.zeros((self.kurtosisSec, self.data.spec.shape[2]))
+			
+			secSize = self.data.spec.shape[0]/self.kurtosisSec
+			for k in xrange(self.kurtosisSec):
+				tStart = k*secSize
+				tStop  = (k+1)*secSize
+				
+				for j in xrange(self.data.spec.shape[2]):
+					channel = self.data.spec.data[tStart:tStop,i,j]
+					kurtosis[k,j] = spectralKurtosis(channel, N=N)
 			
 			try:
 				kMean = robust.mean(kurtosis)
@@ -886,12 +906,15 @@ class MainWindow(wx.Frame):
 				kMean = 1.0
 			kStd  = robust.std(kurtosis)
 			
-			bad = numpy.where( numpy.abs(kurtosis - kMean) >= 3*kStd )[0]
-			for b in bad:
+			bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
+			for k,b in zip(bad[0], bad[1]):
+				tStart = k*secSize
+				tStop  = (k+1)*secSize
+				
 				try:
 					for j in xrange(b-2, b+3):
-						self.data.spec.mask[:,i,j] = True
-						self.data.specBandpass.mask[:,i,j] = True
+						self.data.spec.mask[tStart:tStop,i,j] = True
+						self.data.specBandpass.mask[tStart:tStop,i,j] = True
 						self.data.freqMask[i,j] = True
 				except IndexError:
 					pass
@@ -938,6 +961,13 @@ class MainWindow(wx.Frame):
 		self.data.makeMark(self.data.spectrumClick)
 		
 		wx.EndBusyCursor()
+		
+	def onMaskTweak(self, event):
+		"""
+		Tweak the masking parameters.
+		"""
+		
+		MaskingAdjust(self)
 	
 	def onBandpassOn(self, event):
 		"""
@@ -1200,15 +1230,21 @@ class ContrastAdjust(wx.Frame):
 		return 0.1*self.__getRange(index)
 
 
-ID_CONTRAST_UPR_INC = 100
-ID_CONTRAST_UPR_DEC = 101
-ID_CONTRAST_LWR_INC = 102
-ID_CONTRAST_LWR_DEC = 103
-ID_CONTRAST_OK = 104
+ID_BANDPASS_CUT_INC = 100
+ID_BANDPASS_CUT_DEC = 101
+ID_DRIFT_POLY_INC = 102
+ID_DRIFT_POLY_DEC = 103
+ID_DRIFT_CUT_INC  = 104
+ID_DRIFT_CUT_DEC  = 105
+ID_SK_SEC_INC = 106
+ID_SK_SEC_DEC = 107
+ID_SK_CUT_INC = 108
+ID_SK_CUT_DEC = 109
+ID_MASKING_OK = 110
 
-class ContrastAdjust(wx.Frame):
+class MaskingAdjust(wx.Frame):
 	def __init__ (self, parent):	
-		wx.Frame.__init__(self, parent, title='Contrast Adjustment', size=(330, 175))
+		wx.Frame.__init__(self, parent, title='Masking Adjustment', size=(330, 350))
 		
 		self.parent = parent
 		
@@ -1223,133 +1259,163 @@ class ContrastAdjust(wx.Frame):
 		panel = wx.Panel(self)
 		sizer = wx.GridBagSizer(5, 5)
 		
-		if self.parent.data.bandpass:
-			typ = wx.StaticText(panel, label='Tuning %i, Pol. %i - Bandpass' % (self.parent.data.index/2+1, self.parent.data.index%2))
-		else:
-			typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index/2+1, self.parent.data.index%2))
+		typ = wx.StaticText(panel, label='Masking Parameters')
 		sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
 		
 		row += 1
 		
-		upr = wx.StaticText(panel, label='Upper Limit:')
-		uprText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-		uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
-		uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
+		bp = wx.StaticText(panel, label='Bandpass Rention:')
+		bpR = wx.StaticText(panel, label='Inner:')
+		bpRText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		bpRDec = wx.Button(panel, ID_BANDPASS_CUT_DEC, '-', size=(56, 28))
+		bpRInc = wx.Button(panel, ID_BANDPASS_CUT_INC, '+', size=(56, 28))
 		
-		lwr = wx.StaticText(panel, label='Lower Limit:')
-		lwrText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-		lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
-		lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
+		dc = wx.StaticText(panel, label='Drift Curve:')
+		dcP = wx.StaticText(panel, label='Fit order:')
+		dcPText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		dcPDec = wx.Button(panel, ID_DRIFT_POLY_DEC, '-', size=(56, 28))
+		dcPInc = wx.Button(panel, ID_DRIFT_POLY_INC, '+', size=(56, 28))
 		
-		rng = wx.StaticText(panel, label='Range:')
-		rngText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		dcC = wx.StaticText(panel, label='Threshold:')
+		dcCText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		dcCDec = wx.Button(panel, ID_DRIFT_CUT_DEC, '-', size=(56, 28))
+		dcCInc = wx.Button(panel, ID_DRIFT_CUT_INC, '+', size=(56, 28))
 		
-		sizer.Add(upr,     pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(uprText, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(uprDec,  pos=(row+0, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(uprInc,  pos=(row+0, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(lwr,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(lwrText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(lwrDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(lwrInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(rng,     pos=(row+2, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-		sizer.Add(rngText, pos=(row+2, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sk = wx.StaticText(panel, label='Spectral Kurtosis:')
+		skS = wx.StaticText(panel, label='Sections:')
+		skSText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		skSDec = wx.Button(panel, ID_SK_SEC_DEC, '-', size=(56, 28))
+		skSInc = wx.Button(panel, ID_SK_SEC_INC, '+', size=(56, 28))
+		
+		skC = wx.StaticText(panel, label='Threshold:')
+		skCText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		skCDec = wx.Button(panel, ID_SK_CUT_DEC, '-', size=(56, 28))
+		skCInc = wx.Button(panel, ID_SK_CUT_INC, '+', size=(56, 28))
+		
+		sizer.Add(bp,      pos=(row+0, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(bpR,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(bpRText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(bpRDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(bpRInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		sizer.Add(dc,      pos=(row+2, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcP,     pos=(row+3, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcPText, pos=(row+3, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcPDec,  pos=(row+3, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcPInc,  pos=(row+3, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcC,     pos=(row+4, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcCText, pos=(row+4, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcCDec,  pos=(row+4, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(dcCInc,  pos=(row+4, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		sizer.Add(sk,      pos=(row+5, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skS,     pos=(row+6, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skSText, pos=(row+6, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skSDec,  pos=(row+6, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skSInc,  pos=(row+6, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skC,     pos=(row+7, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skCText, pos=(row+7, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skCDec,  pos=(row+7, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(skCInc,  pos=(row+7, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
 		
 		line = wx.StaticLine(panel)
-		sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
+		sizer.Add(line, pos=(row+8, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
 		
-		row += 4
+		row += 9
 		
 		#
 		# Buttons
 		#
 		
-		ok = wx.Button(panel, ID_CONTRAST_OK, 'Ok', size=(56, 28))
+		ok = wx.Button(panel, ID_MASKING_OK, 'Ok', size=(56, 28))
 		sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
 		
 		panel.SetSizerAndFit(sizer)
 
-		self.uText = uprText
-		self.lText = lwrText
-		self.rText = rngText
+		self.bpRText = bpRText
+		self.dcPText = dcPText
+		self.dcCText = dcCText
+		self.skSText = skSText
+		self.skCText = skCText
 		
 		#
 		# Set current values
 		#
-		index = self.parent.data.index
-		if self.parent.data.bandpass:
-			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
-			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
-			self.rText.SetValue('%.1f' % self.__getRange(index))
-		else:
-			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
-			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
-			self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.bpRText.SetValue('%.2f' % self.parent.bandpassCut)
+		self.dcPText.SetValue('%i'   % self.parent.driftOrder)
+		self.dcCText.SetValue('%i'   % self.parent.driftCut)
+		self.skSText.SetValue('%i'   % self.parent.kurtosisSec)
+		self.skCText.SetValue('%i'   % self.parent.kurtosisCut)
 		
 	def initEvents(self):
-		self.Bind(wx.EVT_BUTTON, self.onUpperDecrease, id=ID_CONTRAST_UPR_DEC)
-		self.Bind(wx.EVT_BUTTON, self.onUpperIncrease, id=ID_CONTRAST_UPR_INC)
-		self.Bind(wx.EVT_BUTTON, self.onLowerDecrease, id=ID_CONTRAST_LWR_DEC)
-		self.Bind(wx.EVT_BUTTON, self.onLowerIncrease, id=ID_CONTRAST_LWR_INC)
+		self.Bind(wx.EVT_BUTTON, self.onBPRDecrease, id=ID_BANDPASS_CUT_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onBPRIncrease, id=ID_BANDPASS_CUT_INC)
 		
-		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
+		self.Bind(wx.EVT_BUTTON, self.onDCPDecrease, id=ID_DRIFT_POLY_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onDCPIncrease, id=ID_DRIFT_POLY_INC)
+		self.Bind(wx.EVT_BUTTON, self.onDCCDecrease, id=ID_DRIFT_CUT_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onDCCIncrease, id=ID_DRIFT_CUT_INC)
 		
-	def onUpperDecrease(self, event):
-		index = self.parent.data.index
-		if self.parent.data.bandpass:
-			self.parent.data.limitsBandpass[index][1] -= self.__getIncrement(index)
-			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
-		else:
-			self.parent.data.limits[index][1] -= self.__getIncrement(index)
-			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
-		self.rText.SetValue('%.1f' % self.__getRange(index))
-		self.parent.data.draw()
+		self.Bind(wx.EVT_BUTTON, self.onSKSDecrease, id=ID_SK_SEC_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onSKSIncrease, id=ID_SK_SEC_INC)
+		self.Bind(wx.EVT_BUTTON, self.onSKCDecrease, id=ID_SK_CUT_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onSKCIncrease, id=ID_SK_CUT_INC)
 		
-	def onUpperIncrease(self, event):
-		index = self.parent.data.index
-		if self.parent.data.bandpass:
-			self.parent.data.limitsBandpass[index][1] += self.__getIncrement(index)
-			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
-		else:
-			self.parent.data.limits[index][1] += self.__getIncrement(index)
-			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
-		self.rText.SetValue('%.1f' % self.__getRange(index))
-		self.parent.data.draw()
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_MASKING_OK)
 		
-	def onLowerDecrease(self, event):
-		index = self.parent.data.index
-		if self.parent.data.bandpass:
-			self.parent.data.limitsBandpass[index][0] -= self.__getIncrement(index)
-			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
-		else:
-			self.parent.data.limits[index][0] -= self.__getIncrement(index)
-			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
-		self.rText.SetValue('%.1f' % self.__getRange(index))
-		self.parent.data.draw()
+	def onBPRDecrease(self, event):
+		if self.parent.bandpassCut > 0.05:
+			self.parent.bandpassCut -= 0.05
+			self.bpRText.SetValue('%.2f' % self.parent.bandpassCut)
 		
-	def onLowerIncrease(self, event):
-		index = self.parent.data.index
-		if self.parent.data.bandpass:
-			self.parent.data.limitsBandpass[index][0] += self.__getIncrement(index)
-			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
-		else:
-			self.parent.data.limits[index][0] += self.__getIncrement(index)
-			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
-		self.rText.SetValue('%.1f' % self.__getRange(index))
-		self.parent.data.draw()
+	def onBPRIncrease(self, event):
+		if self.parent.bandpassCut < 1:
+			self.parent.bandpassCut += 0.05
+			self.bpRText.SetValue('%.2f' % self.parent.bandpassCut)
 		
+	def onDCPDecrease(self, event):
+		if self.parent.driftOrder > 1:
+			self.parent.driftOrder -= 1
+			self.dcPText.SetValue('%i'   % self.parent.driftOrder)
+		
+	def onDCPIncrease(self, event):
+		if self.parent.driftOrder < 12:
+			self.parent.driftOrder += 1
+			self.dcPText.SetValue('%i'   % self.parent.driftOrder)
+	
+	def onDCCDecrease(self, event):
+		if self.parent.driftCut > 2:
+			self.parent.driftCut -= 1
+			self.dcCText.SetValue('%i'   % self.parent.driftCut)
+		
+	def onDCCIncrease(self, event):
+		if self.parent.driftOrder < numpy.ceil(self.data.data.spec.shape[0]/300):
+			self.parent.driftCut += 1
+			self.dcCText.SetValue('%i'   % self.parent.driftCut)
+			
+	def onSKSDecrease(self, event):
+		if self.parent.kurtosisSec > 1:
+			self.parent.kurtosisSec -= 1
+			self.skSText.SetValue('%i'   % self.parent.kurtosisSec)
+		
+	def onSKSIncrease(self, event):
+		if self.parent.kurtosisSec < 30:
+			self.parent.kurtosisSec += 1
+			self.skSText.SetValue('%i'   % self.parent.kurtosisSec)
+	
+	def onSKCDecrease(self, event):
+		if self.parent.kurtosisCut > 2:
+			self.parent.kurtosisCut -= 1
+			self.skCText.SetValue('%i'   % self.parent.kurtosisCut)
+		
+	def onSKCIncrease(self, event):
+		if self.parent.kurtosisCut < 12:
+			self.parent.kurtosisCut += 1
+			self.skCText.SetValue('%i'   % self.parent.kurtosisCut)
+	
 	def onOk(self, event):
 		self.parent.cAdjust = None
 		self.Close()
-	
-	def __getRange(self, index):
-		if self.parent.data.bandpass:
-			return (self.parent.data.limitsBandpass[index][1] - self.parent.data.limitsBandpass[index][0])
-		else:
-			return (self.parent.data.limits[index][1] - self.parent.data.limits[index][0])
-		
-	def __getIncrement(self, index):
-		return 0.1*self.__getRange(index)
 
 
 class WaterfallDisplay(wx.Frame):
@@ -1418,7 +1484,7 @@ class WaterfallDisplay(wx.Frame):
 		# Plot Waterfall
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
-		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), extent=(self.parent.data.freq[0]/1e6, self.parent.data.freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
+		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(self.parent.data.freq[0]/1e6, self.parent.data.freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
 		cm = self.figure.colorbar(m, ax=self.ax1)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1.axis('auto')
@@ -1550,12 +1616,12 @@ class DriftCurveDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].mean(axis=2)
 		
 		self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
 		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])
 		self.ax1.set_xlabel('Elapsed Time [s]')
-		self.ax1.set_ylabel('Total Power [arb. dB]')
+		self.ax1.set_ylabel('Mean Power [arb. dB]')
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
 		
 		## Draw and save the click (Why?)
