@@ -165,7 +165,7 @@ def main(args):
 	tbwFile.fh.seek(-tbw.FrameSize, 1)
 	print "Skipped %i non-TBW frames at the beginning of the file" % i
 
-	base, ext = os.path.splitext(config['args'][0])
+	base, ext = os.path.splitext(config['args'][1])
 	if (not os.path.exists("%s.npz" % base)) or config['force']:
 		# Master loop over all of the file chunks
 		masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1))
