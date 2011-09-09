@@ -16,9 +16,9 @@ import numpy
 from datetime import datetime
 
 from lsl.common.dp import fS
+from lsl.common import stations
 from lsl.misc.mathutil import to_dB
-from lsl.statistics.robust import mean as rMean
-from lsl.statistics.robust import std as rStd
+from lsl.statistics import robust
 
 import wx
 import matplotlib
@@ -96,6 +96,21 @@ except ImportError:
 		return interp1d(h, w/w.max(), kind='cubic', bounds_error=False)
 
 
+def spectralKurtosis(x, N=1):
+	"""
+	Compute the spectral kurtosis for a set of power measurments averaged
+	over N FFTs.  For a distribution consistent with Gaussian noise, this
+	value should be ~1.
+	"""
+	
+	M = len(x)
+	
+	k = M*(x**2).sum()/(x.sum())**2 - 1.0
+	k *= (M*N+1)/(M-1)
+	
+	return k
+
+
 class Waterfall_GUI(object):
 	def __init__(self, frame, freq=None, spec=None, tInt=None):
 		self.frame = frame
@@ -150,9 +165,9 @@ class Waterfall_GUI(object):
 		self.timesNPZ = dataDictionary['times']
 		self.standMapperNPZ = dataDictionary['standMapper']
 		
-		# Get the filter model
-		print " %6.3f s - Building DRX bandpass model" % (time.time() - tStart)
-		self.bpm = drxFilter(sampleRate=self.srate)(self.freq)
+		## Get the filter model
+		#print " %6.3f s - Building DRX bandpass model" % (time.time() - tStart)
+		#self.bpm = drxFilter(sampleRate=self.srate)(self.freq)
 		
 		# Compute the bandpass fit
 		print " %6.3f s - Computing bandpass fits" % (time.time() - tStart)
@@ -195,21 +210,21 @@ class Waterfall_GUI(object):
 		Compute the bandpass fits.
 		"""
 		
-		# Account for the ARX bandpass by fitting to the inner 80% of the band
-		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
-		
-		meanSpec = numpy.mean(self.spec, axis=0)
+		freq2 = self.freq / 1e6
+		meanSpec = numpy.mean(self.spec.data, axis=0)
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
-			coeff = numpy.polyfit(self.freq[toUse], self.bpm[toUse]/self.bpm.mean() * meanSpec[i,toUse].mean()/meanSpec[i,toUse], 10)
-			noiseSlope = numpy.polyval(coeff, self.freq)
-			bpm2.append( self.bpm / noiseSlope )
+			from scipy.interpolate import splrep, splev
+			t = splrep(freq2, numpy.log10(meanSpec[i,:])*10, s=0.01, k=3)
+			noiseSlope = 10.0**(splev(freq2, t, der=0)/10.0)
+			
+			bpm2.append( noiseSlope/noiseSlope.mean() )
 			
 		# Apply the bandpass correction
 		self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
 		for i in xrange(self.spec.shape[1]):
 			for j in xrange(self.spec.shape[0]):
-				self.specBandpass[j,i,:] = bpm2[i].mean() / bpm2[i] * self.spec[j,i,:]
+				self.specBandpass[j,i,:] = self.spec[j,i,:] / bpm2[i]
 	
 	def draw(self):
 		"""
@@ -480,6 +495,8 @@ ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
 ID_TUNING2_X = 32
 ID_TUNING2_Y = 33
+ID_ZOOMABLE_WATERFALL = 34
+ID_ZOOMABLE_DRIFT = 35
 ID_MASK_SUGGEST_CURRENT = 40
 ID_MASK_SUGGEST_ALL = 41
 ID_MASK_RESET_CURRENT = 42
@@ -499,6 +516,12 @@ class MainWindow(wx.Frame):
 		self.initUI()
 		self.initEvents()
 		self.Show()
+		
+		self.bandpassCut = 0.85
+		self.driftOrder  = 5
+		self.driftCut    = 4
+		self.kurtosisSec = 1
+		self.kurtosisCut = 4
 		
 		self.cAdjust = None
 		
@@ -537,6 +560,11 @@ class MainWindow(wx.Frame):
 		dataMenu.AppendSeparator()
 		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
+		dataMenu.AppendSeparator()
+		zm = wx.MenuItem(dataMenu, ID_ZOOMABLE_WATERFALL, 'Zoomable Waterfall')
+		dataMenu.AppendItem(zm)
+		zd = wx.MenuItem(dataMenu, ID_ZOOMABLE_DRIFT, 'Zoomable Drift Curve')
+		dataMenu.AppendItem(zd)
 		
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
@@ -609,6 +637,8 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
 		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
+		self.Bind(wx.EVT_MENU, self.onZoomWaterfall, id=ID_ZOOMABLE_WATERFALL)
+		self.Bind(wx.EVT_MENU, self.onZoomDrift, id=ID_ZOOMABLE_DRIFT)
 		
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
@@ -743,6 +773,20 @@ class MainWindow(wx.Frame):
 			
 		wx.EndBusyCursor()
 		
+	def onZoomWaterfall(self, event):
+		"""
+		Create a zoomable waterfall plot window.
+		"""
+		
+		WaterfallDisplay(self)
+	
+	def onZoomDrift(self, event):
+		"""
+		Create a zoomable drift curve plot window.
+		"""
+		
+		DriftCurveDisplay(self)
+		
 	def onMaskSuggestCurrent(self, event):
 		"""
 		Suggest a series of frequency and time-based masks to apply to 
@@ -751,29 +795,46 @@ class MainWindow(wx.Frame):
 		
 		wx.BeginBusyCursor()
 		
+		bad = numpy.where( (self.data.freq < -self.data.srate/2*0.85) | (self.data.freq > self.data.srate/2*0.85) )[0]
+		for b in bad:
+			self.data.spec.mask[:,self.data.index,b] = True
+			self.data.specBandpass.mask[:,self.data.index,b] = True
+			self.data.freqMask[self.data.index,b] = True
+		
 		spec = self.data.spec.data[:,self.data.index,:]
 		drift = spec.sum(axis=1)
-		mean = rMean(drift)
-		std = rStd(drift)
+		coeff = robust.polyfit(numpy.arange(drift.size), drift, 5)
+		fit = numpy.polyval(coeff, numpy.arange(drift.size))
+		rDrift = drift / fit
 		
-		bad = numpy.where( numpy.abs(drift - mean) >= 3*std )[0]		
+		mean = robust.mean(rDrift)
+		std  = robust.std(rDrift)
+		
+		bad = numpy.where( numpy.abs(rDrift - mean) >= 3*std )[0]
 		for b in bad:
 			self.data.spec.mask[b,self.data.index,:] = True
 			self.data.specBandpass.mask[b,self.data.index,:] = True
 			self.data.timeMask[b,self.data.index] = True
-			
-		spec = self.data.specBandpass.data[:,self.data.index,:]
-		bandpass = spec.sum(axis=0)
-		mean = rMean(bandpass[bandpass.size/8:7*bandpass.size/8])
-		std = rStd(bandpass[bandpass.size/8:7*bandpass.size/8])
 		
-		bad = numpy.where( numpy.abs(bandpass - mean) >= 3*std )[0]
+		N = self.data.srate/(self.data.freq.size+1)*self.data.tInt
+		kurtosis = numpy.zeros(self.data.spec.shape[2])
+		for j in xrange(self.data.spec.shape[2]):
+			channel = self.data.spec.data[:,self.data.index,j]
+			kurtosis[j] = spectralKurtosis(channel, N=N)
+		
+		try:
+			kMean = robust.mean(kurtosis)
+		except ValueError:
+			kMean = 1.0
+		kStd  = robust.std(kurtosis)
+		
+		bad = numpy.where( numpy.abs(kurtosis - kMean) >= 3*kStd )[0]
 		for b in bad:
 			try:
-				for i in xrange(b-2, b+3):
-					self.data.spec.mask[:,self.data.index,i] = True
-					self.data.specBandpass.mask[:,self.data.index,i] = True
-					self.data.freqMask[self.data.index,i] = True
+				for j in xrange(b-2, b+3):
+					self.data.spec.mask[:,self.data.index,j] = True
+					self.data.specBandpass.mask[:,self.data.index,j] = True
+					self.data.freqMask[self.data.index,j] = True
 			except IndexError:
 				pass
 			
@@ -791,30 +852,47 @@ class MainWindow(wx.Frame):
 		
 		wx.BeginBusyCursor()
 		
-		for j in xrange(4):
-			spec = self.data.spec.data[:,j,:]
-			drift = spec.sum(axis=1)
-			mean = rMean(drift)
-			std = rStd(drift)
-			
-			bad = numpy.where( numpy.abs(drift - mean) >= 3*std )[0]		
+		for i in xrange(self.data.spec.shape[1]):
+			bad = numpy.where( (self.data.freq < -self.data.srate/2*0.85) | (self.data.freq > self.data.srate/2*0.85) )[0]
 			for b in bad:
-				self.data.spec.mask[b,j,:] = True
-				self.data.specBandpass.mask[b,j,:] = True
-				self.data.timeMask[b,j] = True
-				
-			spec = self.data.specBandpass.data[:,j,:]
-			bandpass = spec.sum(axis=0)
-			mean = rMean(bandpass[bandpass.size/8:7*bandpass.size/8])
-			std = rStd(bandpass[bandpass.size/8:7*bandpass.size/8])
+				self.data.spec.mask[:,i,b] = True
+				self.data.specBandpass.mask[:,i,b] = True
+				self.data.freqMask[i,b] = True
 			
-			bad = numpy.where( numpy.abs(bandpass - mean) >= 3*std )[0]
+			spec = self.data.spec.data[:,i,:]
+			drift = spec.sum(axis=1)
+			coeff = robust.polyfit(numpy.arange(drift.size), drift, 5)
+			fit = numpy.polyval(coeff, numpy.arange(drift.size))
+			rDrift = drift / fit
+			
+			mean = robust.mean(rDrift)
+			std  = robust.std(rDrift)
+			
+			bad = numpy.where( numpy.abs(rDrift - mean) >= 3*std )[0]
+			for b in bad:
+				self.data.spec.mask[b,i,:] = True
+				self.data.specBandpass.mask[b,i,:] = True
+				self.data.timeMask[b,i] = True
+			
+			N = self.data.srate/(self.data.freq.size+1)*self.data.tInt
+			kurtosis = numpy.zeros(self.data.spec.shape[2])
+			for j in xrange(self.data.spec.shape[2]):
+				channel = self.data.spec.data[:,i,j]
+				kurtosis[j] = spectralKurtosis(channel, N=N)
+			
+			try:
+				kMean = robust.mean(kurtosis)
+			except ValueError:
+				kMean = 1.0
+			kStd  = robust.std(kurtosis)
+			
+			bad = numpy.where( numpy.abs(kurtosis - kMean) >= 3*kStd )[0]
 			for b in bad:
 				try:
-					for i in xrange(b-2, b+3):
-						self.data.spec.mask[:,j,i] = True
-						self.data.specBandpass.mask[:,j,i] = True
-						self.data.freqMask[j,i] = True
+					for j in xrange(b-2, b+3):
+						self.data.spec.mask[:,i,j] = True
+						self.data.specBandpass.mask[:,i,j] = True
+						self.data.freqMask[i,j] = True
 				except IndexError:
 					pass
 			
@@ -993,7 +1071,10 @@ class ContrastAdjust(wx.Frame):
 		panel = wx.Panel(self)
 		sizer = wx.GridBagSizer(5, 5)
 		
-		typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index/2+1, self.parent.data.index%2))
+		if self.parent.data.bandpass:
+			typ = wx.StaticText(panel, label='Tuning %i, Pol. %i - Bandpass' % (self.parent.data.index/2+1, self.parent.data.index%2))
+		else:
+			typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index/2+1, self.parent.data.index%2))
 		sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
 		
 		row += 1
@@ -1044,9 +1125,14 @@ class ContrastAdjust(wx.Frame):
 		# Set current values
 		#
 		index = self.parent.data.index
-		self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
-		self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
-		self.rText.SetValue('%.1f' % self.__getRange(index))
+		if self.parent.data.bandpass:
+			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
+			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
+			self.rText.SetValue('%.1f' % self.__getRange(index))
+		else:
+			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+			self.rText.SetValue('%.1f' % self.__getRange(index))
 		
 	def initEvents(self):
 		self.Bind(wx.EVT_BUTTON, self.onUpperDecrease, id=ID_CONTRAST_UPR_DEC)
@@ -1058,29 +1144,45 @@ class ContrastAdjust(wx.Frame):
 		
 	def onUpperDecrease(self, event):
 		index = self.parent.data.index
-		self.parent.data.limits[index][1] -= self.__getIncrement(index)
-		self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][1] -= self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
+		else:
+			self.parent.data.limits[index][1] -= self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
 		self.rText.SetValue('%.1f' % self.__getRange(index))
 		self.parent.data.draw()
 		
 	def onUpperIncrease(self, event):
 		index = self.parent.data.index
-		self.parent.data.limits[index][1] += self.__getIncrement(index)
-		self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][1] += self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
+		else:
+			self.parent.data.limits[index][1] += self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
 		self.rText.SetValue('%.1f' % self.__getRange(index))
 		self.parent.data.draw()
 		
 	def onLowerDecrease(self, event):
 		index = self.parent.data.index
-		self.parent.data.limits[index][0] -= self.__getIncrement(index)
-		self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][0] -= self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
+		else:
+			self.parent.data.limits[index][0] -= self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
 		self.rText.SetValue('%.1f' % self.__getRange(index))
 		self.parent.data.draw()
 		
 	def onLowerIncrease(self, event):
 		index = self.parent.data.index
-		self.parent.data.limits[index][0] += self.__getIncrement(index)
-		self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][0] += self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
+		else:
+			self.parent.data.limits[index][0] += self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
 		self.rText.SetValue('%.1f' % self.__getRange(index))
 		self.parent.data.draw()
 		
@@ -1089,10 +1191,429 @@ class ContrastAdjust(wx.Frame):
 		self.Close()
 	
 	def __getRange(self, index):
-		return (self.parent.data.limits[index][1] - self.parent.data.limits[index][0])
+		if self.parent.data.bandpass:
+			return (self.parent.data.limitsBandpass[index][1] - self.parent.data.limitsBandpass[index][0])
+		else:
+			return (self.parent.data.limits[index][1] - self.parent.data.limits[index][0])
 		
 	def __getIncrement(self, index):
 		return 0.1*self.__getRange(index)
+
+
+ID_CONTRAST_UPR_INC = 100
+ID_CONTRAST_UPR_DEC = 101
+ID_CONTRAST_LWR_INC = 102
+ID_CONTRAST_LWR_DEC = 103
+ID_CONTRAST_OK = 104
+
+class ContrastAdjust(wx.Frame):
+	def __init__ (self, parent):	
+		wx.Frame.__init__(self, parent, title='Contrast Adjustment', size=(330, 175))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+		self.parent.cAdjust = self
+		
+	def initUI(self):
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		if self.parent.data.bandpass:
+			typ = wx.StaticText(panel, label='Tuning %i, Pol. %i - Bandpass' % (self.parent.data.index/2+1, self.parent.data.index%2))
+		else:
+			typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index/2+1, self.parent.data.index%2))
+		sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		row += 1
+		
+		upr = wx.StaticText(panel, label='Upper Limit:')
+		uprText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
+		uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
+		
+		lwr = wx.StaticText(panel, label='Lower Limit:')
+		lwrText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
+		lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
+		
+		rng = wx.StaticText(panel, label='Range:')
+		rngText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		
+		sizer.Add(upr,     pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprText, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprDec,  pos=(row+0, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(uprInc,  pos=(row+0, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwr,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(lwrInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(rng,     pos=(row+2, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(rngText, pos=(row+2, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		
+		line = wx.StaticLine(panel)
+		sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
+		
+		row += 4
+		
+		#
+		# Buttons
+		#
+		
+		ok = wx.Button(panel, ID_CONTRAST_OK, 'Ok', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		panel.SetSizerAndFit(sizer)
+
+		self.uText = uprText
+		self.lText = lwrText
+		self.rText = rngText
+		
+		#
+		# Set current values
+		#
+		index = self.parent.data.index
+		if self.parent.data.bandpass:
+			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
+			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
+			self.rText.SetValue('%.1f' % self.__getRange(index))
+		else:
+			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+			self.rText.SetValue('%.1f' % self.__getRange(index))
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_BUTTON, self.onUpperDecrease, id=ID_CONTRAST_UPR_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onUpperIncrease, id=ID_CONTRAST_UPR_INC)
+		self.Bind(wx.EVT_BUTTON, self.onLowerDecrease, id=ID_CONTRAST_LWR_DEC)
+		self.Bind(wx.EVT_BUTTON, self.onLowerIncrease, id=ID_CONTRAST_LWR_INC)
+		
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
+		
+	def onUpperDecrease(self, event):
+		index = self.parent.data.index
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][1] -= self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
+		else:
+			self.parent.data.limits[index][1] -= self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onUpperIncrease(self, event):
+		index = self.parent.data.index
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][1] += self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
+		else:
+			self.parent.data.limits[index][1] += self.__getIncrement(index)
+			self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onLowerDecrease(self, event):
+		index = self.parent.data.index
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][0] -= self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
+		else:
+			self.parent.data.limits[index][0] -= self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onLowerIncrease(self, event):
+		index = self.parent.data.index
+		if self.parent.data.bandpass:
+			self.parent.data.limitsBandpass[index][0] += self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
+		else:
+			self.parent.data.limits[index][0] += self.__getIncrement(index)
+			self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
+		self.rText.SetValue('%.1f' % self.__getRange(index))
+		self.parent.data.draw()
+		
+	def onOk(self, event):
+		self.parent.cAdjust = None
+		self.Close()
+	
+	def __getRange(self, index):
+		if self.parent.data.bandpass:
+			return (self.parent.data.limitsBandpass[index][1] - self.parent.data.limitsBandpass[index][0])
+		else:
+			return (self.parent.data.limits[index][1] - self.parent.data.limits[index][0])
+		
+	def __getIncrement(self, index):
+		return 0.1*self.__getRange(index)
+
+
+class WaterfallDisplay(wx.Frame):
+	"""
+	Window for displaying the waterfall data in a zoomable fashion
+	"""
+	
+	def __init__(self, parent):
+		wx.Frame.__init__(self, parent, title='Waterfall', size=(400, 375))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+		self.initPlot()
+		
+	def initUI(self):
+		"""
+		Start the user interface.
+		"""
+		
+		self.statusbar = self.CreateStatusBar()
+		
+		hbox = wx.BoxSizer(wx.HORIZONTAL)
+		
+		# Add plots to panel 1
+		panel1 = wx.Panel(self, -1)
+		vbox1 = wx.BoxSizer(wx.VERTICAL)
+		self.figure = Figure()
+		self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
+		self.toolbar = NavigationToolbar2WxAgg(self.canvas)
+		self.toolbar.Realize()
+		vbox1.Add(self.canvas,  1, wx.EXPAND)
+		vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		panel1.SetSizer(vbox1)
+		hbox.Add(panel1, 1, wx.EXPAND)
+		
+		# Use some sizers to see layout options
+		self.SetSizer(hbox)
+		self.SetAutoLayout(1)
+		hbox.Fit(self)
+		
+	def initEvents(self):
+		"""
+		Set all of the various events in the data range window.
+		"""
+		
+		# Make the images resizable
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		
+	def initPlot(self):
+		"""
+		Populate the figure/canvas areas with a plot.  We only need to do this
+		once for this type of window.
+		"""
+		
+		if self.parent.data.bandpass:
+			spec = self.parent.data.specBandpass
+			limits = self.parent.data.limitsBandpass
+		else:
+			spec = self.parent.data.spec
+			limits = self.parent.data.limits
+		
+		# Plot Waterfall
+		self.figure.clf()
+		self.ax1 = self.figure.gca()
+		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), extent=(self.parent.data.freq[0]/1e6, self.parent.data.freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
+		cm = self.figure.colorbar(m, ax=self.ax1)
+		cm.ax.set_ylabel('PSD [arb. dB]')
+		self.ax1.axis('auto')
+		self.ax1.set_xlabel('Frequency [MHz]')
+		self.ax1.set_ylabel('Elapsed Time [s]')
+		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
+		
+		## Draw and save the click (Why?)
+		self.canvas.draw()
+		self.connect()
+		
+	def connect(self):
+		"""
+		Connect to all the events we need to interact with the plots.
+		"""
+		
+		self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+	
+	def on_motion(self, event):
+		"""
+		Deal with motion events in the stand field window.  This involves 
+		setting the status bar with the current x and y coordinates as well
+		as the stand number of the selected stand (if any).
+		"""
+		
+		if event.inaxes:
+			clickX = event.xdata
+			clickY = event.ydata
+			
+			dataX = numpy.where(numpy.abs(clickX-self.parent.data.freq/1e6) == (numpy.abs(clickX-self.parent.data.freq/1e6).min()))[0][0]
+			dataY = numpy.where(numpy.abs(clickY-self.parent.data.time) == (numpy.abs(clickY-self.parent.data.time).min()))[0][0]
+			
+			value = to_dB(self.parent.data.spec[dataY, self.parent.data.index, dataX])
+			self.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
+		else:
+			self.statusbar.SetStatusText("")
+	
+	def disconnect(self):
+		"""
+		Disconnect all the stored connection ids.
+		"""
+		
+		self.figure.canvas.mpl_disconnect(self.cidmotion)
+		
+	def onCancel(self, event):
+		self.Close()
+		
+	def resizePlots(self, event):
+		w, h = self.GetSize()
+		dpi = self.figure.get_dpi()
+		newW = 1.0*w/dpi
+		newH1 = 1.0*(h/2-100)/dpi
+		newH2 = 1.0*(h/2-75)/dpi
+		self.figure.set_size_inches((newW, newH1))
+		self.figure.canvas.draw()
+
+	def GetToolBar(self):
+		# You will need to override GetToolBar if you are using an 
+		# unmanaged toolbar in your frame
+		return self.toolbar
+
+
+class DriftCurveDisplay(wx.Frame):
+	"""
+	Window for displaying the waterfall data in a zoomable fashion
+	"""
+	
+	def __init__(self, parent):
+		wx.Frame.__init__(self, parent, title='Waterfall', size=(400, 375))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+		self.initPlot()
+		
+		self.site = stations.lwa1.getObserver()
+		
+	def initUI(self):
+		"""
+		Start the user interface.
+		"""
+		
+		self.statusbar = self.CreateStatusBar()
+		
+		hbox = wx.BoxSizer(wx.HORIZONTAL)
+		
+		# Add plots to panel 1
+		panel1 = wx.Panel(self, -1)
+		vbox1 = wx.BoxSizer(wx.VERTICAL)
+		self.figure = Figure()
+		self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
+		self.toolbar = NavigationToolbar2WxAgg(self.canvas)
+		self.toolbar.Realize()
+		vbox1.Add(self.canvas,  1, wx.EXPAND)
+		vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		panel1.SetSizer(vbox1)
+		hbox.Add(panel1, 1, wx.EXPAND)
+		
+		# Use some sizers to see layout options
+		self.SetSizer(hbox)
+		self.SetAutoLayout(1)
+		hbox.Fit(self)
+		
+	def initEvents(self):
+		"""
+		Set all of the various events in the data range window.
+		"""
+		
+		# Make the images resizable
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		
+	def initPlot(self):
+		"""
+		Populate the figure/canvas areas with a plot.  We only need to do this
+		once for this type of window.
+		"""
+		
+		if self.parent.data.bandpass:
+			spec = self.parent.data.specBandpass
+			limits = self.parent.data.limitsBandpass
+		else:
+			spec = self.parent.data.spec
+			limits = self.parent.data.limits
+		
+		# Plot Drift Curve
+		self.figure.clf()
+		self.ax1 = self.figure.gca()
+		
+		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		
+		self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
+		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])
+		self.ax1.set_xlabel('Elapsed Time [s]')
+		self.ax1.set_ylabel('Total Power [arb. dB]')
+		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
+		
+		## Draw and save the click (Why?)
+		self.canvas.draw()
+		self.connect()
+		
+	def connect(self):
+		"""
+		Connect to all the events we need to interact with the plots.
+		"""
+		
+		self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+	
+	def on_motion(self, event):
+		"""
+		Deal with motion events in the stand field window.  This involves 
+		setting the status bar with the current x and y coordinates as well
+		as the stand number of the selected stand (if any).
+		"""
+		
+		if event.inaxes:
+			clickX = event.xdata
+			clickY = event.ydata
+			
+			dataX = numpy.where(numpy.abs(clickX-self.parent.data.time) == (numpy.abs(clickX-self.parent.data.time).min()))[0][0]
+			
+			ts = datetime.utcfromtimestamp(self.parent.data.timesNPZ[dataX])
+			self.site.date = ts.strftime('%Y/%m/%d %H:%M:%S')
+			lst = self.site.sidereal_time()
+			
+			value = to_dB(self.drift[dataX,self.parent.data.index])
+			self.statusbar.SetStatusText("t=%s, LST=%s, p=%.2f dB" % (ts, lst, value))
+		else:
+			self.statusbar.SetStatusText("")
+	
+	def disconnect(self):
+		"""
+		Disconnect all the stored connection ids.
+		"""
+		
+		self.figure.canvas.mpl_disconnect(self.cidmotion)
+		
+	def onCancel(self, event):
+		self.Close()
+		
+	def resizePlots(self, event):
+		w, h = self.GetSize()
+		dpi = self.figure.get_dpi()
+		newW = 1.0*w/dpi
+		newH1 = 1.0*(h/2-100)/dpi
+		newH2 = 1.0*(h/2-75)/dpi
+		self.figure.set_size_inches((newW, newH1))
+		self.figure.canvas.draw()
+
+	def GetToolBar(self):
+		# You will need to override GetToolBar if you are using an 
+		# unmanaged toolbar in your frame
+		return self.toolbar
 
 
 def main(args):

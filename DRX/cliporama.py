@@ -38,6 +38,7 @@ Options:
 -p, --plot-range            Number of seconds of data to show in the I/Q plots
                             (default = 0.0001)
 -s, --stats                 Power statistics for the first 0.5 seconds after offset
+-n, --no-plot               Do not plot, only identify clip-o-rama events
 """
 
 	if exitCode is not None:
@@ -51,13 +52,14 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['offset'] = 0.0
 	config['average'] = 0.5
-	config['maxFrames'] = 19144
+	config['maxFrames'] = 19144*4
 	config['stats'] = False
+	config['doPlot'] = True
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:sp:", ["help", "quiet", "offset=", "stats", "plot-range="])
+		opts, args = getopt.getopt(args, "hqo:sp:n", ["help", "quiet", "offset=", "stats", "plot-range=", "no-plot"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -75,6 +77,8 @@ def parseOptions(args):
 			config['average'] = float(value)
 		elif opt in ('-s', '--stats'):
 			config['stats'] = True
+		elif opt in ('-n', '--no-plot'):
+			config['doPlot'] = False
 		else:
 			assert False
 	
@@ -111,7 +115,8 @@ def main(args):
 
 	# Setup the statistics data set
 	if config['stats']:
-		config['average'] = 0.5
+		if config['average'] < 0.1:
+			config['average'] = 0.5
 		
 	# Number of frames to integrate over
 	nFrames = int(config['average'] * srate / 4096 * beampols)
@@ -222,6 +227,9 @@ def main(args):
 					print " -> Clip-o-rama likely occuring with %i %i-sigma detections on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2)
 		
 		else:
+			outfile = config['args'][0].replace('.dat', '.txt')
+			fh = open(outfile, 'w')
+			
 			# Plot possible clip-o-rama and flag it
 			print "Computing power derivatives w.r.t. time"
 			deriv = numpy.zeros_like(data)
@@ -241,11 +249,15 @@ def main(args):
 				## Mark areas of crazy derivatives
 				bad = numpy.where( deriv[i,:] > 20*stds[i]*numpy.sqrt(2) )[0]
 				for j in bad:
-					ax.vlines(config['offset'] + j/srate, -10, 100, linestyle='--', color='red')
+					fh.write("Clip-o-rama on tuning %i, pol. %i at %.6f seconds\n" % (i/2+1, i%2, config['offset'] + j/srate))
+					print "Clip-o-rama on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate)
+					ax.vlines(config['offset'] + j/srate, -10, 100, linestyle='--', color='red', linewidth=2.0)
 				
 				## Mark areas of crazy power levels
-				bad = numpy.where( data[i,:] > 90 )[0]
+				bad = numpy.where( data[i,:] == 98 )[0]
 				for j in bad:
+					fh.write("Saturation on tuning %i, pol. %i at %.6f seconds\n" % (i/2+1, i%2, config['offset'] + j/srate))
+					print "Saturation on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate)
 					ax.vlines(config['offset'] + j/srate, -10, 100, linestyle='-.', color='red')
 				
 				ax.set_ylim([-10, 100])
@@ -253,7 +265,10 @@ def main(args):
 				ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1,i%2))
 				ax.set_xlabel('Time [seconds]')
 				ax.set_ylabel('I$^2$ + Q$^2$')
-			plt.show()
+				
+			fh.close()
+			if config['doPlot']:
+				plt.show()
 
 
 if __name__ == "__main__":

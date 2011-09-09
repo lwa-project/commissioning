@@ -256,8 +256,8 @@ def main(args):
 		clip1 = (meanI[0] + meanI[1] + meanQ[0] + meanQ[1]) / 4.0
 		clip2 = (meanI[2] + meanI[3] + meanQ[2] + meanQ[3]) / 4.0
 		
-		clip1 += 4*(stdsI[0] + stdsI[1] + stdsQ[0] + stdsQ[1]) / 4.0
-		clip2 += 4*(stdsI[2] + stdsI[3] + stdsQ[2] + stdsQ[3]) / 4.0
+		clip1 += 5*(stdsI[0] + stdsI[1] + stdsQ[0] + stdsQ[1]) / 4.0
+		clip2 += 5*(stdsI[2] + stdsI[3] + stdsQ[2] + stdsQ[3]) / 4.0
 		
 		clip1 = int(round(clip1))
 		clip2 = int(round(clip2))
@@ -347,6 +347,7 @@ def main(args):
 	fig = plt.figure()
 	figsX = int(round(math.sqrt(beampols)))
 	figsY = beampols / figsX
+	
 	# Put the frequencies in the best units possible
 	freq, units = bestFreqUnits(freq)
 
@@ -364,8 +365,6 @@ def main(args):
 		ax.set_xlabel('Frequency Offset [%s]' % units)
 		ax.set_ylabel('Time [s]')
 		ax.set_xlim([freq.min(), freq.max()])
-		
-		#print "For beam %i, tune. %i, pol. %i maximum in PSD at %.3f %s" % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2, freq[numpy.where( spec[i,:] == spec[i,:].max() )][0], units)
 
 	print "RBW: %.4f %s" % ((freq[1]-freq[0]), units)
 	plt.subplots_adjust(hspace=0.35, wspace=0.30)
@@ -375,6 +374,7 @@ def main(args):
 	# Save spectra image if requested
 	if config['output'] is not None:
 		fig.savefig(config['output'])
+
 
 if __name__ == "__main__":
 	main(sys.argv[1:])

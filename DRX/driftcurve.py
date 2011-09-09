@@ -158,7 +158,7 @@ def main(args):
 			lstH = int(lst)
 			lstM = int((lst - lstH)*60.0)
 			lstS = ((lst - lstH)*60.0 - lstM)*60.0
-			sys.stdout.write("LST: %02i:%02i:%04.1f, Power_ant: %.1f K\r" % (lstH, lstM, lstS, powerAnt))
+			sys.stdout.write("LST: %02i:%02i:%04.1f, Power_ant: %.1f K \r" % (lstH, lstM, lstS, powerAnt))
 			sys.stdout.flush()
 	sys.stdout.write("\n")
 			
