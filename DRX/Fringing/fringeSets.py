@@ -37,7 +37,6 @@ Options:
                             the pointing center (Default = 90 degrees)
 -d, --dipole                Using a dipole instead of the beam (Default = use beam)
 -r, --reference             Reference for the fringing (Default = stand #258)
--g, --gain                  Beam only, DRX antenna gain (Default = 1.0000)
 """
 	if exitCode is not None:
 		sys.exit(exitCode)
@@ -52,14 +51,13 @@ def parseOptions(args):
 	config['freq'] = 74.0e6
 	config['az'] = 90.0
 	config['el'] = 90.0
-	config['gain'] = 1.0000
 	config['dipole'] = 1
 	config['ref'] = 258
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hf:a:e:g:d:r:", ["help", "frequency=", "azimuth=", "elevation=", "gain=", "dipole=", "reference="])
+		opts, args = getopt.getopt(args, "hf:a:e:d:r:", ["help", "frequency=", "azimuth=", "elevation=", "dipole=", "reference="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -75,8 +73,6 @@ def parseOptions(args):
 			config['az'] = float(value)
 		elif opt in ('-e', '--elevation'):
 			config['el'] = float(value)
-		elif opt in ('-g', '--gain'):
-			config['gain'] = float(value)
 		elif opt in ('-d', '--dipole'):
 			config['beam'] = False
 			config['dipole'] = int(value)
@@ -122,7 +118,6 @@ def main(args):
 		dftBase = None
 		gftBase = 'fringe_%istand_%iref' % (config['dipole'], config['ref'])
 	
-	bgain = config['gain']
 	if config['beam']:
 		print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6)
 		delays = beamformer.calcDelay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
@@ -131,6 +126,10 @@ def main(args):
 		junk = delay.list2delayfile('.', dftBase, delays)
 		
 		print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
+		
+		# Adjust the gain so that it matches the outlier better
+		bgain = 20.0 / (520 - len(bad))
+		print "-> Using gain setting of %.4f for the beam" % bgain
 		
 		gains = [[bgain, 0.0000, 0.0000, 0.0000]]*260 # initialize gain list
 		for d in digs[bad]:

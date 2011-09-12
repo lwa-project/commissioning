@@ -215,7 +215,7 @@ class Waterfall_GUI(object):
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
 			from scipy.interpolate import splrep, splev
-			t = splrep(freq2, numpy.log10(meanSpec[i,:])*10, s=0.01, k=3)
+			t = splrep(freq2, numpy.log10(meanSpec[i,:])*10, s=1e-5, k=3)
 			noiseSlope = 10.0**(splev(freq2, t, der=0)/10.0)
 			
 			bpm2.append( noiseSlope/noiseSlope.mean() )
@@ -255,13 +255,13 @@ class Waterfall_GUI(object):
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].mean(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
 		self.ax1b.plot(self.drift[:,self.index], self.time, linestyle=' ', marker='x')
 		self.ax1b.set_ylim([self.time[0], self.time[-1]])
-		self.ax1b.set_xlabel('Mean Power [arb. dB]')
+		self.ax1b.set_xlabel('Total Power [arb. dB]')
 		self.ax1b.set_ylabel('Elapsed Time [s]')
 		
 		if self.oldMarkB is not None:
@@ -1616,12 +1616,12 @@ class DriftCurveDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].mean(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
 		
 		self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
 		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])
 		self.ax1.set_xlabel('Elapsed Time [s]')
-		self.ax1.set_ylabel('Mean Power [arb. dB]')
+		self.ax1.set_ylabel('Total Power [arb. dB]')
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
 		
 		## Draw and save the click (Why?)
