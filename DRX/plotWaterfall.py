@@ -17,7 +17,7 @@ from datetime import datetime
 
 from lsl.common.dp import fS
 from lsl.common import stations
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutil import to_dB, from_dB, savitzky_golay
 from lsl.statistics import robust
 
 import wx
@@ -27,73 +27,6 @@ matplotlib.interactive(True)
 
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
 from matplotlib.figure import Figure
-
-try:
-	from dp import drxFilter
-except ImportError:
-	from scipy.signal import freqz
-	from scipy.interpolate import interp1d
-	
-	_nPts = 500
-	
-	def drxFilter(sampleRate=19.6e6):
-		"""
-		Return a function that will generate the shape of a DRX filter for a given sample
-		rate.
-		
-		Based on memo DRX0001.
-		"""
-		
-		decimation = fS / sampleRate
-		decimationCIC = decimation / 2
-		
-		# CIC settings
-		N = 5
-		R = 5
-		
-		# FIR coefficients
-		drxFIR = [-6.2000000000000000e+001,  6.6000000000000000e+001,  1.4500000000000000e+002, 
-				3.4000000000000000e+001, -1.4400000000000000e+002, -5.9000000000000000e+001, 
-				1.9900000000000000e+002,  1.4500000000000000e+002, -2.2700000000000000e+002, 
-				-2.5700000000000000e+002,  2.3200000000000000e+002,  4.0500000000000000e+002, 
-				-1.9400000000000000e+002, -5.8300000000000000e+002,  9.2000000000000000e+001, 
-				7.8200000000000000e+002,  9.4000000000000000e+001, -9.9000000000000000e+002, 
-				-3.9700000000000000e+002,  1.1860000000000000e+003,  8.5900000000000000e+002, 
-				-1.3400000000000000e+003, -1.5650000000000000e+003,  1.3960000000000000e+003, 
-				2.7180000000000000e+003, -1.1870000000000000e+003, -4.9600000000000000e+003, 
-				-1.8900000000000000e+002,  1.1431000000000000e+004,  1.7747000000000000e+004, 
-				1.1431000000000000e+004, -1.8900000000000000e+002, -4.9600000000000000e+003, 
-				-1.1870000000000000e+003,  2.7180000000000000e+003,  1.3960000000000000e+003, 
-				-1.5650000000000000e+003, -1.3400000000000000e+003,  8.5900000000000000e+002, 
-				1.1860000000000000e+003, -3.9700000000000000e+002, -9.9000000000000000e+002,
-				9.4000000000000000e+001,  7.8200000000000000e+002,  9.2000000000000000e+001,
-				-5.8300000000000000e+002, -1.9400000000000000e+002,  4.0500000000000000e+002, 
-				2.3200000000000000e+002, -2.5700000000000000e+002, -2.2700000000000000e+002, 
-				1.4500000000000000e+002,  1.9900000000000000e+002, -5.9000000000000000e+001, 
-				-1.4400000000000000e+002,  3.4000000000000000e+001,  1.4500000000000000e+002, 
-				6.6000000000000000e+001, -6.2000000000000000e+001]
-			
-		# Part 1 - CIC filter
-		h = numpy.linspace(0, numpy.pi/decimationCIC/2, num=_nPts, endpoint=True)
-		wCIC = (numpy.sin(h*R)/numpy.sin(h/2))**N
-		wCIC[0] = (2*R)**N
-		
-		# Part 2 - FIR filter
-		h, wFIR = freqz(drxFIR, 1, _nPts)
-		
-		# Cascade
-		w = numpy.abs(wCIC) * numpy.abs(wFIR)
-		
-		# Convert to a "real" frequency and magnitude response
-		h *= fS / decimation / numpy.pi
-		w = numpy.abs(w)**2
-		
-		# Mirror
-		h = numpy.concatenate([-h[::-1], h[1:]])
-		w = numpy.concatenate([w[::-1], w[1:]])
-		
-		# Return the interpolating function
-		return interp1d(h, w/w.max(), kind='cubic', bounds_error=False)
 
 
 def spectralKurtosis(x, N=1):
@@ -109,6 +42,29 @@ def spectralKurtosis(x, N=1):
 	k *= (M*N+1)/(M-1)
 	
 	return k
+
+
+def skStd(M, N=1):
+	"""
+	Return the expected standard deviation of the spectral kurtosis for M points 
+	each composed of N measurments.
+	
+	.. note::
+		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.std()
+	"""
+	
+	return numpy.sqrt( skVar(M, N) )
+
+
+def skVar(M, N=1):
+	"""
+	Return the expected variance (second central moment) of the spectral kurtosis 
+	for M points each composed of N measurments.
+	.. note::
+		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.var()
+	"""
+
+	return 2.0*N*(N+1)*M**2/ float( (M-1)*(M*N+3)*(M*N+2) )
 
 
 class Waterfall_GUI(object):
@@ -155,7 +111,8 @@ class Waterfall_GUI(object):
 			mask = numpy.zeros(dataDictionary['spec'].shape, dtype=numpy.bool)
 		self.spec = numpy.ma.array(dataDictionary['spec'], mask=mask)
 		self.tInt = dataDictionary['tInt']
-		self.time = self.tInt * numpy.arange(self.spec.shape[0])
+		self.time = dataDictionary['times']
+		self.time -= self.time.min()
 		
 		# Construct frequency and time master masks to prevent some masked things from getting unmasked
 		self.freqMask = numpy.median(self.spec.mask, axis=0)
@@ -164,6 +121,13 @@ class Waterfall_GUI(object):
 		# Other data to keep around in case we save
 		self.timesNPZ = dataDictionary['times']
 		self.standMapperNPZ = dataDictionary['standMapper']
+		
+		# Deal with the potential for aggregated files
+		try:
+			self.filenames = dataDictionary['filenames']
+			print "*** NPZ file appears to be aggregation of %i files ***" % len(self.filenames)
+		except KeyError:
+			self.filenames = None
 		
 		## Get the filter model
 		#print " %6.3f s - Building DRX bandpass model" % (time.time() - tStart)
@@ -190,7 +154,7 @@ class Waterfall_GUI(object):
 			self.limitsBandpass.append( [to_dB(self.specBandpass[:,i,toUse]).min(), to_dB(self.specBandpass[:,i,toUse]).max()] )
 		
 		try:
-			self.diconnect()
+			self.disconnect()
 		except:
 			pass
 		
@@ -215,8 +179,10 @@ class Waterfall_GUI(object):
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
 			from scipy.interpolate import splrep, splev
-			t = splrep(freq2, numpy.log10(meanSpec[i,:])*10, s=1e-5, k=3)
-			noiseSlope = 10.0**(splev(freq2, t, der=0)/10.0)
+			#t = splrep(freq2, numpy.log10(meanSpec[i,:])*10, s=1e-5, k=3)
+			#noiseSlope = 10.0**(splev(freq2, t, der=0)/10.0)
+			noiseSlope = savitzky_golay(to_dB(meanSpec[i,:]), 41, 9, deriv=0)
+			noiseSlope = from_dB(noiseSlope)
 			
 			bpm2.append( noiseSlope/noiseSlope.mean() )
 			
@@ -307,10 +273,16 @@ class Waterfall_GUI(object):
 		self.ax2.set_xlabel('Frequency [MHz]')
 		self.ax2.set_ylabel('PSD [arb. dB]')
 		
-		if self.bandpass:
-			self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+		if self.filenames is None:
+			if self.bandpass:
+				self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+			else:
+				self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
 		else:
-			self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+			if self.bandpass:
+				self.ax2.set_title("%s + bandpass" % self.filenames[dataY])
+			else:
+				self.ax2.set_title(self.filenames[dataY])
 		
 		self.frame.canvas2.draw()
 		self.spectrumClick = clickY
@@ -490,7 +462,8 @@ ID_OPEN    = 10
 ID_SAVE    = 11
 ID_SAVE_AS = 12
 ID_QUIT    = 13
-ID_COLOR_ADJUST = 20
+ID_COLOR_AUTO = 20
+ID_COLOR_ADJUST = 21
 ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
 ID_TUNING2_X = 32
@@ -552,6 +525,8 @@ class MainWindow(wx.Frame):
 		fileMenu.AppendItem(exit)
 		
 		## Color Menu
+		auto = wx.MenuItem(colorMenu, ID_COLOR_AUTO, '&Auto-scale Colorbar')
+		colorMenu.AppendItem(auto)
 		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
 		colorMenu.AppendItem(cadj)
 		
@@ -635,6 +610,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onSaveAs, id=ID_SAVE_AS)
 		self.Bind(wx.EVT_MENU, self.onExit, id=ID_QUIT)
 		
+		self.Bind(wx.EVT_MENU, self.onAutoscale, id=ID_COLOR_AUTO)
 		self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
 		
 		self.Bind(wx.EVT_MENU, self.onTuning1X, id=ID_TUNING1_X)
@@ -714,6 +690,26 @@ class MainWindow(wx.Frame):
 		"""
 		
 		self.Close(True)
+		
+	def onAutoscale(self, event):
+		"""
+		Auto-scale the current data display.
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		i = self.data.index
+		toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
+		if self.data.bandpass:
+			self.data.limitsBandpass[i] = [to_dB(self.data.specBandpass[:,i,toUse]).min(), to_dB(self.data.specBandpass[:,i,toUse]).max()] 
+		else:
+			self.data.limits[i] = [to_dB(self.data.spec[:,i,:]).min(), to_dB(self.data.spec[:,i,:]).max()]
+			
+		self.data.draw()
+		self.data.drawSpectrum(self.data.spectrumClick)
+		self.data.makeMark(self.data.spectrumClick)
+		
+		wx.EndBusyCursor()
 		
 	def onAdjust(self, event):
 		"""
@@ -833,11 +829,8 @@ class MainWindow(wx.Frame):
 				channel = self.data.spec.data[tStart:tStop,self.data.index,j]
 				kurtosis[k,j] = spectralKurtosis(channel, N=N)
 		
-		try:
-			kMean = robust.mean(kurtosis)
-		except ValueError:
-			kMean = 1.0
-		kStd  = robust.std(kurtosis)
+		kMean = 1.0
+		kStd  = skStd(secSize, N)
 		
 		bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
 		for k,b in zip(bad[0], bad[1]):
@@ -900,11 +893,8 @@ class MainWindow(wx.Frame):
 					channel = self.data.spec.data[tStart:tStop,i,j]
 					kurtosis[k,j] = spectralKurtosis(channel, N=N)
 			
-			try:
-				kMean = robust.mean(kurtosis)
-			except ValueError:
-				kMean = 1.0
-			kStd  = robust.std(kurtosis)
+			kMean = 1.0
+			kStd  = skStd(secSize, N)
 			
 			bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
 			for k,b in zip(bad[0], bad[1]):

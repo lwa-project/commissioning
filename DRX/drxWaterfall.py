@@ -340,7 +340,7 @@ def main(args):
 	# Now that we have read through all of the chunks, perform the final averaging by
 	# dividing by all of the chunks
 	outname = config['args'][0].replace('.dat', '-waterfall.npz')
-	numpy.savez(outname, freq=freq, times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
+	numpy.savez(outname, freq=freq, times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), srate=srate,  standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 	spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
 
 	# The plots:  This is setup for the current configuration of 20 beampols
@@ -356,7 +356,6 @@ def main(args):
 		currSpectra = numpy.squeeze( numpy.log10(masterSpectra[:,i,:])*10.0 )
 		currSpectra = numpy.where( numpy.isfinite(currSpectra), currSpectra, -10)
 		
-		#ax.plot(freq, currSpectra, label='%i (avg)' % (i+1))
 		ax.imshow(currSpectra, interpolation='nearest', extent=(freq.min(), freq.max(), offset+0, offset+config['average']*nChunks), origin='lower')
 		print currSpectra.min(), currSpectra.max()
 

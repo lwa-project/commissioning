@@ -5,6 +5,10 @@
 Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.buildSimData()
 function and the bright sources listed in lsl.sim.vis.srcs.
 
+Usage:
+  simulateFringesBright.py freq1 freq2 stand1 stand2 reference_file
+where freq1 and freq1 are in MHz.
+
 $Rev$
 $LastChangedBy$
 $LastChangedDate$
@@ -67,10 +71,10 @@ def main(args):
 	aa2 = simVis.buildSimArray(site, antennas, freq2/1e9, jd=refJD)
 
 	# Build the model times and range.  This is hard coded for now.
-	tGap = 149.0
+	tGap = 4.0
 	jdList = []
 	dTimes = []
-	for i in xrange(179):
+	for i in xrange(899):
 		tNow = tStart + i*tGap
 		jdNow = unix_to_utcjd(tNow)
 		print i, tNow, jdNow
