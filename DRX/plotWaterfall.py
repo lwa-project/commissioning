@@ -13,6 +13,7 @@ import os
 import sys
 import time
 import numpy
+import subprocess
 from datetime import datetime
 
 from lsl.common.dp import fS
@@ -85,6 +86,12 @@ class Waterfall_GUI(object):
 		self.ax2 = None
 		
 		self.spectrumClick = None
+		
+		self.bandpassCut = 0.85
+		self.driftOrder  = 5
+		self.driftCut    = 4
+		self.kurtosisSec = 1
+		self.kurtosisCut = 4
 		
 	def loadData(self, filename):
 		"""
@@ -327,6 +334,79 @@ class Waterfall_GUI(object):
 		
 		self.frame.canvas1a.draw()
 		self.frame.canvas1b.draw()
+		
+	def suggestMask(self, index):
+		"""
+		Suggest a mask for the current index.
+		"""
+		
+		bad = numpy.where( (self.freq < -self.srate/2*self.bandpassCut) | (self.freq > self.srate/2*self.bandpassCut) )[0]
+		for b in bad:
+			self.spec.mask[:,index,b] = True
+			self.specBandpass.mask[:,index,b] = True
+			self.freqMask[index,b] = True
+		
+		spec = self.spec.data[:,index,:]
+		drift = spec.sum(axis=1)
+		coeff = robust.polyfit(numpy.arange(drift.size), drift, self.driftOrder)
+		fit = numpy.polyval(coeff, numpy.arange(drift.size))
+		rDrift = drift / fit
+		
+		mean = robust.mean(rDrift)
+		std  = robust.std(rDrift)
+		
+		bad = numpy.where( numpy.abs(rDrift - mean) >= self.driftCut*std )[0]
+		for b in bad:
+			self.spec.mask[b,index,:] = True
+			self.specBandpass.mask[b,index,:] = True
+			self.timeMask[b,index] = True
+		
+		N = self.srate/(self.freq.size+1)*self.tIntActual
+		kurtosis = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
+		
+		secSize = self.spec.shape[0]/self.kurtosisSec
+		for k in xrange(self.kurtosisSec):
+			tStart = k*secSize
+			tStop  = (k+1)*secSize
+			
+			for j in xrange(self.spec.shape[2]):
+				channel = self.spec.data[tStart:tStop,index,j]
+				kurtosis[k,j] = spectralKurtosis(channel, N=N)
+		
+		kMean = 1.0
+		kStd  = skStd(secSize, N)
+		# Correction for some averaged data sets - probably not all that vaid
+		# for more robust things.  However, this only hits the aggregated files
+		# since `self.filenames` is None for stand-alone files.
+		if self.filenames is not None:
+			kurtosis /= kurtosis.mean()
+		
+		bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
+		for k,b in zip(bad[0], bad[1]):
+			tStart = k*secSize
+			tStop  = (k+1)*secSize
+			
+			try:
+				for j in xrange(b-2, b+3):
+					self.spec.mask[tStart:tStop,index,j] = True
+					self.specBandpass.mask[tStart:tStop,index,j] = True
+					self.freqMask[index,j] = True
+			except IndexError:
+				pass
+			
+		return True
+		
+	def resetMask(self, index):
+		"""
+		Reset the specified mask.
+		"""
+		
+		self.spec.mask[:,index,:] = False
+		self.specBandpass.mask[:,index,:]= False
+		self.timeMask[:,index] = False
+		self.freqMask[index,:] = False
+		
+		return True
 	
 	def connect(self):
 		"""
@@ -466,22 +546,29 @@ ID_OPEN    = 10
 ID_SAVE    = 11
 ID_SAVE_AS = 12
 ID_QUIT    = 13
+
 ID_COLOR_AUTO = 20
 ID_COLOR_ADJUST = 21
+
 ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
 ID_TUNING2_X = 32
 ID_TUNING2_Y = 33
-ID_ZOOMABLE_WATERFALL = 34
-ID_ZOOMABLE_DRIFT = 35
+
 ID_MASK_SUGGEST_CURRENT = 40
 ID_MASK_SUGGEST_ALL = 41
 ID_MASK_RESET_CURRENT = 42
 ID_MASK_RESET_ALL = 43
 ID_MASK_TWEAK = 44
+
 ID_BANDPASS_ON = 50
 ID_BANDPASS_OFF = 51
 ID_BANDPASS_RECOMPUTE = 52
+
+ID_DETAIL_SUMMARY = 60
+ID_DETAIL_SUBFILE = 61
+ID_DETAIL_WATERFALL = 62
+ID_DETAIL_DRIFTCURVE = 63
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
@@ -489,17 +576,13 @@ class MainWindow(wx.Frame):
 		self.filename = ''
 		self.data = None
 		
+		self.examineWindow = None
+		
 		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(600,800))
 		
 		self.initUI()
 		self.initEvents()
 		self.Show()
-		
-		self.bandpassCut = 0.85
-		self.driftOrder  = 5
-		self.driftCut    = 4
-		self.kurtosisSec = 1
-		self.kurtosisCut = 4
 		
 		self.cAdjust = None
 		
@@ -516,6 +599,7 @@ class MainWindow(wx.Frame):
 		dataMenu = wx.Menu()
 		maskMenu = wx.Menu()
 		bandpassMenu = wx.Menu()
+		detailsMenu = wx.Menu()
 		
 		## File Menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
@@ -540,11 +624,6 @@ class MainWindow(wx.Frame):
 		dataMenu.AppendSeparator()
 		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
-		dataMenu.AppendSeparator()
-		zm = wx.MenuItem(dataMenu, ID_ZOOMABLE_WATERFALL, 'Zoomable Waterfall')
-		dataMenu.AppendItem(zm)
-		zd = wx.MenuItem(dataMenu, ID_ZOOMABLE_DRIFT, 'Zoomable Drift Curve')
-		dataMenu.AppendItem(zd)
 		
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
@@ -566,6 +645,17 @@ class MainWindow(wx.Frame):
 		bandpassMenu.AppendSeparator()
 		recompute = wx.MenuItem(bandpassMenu, ID_BANDPASS_RECOMPUTE, 'Recompute Fits')
 		bandpassMenu.AppendItem(recompute)
+		
+		## Details Menu
+		cf = wx.MenuItem(detailsMenu, ID_DETAIL_SUMMARY, 'Current File Info.')
+		detailsMenu.AppendItem(cf)
+		self.examineFileButton = wx.MenuItem(detailsMenu, ID_DETAIL_SUBFILE, 'Examine File')
+		detailsMenu.AppendItem(self.examineFileButton)
+		detailsMenu.AppendSeparator()
+		zm = wx.MenuItem(detailsMenu, ID_DETAIL_WATERFALL, 'Zoomable Waterfall')
+		detailsMenu.AppendItem(zm)
+		zd = wx.MenuItem(detailsMenu, ID_DETAIL_DRIFTCURVE, 'Zoomable Drift Curve')
+		detailsMenu.AppendItem(zd)
 
 		# Creating the menubar.
 		menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
@@ -573,6 +663,7 @@ class MainWindow(wx.Frame):
 		menuBar.Append(dataMenu, "&Data")
 		menuBar.Append(maskMenu, "&Mask")
 		menuBar.Append(bandpassMenu, "&Bandpass")
+		menuBar.Append(detailsMenu, "D&etails")
 		self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 		
 		vbox = wx.BoxSizer(wx.VERTICAL)
@@ -621,8 +712,6 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
 		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
-		self.Bind(wx.EVT_MENU, self.onZoomWaterfall, id=ID_ZOOMABLE_WATERFALL)
-		self.Bind(wx.EVT_MENU, self.onZoomDrift, id=ID_ZOOMABLE_DRIFT)
 		
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
@@ -633,6 +722,11 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onBandpassOn, id=ID_BANDPASS_ON)
 		self.Bind(wx.EVT_MENU, self.onBandpassOff, id=ID_BANDPASS_OFF)
 		self.Bind(wx.EVT_MENU, self.onBandpassRecompute, id=ID_BANDPASS_RECOMPUTE)
+		
+		self.Bind(wx.EVT_MENU, self.onFileDetails, id=ID_DETAIL_SUMMARY)
+		self.Bind(wx.EVT_MENU, self.onExamineFile, id=ID_DETAIL_SUBFILE)
+		self.Bind(wx.EVT_MENU, self.onZoomWaterfall, id=ID_DETAIL_WATERFALL)
+		self.Bind(wx.EVT_MENU, self.onZoomDrift, id=ID_DETAIL_DRIFTCURVE)
 		
 		# Key events
 		self.canvas1a.Bind(wx.EVT_KEY_UP, self.onKeyPress)
@@ -662,6 +756,11 @@ class MainWindow(wx.Frame):
 					pass
 				self.cAdjust = None
 		dlg.Destroy()
+		
+		if self.data.filenames is None:
+			self.examineFileButton.Enable(False)
+		else:
+			self.examineFileButton.Enable(True)
 		
 	def onSave(self, event):
 		"""
@@ -778,20 +877,6 @@ class MainWindow(wx.Frame):
 			
 		wx.EndBusyCursor()
 		
-	def onZoomWaterfall(self, event):
-		"""
-		Create a zoomable waterfall plot window.
-		"""
-		
-		WaterfallDisplay(self)
-	
-	def onZoomDrift(self, event):
-		"""
-		Create a zoomable drift curve plot window.
-		"""
-		
-		DriftCurveDisplay(self)
-		
 	def onMaskSuggestCurrent(self, event):
 		"""
 		Suggest a series of frequency and time-based masks to apply to 
@@ -800,55 +885,7 @@ class MainWindow(wx.Frame):
 		
 		wx.BeginBusyCursor()
 		
-		bad = numpy.where( (self.data.freq < -self.data.srate/2*self.bandpassCut) | (self.data.freq > self.data.srate/2*self.bandpassCut) )[0]
-		for b in bad:
-			self.data.spec.mask[:,self.data.index,b] = True
-			self.data.specBandpass.mask[:,self.data.index,b] = True
-			self.data.freqMask[self.data.index,b] = True
-		
-		spec = self.data.spec.data[:,self.data.index,:]
-		drift = spec.sum(axis=1)
-		coeff = robust.polyfit(numpy.arange(drift.size), drift, self.driftOrder)
-		fit = numpy.polyval(coeff, numpy.arange(drift.size))
-		rDrift = drift / fit
-		
-		mean = robust.mean(rDrift)
-		std  = robust.std(rDrift)
-		
-		bad = numpy.where( numpy.abs(rDrift - mean) >= self.driftCut*std )[0]
-		for b in bad:
-			self.data.spec.mask[b,self.data.index,:] = True
-			self.data.specBandpass.mask[b,self.data.index,:] = True
-			self.data.timeMask[b,self.data.index] = True
-		
-		N = self.data.srate/(self.data.freq.size+1)*self.data.tIntActual
-		kurtosis = numpy.zeros((self.kurtosisSec, self.data.spec.shape[2]))
-		
-		secSize = self.data.spec.shape[0]/self.kurtosisSec
-		for k in xrange(self.kurtosisSec):
-			tStart = k*secSize
-			tStop  = (k+1)*secSize
-			
-			for j in xrange(self.data.spec.shape[2]):
-				channel = self.data.spec.data[tStart:tStop,self.data.index,j]
-				kurtosis[k,j] = spectralKurtosis(channel, N=N)
-		
-		kMean = 1.0
-		kStd  = skStd(secSize, N)
-		print self.data.tIntActual, kStd, kurtosis.min(), kurtosis.max()
-		
-		bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
-		for k,b in zip(bad[0], bad[1]):
-			tStart = k*secSize
-			tStop  = (k+1)*secSize
-			
-			try:
-				for j in xrange(b-2, b+3):
-					self.data.spec.mask[tStart:tStop,self.data.index,j] = True
-					self.data.specBandpass.mask[tStart:tStop,self.data.index,j] = True
-					self.data.freqMask[self.data.index,j] = True
-			except IndexError:
-				pass
+		self.data.suggestMask(self.data.index)
 			
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -865,54 +902,7 @@ class MainWindow(wx.Frame):
 		wx.BeginBusyCursor()
 		
 		for i in xrange(self.data.spec.shape[1]):
-			bad = numpy.where( (self.data.freq < -self.data.srate/2*self.bandpassCut) | (self.data.freq > self.data.srate/2*self.bandpassCut) )[0]
-			for b in bad:
-				self.data.spec.mask[:,i,b] = True
-				self.data.specBandpass.mask[:,i,b] = True
-				self.data.freqMask[i,b] = True
-			
-			spec = self.data.spec.data[:,i,:]
-			drift = spec.sum(axis=1)
-			coeff = robust.polyfit(numpy.arange(drift.size), drift, self.driftOrder)
-			fit = numpy.polyval(coeff, numpy.arange(drift.size))
-			rDrift = drift / fit
-			
-			mean = robust.mean(rDrift)
-			std  = robust.std(rDrift)
-			
-			bad = numpy.where( numpy.abs(rDrift - mean) >= self.driftCut*std )[0]
-			for b in bad:
-				self.data.spec.mask[b,i,:] = True
-				self.data.specBandpass.mask[b,i,:] = True
-				self.data.timeMask[b,i] = True
-			
-			N = self.data.srate/(self.data.freq.size+1)*self.data.tIntActual
-			kurtosis = numpy.zeros((self.kurtosisSec, self.data.spec.shape[2]))
-			
-			secSize = self.data.spec.shape[0]/self.kurtosisSec
-			for k in xrange(self.kurtosisSec):
-				tStart = k*secSize
-				tStop  = (k+1)*secSize
-				
-				for j in xrange(self.data.spec.shape[2]):
-					channel = self.data.spec.data[tStart:tStop,i,j]
-					kurtosis[k,j] = spectralKurtosis(channel, N=N)
-			
-			kMean = 1.0
-			kStd  = skStd(secSize, N)
-			
-			bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
-			for k,b in zip(bad[0], bad[1]):
-				tStart = k*secSize
-				tStop  = (k+1)*secSize
-				
-				try:
-					for j in xrange(b-2, b+3):
-						self.data.spec.mask[tStart:tStop,i,j] = True
-						self.data.specBandpass.mask[tStart:tStop,i,j] = True
-						self.data.freqMask[i,j] = True
-				except IndexError:
-					pass
+			self.data.suggestMask(i)
 			
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -927,10 +917,7 @@ class MainWindow(wx.Frame):
 		
 		wx.BeginBusyCursor()
 		
-		self.data.spec.mask[:,self.data.index,:] = False
-		self.data.specBandpass.mask[:,self.data.index,:]= False
-		self.data.timeMask[:,self.data.index] = False
-		self.data.freqMask[self.data.index,:] = False
+		self.data.resetMask(self.data.index)
 		
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -945,11 +932,8 @@ class MainWindow(wx.Frame):
 		
 		wx.BeginBusyCursor()
 		
-		for i in xrange(4):
-			self.data.spec.mask[:,i,:] = False
-			self.data.specBandpass.mask[:,i,:]= False
-			self.data.timeMask[:,i] = False
-			self.data.freqMask[i,:] = False
+		for i in xrange(self.data.spec.shape[1]):
+			self.data.resetMask(i)
 		
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -1009,6 +993,90 @@ class MainWindow(wx.Frame):
 			self.data.makeMark(self.data.spectrumClick)
 			
 		wx.EndBusyCursor()
+		
+	def onFileDetails(self, event):
+		"""
+		Display a small info. window about the current file.
+		"""
+		
+		# Get some basic parameter
+		filename = self.data.filename
+		tInt = self.data.tInt
+		nInt = self.data.spec.shape[0]
+		isAggregate = False if self.data.filenames is None else True
+		tIntOrg = self.data.tIntOriginal
+		tIntAct = self.data.tIntActual
+		
+		# Build the message string
+		outString = """Filename: %s
+Integration Time:  %.3f seconds
+Number of Integrations:  %i
+
+Aggregate File?  %s""" % (filename, tInt, nInt, isAggregate)
+
+		# Expound on aggregate files
+		if isAggregate:
+			outString = """%s
+Number of files contained:  %i
+Original Integration Time:  %.3f seconds
+Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames), tIntOrg, tIntAct)
+		
+		# Show the box
+		box = wx.MessageDialog(self, outString, "File Details")
+		box.ShowModal()
+		
+	def onExamineFile(self, event):
+		"""
+		For aggregated data sets, open a new plotWaterfall to look at the
+		current file.
+		"""
+		
+		# Make sure there is not another window running already.
+		if self.examineWindow is not None:
+			self.examineWindow.poll()
+			if self.examineWindow.returncode is None:
+				print "ERROR: another sub-file examination window is already running"
+				return False
+			else:
+				self.examineWindow = None
+		
+		# Make sure we actually have a aggregated file first
+		if self.data.filenames is None:
+			print "ERROR: current file is not an aggregated file"
+			return False
+		
+		# Make sure we have clicked
+		try:
+			dataY = int(round(self.data.spectrumClick / self.data.tInt))
+		except:
+			print "ERROR: no sub-file currently selected"
+			return False
+			
+		# Make sure the target file exists
+		filename = self.data.filenames[dataY]
+		if not os.path.exists(filename):
+			print "ERROR: cannot file file '%s'" % filename
+			return False
+		
+		# Get the current plotWaterfall.py path
+		script = sys.argv[0]
+		
+		# Go
+		self.examineWindow = subprocess.Popen(['python', script, filename])
+		
+	def onZoomWaterfall(self, event):
+		"""
+		Create a zoomable waterfall plot window.
+		"""
+		
+		WaterfallDisplay(self)
+	
+	def onZoomDrift(self, event):
+		"""
+		Create a zoomable drift curve plot window.
+		"""
+		
+		DriftCurveDisplay(self)
 		
 	def onKeyPress(self, event):
 		"""
@@ -1336,11 +1404,11 @@ class MaskingAdjust(wx.Frame):
 		#
 		# Set current values
 		#
-		self.bpRText.SetValue('%.2f' % self.parent.bandpassCut)
-		self.dcPText.SetValue('%i'   % self.parent.driftOrder)
-		self.dcCText.SetValue('%i'   % self.parent.driftCut)
-		self.skSText.SetValue('%i'   % self.parent.kurtosisSec)
-		self.skCText.SetValue('%i'   % self.parent.kurtosisCut)
+		self.bpRText.SetValue('%.2f' % self.parent.data.bandpassCut)
+		self.dcPText.SetValue('%i'   % self.parent.data.driftOrder)
+		self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
+		self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
+		self.skCText.SetValue('%i'   % self.parent.data.kurtosisCut)
 		
 	def initEvents(self):
 		self.Bind(wx.EVT_BUTTON, self.onBPRDecrease, id=ID_BANDPASS_CUT_DEC)
@@ -1359,54 +1427,54 @@ class MaskingAdjust(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_MASKING_OK)
 		
 	def onBPRDecrease(self, event):
-		if self.parent.bandpassCut > 0.05:
-			self.parent.bandpassCut -= 0.05
-			self.bpRText.SetValue('%.2f' % self.parent.bandpassCut)
+		if self.parent.data.bandpassCut > 0.05:
+			self.parent.data.bandpassCut -= 0.05
+			self.bpRText.SetValue('%.2f' % self.parent.data.bandpassCut)
 		
 	def onBPRIncrease(self, event):
-		if self.parent.bandpassCut < 1:
-			self.parent.bandpassCut += 0.05
-			self.bpRText.SetValue('%.2f' % self.parent.bandpassCut)
+		if self.parent.data.bandpassCut < 1:
+			self.parent.data.bandpassCut += 0.05
+			self.bpRText.SetValue('%.2f' % self.parent.data.bandpassCut)
 		
 	def onDCPDecrease(self, event):
-		if self.parent.driftOrder > 1:
-			self.parent.driftOrder -= 1
-			self.dcPText.SetValue('%i'   % self.parent.driftOrder)
+		if self.parent.data.driftOrder > 1:
+			self.parent.data.driftOrder -= 1
+			self.dcPText.SetValue('%i'   % self.parent.data.driftOrder)
 		
 	def onDCPIncrease(self, event):
-		if self.parent.driftOrder < 12:
-			self.parent.driftOrder += 1
-			self.dcPText.SetValue('%i'   % self.parent.driftOrder)
+		if self.parent.data.driftOrder < 12:
+			self.parent.data.driftOrder += 1
+			self.dcPText.SetValue('%i'   % self.parent.data.driftOrder)
 	
 	def onDCCDecrease(self, event):
-		if self.parent.driftCut > 2:
-			self.parent.driftCut -= 1
-			self.dcCText.SetValue('%i'   % self.parent.driftCut)
+		if self.parent.data.driftCut > 2:
+			self.parent.data.driftCut -= 1
+			self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
 		
 	def onDCCIncrease(self, event):
-		if self.parent.driftOrder < numpy.ceil(self.data.data.spec.shape[0]/300):
-			self.parent.driftCut += 1
-			self.dcCText.SetValue('%i'   % self.parent.driftCut)
+		if self.parent.data.driftOrder < numpy.ceil(self.parent.data.data.spec.shape[0]/300):
+			self.parent.data.driftCut += 1
+			self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
 			
 	def onSKSDecrease(self, event):
-		if self.parent.kurtosisSec > 1:
-			self.parent.kurtosisSec -= 1
-			self.skSText.SetValue('%i'   % self.parent.kurtosisSec)
+		if self.parent.data.kurtosisSec > 1:
+			self.parent.data.kurtosisSec -= 1
+			self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
 		
 	def onSKSIncrease(self, event):
-		if self.parent.kurtosisSec < 30:
-			self.parent.kurtosisSec += 1
-			self.skSText.SetValue('%i'   % self.parent.kurtosisSec)
+		if self.parent.data.kurtosisSec < 30:
+			self.parent.data.kurtosisSec += 1
+			self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
 	
 	def onSKCDecrease(self, event):
-		if self.parent.kurtosisCut > 2:
-			self.parent.kurtosisCut -= 1
-			self.skCText.SetValue('%i'   % self.parent.kurtosisCut)
+		if self.parent.data.kurtosisCut > 2:
+			self.parent.data.kurtosisCut -= 1
+			self.skCText.SetValue('%i'   % self.parent.data.kurtosisCut)
 		
 	def onSKCIncrease(self, event):
-		if self.parent.kurtosisCut < 12:
-			self.parent.kurtosisCut += 1
-			self.skCText.SetValue('%i'   % self.parent.kurtosisCut)
+		if self.parent.data.kurtosisCut < 12:
+			self.parent.data.kurtosisCut += 1
+			self.skCText.SetValue('%i'   % self.parent.data.kurtosisCut)
 	
 	def onOk(self, event):
 		self.parent.cAdjust = None
@@ -1685,6 +1753,11 @@ def main(args):
 		frame.data = Waterfall_GUI(frame)
 		frame.data.loadData(args[0])
 		frame.data.draw()
+		
+		if frame.data.filenames is None:
+			frame.examineFileButton.Enable(False)
+		else:
+			frame.examineFileButton.Enable(True)
 	app.MainLoop()
 
 
