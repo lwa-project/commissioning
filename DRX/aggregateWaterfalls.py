@@ -38,11 +38,16 @@ def main(args):
 	standMapper = dataDict['standMapper']
 	
 	# Compute the actual integration time after processing
+	tIntOriginal = dataDict['tInt']
 	tIntActual = spec.shape[0] * dataDict['tInt']
+	
+	# Report
+	print "FFT channels: %i" % freq.size
+	print "Total time per file: %.3f s" % tIntActual
 	
 	# Loop over the files and average
 	times = numpy.zeros(len(filenames))
-	spec = numpy.zeros((len(filenames), 4, freq.size))
+	spec = numpy.zeros((len(filenames), spec.shape[1], freq.size))
 	for i,filename in enumerate(filenames):
 		dataDict = numpy.load(filename)
 		
@@ -58,7 +63,7 @@ def main(args):
 	
 	# Save
 	outname = 'aggregated-waterfall.npz'
-	numpy.savez(outname, freq=freq, times=times, spec=spec, tInt=tInt, tIntActutal=tIntActual, srate=srate, standMapper=standMapper, filenames=filenames)
+	numpy.savez(outname, freq=freq, times=times, spec=spec, tInt=tInt, tIntActual=tIntActual, tIntOriginal=tIntOriginal, srate=srate, standMapper=standMapper, filenames=filenames)
 
 
 if __name__ == "__main__":

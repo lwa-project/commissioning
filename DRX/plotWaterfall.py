@@ -124,9 +124,13 @@ class Waterfall_GUI(object):
 		
 		# Deal with the potential for aggregated files
 		try:
+			self.tIntActual = dataDictionary['tIntActual']
+			self.tIntOriginal = dataDictionary['tIntOriginal']
 			self.filenames = dataDictionary['filenames']
 			print "*** NPZ file appears to be aggregation of %i files ***" % len(self.filenames)
 		except KeyError:
+			self.tIntActual = self.tInt
+			self.tIntOriginal = self.tInt
 			self.filenames = None
 		
 		## Get the filter model
@@ -817,7 +821,7 @@ class MainWindow(wx.Frame):
 			self.data.specBandpass.mask[b,self.data.index,:] = True
 			self.data.timeMask[b,self.data.index] = True
 		
-		N = self.data.srate/(self.data.freq.size+1)*self.data.tInt
+		N = self.data.srate/(self.data.freq.size+1)*self.data.tIntActual
 		kurtosis = numpy.zeros((self.kurtosisSec, self.data.spec.shape[2]))
 		
 		secSize = self.data.spec.shape[0]/self.kurtosisSec
@@ -831,6 +835,7 @@ class MainWindow(wx.Frame):
 		
 		kMean = 1.0
 		kStd  = skStd(secSize, N)
+		print self.data.tIntActual, kStd, kurtosis.min(), kurtosis.max()
 		
 		bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
 		for k,b in zip(bad[0], bad[1]):
@@ -881,7 +886,7 @@ class MainWindow(wx.Frame):
 				self.data.specBandpass.mask[b,i,:] = True
 				self.data.timeMask[b,i] = True
 			
-			N = self.data.srate/(self.data.freq.size+1)*self.data.tInt
+			N = self.data.srate/(self.data.freq.size+1)*self.data.tIntActual
 			kurtosis = numpy.zeros((self.kurtosisSec, self.data.spec.shape[2]))
 			
 			secSize = self.data.spec.shape[0]/self.kurtosisSec
