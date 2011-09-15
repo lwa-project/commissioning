@@ -185,6 +185,7 @@ def main(args):
 	print "---"
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
 	print "Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols)
+	print "Chunk Time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (4096.0*maxFrames/beampols/srate, maxFrames, maxFrames/beampols)
 	print "Chunks: %i" % nChunks
 
 	# Sanity check
@@ -194,7 +195,6 @@ def main(args):
 		raise RuntimeError("Requestion integration time+offset is greater than file length")
 
 	# Master loop over all of the file chuncks
-	masterCount = {0:0, 1:0, 2:0, 3:0}
 	masterWeight = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterSpectra = numpy.zeros((nChunks, beampols, LFFT-1))
 	for i in range(nChunks):
@@ -232,20 +232,14 @@ def main(args):
 			aStand = 2*(tune-1) + pol
 
 			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
-			# Update the counters so that we can average properly later on
 			count[aStand] += 1
-			masterCount[aStand] += 1
-
-		## Calculate the data mean for each signal
-		#for stand in range(data.shape[0]):
-		#	print "Stand %i:  mean is %.4f + %.4f j" % (stand, data[stand,:].mean().real, data[stand,:].mean().imag)
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
 		freq1, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, CentralFreq=config['freq1'], ClipLevel=config['clip'])
 		for stand in count.keys():
 			masterSpectra[i,stand,:] = tempSpec[stand,:]
-			masterWeight[i,stand,:] = count[stand]
+			masterWeight[i,stand,:] = int(count[stand] * 4096 / LFFT)
 
 		# We don't really need the data array anymore, so delete it
 		del(data)

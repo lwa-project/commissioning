@@ -63,6 +63,13 @@ Options:
 	# Read in the first file to figure out what we are dealing with
 	dataDict = numpy.load(filenames[0])
 	freq = dataDict['freq']
+	try:
+		freq1 = dataDict['freq1']
+		freq2 = dataDict['freq2']
+	except KeyError:
+		freq1 = freq
+		freq2 = freq
+	
 	spec = dataDict['spec']
 	try:
 		srate = dataDict['srate']
@@ -103,9 +110,12 @@ Options:
 	# map points correctly on a click.
 	tInt = times[1] - times[0]
 	
+	# Convert filenames to absolute paths
+	filenames = [os.path.abspath(f) for f in filenames]
+	
 	# Save
 	outname = 'aggregated-waterfall.npz'
-	numpy.savez(outname, freq=freq, times=times, spec=spec, tInt=tInt, tIntActual=tIntActual, tIntOriginal=tIntOriginal, srate=srate, standMapper=standMapper, filenames=filenames)
+	numpy.savez(outname, freq=freq, freq1=freq1, freq2=freq2, times=times, spec=spec, tInt=tInt, tIntActual=tIntActual, tIntOriginal=tIntOriginal, srate=srate, standMapper=standMapper, filenames=filenames)
 
 
 if __name__ == "__main__":

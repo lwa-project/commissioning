@@ -44,6 +44,8 @@ Options:
 -d, --duration              Number of seconds to calculate the waterfall for 
                             (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode and do not show the plots
+-1, --freq1                 Center frequency of tuning 1 in MHz (default 0 for unknown)
+-2, --freq2                 Center frequency of tuning 2 in MHz (default 0 for unknown)
 -l, --fft-length            Set FFT length (default = 4096)
 -c, --clip-level            FFT blanking clipping level in counts (default = 0, 
                             0 disables)
@@ -64,6 +66,8 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['average'] = 1.0
 	config['LFFT'] = 1024
+	config['freq1'] = 0
+	config['freq2'] = 0
 	config['maxFrames'] = 28000
 	config['window'] = fxc.noWindow
 	config['output'] = None
@@ -75,7 +79,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:c:e", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration=", "clip-level=", "estimate-clip"])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:1:2:c:e", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -95,6 +99,10 @@ def parseOptions(args):
 			config['window'] = numpy.hanning
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
+		elif opt in ('-1', '--freq1'):
+			config['freq1'] = float(value)*1e6
+		elif opt in ('-2', '--freq2'):
+			config['freq2'] = float(value)*1e6
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
@@ -272,7 +280,6 @@ def main(args):
 		clip2 = config['clip']
 
 	# Master loop over all of the file chunks
-	masterCount = {0:0, 1:0, 2:0, 3:0}
 	masterWeight = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterSpectra = numpy.zeros((nChunks, beampols, LFFT-1))
 	masterTimes = numpy.zeros(nChunks)
@@ -311,9 +318,7 @@ def main(args):
 				cTime = cFrame.getTime()
 			
 			data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
-			# Update the counters so that we can average properly later on
 			count[aStand] +=  1
-			masterCount[aStand] += 1
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
@@ -329,10 +334,10 @@ def main(args):
 		masterSpectra[i,2,:] = tempSpec2[0,:]
 		masterSpectra[i,3,:] = tempSpec2[1,:]
 		
-		masterWeight[i,0,:] = count[0]
-		masterWeight[i,1,:] = count[1]
-		masterWeight[i,2,:] = count[2]
-		masterWeight[i,3,:] = count[3]
+		masterWeight[i,0,:] = int(count[0] * 4096 / LFFT)
+		masterWeight[i,1,:] = int(count[1] * 4096 / LFFT)
+		masterWeight[i,2,:] = int(count[2] * 4096 / LFFT)
+		masterWeight[i,3,:] = int(count[3] * 4096 / LFFT)
 
 		# We don't really need the data array anymore, so delete it
 		del(data)
@@ -340,7 +345,7 @@ def main(args):
 	# Now that we have read through all of the chunks, perform the final averaging by
 	# dividing by all of the chunks
 	outname = config['args'][0].replace('.dat', '-waterfall.npz')
-	numpy.savez(outname, freq=freq, times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), srate=srate,  standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
+	numpy.savez(outname, freq=freq, freq1=freq+config['freq1'], freq2=freq+config['freq2'], times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), srate=srate,  standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 	spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
 
 	# The plots:  This is setup for the current configuration of 20 beampols
