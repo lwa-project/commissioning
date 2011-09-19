@@ -18,6 +18,7 @@ import ephem
 import getopt
 
 import lsl.reader.drx as drx
+import lsl.reader.drsu as drsu
 import lsl.reader.errors as errors
 import lsl.statistics.robust as robust
 import lsl.correlator.fx as fxc
@@ -27,10 +28,11 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-	print """drxWaterfall.py - Read in DRX files and create a collection of 
-time-averaged spectra.  These spectra are saved to a NPZ file called <filename>-waterfall.npz.
+	print """drxWaterfallDRSU.py - Read in a DRX file directly from a DRSU and create a 
+collection of time-averaged spectra.  These spectra are saved to a NPZ file called 
+<filename>-waterfall.npz.
 
-Usage: drxWaterfall.py [OPTIONS] file
+Usage: drxWaterfallDRSU.py [OPTIONS] md_device file_tag
 
 Options:
 -h, --help                  Display this help information
@@ -157,15 +159,24 @@ def main(args):
 
 	# Length of the FFT
 	LFFT = config['LFFT']
+	
+	# Build the DRX file
+	try:
+		drxFile = drsu.getFileByName(config['args'][0], config['args'][1])
+	except:
+		print config['args']
+		sys.exit(1)
 
-	fh = open(config['args'][0], "rb")
-	nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
-	junkFrame = drx.readFrame(fh)
-	fh.seek(0)
+	drxFile.open()
+	nFramesFile = drxFile.size / drx.FrameSize
+	junkFrame = drx.readFrame(drxFile.fh)
+	drxFile.fh.seek(-drx.FrameSize, 1)
 	
 	srate = junkFrame.getSampleRate()
-	beams = drx.getBeamCount(fh)
-	tunepols = drx.getFramesPerObs(fh)
+	beams = drx.getBeamCount(drxFile.fh)
+	drxFile.seek(0)
+	tunepols = drx.getFramesPerObs(drxFile.fh)
+	drxFile.seek(0)
 	tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
 	beampols = tunepol
 
@@ -173,7 +184,8 @@ def main(args):
 	offset = int(config['offset'] * srate / 4096 * beampols)
 	offset = int(1.0 * offset / beampols) * beampols
 	config['offset'] = 1.0 * offset / beampols * 4096 / srate
-	fh.seek(offset*drx.FrameSize)
+	if offset != 0:
+		drxFile.fh.seek(offset*drx.FrameSize)
 
 	# Make sure that the file chunk size contains is an integer multiple
 	# of the FFT length so that no data gets dropped.  This needs to
@@ -218,14 +230,14 @@ def main(args):
 	
 	# Estimate clip level (if needed)
 	if config['estimate']:
-		filePos = fh.tell()
+		filePos = drxFile.fh.tell()
 		
 		# Read in the first 100 frames for each tuning/polarization
 		count = {0:0, 1:0, 2:0, 3:0}
 		data = numpy.zeros((4, 4096*100), dtype=numpy.csingle)
 		for i in xrange(4*100):
 			try:
-				cFrame = drx.readFrame(fh, Verbose=False)
+				cFrame = drx.readFrame(drxFile.fh, Verbose=False)
 			except errors.eofError:
 				break
 			except errors.syncError:
@@ -238,7 +250,7 @@ def main(args):
 			count[aStand] +=  1
 		
 		# Go back to where we started
-		fh.seek(filePos)
+		drxFile.fh.seek(filePos)
 		
 		# Compute the robust mean and standard deviation for I and Q for each
 		# tuning/polarization
@@ -305,10 +317,12 @@ def main(args):
 		for j in xrange(framesWork):
 			# Read in the next frame and anticipate any problems that could occur
 			try:
-				cFrame = drx.readFrame(fh, Verbose=False)
+				cFrame = drx.readFrame(drxFile.fh, Verbose=False)
 			except errors.eofError:
+				print "EOF Error"
 				break
 			except errors.syncError:
+				print "Sync Error"
 				continue
 
 			beam,tune,pol = cFrame.parseID()
@@ -341,9 +355,11 @@ def main(args):
 		# We don't really need the data array anymore, so delete it
 		del(data)
 
+	drxFile.close()
+
 	# Now that we have read through all of the chunks, perform the final averaging by
 	# dividing by all of the chunks
-	outname = config['args'][0].replace('.dat', '-waterfall.npz')
+	outname = "%s_%i_DRX-waterfall.npz" % (config['args'][1], beam)
 	numpy.savez(outname, freq=freq, freq1=freq+config['freq1'], freq2=freq+config['freq2'], times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), srate=srate,  standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 	spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
 
