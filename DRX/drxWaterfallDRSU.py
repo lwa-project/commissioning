@@ -170,6 +170,7 @@ def main(args):
 	drxFile.open()
 	nFramesFile = drxFile.size / drx.FrameSize
 	junkFrame = drx.readFrame(drxFile.fh)
+	beam,tune,pol = junkFrame.parseID()
 	drxFile.fh.seek(-drx.FrameSize, 1)
 	
 	srate = junkFrame.getSampleRate()
@@ -227,6 +228,22 @@ def main(args):
 		raise RuntimeError("Requested offset is greater than file length")
 	if nFrames > (nFramesFile - offset):
 		raise RuntimeError("Requested integration time+offset is greater than file length")
+	
+	# Exiting file check
+	outname = "%s_%i_DRX-waterfall.npz" % (config['args'][1], beam)
+	if os.path.exists(outname):
+		if os.path.getsize(outname) == 0:
+			print "NPZ file '%s' has zero size, reprocessing data." % outname
+			
+		else:
+			try:
+				dataDict = numpy.load(outname)
+			except:
+				print "Error reading NPZ file '%s', reprocessing data." % outname
+			else:
+				if dataDict['freq'].size == (LFFT-1):
+					print "NPZ file '%s' already exists and has the right number of freqs., skipping." % outname
+					sys.exit()
 	
 	# Estimate clip level (if needed)
 	if config['estimate']:
