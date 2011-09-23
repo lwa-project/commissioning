@@ -23,6 +23,9 @@ import os
 import sys
 import time
 import numpy
+
+from scipy.stats import scoreatpercentile
+
 from datetime import datetime
 
 
@@ -136,8 +139,13 @@ Options:
 	# Loop over the files and average
 	times = numpy.zeros(len(filenames))
 	spec = numpy.zeros((len(filenames), spec.shape[1], freq.size))
+	p50  = numpy.zeros((len(filenames), spec.shape[1], freq.size))
+	p90  = numpy.zeros((len(filenames), spec.shape[1], freq.size))
+	p99  = numpy.zeros((len(filenames), spec.shape[1], freq.size))
+	p100 = numpy.zeros((len(filenames), spec.shape[1], freq.size))
 	mask = numpy.zeros((len(filenames), spec.shape[1], freq.size), dtype=numpy.bool)
 	for i,filename in enumerate(filenames):
+		print '%i of %i' % (i, len(filenames))
 		dataDict = numpy.load(filename)
 		
 		cSpec = dataDict['spec']
@@ -169,9 +177,12 @@ Options:
 						except IndexError:
 							pass
 
-				spec[i,:,:] = cSpec.mean(axis=0)
-			else:
-				spec[i,:,:] = cSpec.mean(axis=0)
+			spec[i,:,:] = cSpec.mean(axis=0)
+			p50[i,:,:] = numpy.median(cSpec, axis=0)
+			p90[i,:,:] = scoreatpercentile(cSpec, 90)
+			p99[i,:,:] = scoreatpercentile(cSpec, 99)
+			p100[i,:,:] = numpy.max(cSpec, axis=0)
+					
 		else:
 			power = cSpec.sum(axis=2)
 			for j in xrange(cSpec.shape[1]):
@@ -185,9 +196,17 @@ Options:
 	# Convert filenames to absolute paths
 	filenames = [os.path.abspath(f) for f in filenames]
 	
+	p50 = numpy.median(p50, axis=0)
+	p90 = scoreatpercentile(p90, 90)
+	p99 = scoreatpercentile(p99, 99)
+	p100 = numpy.max(p100, axis=0)
+	
 	# Save
 	outname = 'aggregated-waterfall.npz'
-	numpy.savez(outname, freq=freq, freq1=freq1, freq2=freq2, times=times, spec=spec, mask=mask, tInt=tInt, tIntActual=tIntActual, tIntOriginal=tIntOriginal, srate=srate, standMapper=standMapper, filenames=filenames)
+	numpy.savez(outname, freq=freq, freq1=freq1, freq2=freq2, times=times, spec=spec, mask=mask, 
+				tInt=tInt, tIntActual=tIntActual, tIntOriginal=tIntOriginal, 
+				p50=p50, p90=p90, p99=p99, p100=p100, 
+				srate=srate, standMapper=standMapper, filenames=filenames)
 
 
 if __name__ == "__main__":
