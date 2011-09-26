@@ -45,13 +45,28 @@ def main(args):
 	
 	# Set the current time so we can find the "next" transit.  Go ahead
 	# and report the time and the current LST (for reference)
-	if len(args) == 1:
+	if len(args) == 2:
+		year, month, day = args[0].split('/', 2)
+		year = int(year)
+		month = int(month)
+		day = int(day)
+		
+		hour, minute, second = args[1].split(':', 2)
+		hour = int(hour)
+		minute = int(minute)
+		second = int(second)
+		
+		tNow = _MST.localize(datetime(year, month, day, hour, minute, second))
+		tNow = tNow.astimezone(_UTC)
+	
+	elif len(args) == 1:
 		year, month, day = args[0].split('/', 2)
 		year = int(year)
 		month = int(month)
 		day = int(day)
 		tNow = _MST.localize(datetime(year, month, day))
 		tNow = tNow.astimezone(_UTC)
+		
 	else:
 		tNow = datetime.utcnow()
 	observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
