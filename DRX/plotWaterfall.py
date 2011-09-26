@@ -1055,8 +1055,14 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 		# Make sure the target file exists
 		filename = self.data.filenames[dataY]
 		if not os.path.exists(filename):
-			print "ERROR: cannot file file '%s'" % filename
-			return False
+			print "ERROR: cannot find file '%s', trying NPZ path" % filename
+			basepath, junk = os.path.split(self.data.filename)
+			junk, filename = os.path.split(self.datafilenames[dataY])
+			filename = os.path.join(basepath, filename)
+			
+			if not os.path.exists(filename):
+				print "ERROR: cannot find file '%s'" % filename
+				return False
 		
 		# Get the current plotWaterfall.py path
 		script = sys.argv[0]
