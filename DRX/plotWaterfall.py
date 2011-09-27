@@ -1057,7 +1057,7 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 		if not os.path.exists(filename):
 			print "ERROR: cannot find file '%s', trying NPZ path" % filename
 			basepath, junk = os.path.split(self.data.filename)
-			junk, filename = os.path.split(self.datafilenames[dataY])
+			junk, filename = os.path.split(self.data.filenames[dataY])
 			filename = os.path.join(basepath, filename)
 			
 			if not os.path.exists(filename):
