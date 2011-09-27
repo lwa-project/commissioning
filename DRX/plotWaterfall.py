@@ -1068,7 +1068,7 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 		script = sys.argv[0]
 		
 		# Go
-		self.examineWindow = subprocess.Popen(['python', script, filename])
+		self.examineWindow = subprocess.Popen([sys.executable, script, filename])
 		
 	def onZoomWaterfall(self, event):
 		"""
