@@ -77,7 +77,8 @@ class Waterfall_GUI(object):
 		self.index = 0
 		
 		self.bandpass = False
-		self.freq = freq
+		self.freq1 = freq
+		self.freq2 = freq
 		self.spec = spec
 		self.tInt = None
 		
@@ -111,7 +112,16 @@ class Waterfall_GUI(object):
 			self.srate = dataDictionary['srate']
 		except KeyError:
 			self.srate = 19.6e6
-		self.freq = dataDictionary['freq']
+			
+		try:
+			self.freq1 = dataDictionary['freq1']
+		except KeyError:
+			self.freq1 = dataDictionary['freq']
+		try:
+			self.freq2 = dataDictionary['freq2']
+		except KeyError:
+			self.freq2 = dataDictionary['freq']
+			
 		try:
 			mask = dataDictionary['mask'].astype(numpy.bool)
 		except KeyError:
@@ -126,6 +136,7 @@ class Waterfall_GUI(object):
 		self.timeMask = numpy.median(self.spec.mask, axis=2)
 		
 		# Other data to keep around in case we save
+		self.freqNPZ = dataDictionary['freq']
 		self.timesNPZ = dataDictionary['times']
 		self.standMapperNPZ = dataDictionary['standMapper']
 		
@@ -142,7 +153,7 @@ class Waterfall_GUI(object):
 		
 		## Get the filter model
 		#print " %6.3f s - Building DRX bandpass model" % (time.time() - tStart)
-		#self.bpm = drxFilter(sampleRate=self.srate)(self.freq)
+		#self.bpm = drxFilter(sampleRate=self.srate)(self.freq1)
 		
 		# Compute the bandpass fit
 		print " %6.3f s - Computing bandpass fits" % (time.time() - tStart)
@@ -185,7 +196,6 @@ class Waterfall_GUI(object):
 		Compute the bandpass fits.
 		"""
 		
-		freq2 = self.freq / 1e6
 		meanSpec = numpy.mean(self.spec.data, axis=0)
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
@@ -208,6 +218,11 @@ class Waterfall_GUI(object):
 		Draw the waterfall diagram and the total power with time.
 		"""
 		
+		if self.index / 2 == 0:
+			freq = self.freq1
+		else:
+			freq = self.freq2
+		
 		if self.bandpass:
 			spec = self.specBandpass
 			limits = self.limitsBandpass
@@ -218,7 +233,7 @@ class Waterfall_GUI(object):
 		# Plot 1(a) - Waterfall
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
-		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(self.freq[0]/1e6, self.freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
+		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
 		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1a.axis('auto')
@@ -253,6 +268,11 @@ class Waterfall_GUI(object):
 			dataY = int(round(clickY / self.tInt))
 		except TypeError:
 			return False
+			
+		if self.index / 2 == 0:
+			freq = self.freq1
+		else:
+			freq = self.freq2
 		
 		if self.bandpass:
 			spec = self.specBandpass[dataY,self.index,:]
@@ -268,16 +288,16 @@ class Waterfall_GUI(object):
 				oldXlim = self.ax2.get_xlim()
 				oldYlim = self.ax2.get_ylim()
 			except:
-				oldXlim = [self.freq[0]/1e6, self.freq[-1]/1e6]
+				oldXlim = [freq[0]/1e6, freq[-1]/1e6]
 				oldYlim = limits[self.index]
 		else:
-			oldXlim = [self.freq[0]/1e6, self.freq[-1]/1e6]
+			oldXlim = [freq[0]/1e6, freq[-1]/1e6]
 			oldYlim = limits[self.index]
 		
 		self.frame.figure2.clf()
 		self.ax2 = self.frame.figure2.gca()
-		self.ax2.plot(self.freq/1e6, to_dB(spec), linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
-		self.ax2.plot(self.freq/1e6, to_dB(medianSpec), label='Mean', alpha=0.5, color='green')
+		self.ax2.plot(freq/1e6, to_dB(spec), linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
+		self.ax2.plot(freq/1e6, to_dB(medianSpec), label='Mean', alpha=0.5, color='green')
 		self.ax2.set_xlim(oldXlim)
 		self.ax2.set_ylim(oldYlim)
 		self.ax2.legend(loc=0)
@@ -340,7 +360,13 @@ class Waterfall_GUI(object):
 		Suggest a mask for the current index.
 		"""
 		
-		bad = numpy.where( (self.freq < -self.srate/2*self.bandpassCut) | (self.freq > self.srate/2*self.bandpassCut) )[0]
+		if self.index / 2 == 0:
+			freq = self.freq1
+		else:
+			freq = self.freq2
+		freqP = freq - freq[len(freq)/2]
+		
+		bad = numpy.where( (freqP < -self.srate/2*self.bandpassCut) | (freqP > self.srate/2*self.bandpassCut) )[0]
 		for b in bad:
 			self.spec.mask[:,index,b] = True
 			self.specBandpass.mask[:,index,b] = True
@@ -361,7 +387,7 @@ class Waterfall_GUI(object):
 			self.specBandpass.mask[b,index,:] = True
 			self.timeMask[b,index] = True
 		
-		N = self.srate/(self.freq.size+1)*self.tIntActual
+		N = self.srate/(freq.size+1)*self.tIntActual
 		kurtosis = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
 		
 		secSize = self.spec.shape[0]/self.kurtosisSec
@@ -503,7 +529,12 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			dataX = numpy.where(numpy.abs(clickX-self.freq/1e6) == (numpy.abs(clickX-self.freq/1e6).min()))[0][0]
+			if self.index / 2 == 0:
+				freq = self.freq1
+			else:
+				freq = self.freq2
+			
+			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
 			
 			if event.button == 2:
 				self.spec.mask[:, self.index, dataX] = self.timeMask[:,self.index]
@@ -524,7 +555,12 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			dataX = numpy.where(numpy.abs(clickX-self.freq/1e6) == (numpy.abs(clickX-self.freq/1e6).min()))[0][0]
+			if self.index / 2 == 0:
+				freq = self.freq1
+			else:
+				freq = self.freq2
+			
+			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
 			dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
 			
 			value = to_dB(self.spec[dataY, self.index, dataX])
@@ -770,7 +806,7 @@ class MainWindow(wx.Frame):
 		if self.data.filename == '':
 			self.onSaveAs(event)
 		else:
-			numpy.savez(self.filename, freq=self.data.freq, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
+			numpy.savez(self.filename, freq=self.data.freqNPZ, freq1=self.data.freq1, freq2=self.data.freq2, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
 
 	def onSaveAs(self, event):
 		"""
@@ -783,7 +819,7 @@ class MainWindow(wx.Frame):
 			self.dirname = dialog.GetDirectory()
 			self.filename = dialog.GetPath()
 			
-			numpy.savez(os.path.join(self.dirname, self.filename), freq=self.data.freq, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
+			numpy.savez(os.path.join(self.dirname, self.filename), freq=self.data.freqNPZ, freq1=self.data.freq1, freq2=self.data.freq2, times=self.data.timesNPZ, spec=self.data.spec.data, mask=self.data.spec.mask, tInt=self.data.tInt,  standMapper=self.data.standMapperNPZ)
 			
 		dialog.Destroy()
 		
