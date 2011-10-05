@@ -107,7 +107,7 @@ def main(args):
 		for i in xrange(timeTags.size):
 			if timeTags[i] != currTime:
 				print "ERROR: t.t. of dig. %i != frame set median of %i" % (i, currTime)
-				print "        -> difference: %i" % (currTime-timeTags[i],)
+				print "       -> difference: %i" % (currTime-timeTags[i],)
 		
 		prevTime  = currTime
 		prevData  = currDate

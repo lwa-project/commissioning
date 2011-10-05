@@ -15,6 +15,7 @@ import time
 import numpy
 import subprocess
 from datetime import datetime
+from multiprocessing import Pool
 
 from lsl.common.dp import fS
 from lsl.common import stations
@@ -66,6 +67,23 @@ def skVar(M, N=1):
 	"""
 
 	return 2.0*N*(N+1)*M**2/ float( (M-1)*(M*N+3)*(M*N+2) )
+
+
+def findMean(data):
+	"""
+	Tiny function to return the mean along the first axis.
+	"""
+
+	return numpy.mean(data, axis=0)
+
+
+def findLimits(data):
+	"""
+	Tiny function to speed up the computing of the data range for the colorbar.
+	Returns a two-element list of the lowest and highest values.
+	"""
+
+	return [to_dB(data).min(), to_dB(data).max()]
 
 
 class Waterfall_GUI(object):
@@ -161,19 +179,44 @@ class Waterfall_GUI(object):
 		
 		# Find the mean spectra
 		print " %6.3f s - Computing mean spectra" % (time.time() - tStart)
-		self.mean = numpy.mean(self.spec, axis=0)
-		self.meanBandpass = numpy.mean(self.specBandpass, axis=0)
+
+		taskPool = Pool(processes=2)
+		taskList = []
+		taskList.append( (0, taskPool.apply_async(findMean, args=(self.spec,))) )
+		taskList.append( (1, taskPool.apply_async(findMean, args=(self.specBandpass,))) )
+		taskPool.close()
+		taskPool.join()
+		for i,task in taskList:
+			if i == 0:
+				self.mean = task.get()
+			else:
+				self.meanBandpass = task.get()
 		
 		# Set default colobars
 		print " %6.3f s - Setting default colorbar ranges" % (time.time() - tStart)
-		self.limits = []
+
+		taskPool = Pool(processes=4)
+		taskList = []
 		for i in xrange(self.spec.shape[1]):
-			self.limits.append( [to_dB(self.spec[:,i,:]).min(), to_dB(self.spec[:,i,:]).max()] )
+			task = taskPool.apply_async(findLimits, args=(self.spec[:,i,:],))
+			taskList.append( (i,task) )
+		taskPool.close()
+		taskPool.join()
+		self.limits = [None,]*self.spec.shape[1]
+		for i,task in taskList:
+			self.limits[i] = task.get()
 			
-		self.limitsBandpass = []
 		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
+		taskPool = Pool(processes=4)
+		taskList = []
 		for i in xrange(self.spec.shape[1]):
-			self.limitsBandpass.append( [to_dB(self.specBandpass[:,i,toUse]).min(), to_dB(self.specBandpass[:,i,toUse]).max()] )
+			task = taskPool.apply_async(findLimits, args=(self.specBandpass[:,i,toUse],))
+			taskList.append( (i,task) )
+		taskPool.close()
+		taskPool.join()
+		self.limitsBandpass = [None,]*self.spec.shape[1]
+		for i,task in taskList:
+			self.limitsBandpass[i] = task.get()
 		
 		try:
 			self.disconnect()
@@ -195,7 +238,7 @@ class Waterfall_GUI(object):
 		"""
 		Compute the bandpass fits.
 		"""
-		
+
 		meanSpec = numpy.mean(self.spec.data, axis=0)
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
@@ -212,6 +255,8 @@ class Waterfall_GUI(object):
 		for i in xrange(self.spec.shape[1]):
 			for j in xrange(self.spec.shape[0]):
 				self.specBandpass[j,i,:] = self.spec[j,i,:] / bpm2[i]
+
+		return True
 	
 	def draw(self):
 		"""
@@ -1578,6 +1623,11 @@ class WaterfallDisplay(wx.Frame):
 		Populate the figure/canvas areas with a plot.  We only need to do this
 		once for this type of window.
 		"""
+
+		if self.parent.data.index / 2 == 0:
+			freq = self.parent.data.freq1
+		else:
+			freq = self.parent.data.freq2
 		
 		if self.parent.data.bandpass:
 			spec = self.parent.data.specBandpass
@@ -1589,7 +1639,7 @@ class WaterfallDisplay(wx.Frame):
 		# Plot Waterfall
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
-		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(self.parent.data.freq[0]/1e6, self.parent.data.freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
+		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
 		cm = self.figure.colorbar(m, ax=self.ax1)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1.axis('auto')
@@ -1614,12 +1664,17 @@ class WaterfallDisplay(wx.Frame):
 		setting the status bar with the current x and y coordinates as well
 		as the stand number of the selected stand (if any).
 		"""
+
+		if self.parent.data.index / 2 == 0:
+			freq = self.parent.data.freq1
+		else:
+			freq = self.parent.data.freq2
 		
 		if event.inaxes:
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			dataX = numpy.where(numpy.abs(clickX-self.parent.data.freq/1e6) == (numpy.abs(clickX-self.parent.data.freq/1e6).min()))[0][0]
+			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
 			dataY = numpy.where(numpy.abs(clickY-self.parent.data.time) == (numpy.abs(clickY-self.parent.data.time).min()))[0][0]
 			
 			value = to_dB(self.parent.data.spec[dataY, self.parent.data.index, dataX])

@@ -14,7 +14,9 @@ $LastChangedDate$
 import os
 import sys
 import pytz
+import math
 import ephem
+import getopt
 from datetime import datetime
 
 from lsl.common.stations import lwa1
@@ -37,21 +39,69 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "B1133+16,f|J,11:36:03.25,+15:51:04.5,1",
          "B1919+21,f|J,19:21:44.80,+21:53:01.8,1",]
 
+def usage(exitCode=None):
+	print """astroevents2.py - New take on the astroevents.py script included in LSL 0.5.0+
+that uses PyEphem for its calculations and can make calculations for a different day.
 
-def main(args):	
+Usage: astroevents2.py [OPTIONS] [YYYY/MM/DD [HH:MM:SS]]
+
+Options:
+-h, --help                  Display this help information
+-p, --position-mode         Display the azimuth and elevation of sources above the
+                            horizon.
+"""
+
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseOptions(args):
+	config = {}
+	config['positionMode'] = False
+
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "hp", ["help", "position-mode"])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+	
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-p', '--position-mode'):
+			config['positionMode'] = True
+		else:
+			assert False
+	
+	# Add in arguments
+	config['args'] = args
+
+	# Return configuration
+	return config
+
+
+def main(args):
+	# Parse the command line
+	config = parseOptions(args)
+
 	# Get LWA-1
 	observer = lwa1.getObserver()
 	print "Current site is %s at lat %s, lon %s" % (lwa1.name, observer.lat, observer.long)
 	
 	# Set the current time so we can find the "next" transit.  Go ahead
 	# and report the time and the current LST (for reference)
-	if len(args) == 2:
-		year, month, day = args[0].split('/', 2)
+	if len(config['args']) == 2:
+		year, month, day = config['args'][0].split('/', 2)
 		year = int(year)
 		month = int(month)
 		day = int(day)
 		
-		hour, minute, second = args[1].split(':', 2)
+		hour, minute, second = config['args'][1].split(':', 2)
 		hour = int(hour)
 		minute = int(minute)
 		second = int(second)
@@ -59,8 +109,8 @@ def main(args):
 		tNow = _MST.localize(datetime(year, month, day, hour, minute, second))
 		tNow = tNow.astimezone(_UTC)
 	
-	elif len(args) == 1:
-		year, month, day = args[0].split('/', 2)
+	elif len(config['args']) == 1:
+		year, month, day = config['args'][0].split('/', 2)
 		year = int(year)
 		month = int(month)
 		day = int(day)
@@ -80,41 +130,65 @@ def main(args):
 	for i in xrange(len(srcs)):
 		srcs[i].compute(observer)
 	
-	# Header
-	print ""
-	print "%-8s  %-23s  %-23s  %-23s  %-7s" % ("Source", "Next Rise", "Next Transit", "Next Set", "Up Now?")
-	print "="*(8+2+23+2+23+2+23+2+7)
-	
-	# List
-	for src in srcs:		
-		isUp = False
-		if src.alt > 0:
-			isUp = True
-		
-		try:
-			nR = str(observer.next_rising(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
-			nR = _UTC.localize( datetime.strptime(nR, "%Y/%m/%d %H:%M:%S") )
-			nR = nR.astimezone(_MST)
-		except ephem.AlwaysUpError:
-			nR = None
-		
-		nT = str(observer.next_transit(src, start=tNow.strftime("%Y/%m/%d %H:%M:%S")))
-		nT = _UTC.localize( datetime.strptime(nT, "%Y/%m/%d %H:%M:%S") )
-		nT = nT.astimezone(_MST)
-		
-		try:
-			nS = str(observer.next_setting(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
-			nS = _UTC.localize( datetime.strptime(nS, "%Y/%m/%d %H:%M:%S") )
-			nS = nS.astimezone(_MST)
-		except ephem.AlwaysUpError:
-			nS = None
-		
-		
-		try:
-			print "%-8s  %-23s  %-23s  %-23s  %-7s" % (src.name, nR.strftime("%Y/%m/%d %H:%M:%S %Z"), nT.strftime("%Y/%m/%d %H:%M:%S %Z"), nS.strftime("%Y/%m/%d %H:%M:%S %Z"), "*" if isUp else "")
-		except AttributeError:
-			print "%-8s  %-23s  %-23s  %-23s  %-7s" % (src.name, '---', nT.strftime("%Y/%m/%d %H:%M:%S %Z"), '---', "*" if isUp else "")
+	if not config['positionMode']:
+		#
+		# Standard prediction output
+		#
 
+		# Header
+		print ""
+		print "%-8s  %-23s  %-23s  %-23s  %-7s" % ("Source", "Next Rise", "Next Transit", "Next Set", "Up Now?")
+		print "="*(8+2+23+2+23+2+23+2+7)
+	
+		# List
+		for src in srcs:		
+			isUp = False
+			if src.alt > 0:
+				isUp = True
+		
+			try:
+				nR = str(observer.next_rising(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
+				nR = _UTC.localize( datetime.strptime(nR, "%Y/%m/%d %H:%M:%S") )
+				nR = nR.astimezone(_MST)
+			except ephem.AlwaysUpError:
+				nR = None
+		
+			nT = str(observer.next_transit(src, start=tNow.strftime("%Y/%m/%d %H:%M:%S")))
+			nT = _UTC.localize( datetime.strptime(nT, "%Y/%m/%d %H:%M:%S") )
+			nT = nT.astimezone(_MST)
+		
+			try:
+				nS = str(observer.next_setting(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
+				nS = _UTC.localize( datetime.strptime(nS, "%Y/%m/%d %H:%M:%S") )
+				nS = nS.astimezone(_MST)
+			except ephem.AlwaysUpError:
+				nS = None
+		
+		
+			try:
+				print "%-8s  %-23s  %-23s  %-23s  %-7s" % (src.name, nR.strftime("%Y/%m/%d %H:%M:%S %Z"), nT.strftime("%Y/%m/%d %H:%M:%S %Z"), nS.strftime("%Y/%m/%d %H:%M:%S %Z"), "*" if isUp else "")
+			except AttributeError:
+				print "%-8s  %-23s  %-23s  %-23s  %-7s" % (src.name, '---', nT.strftime("%Y/%m/%d %H:%M:%S %Z"), '---', "*" if isUp else "")
+	else:
+		#
+		# Position mode
+		#
+
+		# Header
+		print ""
+		print "%-8s  %-9s  %-9s  %-7s" % ("Source", "  Azimuth", "Elevation", "Rising?")
+		print "="*(8+2+9+2+9+2+7)
+	
+		# List
+		for src in srcs:		
+			if src.alt <= 0:
+				continue
+
+			isRising = False
+			if src.az < math.pi:
+				isRising = True
+
+			print "%-8s  %9.2f  %9.2f  %7s" % (src.name, src.az*180/math.pi, src.alt*180/math.pi, "Yes" if isRising else "")
 
 if __name__ == "__main__":
 	main(sys.argv[1:])

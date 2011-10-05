@@ -21,6 +21,10 @@ mjd2local.py
 For a given MJD value or list of MJD values, return the range of local times 
 associated with that MJD.
 
+astroevents2.py
+---------------
+List the rise, transit, and set times for the brightest radio objects in the sky.
+
 plotShelterTemp.py
 ------------------
 Short script to read in a shelter.txt file (log of shelter temperature with each

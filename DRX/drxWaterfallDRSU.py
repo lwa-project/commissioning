@@ -308,8 +308,8 @@ def main(args):
 		clip2 = config['clip']
 
 	# Master loop over all of the file chunks
-	masterWeight = numpy.zeros((nChunks, beampols, LFFT-1))
-	masterSpectra = numpy.zeros((nChunks, beampols, LFFT-1))
+	masterWeight = numpy.zeros((nChunks, 4, LFFT-1))
+	masterSpectra = numpy.zeros((nChunks, 4, LFFT-1))
 	masterTimes = numpy.zeros(nChunks)
 	for i in xrange(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
@@ -323,7 +323,7 @@ def main(args):
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
 		count = {0:0, 1:0, 2:0, 3:0}
-		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
+		data = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.csingle)
 		# If there are fewer frames than we need to fill an FFT, skip this chunk
 		if data.shape[1] < LFFT:
 			break
@@ -382,8 +382,8 @@ def main(args):
 
 	# The plots:  This is setup for the current configuration of 20 beampols
 	fig = plt.figure()
-	figsX = int(round(math.sqrt(beampols)))
-	figsY = beampols / figsX
+	figsX = int(round(math.sqrt(4)))
+	figsY = 4 / figsX
 	
 	# Put the frequencies in the best units possible
 	freq, units = bestFreqUnits(freq)
