@@ -9,12 +9,12 @@ from datetime import datetime, timedelta
 
 from scipy.signal import triang
 
-from lsl.common.constants import c
+from lsl.common.constants import c as vLight
 from lsl.common.stations import lwa1
 from lsl.correlator.uvUtils import computeUVW
 
 
-# List of bright radio sources and pulsars in PyEphem format
+# List of bright radio sources in PyEphem format
 _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "TauA,f|J,05:34:32.00,+22:00:52.0,1", 
          "VirA,f|J,12:30:49.40,+12:23:28.0,1",
@@ -39,59 +39,57 @@ def getGeoDelay(antenna, az, el, Degrees=False):
 					  numpy.sin(el)])
 	
 	xyz = numpy.array([antenna.stand.x, antenna.stand.y, antenna.stand.z])
-	return numpy.dot(source, xyz) / c
+	return numpy.dot(source, xyz) / vLight
 
 
 def main(args):
+	# Gather the necessary information to figure out where things are
 	observer = lwa1.getObserver()
 	antennas = lwa1.getAntennas()
 	
+	# Divy up the command line arguments
 	filename = args[0]
 	pointingAz = float(args[1])
 	pointingEl = float(args[2])
-	dataDict = numpy.load(filename)
 	
-	ref  = dataDict['ref']
-	refX = dataDict['refX'] - 1
-	refY = dataDict['refY'] - 1
+	# Load the data
+	dataDict = numpy.load(filename)
+	## Frequency
 	centralFreq = dataDict['centralFreq']
+	## Integration time
 	tInt = dataDict['tInt']
+	## Start times of the integrations
 	times = dataDict['times']
+	## The visiblity data
 	phase = dataDict['simpleVis']
 	
 	print "Central frequency: %.3f Hz" % centralFreq
 	
-	# Fix for the crappy file without times
-	from datetime import datetime
-	if times[0] == 0:
-		firstTime = datetime(2011, 9, 22, 22, 42, 06)
-		firstTime = int(firstTime.strftime("%s"))
-		times = [firstTime+tInt*i for i in xrange(len(times))]
-	
+	# Build the source list
 	beginDate = datetime.utcfromtimestamp(times[0])
 	observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
 	srcs = [ephem.Sun(),]
 	for line in _srcs:
 		srcs.append( ephem.readdb(line) )
 	
+	# Identify the location of the reference source (the Sun in this case)
 	az = -99
 	el = -99
 	for i in xrange(len(srcs)):
 		srcs[i].compute(observer)
-		
-		if srcs[i].alt > 0:
-			print "source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi)
 			
 		if srcs[i].name == 'Sun':
 			az = srcs[i].az  * 180.0/numpy.pi
 			el = srcs[i].alt * 180.0/numpy.pi
-			
+	
+	# Generate geometric delay coefficients
 	aln = []
 	for i in xrange(phase.shape[1]):
 		gd = getGeoDelay(antennas[i], az, el, Degrees=True)
 		aln.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
 	aln = numpy.array(aln)
 	
+	# Build the c^l_n values from Steve's "Fun with TBN" memo (Eqn. 10)
 	cln = numpy.zeros(phase.shape, dtype=numpy.complex128)
 	for i in xrange(cln.shape[1]):
 		if i % 2 == 0:
@@ -99,21 +97,25 @@ def main(args):
 		else:
 			cln[:,i] = phase[:,i] / phase[:,1]
 	cln /= aln
-	delay = numpy.angle(cln) / (2*numpy.pi*centralFreq)
 	
+	# Compute the geometric delay for the requested pointing
 	alnPointing = []
 	for i in xrange(phase.shape[1]):
 		gd = getGeoDelay(antennas[i], pointingAz, pointingEl, Degrees=True)
 		alnPointing.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
 	alnPointing = numpy.array(alnPointing)
+	
+	# Calculate the beamforming coefficients
 	blnPointing = (cln*alnPointing).conj() / numpy.abs(cln*alnPointing)
 	
+	# Intepret these purely as delays
 	delays = numpy.angle(blnPointing) / (2*numpy.pi*centralFreq)
 	delays = delays.max() - delays
 	
+	# Save
 	import gain
 	import delay
-	dftBase = 'phased_beam_%.2faz,_%.2fel_%iMHz' % (pointingAz, poinintEl, centralFreq/1e6,)
+	dftBase = 'phased_beam_%.2faz_%.2fel_%iMHz' % (pointingAz, pointingEl, centralFreq/1e6,)
 	junk = delay.list2delayfile('.', dftBase, delays[0,:]*1e9)
 
 
