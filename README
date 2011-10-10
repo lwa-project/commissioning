@@ -25,6 +25,10 @@ astroevents2.py
 ---------------
 List the rise, transit, and set times for the brightest radio objects in the sky.
 
+estimateData.py
+---------------
+Script to estimate the data volume of TBN and DRX observations.
+
 plotShelterTemp.py
 ------------------
 Short script to read in a shelter.txt file (log of shelter temperature with each
@@ -47,3 +51,4 @@ See the TBN/README file.
 DRX
 ---
 See the DRX/README file.
+
