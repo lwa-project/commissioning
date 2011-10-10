@@ -39,7 +39,8 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 	 "B0809+74,f|J,08:14:59.44,+74:29:05.8,1", 
          "B0950+08,f|J,09:53:09.31,+07:55:35.8,1",
          "B1133+16,f|J,11:36:03.25,+15:51:04.5,1",
-         "B1919+21,f|J,19:21:44.80,+21:53:01.8,1",]
+         "B1919+21,f|J,19:21:44.80,+21:53:01.8,1",
+	 "J2145-0750,f|J,21:45:50.47,-07:50:18.3,1",]
 
 def usage(exitCode=None):
 	print """astroevents2.py - New take on the astroevents.py script included in LSL 0.5.0+
@@ -139,8 +140,8 @@ def main(args):
 
 		# Header
 		print ""
-		print "%-8s  %-23s  %-23s  %-23s  %-7s" % ("Source", "Next Rise", "Next Transit", "Next Set", "Up Now?")
-		print "="*(8+2+23+2+23+2+23+2+7)
+		print "%-10s  %-23s  %-23s  %-23s  %-7s" % ("Source", "Next Rise", "Next Transit", "Next Set", "Up Now?")
+		print "="*(10+2+23+2+23+2+23+2+7)
 	
 		# List
 		for src in srcs:		
@@ -168,9 +169,9 @@ def main(args):
 		
 		
 			try:
-				print "%-8s  %-23s  %-23s  %-23s  %-7s" % (src.name, nR.strftime("%Y/%m/%d %H:%M:%S %Z"), nT.strftime("%Y/%m/%d %H:%M:%S %Z"), nS.strftime("%Y/%m/%d %H:%M:%S %Z"), "*" if isUp else "")
+				print "%-10s  %-23s  %-23s  %-23s  %-7s" % (src.name, nR.strftime("%Y/%m/%d %H:%M:%S %Z"), nT.strftime("%Y/%m/%d %H:%M:%S %Z"), nS.strftime("%Y/%m/%d %H:%M:%S %Z"), "*" if isUp else "")
 			except AttributeError:
-				print "%-8s  %-23s  %-23s  %-23s  %-7s" % (src.name, '---', nT.strftime("%Y/%m/%d %H:%M:%S %Z"), '---', "*" if isUp else "")
+				print "%-10s  %-23s  %-23s  %-23s  %-7s" % (src.name, '---', nT.strftime("%Y/%m/%d %H:%M:%S %Z"), '---', "*" if isUp else "")
 	else:
 		#
 		# Position mode
@@ -178,8 +179,8 @@ def main(args):
 
 		# Header
 		print ""
-		print "%-8s  %-9s  %-9s  %-7s" % ("Source", "  Azimuth", "Elevation", "Rising?")
-		print "="*(8+2+9+2+9+2+7)
+		print "%-10s  %-9s  %-9s  %-7s" % ("Source", "  Azimuth", "Elevation", "Rising?")
+		print "="*(10+2+9+2+9+2+7)
 	
 		# List
 		for src in srcs:		
@@ -190,7 +191,7 @@ def main(args):
 			if src.az < math.pi:
 				isRising = True
 
-			print "%-8s  %9.2f  %9.2f  %7s" % (src.name, src.az*180/math.pi, src.alt*180/math.pi, "Yes" if isRising else "")
+			print "%-10s  %9.2f  %9.2f  %7s" % (src.name, src.az*180/math.pi, src.alt*180/math.pi, "Yes" if isRising else "")
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
