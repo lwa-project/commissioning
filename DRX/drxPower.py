@@ -25,9 +25,10 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-	print """drxTimeseries.py - Read in DRX files and create a collection of 
+	print """drxPower.py - Read in DRX files and create a collection of 
 timeseries power (I*I + Q*Q) plots.  These power measurements are saved to a NPZ 
-file called <filename>-power.npz.
+file called <filename>-power.npz.  Also, create a series of polarization and 
+tuning diagnostic plots.
 
 Usage: drxPower.py [OPTIONS] file
 
@@ -161,9 +162,9 @@ def main(args):
 	fh.seek(-drx.FrameSize, 1)
 
 	# Master loop over all of the file chuncks
-	masterTimes = numpy.zeros((nChunks, beampols), dtype=numpy.float64)
-	masterData  = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
-	masterData2 = numpy.zeros((nChunks, beampols), dtype=numpy.float32)
+	masterTimes = numpy.zeros((nChunks, 4), dtype=numpy.float64)
+	masterData  = numpy.zeros((nChunks, 4), dtype=numpy.float32)
+	masterData2 = numpy.zeros((nChunks, 4), dtype=numpy.float32)
 	for i in range(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -176,8 +177,8 @@ def main(args):
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
 		count = {0:0, 1:0, 2:0, 3:0}
-		data  = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
-		data2 = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.float32)
+		data  = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
+		data2 = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
 		
 		# Inner loop that actually reads the frames into the data array
 		print "Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
@@ -217,8 +218,8 @@ def main(args):
 
 	# The plots:  This is setup for the current configuration of 20 beampols
 	fig = plt.figure()
-	figsX = int(round(math.sqrt(beampols)))
-	figsY = beampols / figsX
+	figsX = int(round(math.sqrt(4)))
+	figsY = 4 / figsX
 
 	for i in xrange(masterData.shape[1]):
 		ax = fig.add_subplot(figsX,figsY,i+1)
