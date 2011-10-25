@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Convert the output NPZ of drxWaterfall/drxWaterfallDRSU into a HDF5 file.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import os
 import sys
 import h5py
