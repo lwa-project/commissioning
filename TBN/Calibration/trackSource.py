@@ -7,6 +7,10 @@ BAM script to move all beams with ~4 minute steps.
 
 Usage:
 trackSource <reference_NPZ> <source_name> <start date> <start time> <duration in hr>
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os

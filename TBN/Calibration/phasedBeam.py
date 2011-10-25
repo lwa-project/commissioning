@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Given a reference file for calibration and a pointing azimuth and elevation 
+in degrees, create a set of phase-and-sum beamforming coefficients for DRX.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import os
 import sys
 import ephem

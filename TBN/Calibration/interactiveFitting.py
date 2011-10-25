@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Interactively fit a prepared delay data file for delays and save the results to
+add-delay.txt.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import sys
 import numpy
 from lsl.common.stations import lwa1

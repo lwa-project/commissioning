@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Simple script (with hard coded integration times) for performing time series
+cross-correlation of TBN data for all stands relative to the outlier (#258).
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import os
 import sys
 import ephem
