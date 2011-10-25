@@ -319,13 +319,10 @@ class Waterfall_GUI(object):
 			spec = self.spec
 			limits = self.limits
 		
-		skipT = spec.shape[0] / 3600
-		skipF = spec.shape[2] / 4096
-		
 		# Plot 1(a) - Waterfall
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
-		m = self.ax1a.imshow(to_dB(spec[0::skipT,self.index,0::skipF]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
+		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
 		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1a.axis('auto')
