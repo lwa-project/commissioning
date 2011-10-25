@@ -116,4 +116,11 @@ eyeDiagram2.py
 --------------
 Look for glitches in a DRX file by fitting a quantized sine wave to the data.
 
+Fringing
+--------
+See the Fringing/README file.
+
+HDF5
+----
+See the HDF5/README file.
 

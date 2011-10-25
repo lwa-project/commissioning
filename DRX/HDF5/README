@@ -1,0 +1,218 @@
+DRX Processing Scripts with HDF5 Output
+=======================================
+
+hdfWaterfall.py
+---------------
+Version of drxWaterfall.py that writes to HDF5 rather than NPZ to provide
+an easier path to getting the data into other packages, e.g., Matlab.  The
+ouptu HDF5 files are the format (via h5dump):
+
+HDF5 {
+GROUP "/" {
+   ATTRIBUTE "Beam" {
+      DATATYPE  H5T_STD_I64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "RBW" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "RBW_Units" {
+      DATATYPE  H5T_STRING {
+            STRSIZE 2;
+            STRPAD H5T_STR_NULLPAD;
+            CSET H5T_CSET_ASCII;
+            CTYPE H5T_C_S1;
+         }
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "sampleRate" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "sampleRate_Units" {
+      DATATYPE  H5T_STRING {
+            STRSIZE 9;
+            STRPAD H5T_STR_NULLPAD;
+            CSET H5T_CSET_ASCII;
+            CTYPE H5T_C_S1;
+         }
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "tInt" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "tInt_Units" {
+      DATATYPE  H5T_STRING {
+            STRSIZE 1;
+            STRPAD H5T_STR_NULLPAD;
+            CSET H5T_CSET_ASCII;
+            CTYPE H5T_C_S1;
+         }
+      DATASPACE  SCALAR
+   }
+   GROUP "Tuning1" {
+      GROUP "Mask" {
+         DATASET "X" {
+            DATATYPE  H5T_ENUM {
+                  H5T_STD_I8LE;
+                  "FALSE"            0;
+                  "TRUE"             1;
+               }
+            DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         }
+         DATASET "Y" {
+            DATATYPE  H5T_ENUM {
+                  H5T_STD_I8LE;
+                  "FALSE"            0;
+                  "TRUE"             1;
+               }
+            DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         }
+      }
+      DATASET "X" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "Y" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "freq" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 16383 ) / ( 16383 ) }
+         ATTRIBUTE "Units" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 2;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+   }
+   GROUP "Tuning2" {
+      GROUP "Mask" {
+         DATASET "X" {
+            DATATYPE  H5T_ENUM {
+                  H5T_STD_I8LE;
+                  "FALSE"            0;
+                  "TRUE"             1;
+               }
+            DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         }
+         DATASET "Y" {
+            DATATYPE  H5T_ENUM {
+                  H5T_STD_I8LE;
+                  "FALSE"            0;
+                  "TRUE"             1;
+               }
+            DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         }
+      }
+      DATASET "X" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "Y" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "freq" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 16383 ) / ( 16383 ) }
+         ATTRIBUTE "Units" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 2;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+   }
+   DATASET "time" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SIMPLE { ( 3601 ) / ( 3601 ) }
+   }
+}
+}
+
+plotHDF.py
+----------
+Version of plotWaterfall.py for viewing HDF5 files.

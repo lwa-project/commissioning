@@ -12,6 +12,7 @@ $LastChangedDate$
 
 import os
 import sys
+import h5py
 import math
 import numpy
 import ephem
@@ -27,10 +28,10 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-	print """drxWaterfall.py - Read in DRX files and create a collection of 
-time-averaged spectra.  These spectra are saved to a NPZ file called <filename>-waterfall.npz.
+	print """hdfWaterfall.py - Read in DRX files and create a collection of 
+time-averaged spectra.  These spectra are saved to a HDF5 file called <filename>-waterfall.hdf5.
 
-Usage: drxWaterfall.py [OPTIONS] file
+Usage: hdfWaterfall.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
@@ -161,6 +162,7 @@ def main(args):
 	fh = open(config['args'][0], "rb")
 	nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
 	junkFrame = drx.readFrame(fh)
+	beam, tune, pol = junkFrame.parseID()
 	fh.seek(0)
 	
 	srate = junkFrame.getSampleRate()
@@ -223,7 +225,7 @@ def main(args):
 		# Read in the first 100 frames for each tuning/polarization
 		count = {0:0, 1:0, 2:0, 3:0}
 		data = numpy.zeros((4, 4096*100), dtype=numpy.csingle)
-		for i in xrange(4*100):
+		for i in xrange(beampols*100):
 			try:
 				cFrame = drx.readFrame(fh, Verbose=False)
 			except errors.eofError:
@@ -277,11 +279,44 @@ def main(args):
 	else:
 		clip1 = config['clip']
 		clip2 = config['clip']
+	
+	# Setup the output file
+	outname = config['args'][0].replace('.dat', '-waterfall.hdf5')
+	
+	f = h5py.File(outname, 'w')
+	f.attrs['Beam'] = beam
+	f.attrs['tInt'] = (maxFrames*4096/beampols/srate)
+	f.attrs['tInt_Units'] = 's'
+	f.attrs['sampleRate'] = srate
+	f.attrs['sampleRate_Units'] = 'samples/s'
+	freq = numpy.fft.fftshift( numpy.fft.fftfreq(LFFT, d=1.0/srate) )
+	freq = freq[1:].astype(numpy.float64)
+	f.attrs['RBW'] = freq[1]-freq[0]
+	f.attrs['RBW_Units'] = 'Hz'
+	masterTimes = f.create_dataset('time', (nChunks,), 'f8')
+	
+	tuning1 = f.create_group('/Tuning1')
+	tuning1['freq'] = freq + config['freq1']
+	tuning1['freq'].attrs['Units'] = 'Hz'
+	spec1X = tuning1.create_dataset('X', (nChunks, LFFT-1), 'f8', chunks=True)
+	tuning1['X'].attrs['axis0'] = 'time'
+	tuning1['X'].attrs['axis1'] = 'frequency'
+	spec1Y = tuning1.create_dataset('Y', (nChunks, LFFT-1), 'f8', chunks=True)
+	tuning1['Y'].attrs['axis0'] = 'time'
+	tuning1['Y'].attrs['axis1'] = 'frequency'
+	
+	tuning2 = f.create_group('/Tuning2')
+	tuning2['freq'] = freq + config['freq2']
+	tuning2['freq'].attrs['Units'] = 'Hz'
+	spec2X = tuning2.create_dataset('X', (nChunks, LFFT-1), 'f8', chunks=True)
+	tuning2['X'].attrs['axis0'] = 'time'
+	tuning2['X'].attrs['axis1'] = 'frequency'
+	spec2Y = tuning2.create_dataset('Y', (nChunks, LFFT-1), 'f8', chunks=True)
+	tuning2['Y'].attrs['axis0'] = 'time'
+	tuning2['Y'].attrs['axis1'] = 'frequency'
 
 	# Master loop over all of the file chunks
-	masterWeight = numpy.zeros((nChunks, 4, LFFT-1))
-	masterSpectra = numpy.zeros((nChunks, 4, LFFT-1))
-	masterTimes = numpy.zeros(nChunks)
+	masterSpectra = [spec1X, spec1Y, spec2X, spec2Y]
 	for i in xrange(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -291,7 +326,7 @@ def main(args):
 			framesWork = maxFrames
 		else:
 			framesWork = framesRemaining
-		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
+		print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
 		
 		count = {0:0, 1:0, 2:0, 3:0}
 		data = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.csingle)
@@ -321,62 +356,35 @@ def main(args):
 
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
-		freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
-		
-		freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
-		
-		# Save the results to the various master arrays
-		masterTimes[i] = cTime
-		
-		masterSpectra[i,0,:] = tempSpec1[0,:]
-		masterSpectra[i,1,:] = tempSpec1[1,:]
-		masterSpectra[i,2,:] = tempSpec2[0,:]
-		masterSpectra[i,3,:] = tempSpec2[1,:]
-		
-		masterWeight[i,0,:] = int(count[0] * 4096 / LFFT)
-		masterWeight[i,1,:] = int(count[1] * 4096 / LFFT)
-		masterWeight[i,2,:] = int(count[2] * 4096 / LFFT)
-		masterWeight[i,3,:] = int(count[3] * 4096 / LFFT)
+		if clip1 == clip2:
+			freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
+			
+			# Save the results to the various master arrays
+			masterTimes[i] = cTime
+			
+			masterSpectra[0][i,:] = tempSpec1[0,:]
+			masterSpectra[1][i,:] = tempSpec1[1,:]
+			masterSpectra[2][i,:] = tempSpec1[2,:]
+			masterSpectra[3][i,:] = tempSpec1[3,:]
+			
+		else:
+			freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
+			
+			freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
+			
+			# Save the results to the various master arrays
+			masterTimes[i] = cTime
+			
+			masterSpectra[0][i,:] = tempSpec1[0,:]
+			masterSpectra[1][i,:] = tempSpec1[1,:]
+			masterSpectra[2][i,:] = tempSpec2[0,:]
+			masterSpectra[3][i,:] = tempSpec2[1,:]
 
 		# We don't really need the data array anymore, so delete it
 		del(data)
 
-	# Now that we have read through all of the chunks, perform the final averaging by
-	# dividing by all of the chunks
-	outname = config['args'][0].replace('.dat', '-waterfall.npz')
-	numpy.savez(outname, freq=freq, freq1=freq+config['freq1'], freq2=freq+config['freq2'], times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), srate=srate,  standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
-	spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
-
-	# The plots:  This is setup for the current configuration of 20 beampols
-	fig = plt.figure()
-	figsX = int(round(math.sqrt(4)))
-	figsY = 4 / figsX
-	
-	# Put the frequencies in the best units possible
-	freq, units = bestFreqUnits(freq)
-
-	for i in xrange(masterSpectra.shape[1]):
-		ax = fig.add_subplot(figsX,figsY,i+1)
-		currSpectra = numpy.squeeze( numpy.log10(masterSpectra[:,i,:])*10.0 )
-		currSpectra = numpy.where( numpy.isfinite(currSpectra), currSpectra, -10)
-		
-		ax.imshow(currSpectra, interpolation='nearest', extent=(freq.min(), freq.max(), config['offset']+0, config['offset']+config['average']*nChunks), origin='lower')
-		print currSpectra.min(), currSpectra.max()
-
-		ax.axis('auto')
-		ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1, i%2))
-		ax.set_xlabel('Frequency Offset [%s]' % units)
-		ax.set_ylabel('Time [s]')
-		ax.set_xlim([freq.min(), freq.max()])
-
-	print "RBW: %.4f %s" % ((freq[1]-freq[0]), units)
-	plt.subplots_adjust(hspace=0.35, wspace=0.30)
-	if config['verbose']:
-		plt.show()
-
-	# Save spectra image if requested
-	if config['output'] is not None:
-		fig.savefig(config['output'])
+	# Save the output to a HDF5 file
+	f.close()
 
 
 if __name__ == "__main__":
