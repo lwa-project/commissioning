@@ -911,9 +911,9 @@ class MainWindow(wx.Frame):
 			
 			mask2 = tuning2.create_group('Mask')
 			mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-			mask2X = self.data.spec.mask[:,0,:]
+			mask2X = self.data.spec.mask[:,2,:]
 			mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
-			mask2Y = self.data.spec.mask[:,1,:]
+			mask2Y = self.data.spec.mask[:,3,:]
 			
 			h.close()
 
@@ -950,9 +950,9 @@ class MainWindow(wx.Frame):
 			
 			mask2 = tuning2.create_group('Mask')
 			mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-			mask2X = self.data.spec.mask[:,0,:]
+			mask2X = self.data.spec.mask[:,2,:]
 			mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
-			mask2Y = self.data.spec.mask[:,1,:]
+			mask2Y = self.data.spec.mask[:,3,:]
 			
 			hNew.close()
 			
