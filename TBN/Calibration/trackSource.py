@@ -165,8 +165,9 @@ def main(args):
 	nSteps = int(numpy.ceil(duration * 60 / 4))
 	stepSize = timedelta(0, int(tStep*60), int((tStep*60*1000000) % 1000000))
 	for s in xrange(nSteps):
-		# Compute the source location
-		observer.date = tStart.strftime("%Y/%m/%d %H:%M:%S")
+		# Compute the source location half-way into the step
+		tBeam = tStart + timedelta(0, int(tStep*60/2), int((tStep*60/2*1000000) % 1000000))
+		observer.date = tBeam.strftime("%Y/%m/%d %H:%M:%S")
 		refSource.compute(observer)
 		
 		pointingAz = refSource.az

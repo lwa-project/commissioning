@@ -49,9 +49,9 @@ def main(args):
 	for filename in filenames:
 		dataDict = numpy.load(filename)
 		
-		refAnt = dataDict['ref']
-		refX   = dataDict['refX']
-		refY   = dataDict['refY']
+		refAnt = dataDict['ref'].item()
+		refX   = dataDict['refX'].item()
+		refY   = dataDict['refY'].item()
 		centralFreq = float(dataDict['centralFreq'])
 		
 		times = dataDict['times']
