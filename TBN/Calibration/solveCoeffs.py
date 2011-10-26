@@ -89,6 +89,7 @@ def main(args):
 	
 	print "Central frequency: %.3f Hz" % centralFreq
 	
+	# Get the start time as a datetime object and build up the list of sources
 	beginDate = datetime.utcfromtimestamp(times[0])
 	observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
 	print beginDate.strftime("%Y/%m/%d %H:%M:%S")
@@ -96,6 +97,8 @@ def main(args):
 	for line in _srcs:
 		srcs.append( ephem.readdb(line) )
 	
+	# Compute the loations of all of the sources to figure out where the 
+	# referenece is
 	az = -99
 	el = -99
 	for i in xrange(len(srcs)):
@@ -112,6 +115,7 @@ def main(args):
 		print "Cannot find reference source '%s' in source list, aborting." % reference
 		sys.exit(1)
 	
+	# Calculate the fringe rates of all sources
 	fRate = {}
 	for src in srcs:
 		if src.alt > 0:
@@ -120,6 +124,7 @@ def main(args):
 	
 	phase2 = phase*1.0
 	
+	# Compute the beam forming coefficients for the reference source
 	bln = numpy.zeros(phase2.shape, dtype=numpy.complex128)
 	for i in xrange(bln.shape[1]):
 		if i % 2 == 0:
@@ -128,14 +133,15 @@ def main(args):
 			bln[:,i] = phase2[:,i] / phase2[:,1]
 	bln = bln.conj() / numpy.abs(bln)
 	
-	print az, el
-	
+	# Compute the a^l_n terms for removing the array geometry.
 	aln = []
 	for i in xrange(phase.shape[1]):
 		gd = getGeoDelay(antennas[i], az, el, centralFreq, Degrees=True)
 		aln.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
 	aln = numpy.array(aln)
 	
+	# Calculate the c^l_n terms by removing the array geometry from the
+	# phases.
 	cln = numpy.zeros(phase2.shape, dtype=numpy.complex128)
 	for i in xrange(cln.shape[1]):
 		if i % 2 == 0:
@@ -144,6 +150,7 @@ def main(args):
 			cln[:,i] = phase2[:,i] / phase2[:,1]
 	cln /= aln
 	
+	# Save
 	outname = filename.replace('-vis','-cln')
 	numpy.savez(outname, cln=cln, centralFreq=centralFreq, reference=reference, basefile=filename)
 

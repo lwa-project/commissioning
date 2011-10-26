@@ -40,6 +40,11 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          
          
 def formBeam(data, bln):
+	"""
+	Apply the beam forming coefficients to a section of TBN data, sum across
+	the various inputs, and intergrate.
+	"""
+	
 	temp = 1.0*data
 	for i in xrange(bln.size):
 		temp[i,:] *= bln[i]
@@ -137,7 +142,10 @@ def main(args):
 		junkFrame = tbn.readFrame(fh)
 	fh.seek(-tbn.FrameSize, 1)
 	
-	# Get the beamformer coefficients
+	# Get the beamformer coefficients - three sets:
+	#  (1) at the requested az, el
+	#  (2) at az, el - 15 degrees
+	#  (3) at the transit location of Cyg A
 	dataDict = numpy.load(clnfile)
 	cln = numpy.exp(2j*numpy.pi*centralFreq*dataDict['delay'])
 	aln1 = []
@@ -261,7 +269,7 @@ def main(args):
 		print '1', beam1[i,0], '2', beam2[i,0], '3', beam3[i,0], '1/2', beam1[i,0]/beam2[i,0], '3/2', beam3[i,0]/beam2[i,0]
 		del data
 	
-	# Save the data
+	# Plot the data
 	print 'CygA      :', beam1[:,0]
 	print 'Pointing 2:', beam2[:,0]
 	print 'Pointing 1:', beam3[:,0]
