@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Export select stands from a TBW file to HDF5.
+Export select stands from a TBW file on a DRSU to HDF5.
 
 Usage:
-./tbw2hdf.py <drsu_device> <drsu_TBW_tag> <stand_ID> [<stand_ID> [...]]
+./tbw2hdfDRSU.py <drsu_device> <drsu_TBW_tag> <stand_ID> [<stand_ID> [...]]
 
 $Rev$
 $LastChangedBy$
