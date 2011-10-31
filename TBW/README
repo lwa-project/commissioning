@@ -11,16 +11,28 @@ tbw2hdf.py
 ----------
 Export select stands from a TBW file to HDF5.
 
+tbw2hdfDRSU.py
+--------------
+Similar to tbw2hdf.py, but can read directly from a DRSU.
+
 stationMaster.py
 ----------------
 Modified version of tbwSpectra.py that is included with LSL (version >= 0.4.0) that 
 estimated the frequency (in MHz) of each dipole's resonance point and saves that 
 information along with time-average spectra to a NPZ file.
 
+stationMasterDRSU.py
+--------------------
+Similar to stationMaster.py, but can read directly from a DRSU.
+
 stationMaster2.py
 -----------------
 Modified version of stationMaster.py that uses the 'ClipLevel' keyword in LSL >= 0.4.2
 to blank impulsive RFI events.
+
+stationMaster2DRSU.py
+---------------------
+Similar to stationMaster2.py, but can read directly from a DRSU.
 
 smGUI.py
 --------
