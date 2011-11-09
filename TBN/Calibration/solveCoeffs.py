@@ -68,7 +68,7 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 	dec = float(src.dec)*180/numpy.pi
 	uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
 	
-	return -(2*numpy.pi/86400)*uvw[0,0,0]*numpy.cos(src.dec)
+	return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
 
 
 def main(args):

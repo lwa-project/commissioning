@@ -16,6 +16,8 @@ from matplotlib import pyplot as plt
 
 
 def main(args):
+	#orig = numpy.load('add-delay.npz')
+	
 	try:
 		filename = args[0]
 	except:
@@ -37,14 +39,15 @@ def main(args):
 		delay = float(delay)
 		
 		if len(parts) == 3:
-			err = float(parts[2])
-			if err > 1.7e-9:
+			chi2 = float(parts[2])
+			if chi2 > 1.0:
 				continue
 		
 		delays[ant].append( delay )
 
 	fh.close()
 
+	pols = numpy.array([i % 2 for i in xrange(520)])
 
 	delays2 = numpy.zeros(520)
 	delays3 = numpy.zeros(520) - 1000.0
@@ -55,7 +58,7 @@ def main(args):
 			continue
 		delays2[i] = numpy.median(part)
 		delays3[i] = numpy.median(part)
-		print i, numpy.median(part), part.std()
+		print i, delays2[i], part.std()#, orig['delayDiffs'][i] - delays2[i]
 
 	suspect = numpy.where( numpy.abs(delays3) > 30e-9 )[0]
 	for i in suspect:
@@ -63,8 +66,11 @@ def main(args):
 
 	fig = plt.figure()
 	ax = fig.gca()
-	good = numpy.where( delays3 != -1000 )
-	ax.hist(delays3[good]*1e9, bins=50)
+	goodX = numpy.where( (delays3 != -1000) & (pols == 0) )
+	goodY = numpy.where( (delays3 != -1000) & (pols == 1) )
+	ax.hist(delays3[goodX]*1e9, bins=50, label='X')
+	ax.hist(delays3[goodY]*1e9, bins=50, label='Y')
+	ax.legend(loc=0)
 	ax.set_xlabel('Residual Delay [ns]')
 	ax.set_ylabel('Number of Antennas')
 	plt.show()
