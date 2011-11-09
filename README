@@ -29,6 +29,10 @@ estimateData.py
 ---------------
 Script to estimate the data volume of TBN and DRX observations.
 
+findMyStand.py
+--------------
+Simple script to locate and label where stands are in the array.
+
 plotShelterTemp.py
 ------------------
 Short script to read in a shelter.txt file (log of shelter temperature with each
