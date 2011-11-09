@@ -25,6 +25,11 @@ stationMasterDRSU.py
 --------------------
 Similar to stationMaster.py, but can read directly from a DRSU.
 
+tinyMaster.py
+-------------
+Modified version of stationMaster.py that uses Numpy memory maps to work on systems with
+less than 16 GB of memory.
+
 stationMaster2.py
 -----------------
 Modified version of stationMaster.py that uses the 'ClipLevel' keyword in LSL >= 0.4.2
@@ -33,6 +38,11 @@ to blank impulsive RFI events.
 stationMaster2DRSU.py
 ---------------------
 Similar to stationMaster2.py, but can read directly from a DRSU.
+
+tinyMaster2.py
+--------------
+Modified version of stationMaster2.py that uses Numpy memory maps to work on systems with
+less than 16 GB of memory.
 
 smGUI.py
 --------
