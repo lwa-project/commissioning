@@ -49,7 +49,7 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['SSMIF'] = ''
 	config['LFFT'] = 4096
-	config['maxFrames'] = 30000*10
+	config['maxFrames'] = 30000*20
 	config['window'] = fxc.noWindow
 	config['applyGain'] = False
 	config['stack'] = False
@@ -104,8 +104,9 @@ def main(args):
 	if config['SSMIF'] != '':
 		station = stations.parseSSMIF(config['SSMIF'])
 	else:
-		station = stations.lwa1
+		station = stations.lwa2
 	antennas = station.getAntennas()
+	antennas = antennas[0::2]
 
 	# Length of the FFT
 	LFFT = config['LFFT']
@@ -124,7 +125,7 @@ def main(args):
 	dataBits = tbw.getDataBits(fh)
 	# The number of ant/pols in the file is hard coded because I cannot figure out 
 	# a way to get this number in a systematic fashion
-	antpols = 20
+	antpols = len(antennas)
 	nChunks = int(math.ceil(1.0*nFrames/maxFrames))
 	if dataBits == 12:
 		nSamples = 400

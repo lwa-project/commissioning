@@ -106,9 +106,10 @@ def main(args):
 		station = stations.parseSSMIF(config['SSMIF'])
 		ssmifContents = open(config['SSMIF']).readlines()
 	else:
-		station = stations.lwa1
+		station = stations.lwa2
 		ssmifContents = ''
 	antennas = station.getAntennas()
+	antennas = antennas[0::2]
 
 	# Length of the FFT
 	LFFT = config['LFFT']
@@ -127,7 +128,7 @@ def main(args):
 	dataBits = tbw.getDataBits(fh)
 	# The number of ant/pols in the file is hard coded because I cannot figure out 
 	# a way to get this number in a systematic fashion
-	antpols = 20
+	antpols = len(antennas)
 	nChunks = int(math.ceil(1.0*nFrames/maxFrames))
 	if dataBits == 12:
 		nSamples = 400
