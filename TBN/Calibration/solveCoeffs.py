@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 
 from scipy.signal import triang
 
-from lsl.common.constants import c
+from lsl.common.constants import c as vLight
 from lsl.common.stations import lwa1
 from lsl.common.progress import ProgressBar
 from lsl.correlator.uvUtils import computeUVW
@@ -38,7 +38,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
 
 
-def getGeoDelay(antenna, az, el, freq, Degrees=False):
+def getGeoDelay(antenna, az, el, Degrees=False):
 	"""
 	Get the geometrical delay (relative to the center of the array)
 	for the specified antenna for a source at azimuth az, elevation el.
@@ -52,9 +52,8 @@ def getGeoDelay(antenna, az, el, freq, Degrees=False):
 					  numpy.cos(el)*numpy.cos(az), 
 					  numpy.sin(el)])
 	
-	cableDelay = antenna.cable.delay(freq)
 	xyz = numpy.array([antenna.stand.x, antenna.stand.y, antenna.stand.z])
-	return numpy.dot(source, xyz) / c - 0*cableDelay
+	return numpy.dot(source, xyz) / vLight
 
 
 def getFringeRate(antenna1, antenna2, observer, src, freq):
@@ -63,10 +62,14 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 	as observed by an observer.
 	"""
 	
+	# Update the source position
 	src.compute(observer)
 	
+	# Calculate the hour angle
 	HA = (float(observer.sidereal_time()) - float(src.ra))*12.0/numpy.pi
 	dec = float(src.dec)*180/numpy.pi
+	
+	# Get the u,v,w coordinates
 	uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
 	
 	return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
@@ -103,23 +106,19 @@ def main(args):
 	
 	# Compute the loations of all of the sources to figure out where the 
 	# referenece is
-	az = -99
-	el = -99
-	
 	print "Starting Source Positions:"
+	
+	refSrc = None
 	for i in xrange(len(srcs)):
 		srcs[i].compute(observer)
 		
 		if srcs[i].alt > 0:
-			print " source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi)
+			print " source %-4s: alt %4.1f degrees, az %5.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi)
 			
 		if srcs[i].name == reference:
 			refSrc = srcs[i]
 			
-			az = srcs[i].az  * 180.0/numpy.pi
-			el = srcs[i].alt * 180.0/numpy.pi
-			
-	if az == -99:
+	if refSrc is None:
 		print "Cannot find reference source '%s' in source list, aborting." % reference
 		sys.exit(1)
 	
@@ -128,7 +127,7 @@ def main(args):
 	for src in srcs:
 		if src.alt > 0:
 			fRate = getFringeRate(antennas[0], antennas[refX], observer, src, centralFreq)
-			print " source %s: %+.3f mHz" % (src.name, fRate*1e3)
+			print " source %-4s: %+6.3f mHz" % (src.name, fRate*1e3)
 	
 	# Fring stopping using the reference source
 	print "Fringe stopping:"
@@ -141,7 +140,6 @@ def main(args):
 		for i in xrange(phase.shape[0]):
 			currDate = datetime.utcfromtimestamp(times[i])
 			observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
-			refSrc.compute()
 		
 			fRate[i] = getFringeRate(antennas[l], antennas[refX], observer, refSrc, centralFreq)
 		
@@ -173,11 +171,25 @@ def main(args):
 	bln.shape = (1,) + bln.shape
 	
 	# Compute the a^l_n terms for removing the array geometry.
-	aln = []
-	for i in xrange(phase.shape[1]):
-		gd = getGeoDelay(antennas[i], az, el, centralFreq, Degrees=True)
-		aln.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
-	aln = numpy.array(aln)
+	print "Computing array geometry:"
+	pbar = ProgressBar(max=phase2.shape[1])
+	
+	aln = numpy.zeros_like(phase2)
+	for l in xrange(phase2.shape[1]):
+		currDate = datetime.utcfromtimestamp(times[0])
+		observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
+		refSrc.compute(observer)
+		
+		az = refSrc.az
+		el = refSrc.alt
+		gd = getGeoDelay(antennas[l], az, el, Degrees=False)
+		
+		aln[:,l] = numpy.exp(2j*numpy.pi*centralFreq*gd)
+		
+		pbar.inc()
+		sys.stdout.write("%s\r" % pbar.show())
+		sys.stdout.flush()
+	sys.stdout.write('\n')
 	
 	# Calculate the c^l_n terms by removing the array geometry from the
 	# phases.
