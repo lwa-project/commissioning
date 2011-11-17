@@ -89,31 +89,13 @@ def main(args):
 	print "->", freq/1e6
 	
 	#
-	# Compute source positions/build the point-source model
+	# Compute source positions/fringe stop
 	#
-	simPhase = numpy.zeros_like(data)
-	aa = simVis.buildSimArray(lwa1, antennas, freq)
 	for i in xrange(freq.size):
 		fq = freq[i]
 		jd = time[i]
-			
-		## X pol.
-		simDictX = simVis.buildSimData(aa, simVis.srcs, jd=jd, pols=['xx',], baselines=[(refX,l) for l in xrange(0,520,2)])
-			
-		diffFq = numpy.abs( simDictX['freq'] - fq )
-		best = numpy.where( diffFq == diffFq.min() )[0][0]
-			
-		for l,vis in enumerate(simDictX['vis']['xx']):
-			simPhase[i,2*l+0] = vis[best]
-			
-		## Y pol.
-		simDictY = simVis.buildSimData(aa, simVis.srcs, jd=jd, pols=['yy',], baselines=[(refY,l) for l in xrange(1,520,2)])
-			
-		diffFq = numpy.abs( simDictX['freq'] - fq )
-		best = numpy.where( diffFq == diffFq.min() )[0][0]
-			
-		for l,vis in enumerate(simDictY['vis']['yy']):
-			simPhase[i,2*l+1] = vis[best]
+		
+		
 
 	#
 	# Save

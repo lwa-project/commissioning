@@ -24,6 +24,7 @@ from scipy.signal import triang
 
 from lsl.common.constants import c
 from lsl.common.stations import lwa1
+from lsl.common.progress import ProgressBar
 from lsl.correlator.uvUtils import computeUVW
 
 
@@ -79,35 +80,42 @@ def main(args):
 	filename = args[1]
 	dataDict = numpy.load(filename)
 	
-	ref  = dataDict['ref']
-	refX = dataDict['refX'] - 1
-	refY = dataDict['refY'] - 1
-	centralFreq = dataDict['centralFreq']
-	tInt = dataDict['tInt']
+	ref  = dataDict['ref'].item()
+	refX = dataDict['refX'].item()
+	refY = dataDict['refY'].item()
+	centralFreq = dataDict['centralFreq'].item()
+	tInt = dataDict['tInt'].item()
 	times = dataDict['times']
 	phase = dataDict['simpleVis']
-	
-	print "Central frequency: %.3f Hz" % centralFreq
 	
 	# Get the start time as a datetime object and build up the list of sources
 	beginDate = datetime.utcfromtimestamp(times[0])
 	observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
-	print beginDate.strftime("%Y/%m/%d %H:%M:%S")
 	srcs = [ephem.Sun(),]
 	for line in _srcs:
 		srcs.append( ephem.readdb(line) )
+		
+	# Report on the data so far...
+	print "Central Frequency: %.3f Hz" % centralFreq
+	print "Start date/time: %s" % beginDate.strftime("%Y/%m/%d %H:%M:%S")
+	print "Integration Time: %.3f s" % tInt
+	print "Number of time samples: %i (%.3f s)" % (phase.shape[0], phase.shape[0]*tInt)
 	
 	# Compute the loations of all of the sources to figure out where the 
 	# referenece is
 	az = -99
 	el = -99
+	
+	print "Starting Source Positions:"
 	for i in xrange(len(srcs)):
 		srcs[i].compute(observer)
 		
 		if srcs[i].alt > 0:
-			print "source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi)
+			print " source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi)
 			
 		if srcs[i].name == reference:
+			refSrc = srcs[i]
+			
 			az = srcs[i].az  * 180.0/numpy.pi
 			el = srcs[i].alt * 180.0/numpy.pi
 			
@@ -115,14 +123,40 @@ def main(args):
 		print "Cannot find reference source '%s' in source list, aborting." % reference
 		sys.exit(1)
 	
-	# Calculate the fringe rates of all sources
-	fRate = {}
+	# Calculate the fringe rates of all sources - for display purposes only
+	print "Starting Fringe Rates:"
 	for src in srcs:
 		if src.alt > 0:
-			fRate[src.name] = getFringeRate(antennas[0], antennas[refX], observer, src, centralFreq)
-			print src.name, fRate[src.name]
+			fRate = getFringeRate(antennas[0], antennas[refX], observer, src, centralFreq)
+			print " source %s: %+.3f mHz" % (src.name, fRate*1e3)
 	
-	phase2 = phase*1.0
+	# Fring stopping using the reference source
+	print "Fringe stopping:"
+	pbar = ProgressBar(max=phase.shape[1])
+
+	phase2 = 1.0*phase
+	for l in xrange(phase.shape[1]):
+		# Compute the fringe rates across all time
+		fRate = [None,]*phase.shape[0]
+		for i in xrange(phase.shape[0]):
+			currDate = datetime.utcfromtimestamp(times[i])
+			observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
+			refSrc.compute()
+		
+			fRate[i] = getFringeRate(antennas[l], antennas[refX], observer, refSrc, centralFreq)
+		
+		# Create the basis rate and the residual rates
+		baseRate = fRate[0]
+		residRate = numpy.array(fRate) - baseRate
+	
+		# Fringe stop to more the source of interest to the DC component
+		phase2[:,l] *= numpy.exp(-2j*numpy.pi* baseRate*(times - times[0]))
+		phase2[:,l] *= numpy.exp(-2j*numpy.pi*residRate*(times - times[0]))
+		
+		pbar.inc()
+		sys.stdout.write("%s\r" % pbar.show())
+		sys.stdout.flush()
+	sys.stdout.write('\n')
 	
 	# Compute the beam forming coefficients for the reference source
 	bln = numpy.zeros(phase2.shape, dtype=numpy.complex128)
@@ -132,6 +166,11 @@ def main(args):
 		else:
 			bln[:,i] = phase2[:,i] / phase2[:,1]
 	bln = bln.conj() / numpy.abs(bln)
+	
+	# Average all time steps together and make sure we end up with 
+	# a 2-D array in the end
+	bln = bln.mean(axis=0)
+	bln.shape = (1,) + bln.shape
 	
 	# Compute the a^l_n terms for removing the array geometry.
 	aln = []
@@ -150,9 +189,14 @@ def main(args):
 			cln[:,i] = phase2[:,i] / phase2[:,1]
 	cln /= aln
 	
+	# Average all time steps together and make sure we end up with 
+	# a 2-D array in the end
+	cln = cln.mean(axis=0)
+	cln.shape = (1,) + cln.shape
+	
 	# Save
 	outname = filename.replace('-vis','-cln')
-	numpy.savez(outname, cln=cln, centralFreq=centralFreq, reference=reference, basefile=filename)
+	numpy.savez(outname, bln=bln, cln=cln, centralFreq=centralFreq, reference=reference, basefile=filename)
 
 
 if __name__ == "__main__":
