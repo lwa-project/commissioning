@@ -113,7 +113,7 @@ def main(args):
 
 	print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
 	bgain = config['gain']
-        bgain_cross = 0.0001
+        bgain_cross = 0.0000
         gains = [[bgain, bgain_cross, bgain_cross, bgain]]*260 # initialize gain list
 	for d in digs[bad]:
 		# Digitizers start at 1, list indicies at 0
