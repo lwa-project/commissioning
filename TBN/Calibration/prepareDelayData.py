@@ -21,13 +21,63 @@ from scipy.optimize import leastsq, fmin
 from scipy.stats import pearsonr
 
 from lsl.common.constants import c as vLight
-from lsl.astro import unix_to_utcjd
+from lsl.astro import unix_to_utcjd, utcjd_to_unix
 from lsl.common.stations import lwa1
 from lsl.correlator.uvUtils import computeUVW
 from lsl.misc.mathutil import to_dB
 from lsl.statistics import robust
+from lsl.common.progress import ProgressBar
 
 import lsl.sim.vis as simVis
+
+# List of bright radio sources and pulsars in PyEphem format
+_srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
+         "TauA,f|J,05:34:32.00,+22:00:52.0,1", 
+         "VirA,f|J,12:30:49.40,+12:23:28.0,1",
+         "HerA,f|J,16:51:08.15,+04:59:33.3,1", 
+         "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
+         "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
+         "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
+
+
+def getGeoDelay(antenna1, antenna2, az, el, Degrees=False):
+	"""
+	Get the geometrical delay (relative to a second antenna) for the 
+	specified antenna for a source at azimuth az, elevation el.
+	"""
+
+	if Degrees:
+		az = az*numpy.pi/180.0
+		el = el*numpy.pi/180.0
+	
+	source = numpy.array([numpy.cos(el)*numpy.sin(az), 
+					  numpy.cos(el)*numpy.cos(az), 
+					  numpy.sin(el)])
+	
+	xyz1 = numpy.array([antenna1.stand.x, antenna1.stand.y, antenna1.stand.z])
+	xyz2 = numpy.array([antenna2.stand.x, antenna2.stand.y, antenna2.stand.z])
+	xyzRel = xyz1 - xyz2
+	
+	return numpy.dot(source, xyzRel) / vLight
+
+
+def getFringeRate(antenna1, antenna2, observer, src, freq):
+	"""
+	Get the fringe rate for a baseline formed by antenna1-antenna2 for source src
+	as observed by an observer.
+	"""
+	
+	# Update the source position
+	src.compute(observer)
+	
+	# Calculate the hour angle
+	HA = (float(observer.sidereal_time()) - float(src.ra))*12.0/numpy.pi
+	dec = float(src.dec)*180/numpy.pi
+	
+	# Get the u,v,w coordinates
+	uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
+	
+	return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
 
 
 def main(args):
@@ -38,7 +88,21 @@ def main(args):
 	antennas = lwa1.getAntennas()
 	nAnts = len(antennas)
 	
-	filenames = args
+	reference = args[0]
+	filenames = args[1:]
+	
+	#
+	# Find the reference source
+	#
+	refSrc = None
+	for line in _srcs:
+		src = ephem.readdb(line)
+		if src.name == reference:
+			refSrc = src
+	
+	if refSrc is None:
+		print "Cannot find reference source '%s' in source list, aborting." % reference
+		sys.exit(1)
 	
 	#
 	# Parse the input files
@@ -46,35 +110,97 @@ def main(args):
 	data = []
 	time = []
 	freq = []
+	maxTime = -1
 	for filename in filenames:
 		dataDict = numpy.load(filename)
 		
 		refAnt = dataDict['ref'].item()
 		refX   = dataDict['refX'].item()
 		refY   = dataDict['refY'].item()
-		centralFreq = float(dataDict['centralFreq'])
+		tInt = dataDict['tInt'].item()
 		
 		times = dataDict['times']
 		phase = dataDict['simpleVis']
 		
+		centralFreq = dataDict['centralFreq'].item()
+		
 		beginDate = datetime.utcfromtimestamp(times[0])
 		observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
 		
-		freq.append( centralFreq )
-		time.append( unix_to_utcjd(times) )
-		data.append( phase[0,:] )
+		print "Central Frequency: %.3f Hz" % centralFreq
+		print "Start date/time: %s" % beginDate.strftime("%Y/%m/%d %H:%M:%S")
+		print "Integration Time: %.3f s" % tInt
+		print "Number of time samples: %i (%.3f s)" % (phase.shape[0], phase.shape[0]*tInt)
 		
+		freq.append( centralFreq )
+		time.append( numpy.array([unix_to_utcjd(t) for t in times]) )
+		data.append( phase )
+		
+		## Save the length of the `time` entry so that we can trim them
+		## all down to the same size later
+		if time[-1].size > maxTime:
+			maxTime = time[-1].size
+	
+	# Pad with NaNs to the same length
+	for i in xrange(len(filenames)):
+		nTimes = time[i].size
+		
+		if nTimes < maxTime:
+			## Pad 'time'
+			newTime = numpy.zeros(maxTime, dtype=time[i].dtype)
+			newTime += numpy.nan
+			newTime[0:nTimes] = time[i][:]
+			time[i] = newTime
+			
+			## Pad 'data'
+			newData = numpy.zeros((maxTime, data[i].shape[1]), dtype=data[i].dtype)
+			newData += numpy.nan
+			newData[0:nTimes,:] = data[i][:,:]
+			data[i] = newData
+	
+	# Convert to 2-D and 3-D numpy arrays
 	freq = numpy.array(freq)
 	time = numpy.array(time)
 	data = numpy.array(data)
+	
+	print "Data shapes:", freq.shape, time.shape, data.shape
+	
 	
 	#
 	# Sort the data by frequency
 	#
 	order = numpy.argsort(freq)
 	freq = numpy.take(freq, order)
-	time = numpy.take(time, order)
+	time = numpy.take(time, order, axis=0)
 	data = numpy.take(data, order, axis=0)
+	
+	# 
+	# Find the fringe stopping averaging times
+	#
+	l50 = numpy.where( (freq >= 30e6) & (freq < 50e6) )[0]
+	l60 = numpy.where( (freq >= 50e6) & (freq < 60e6) )[0]
+	l80 = numpy.where( (freq >= 60e6) & (freq < 80e6) )[0]
+	
+	m50 = 1e6
+	for l in l50:
+		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
+		if len(good) < m50:
+			m50 = len(good)
+			
+	m60 = 1e6
+	for l in l60:
+		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
+		if len(good) < m60:
+			m60 = len(good)
+			
+	m80 = 1e6
+	for l in l80:
+		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
+		if len(good) < m80:
+			m80 = len(good)
+			
+	print "Minimum fringe stopping times:", m50*tInt, m60*tInt, m80*tInt
+	
 	
 	#
 	# Report on progress and data coverage
@@ -89,18 +215,95 @@ def main(args):
 	print "->", freq/1e6
 	
 	#
-	# Compute source positions/fringe stop
+	# Compute source positions/fringe stop and remove the source
 	#
+	print "Fringe stopping:"
+	pbar = ProgressBar(max=freq.size*520)
+
+	
 	for i in xrange(freq.size):
 		fq = freq[i]
-		jd = time[i]
 		
+		for j in xrange(data.shape[2]):
+			# Compute the times in seconds relative to the beginning
+			times  = time[i,:] - time[i,0]
+			times *= 24.0
+			times *= 3600.0
+			
+			# Compute the fringe rates across all time
+			fRate = [None,]*data.shape[1]
+			for k in xrange(data.shape[1]):
+				jd = time[i,k]
+				
+				try:
+					currDate = datetime.utcfromtimestamp(utcjd_to_unix(jd))
+				except ValueError:
+					pass
+				observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
+				refSrc.compute(observer)
 		
+				if j % 2 == 0:
+					fRate[k] = getFringeRate(antennas[j], antennas[refX], observer, refSrc, fq)
+				else:
+					fRate[k] = getFringeRate(antennas[j], antennas[refY], observer, refSrc, fq)
+		
+			# Create the basis rate and the residual rates
+			baseRate = fRate[0]
+			residRate = numpy.array(fRate) - baseRate
+		
+			#import pylab
+			#f = numpy.fft.fft(data[i,:,j])
+			#pylab.plot(numpy.abs(f))
+		
+			# Fringe stop to more the source of interest to the DC component
+			data[i,:,j] *= numpy.exp(-2j*numpy.pi* baseRate*(times - times[0]))
+			data[i,:,j] *= numpy.exp(-2j*numpy.pi*residRate*(times - times[0]))
+			
+			#f = numpy.fft.fft(data[i,:,j])
+			#pylab.plot(numpy.abs(f))
+			#pylab.show()
+			
+			# Calculate the geomtric delay term at the start of the data
+			jd = time[i,0]
+			
+			try:
+				currDate = datetime.utcfromtimestamp(utcjd_to_unix(jd))
+			except ValueError:
+				pass
+			observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
+			refSrc.compute(observer)
+			
+			az = refSrc.az
+			el = refSrc.alt
+			if j % 2 == 0:
+				gd = getGeoDelay(antennas[j], antennas[refX], az, el, Degrees=False)
+			else:
+				gd = getGeoDelay(antennas[j], antennas[refY], az, el, Degrees=False)
+			
+			# Remove the array geometry
+			data[i,:,j] *= numpy.exp(-2j*numpy.pi*fq*gd)
+			
+			pbar.inc()
+			sys.stdout.write("%s\r" % pbar.show())
+			sys.stdout.flush()
+	sys.stdout.write('\n')
+	
+	# Average down to remove other sources/the correlated sky
+	print time.shape, data.shape
+	time = time[:,0]
+	
+	data2 = numpy.zeros((data.shape[0], data.shape[2]), dtype=data.dtype)
+	for j in xrange(data2.shape[1]):
+		data2[l50,j] = data[l50,:m50,j].mean(axis=1)
+		data2[l60,j] = data[l60,:m60,j].mean(axis=1)
+		data2[l80,j] = data[l80,:m80,j].mean(axis=1)
+	data = data2
+	print time.shape, data.shape
 
 	#
 	# Save
 	#
-	numpy.savez('prepared-dat.npz', refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data, simPhase=simPhase)
+	numpy.savez('prepared-dat-stopped.npz', refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data)
 
 
 if __name__ == "__main__":

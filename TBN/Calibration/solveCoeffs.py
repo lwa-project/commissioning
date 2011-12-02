@@ -141,7 +141,10 @@ def main(args):
 			currDate = datetime.utcfromtimestamp(times[i])
 			observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
 		
-			fRate[i] = getFringeRate(antennas[l], antennas[refX], observer, refSrc, centralFreq)
+			if l % 2 == 0:
+				fRate[i] = getFringeRate(antennas[l], antennas[refX], observer, refSrc, centralFreq)
+			else:
+				fRate[i] = getFringeRate(antennas[l], antennas[refY], observer, refSrc, centralFreq)
 		
 		# Create the basis rate and the residual rates
 		baseRate = fRate[0]
