@@ -21,10 +21,15 @@ import numpy
 from lsl.common.stations import lwa1
 from lsl.reader import tbn
 from lsl.reader import errors
+from lsl.reader import drsu
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
 from matplotlib import pyplot as plt
+
+from collections import deque
+
+import fringe
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -37,19 +42,36 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
 
 
+def unitRead(fh, count=520, found={}):
+	for i in xrange(count):
+		frame = tbn.readFrame(fh)
+		
+		try:
+			found[frame.data.timeTag].append(frame)
+		except KeyError:
+			found[frame.data.timeTag] = []
+			found[frame.data.timeTag].append(frame)
+		
+	return found
+
+
 def main(args):
 	# The task at hand
-	filename = args[0]
+	device = args[0]
+	filename = args[1]
 	
 	# The station
 	observer = lwa1.getObserver()
 	antennas = lwa1.getAntennas()
 	
 	# The file's parameters
-	fh = open(filename, 'rb')
-	nFramesFile = os.path.getsize(filename) / tbn.FrameSize
-	srate = tbn.getSampleRate(fh)
+	tbnFile = drsu.getFileByName(device, filename)
+	tbnFile.open()
+	
+	nFramesFile =tbnFile.size / tbn.FrameSize
+	srate = tbn.getSampleRate(tbnFile.fh)
 	antpols = len(antennas)
+	tbnFile.seek(0)
 	
 	# Reference antenna
 	ref = 258
@@ -71,8 +93,8 @@ def main(args):
 	
 	# Read in the first frame and get the date/time of the first sample 
 	# of the frame.  This is needed to get the list of stands.
-	junkFrame = tbn.readFrame(fh)
-	fh.seek(-tbn.FrameSize, 1)
+	junkFrame = tbn.readFrame(tbnFile.fh)
+	tbnFile.fh.seek(-tbn.FrameSize, 1)
 	startFC = junkFrame.header.frameCount
 	centralFreq = junkFrame.getCentralFreq()
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
@@ -99,19 +121,14 @@ def main(args):
 	print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols)
 	print "Chunks: %i" % nChunks
 	
-	junkFrame = tbn.readFrame(fh)
-	while junkFrame.header.frameCount < startFC+3:
-		junkFrame = tbn.readFrame(fh)
-	fh.seek(-tbn.FrameSize, 1)
-	
 	# Create the FrameBuffer instance
 	buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
 	
 	# Create the phase average and times
 	LFFT = 512
 	times = numpy.zeros(nChunks, dtype=numpy.float64)
-	fullVis   = numpy.zeros((nChunks, antpols, LFFT), dtype=numpy.complex64)
 	simpleVis = numpy.zeros((nChunks, antpols), dtype=numpy.complex64)
+	centralFreqs = numpy.zeros(nChunks, dtype=numpy.float64)
 	
 	# Go!
 	k = 0
@@ -133,17 +150,24 @@ def main(args):
 		j = 0
 		fillsWork = framesWork / antpols
 		# Inner loop that actually reads the frames into the data array
+		done = False
 		while j < fillsWork:
-			try:
-				cFrame = tbn.readFrame(fh)
-				k = k + 1
-			except errors.eofError:
-				break
-			except errors.syncError:
-				#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
-				continue
+			cFrames = deque()
+			for l in xrange(520):
+				try:
+					cFrames.append( tbn.readFrame(tbnFile.fh) )
+					k = k + 1
+				except errors.eofError:
+					## Exit at the EOF
+					done = True
+					break
+				except errors.syncError:
+					#print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+					## Exit at the first sync error
+					done = True
+					break
 					
-			buffer.append(cFrame)
+			buffer.append(cFrames)
 			cFrames = buffer.get()
 
 			if cFrames is None:
@@ -159,6 +183,10 @@ def main(args):
 				# Save the time
 				if j == 0 and aStand == 0:
 					times[i] = cFrame.getTime()
+					centralFreqs[i] = cFrame.getCentralFreq()
+					if i > 0:
+						if centralFreqs[i] != centralFreqs[i-1]:
+							print "Frequency change from %.3f to %.3f MHz at chunk %i" % (centralFreqs[i-1]/1e6, centralFreqs[i]/1e6, i+1)
 				
 				data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
 				
@@ -167,30 +195,20 @@ def main(args):
 			
 			j += 1
 			
-		# Mask
-		#bad = numpy.where( numpy.abs(data) >= 90 )
-		#data[bad] *= 0.0
+			if done:
+				break
 		
-		# Simple correlation
-		for l in xrange(520):
-			if l % 2 == 0:
-				simpleVis[i,l] = (data[l,:]*data[refX,:].conj()).mean()
-			else:
-				simpleVis[i,l] = (data[l,:]*data[refY,:].conj()).mean()
+		# Time-domain blanking and cross-correlation with the outlier
+		simpleVis[i,:] = fringe.Simple(data, refX, refY, 90.0)
+	
+	tbnFile.close()
 	
 	# Save the data
 	try:
-		outname = filename.replace('.dat', '-vis.npz')
-		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreq=centralFreq, times=times, fullVis=fullVis, simpleVis=simpleVis)
+		outname = "%s-multi-vis.npz" % filename
+		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, simpleVis=simpleVis)
 	except:
 		pass
-	
-	# Plot the first 20
-	fig = plt.figure()
-	for i in xrange(20):
-		ax = fig.add_subplot(5, 4, i+1)
-		ax.plot(phase[:,i])
-	plt.show()
 
 
 if __name__ == "__main__":
