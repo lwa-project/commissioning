@@ -46,8 +46,6 @@ Options:
 -d, --duration              Number of seconds to calculate the waterfall for 
                             (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode and do not show the plots
--1, --freq1                 Center frequency of tuning 1 in MHz (default 0 for unknown)
--2, --freq2                 Center frequency of tuning 2 in MHz (default 0 for unknown)
 -l, --fft-length            Set FFT length (default = 4096)
 -c, --clip-level            FFT blanking clipping level in counts (default = 0, 
                             0 disables)
@@ -81,7 +79,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:1:2:c:e", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip"])
+		opts, args = getopt.getopt(args, "hqtbnl:o:s:a:d:c:e", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "output=", "skip=", "average=", "duration=", "clip-level=", "estimate-clip"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -101,10 +99,6 @@ def parseOptions(args):
 			config['window'] = numpy.hanning
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
-		elif opt in ('-1', '--freq1'):
-			config['freq1'] = float(value)*1e6
-		elif opt in ('-2', '--freq2'):
-			config['freq2'] = float(value)*1e6
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
@@ -207,8 +201,31 @@ def main(args):
 		nChunks = 1
 	nFrames = nFramesAvg*nChunks
 	
-	# Date
+	# Date & Central Frequnecy
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+	centralFreq1 = 0.0
+	centralFreq2 = 0.0
+	for i in xrange(4):
+		junkFrame = drx.readFrame(fh)
+		b,t,p = junkFrame.parseID()
+		if p == 0 and t == 1:
+			try:
+				centralFreq1 = junkFrame.getCentralFreq()
+			except AttributeError:
+				from lsl.common.dp import fS
+				centralFreq1 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
+		elif p == 0 and t == 2:
+			try:
+				centralFreq1 = junkFrame.getCentralFreq()
+			except AttributeError:
+				from lsl.common.dp import fS
+				centralFreq2 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
+		else:
+			pass
+	fh.seek(-4*drx.FrameSize, 1)
+	
+	config['freq1'] = centralFreq1
+	config['freq2'] = centralFreq2
 
 	# File summary
 	print "Filename: %s" % config['args'][0]
@@ -216,6 +233,7 @@ def main(args):
 	print "Beams: %i" % beams
 	print "Tune/Pols: %i %i %i %i" % tunepols
 	print "Sample Rate: %i Hz" % srate
+	print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
 	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
 	print "---"
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)

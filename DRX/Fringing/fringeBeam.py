@@ -25,11 +25,9 @@ from lsl.correlator import fx as fxc
 from matplotlib import pyplot as plt
 
 def main(args):
-	cFreq1 = float(args[0])*1e6
-	cFreq2 = float(args[1])*1e6
 	stand1 = 0
-	stand2 = int(args[2])
-	filename = args[3]
+	stand2 = int(args[0])
+	filename = args[1]
 	
 	# Build up the station
 	site = stations.lwa1
@@ -77,6 +75,28 @@ def main(args):
 		
 	tnom = junkFrame.header.timeOffset
 	tStart = junkFrame.getTime()
+	
+	# Get the DRX frequencies
+	cFreq1 = 0.0
+	cFreq2 = 0.0
+	for i in xrange(4):
+		junkFrame = drx.readFrame(fh)
+		b,t,p = junkFrame.parseID()
+		if p == 0 and t == 1:
+			try:
+				cFreq1 = junkFrame.getCentralFreq()
+			except AttributeError:
+				from lsl.common.dp import fS
+				cFreq1 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
+		elif p == 0 and t == 2:
+			try:
+				cFreq1 = junkFrame.getCentralFreq()
+			except AttributeError:
+				from lsl.common.dp import fS
+				cFreq2 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
+		else:
+			pass
+	fh.seek(-4*drx.FrameSize, 1)
 	
 	# Align the files as close as possible by the time tags and then make sure that
 	# the first frame processed is from tuning 1, pol 0.
