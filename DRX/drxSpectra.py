@@ -12,6 +12,7 @@ $LastChangedDate$
 import os
 import sys
 import math
+import ephem
 import numpy
 import getopt
 
