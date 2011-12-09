@@ -19,6 +19,7 @@ import getopt
 import lsl.reader.drx as drx
 import lsl.reader.errors as errors
 import lsl.correlator.fx as fxc
+from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
 import matplotlib.pyplot as plt
 
