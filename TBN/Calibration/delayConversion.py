@@ -14,9 +14,11 @@ import sys
 import numpy
 from matplotlib import pyplot as plt
 
+from lsl.common.stations import lwa1
+
 
 def main(args):
-	#orig = numpy.load('add-delay.npz')
+	antennas = lwa1.getAntennas()
 	
 	try:
 		filename = args[0]
@@ -41,6 +43,7 @@ def main(args):
 		if len(parts) == 3:
 			chi2 = float(parts[2])
 			if chi2 > 1.0:
+				print "Skipping %3i due to large (%6.3f) Chi2 [status=%i]" % (ant, chi2, antennas[ant].getStatus())
 				continue
 		
 		delays[ant].append( delay )
@@ -54,15 +57,14 @@ def main(args):
 	for i in xrange(520):
 		part = numpy.array(delays[i])
 		if part.size == 0:
-			print 'skipping', i
 			continue
 		delays2[i] = numpy.median(part)
 		delays3[i] = numpy.median(part)
-		print i, delays2[i], part.std()#, orig['delayDiffs'][i] - delays2[i]
+		print i, delays2[i], part.std()
 
-	suspect = numpy.where( numpy.abs(delays3) > 30e-9 )[0]
-	for i in suspect:
-		print i, delays3[i]*1e9
+	#suspect = numpy.where( numpy.abs(delays3) > 35e-9 )[0]
+	#for i in suspect:
+		#print i, delays3[i]*1e9
 
 	fig = plt.figure()
 	ax = fig.gca()
