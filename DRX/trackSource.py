@@ -102,7 +102,7 @@ def main(args):
 	## print " "
 	
 	# Build the source list
-	srcs = [ephem.Sun(),]
+	srcs = [ephem.Sun(), ephem.Jupiter(),]
 	for line in _srcs:
 		srcs.append( ephem.readdb(line) )
 		
