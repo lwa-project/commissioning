@@ -83,7 +83,15 @@ def findLimits(data):
 	Returns a two-element list of the lowest and highest values.
 	"""
 
-	return [to_dB(data).min(), to_dB(data).max()]
+	dMin = to_dB(data).min()
+	if not numpy.isfinite(dMin):
+		dMin = 0
+	
+	dMax = to_dB(data).max()
+	if not numpy.isfinite(dMax):
+		dMax = dMin + 1
+	
+	return [dMin, dMax]
 
 
 class Waterfall_GUI(object):
