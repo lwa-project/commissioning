@@ -69,7 +69,7 @@ def main(args):
 				cFreq1 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
 		elif p == 0 and t == 2:
 			try:
-				cFreq1 = junkFrame.getCentralFreq()
+				cFreq2 = junkFrame.getCentralFreq()
 			except AttributeError:
 				from lsl.common.dp import fS
 				cFreq2 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
