@@ -96,7 +96,11 @@ def main(args):
 	junkFrame = tbn.readFrame(tbnFile.fh)
 	tbnFile.fh.seek(-tbn.FrameSize, 1)
 	startFC = junkFrame.header.frameCount
-	centralFreq = junkFrame.getCentralFreq()
+	try:
+		centralFreq = junkFrame.getCentralFreq()
+	except AttributeError:
+		from lsl.common.dp import fS
+		centralFreq = fS * junkFrame.header.secondsCount / 2**32
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	
 	observer.date = beginDate
@@ -183,7 +187,10 @@ def main(args):
 				# Save the time
 				if j == 0 and aStand == 0:
 					times[i] = cFrame.getTime()
-					centralFreqs[i] = cFrame.getCentralFreq()
+					try:
+						centralFreqs[i] = junkFrame.getCentralFreq()
+					except AttributeError:
+						centralFreqs[i] = fS * junkFrame.header.secondsCount / 2**32
 					if i > 0:
 						if centralFreqs[i] != centralFreqs[i-1]:
 							print "Frequency change from %.3f to %.3f MHz at chunk %i" % (centralFreqs[i-1]/1e6, centralFreqs[i]/1e6, i+1)

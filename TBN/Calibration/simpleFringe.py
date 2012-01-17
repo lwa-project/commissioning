@@ -71,7 +71,11 @@ def main(args):
 	junkFrame = tbn.readFrame(fh)
 	fh.seek(-tbn.FrameSize, 1)
 	startFC = junkFrame.header.frameCount
-	centralFreq = junkFrame.getCentralFreq()
+	try:
+		centralFreq = junkFrame.getCentralFreq()
+	except AttributeError:
+		from lsl.common.dp import fS
+		centralFreq = fS * junkFrame.header.secondsCount / 2**32
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	
 	observer.date = beginDate
@@ -181,13 +185,6 @@ def main(args):
 		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreq=centralFreq, times=times, fullVis=fullVis, simpleVis=simpleVis)
 	except:
 		pass
-	
-	# Plot the first 20
-	fig = plt.figure()
-	for i in xrange(20):
-		ax = fig.add_subplot(5, 4, i+1)
-		ax.plot(phase[:,i])
-	plt.show()
 
 
 if __name__ == "__main__":
