@@ -39,10 +39,15 @@ Short script to read in a shelter.txt file (log of shelter temperature with each
 line consisting of a UNIX time stamp and a shelter temperature) and plot all of 
 the avaliable data.
 
-plotBoardTemp.py
----------------
+plotBoardTemps.py
+-----------------
 Short script to read in a temp.txt file (log of DP FPGA temperatures) and plot 
 all of the avaliable data.
+
+plotChassisTemps.py
+-------------------
+Script to plot colormaps of the FPGA temperatures as a function of time, chassis, 
+and physical slot.
 
 TBW
 ---
