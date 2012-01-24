@@ -41,6 +41,9 @@ def main(args):
 
 	# Split out the time and interperate it
 	data = numpy.array(data)
+	order = numpy.argsort(data[:,0])
+	data = data[order,:]
+	
 	dates = [MST7MDT.localize(datetime.fromtimestamp(t)) for t in data[:,0]]
 	print 'File spans %s to %s with %i measurements' % (dates[0], dates[-1], len(dates))
 	
