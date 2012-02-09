@@ -30,12 +30,21 @@ def main(args):
 		sys.exit(1)
 	
 	data = []
+	inF = True
 	for filename in args:
 		# Read in the data
 		fh = open(filename)
 		for line in fh:
 			line = line.replace('\n', '')
 			fields = line.split()
+			if len(fields) == 1:
+				# What's this for?  There are two types of shelter logs:  Ones
+				# from polling MCS and writing to a file and ones produced by
+				# SHL MCS as part of its operation.  The first kind is space
+				# seperated and the second is comma seperated.  The second kind
+				# is also degrees C, rather than degrees F.
+				inF = False
+				fields = line.split(',')
 			fields = [float(f) for f in fields]
 			data.append( fields )
 
@@ -46,6 +55,10 @@ def main(args):
 	
 	dates = [MST7MDT.localize(datetime.fromtimestamp(t)) for t in data[:,0]]
 	print 'File spans %s to %s with %i measurements' % (dates[0], dates[-1], len(dates))
+	
+	# Convert to degree F if needed
+	if not inF:
+		data[:,1] = data[:,1] * 9 / 5 + 32
 	
 	# Plot
 	fig = plt.figure()

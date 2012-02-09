@@ -147,7 +147,7 @@ def main(args):
 	#  (2) at az, el - 15 degrees
 	#  (3) at the transit location of Cyg A
 	dataDict = numpy.load(clnfile)
-	cln = numpy.exp(2j*numpy.pi*centralFreq*dataDict['delay'])
+	cln = dataDict['cln']
 	aln1 = []
 	aln2 = []
 	aln3 = []

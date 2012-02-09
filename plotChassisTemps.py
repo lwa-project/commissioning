@@ -97,10 +97,12 @@ def main(args):
 	tempMax2  = numpy.zeros((data.shape[0], 14))
 	for i in xrange(boardMean.shape[1]):
 		if i < 14:
+			# lwa16 is board #1 and it is in the bottom chassis
 			p = LPmapping[i+1]
 			tempMean1[:,p-1] = boardMean[:,i]
 			tempMax1[:,p-1] = boardMax[:,i-1]
 		else:
+			# lwa34 is board #15 and it is in the top chassis
 			p = LPmapping[i-13]
 			tempMean2[:,p-1] = boardMean[:,i]
 			tempMax2[:,p-1] = boardMax[:,i]
