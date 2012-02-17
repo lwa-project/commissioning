@@ -304,7 +304,7 @@ class Waterfall_GUI(object):
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
-		self.ax1b.plot(self.drift[:,self.index], self.time, linestyle=' ', marker='x')
+		self.ax1b.plot(to_dB(self.drift[:,self.index]), self.time, linestyle=' ', marker='x')
 		self.ax1b.set_ylim([self.time[0], self.time[-1]])
 		self.ax1b.set_xlabel('Total Power [arb. dB]')
 		self.ax1b.set_ylabel('Elapsed Time [s]')
@@ -553,13 +553,13 @@ class Waterfall_GUI(object):
 			upper = dataY + 200
 			upper = self.drift.shape[0]-1 if upper > self.drift.shape[0]-1 else upper
 			
-			d =  ((clickX - self.drift.data[lower:upper,self.index])/rangeX)**2
+			d =  ((clickX - to_dB(self.drift.data[lower:upper,self.index]))/rangeX)**2
 			d += ((clickY - self.time[lower:upper])/rangeY)**2
 			d = numpy.sqrt(d)
 			best = numpy.where( d == d.min() )[0][0] + lower
 			bestD = d[best - lower]
 			
-			print "Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, self.drift.data[best, self.index], self.time[best])
+			print "Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, to_dB(self.drift.data[best, self.index]), self.time[best])
 			
 			if event.button == 1:
 				self.drawSpectrum(clickY)
@@ -1786,7 +1786,7 @@ class DriftCurveDisplay(wx.Frame):
 		
 		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
 		
-		self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
+		self.ax1.plot(self.parent.data.time, to_dB(self.drift[:,self.parent.data.index]), linestyle='-', marker='x')
 		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])
 		self.ax1.set_xlabel('Elapsed Time [s]')
 		self.ax1.set_ylabel('Total Power [arb. dB]')

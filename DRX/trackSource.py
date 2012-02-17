@@ -182,7 +182,7 @@ done
 ## Send BAM commands
 tString=`date `
 echo "Sending BAM commands for step #%i at $tString"
-""" % ((s+1), tStart.astimezone(_MST), source, pointingAz*180/numpy.pi, pointingEl*180/numpy.pi, tStart.astimezone(_MST).strftime('%s'), (s+1))
+""" % ((s+1), tStart.astimezone(_MST), source, pointingAz, pointingEl, tStart.astimezone(_MST).strftime('%s'), (s+1))
 
 		# Output script command - BAM commands
 		for beam in beamsToUse:
