@@ -49,3 +49,11 @@ smGUI.py
 GUI that interfaces with a NPZ file created by stationMaster.py that makes looking for
 problems with dipoles/mappings/etc. a point-and-click exercise.
 
+rfiCheck.py
+-----------
+Script to take a single TBW capture and create a RFI-centered HDF5 file for stands 1, 10, 54, 
+248, 251, and 258 (the outlier).  These stands correspond to the four corners of the array, the
+center, and the outlier.  The HDF5 contains values for the spectral kurtosis estimated from
+the data and various statistics about the timeseries (mean, std. dev., percentiles, etc.)
+
+
