@@ -329,7 +329,6 @@ def main(args):
 				polX.attrs['ts%02i' % v] = tsPct[2*l][i]
 				polY.attrs['ts%02i' % v] = tsPct[2*l+1][i]
 			
-			
 			polX['spectrum'] = masterSpectra[2*l,:]
 			polX['spectrum'].attrs['axis0'] = 'frequency'
 			polY['spectrum'] = masterSpectra[2*l+1,:]
@@ -351,8 +350,8 @@ def main(args):
 			
 			ax2.plot(freq/1e6, k[l,:], label='Stand %i, Pol %i' % (ant.stand.id, ant.pol+l%2))
 			
-		ax2.hlines(kl, freq[0]/1e6, freq[-1]/1e6, linestyle=':', label='Kurtosis Limit 3$\sigma$')
-		ax2.hlines(kh, freq[0]/1e6, freq[-1]/1e6, linestyle=':', label='Kurtosis Limit 3$\sigma$')
+		ax2.hlines(kl, freq[0]/1e6, freq[-1]/1e6, linestyle=':', label='Kurtosis Limit 4$\sigma$')
+		ax2.hlines(kh, freq[0]/1e6, freq[-1]/1e6, linestyle=':', label='Kurtosis Limit 4$\sigma$')
 		
 		ax1.set_xlabel('Frequency [MHz]')
 		ax1.set_ylabel('PSD [arb. dB/RBW]')
@@ -370,3 +369,4 @@ def main(args):
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
+	

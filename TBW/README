@@ -56,4 +56,8 @@ Script to take a single TBW capture and create a RFI-centered HDF5 file for stan
 center, and the outlier.  The HDF5 contains values for the spectral kurtosis estimated from
 the data and various statistics about the timeseries (mean, std. dev., percentiles, etc.)
 
+plotRFI.py
+----------
+Script to take the output of rfiCheck.py and make a series of plots to look at.
+
 
