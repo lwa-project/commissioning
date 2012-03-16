@@ -232,3 +232,271 @@ drspec2hdf.py
 Simple script to convert a binary DR spectrometer file into an HDF5 file that
 is compatiable with the above HDF5 organization.
 
+
+drxWaterfallStokes.py
+---------------------
+Similar to drxWaterfall.py, but computes all four Stokes parameters.  The HDF5 
+file structure, via h5dump, is:
+
+HDF5 {
+GROUP "/" {
+   ATTRIBUTE "Beam" {
+      DATATYPE  H5T_STD_I64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "RBW" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "RBW_Units" {
+      DATATYPE  H5T_STRING {
+            STRSIZE 2;
+            STRPAD H5T_STR_NULLPAD;
+            CSET H5T_CSET_ASCII;
+            CTYPE H5T_C_S1;
+         }
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "sampleRate" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "sampleRate_Units" {
+      DATATYPE  H5T_STRING {
+            STRSIZE 9;
+            STRPAD H5T_STR_NULLPAD;
+            CSET H5T_CSET_ASCII;
+            CTYPE H5T_C_S1;
+         }
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "tInt" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SCALAR
+   }
+   ATTRIBUTE "tInt_Units" {
+      DATATYPE  H5T_STRING {
+            STRSIZE 1;
+            STRPAD H5T_STR_NULLPAD;
+            CSET H5T_CSET_ASCII;
+            CTYPE H5T_C_S1;
+         }
+      DATASPACE  SCALAR
+   }
+   GROUP "Tuning1" {
+      DATASET "I" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "Q" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "U" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "V" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "freq" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 4095 ) / ( 4095 ) }
+         ATTRIBUTE "Units" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 2;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+   }
+   GROUP "Tuning2" {
+      DATASET "I" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "Q" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "U" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "V" {
+         DATATYPE  H5T_IEEE_F32LE
+         DATASPACE  SIMPLE { ( 3600, 4095 ) / ( 3600, 4095 ) }
+         ATTRIBUTE "axis0" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 4;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+         ATTRIBUTE "axis1" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 9;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+      DATASET "freq" {
+         DATATYPE  H5T_IEEE_F64LE
+         DATASPACE  SIMPLE { ( 4095 ) / ( 4095 ) }
+         ATTRIBUTE "Units" {
+            DATATYPE  H5T_STRING {
+                  STRSIZE 2;
+                  STRPAD H5T_STR_NULLPAD;
+                  CSET H5T_CSET_ASCII;
+                  CTYPE H5T_C_S1;
+               }
+            DATASPACE  SCALAR
+         }
+      }
+   }
+   DATASET "time" {
+      DATATYPE  H5T_IEEE_F64LE
+      DATASPACE  SIMPLE { ( 3600 ) / ( 3600 ) }
+   }
+}
+}
+
+plotHDFStokes.py
+----------------
+This script is to plotHDF.py as drxWaterfallStokes.py is to drxWaterfall.py.
+
