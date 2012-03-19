@@ -94,8 +94,10 @@ def main(args):
 	
 	# Set the station
 	station = stations.lwa2
-	antennas = station.getAntennas()
-	antennas = antennas[0::2]
+	antennas = []
+	for a in station.getAntennas():
+		if a.digitizer != 0:
+			antennas.append(a)
 
 	fh = open(config['args'][0], "rb")
 	nFramesFile = os.path.getsize(config['args'][0]) / tbn.FrameSize

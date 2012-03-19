@@ -150,8 +150,10 @@ def main(args):
 		station = stations.parseSSMIF(config['SSMIF'])
 	else:
 		station = stations.lwa2
-	antennas = station.getAntennas()
-	antennas = antennas[0::2]
+	antennas = []
+	for a in station.getAntennas():
+		if a.digitizer != 0:
+			antennas.append(a)
 
 	# Length of the FFT
 	LFFT = config['LFFT']
