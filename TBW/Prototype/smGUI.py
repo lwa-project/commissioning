@@ -150,8 +150,7 @@ class TBW_GUI(object):
 			ssmifContents = dataDict['ssmifContents']
 			if ssmifContents.shape == ():
 				station = stations.lwa2
-				self.antennas = station.getAntennas()
-				self.antennas = self.antennas[0::2]
+				antennas = station.getAntennas()
 			else:
 				fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
 				fh = open(tempSSMIF, 'w')
@@ -160,13 +159,17 @@ class TBW_GUI(object):
 				fh.close()
 				
 				station = stations.parseSSMIF(tempSSMIF)
-				self.antennas = station.getAntennas()
+				antennas = station.getAntennas()
 				os.unlink(tempSSMIF)
 			
 		except KeyError:
 			station = stations.lwa2
-			self.antennas = station.getAntennas()
-			self.antennas = self.antennas[0::2]
+			antennas = station.getAntennas()
+		self.antennas = []
+		for a in antennas:
+			if a.digitizer != 0:
+				self.antennas.append(a)
+		del(antennas)
 
 		# Set default colobars
 		self.limits = []
