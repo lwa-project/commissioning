@@ -299,20 +299,20 @@ class TBW_GUI(object):
 		self.ax1.scatter(standPos[:,0], standPos[:,1]-0.8, c=specDiff[1::2], s=45.0, alpha=0.80, marker='v')
 
 		## Add the fence as a dashed line
-		self.ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
-				[59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
+		self.ax1.plot([-44.315, 72.150, 44.077, -72.543, -44.315], 
+				[-72.522, -44.277, 72.191, 43.972, -72.522], linestyle='--', color='k')
 
-		## Add the shelter
-		self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
-				[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
+		### Add the shelter
+		#self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
+				#[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
 
 		## Set the limits to just zoom in on the main station and the plot title
 		if self.date is None:
 			self.ax1.set_title("Filename: '%s'" % self.filename)
 		else:
 			self.ax1.set_title('Date: UT %s' % self.date)
-		self.ax1.set_xlim([-65, 65])
-		self.ax1.set_ylim([-65, 65])
+		self.ax1.set_xlim([-75, 75])
+		self.ax1.set_ylim([-75, 75])
 
 		## Set the color bar, its title, and the axis labels
 		cm = self.frame.figure1.colorbar(m, ax=self.ax1)
@@ -397,8 +397,8 @@ class TBW_GUI(object):
 		self.oldMark = self.ax1.plot([xy[0], xy[0]], [xy[1], xy[1]], linestyle=' ', marker='o', ms=15.0, mfc='None', color='k')
 		
 		## Set the limits to just zoom in on the main stations
-		self.ax1.set_xlim([-65, 65])
-		self.ax1.set_ylim([-65, 65])
+		self.ax1.set_xlim([-75, 75])
+		self.ax1.set_ylim([-75, 75])
 
 
 		self.frame.canvas1.draw()
@@ -863,11 +863,10 @@ Status: %i
 		
 		if self.data.bestX != -1:
 			std = self.data.antennas[self.data.bestX-1].stand
-			shlDist = numpy.sqrt( (std.x - 56.965)**2 + (std.y - 48.908)**2 )
 			
 			fenDistA = numpy.zeros(4)
 			k = 0
-			for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752)]):
+			for p1,p2 in zip([(-44.315,-72.522), (72.150,-44.277), (44.077,72.191), (-72.543,43.972)], [(72.150,-44.277), (44.077,72.191), (-72.543,43.972), (-44.315,-72.522)]):
 				x1 = p1[0]
 				y1 = p1[1]
 				x2 = p2[0]
@@ -888,7 +887,7 @@ Status: %i
 			# Catch things outside the fence
 			if abs(std.x) > 60 or abs(std.y) > 60:
 				k = 0
-				for p1 in [(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)]:
+				for p1 in [(-44.315,-72.522), (72.150,-44.277), (44.077,72.191), (-72.543,43.972)]:
 					x1 = p1[0]
 					y1 = p1[1]
 					
@@ -907,9 +906,8 @@ x = %.3f m
 y = %.3f m
 z = %.3f m
 
-Shelter Distance: %.3f m
 Fence Distance: %.3f m
-""" % (std.id, std.x, std.y, std.z, shlDist, fenDist)
+""" % (std.id, std.x, std.y, std.z, fenDist)
 			
 			box = wx.MessageDialog(self, outString, "Stand Detail")
 			box.ShowModal()

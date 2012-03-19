@@ -331,14 +331,14 @@ def main(args):
 		ax1 = fig.add_subplot(1, 2, 1)
 		ax1.scatter(standPos[:,0], standPos[:,1], c=specDiff[0::2], s=40.0, alpha=0.50)
 		## Add the fence as a dashed line
-		ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
-				[59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
-		## Add the shelter
-		ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
-				[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
+		ax1.plot([-44.315, 72.150, 44.077, -72.543, -44.315], 
+				[-72.522, -44.277, 72.191, 43.972, -72.522], linestyle='--', color='k')
+		### Add the shelter
+		#ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
+				#[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
 		## Set the limits to just zoom in on the main stations
-		ax1.set_xlim([-65, 65])
-		ax1.set_ylim([-65, 65])		
+		ax1.set_xlim([-75, 75])
+		ax1.set_ylim([-75, 75])		
 		
 		ax2 = fig.add_subplot(1, 2, 2)
 		ax2.plot(freq/1e6, numpy.log10(specTemplate)*10, alpha=0.50)
