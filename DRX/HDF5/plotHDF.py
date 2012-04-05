@@ -908,17 +908,27 @@ class MainWindow(wx.Frame):
 			tuning1 = h.get('Tuning1', None)
 			tuning2 = h.get('Tuning2', None)
 			
-			mask1 = tuning1.create_group('Mask')
-			mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
-			mask1X = self.data.spec.mask[:,0,:]
-			mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
-			mask1Y = self.data.spec.mask[:,1,:]
+			mask1 = tuning1.get('Mask', None)
+			if mask1 is None:
+				mask1 = tuning1.create_group('Mask')
+				mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
+				mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
+			else:
+				mask1X = mask1.get('X', None)
+				mask1Y = mask1.get('Y', None)
+			mask1X[:,:] = self.data.spec.mask[:,0,:]
+			mask1Y[:,:] = self.data.spec.mask[:,1,:]
 			
-			mask2 = tuning2.create_group('Mask')
-			mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-			mask2X = self.data.spec.mask[:,2,:]
-			mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
-			mask2Y = self.data.spec.mask[:,3,:]
+			mask2 = tuning2.get('Mask', None)
+			if mask2 is None:
+				mask2 = tuning2.create_group('Mask')
+				mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
+				mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
+			else:
+				mask2X = mask2.get('X', None)
+				mask2Y = mask2.get('Y', None)
+			mask2X[:,:] = self.data.spec.mask[:,2,:]
+			mask2Y[:,:] = self.data.spec.mask[:,3,:]
 			
 			h.close()
 
@@ -947,17 +957,27 @@ class MainWindow(wx.Frame):
 			tuning1 = hNew.get('Tuning1', None)
 			tuning2 = hNew.get('Tuning2', None)
 			
-			mask1 = tuning1.create_group('Mask')
-			mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
-			mask1X = self.data.spec.mask[:,0,:]
-			mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
-			mask1Y = self.data.spec.mask[:,1,:]
+			mask1 = tuning1.get('Mask', None)
+			if mask1 is None:
+				mask1 = tuning1.create_group('Mask')
+				mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
+				mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
+			else:
+				mask1X = mask1.get('X', None)
+				mask1Y = mask1.get('Y', None)
+			mask1X[:,:] = self.data.spec.mask[:,0,:]
+			mask1Y[:,:] = self.data.spec.mask[:,1,:]
 			
-			mask2 = tuning2.create_group('Mask')
-			mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-			mask2X = self.data.spec.mask[:,2,:]
-			mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
-			mask2Y = self.data.spec.mask[:,3,:]
+			mask2 = tuning2.get('Mask', None)
+			if mask2 is None:
+				mask2 = tuning2.create_group('Mask')
+				mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
+				mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
+			else:
+				mask2X = mask2.get('X', None)
+				mask2Y = mask2.get('Y', None)
+			mask2X[:,:] = self.data.spec.mask[:,2,:]
+			mask2Y[:,:] = self.data.spec.mask[:,3,:]
 			
 			hNew.close()
 			

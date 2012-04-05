@@ -967,17 +967,39 @@ class MainWindow(wx.Frame):
 			tuning1 = h.get('Tuning1', None)
 			tuning2 = h.get('Tuning2', None)
 			
-			mask1 = tuning1.create_group('Mask')
-			mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
-			mask1X = self.data.spec.mask[:,0,:]
-			mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
-			mask1Y = self.data.spec.mask[:,1,:]
+			mask1 = tuning1.get('Mask', None)
+			if mask1 is None:
+				mask1 = tuning1.create_group('Mask')
+				mask1I = mask1.create_dataset('I', tuning1['I'].shape, 'bool', chunks=True)
+				mask1Q = mask1.create_dataset('Q', tuning1['Q'].shape, 'bool', chunks=True)
+				mask1U = mask1.create_dataset('U', tuning1['U'].shape, 'bool', chunks=True)
+				mask1V = mask1.create_dataset('V', tuning1['V'].shape, 'bool', chunks=True)
+			else:
+				mask1I = mask1.get('I', None)
+				mask1Q = mask1.get('Q', None)
+				mask1U = mask1.get('U', None)
+				mask1V = mask1.get('V', None)
+			mask1I[:,:] = self.data.spec.mask[:,0,:]
+			mask1Q[:,:] = self.data.spec.mask[:,1,:]
+			mask1U[:,:] = self.data.spec.mask[:,2,:]
+			mask1V[:,:] = self.data.spec.mask[:,3,:]
 			
-			mask2 = tuning2.create_group('Mask')
-			mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-			mask2X = self.data.spec.mask[:,2,:]
-			mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
-			mask2Y = self.data.spec.mask[:,3,:]
+			mask2 = tuning2.get('Mask', None)
+			if mask2 is None:
+				mask2 = tuning2.create_group('Mask')
+				mask2I = mask2.create_dataset('I', tuning2['I'].shape, 'bool', chunks=True)
+				mask2Q = mask2.create_dataset('Q', tuning2['Q'].shape, 'bool', chunks=True)
+				mask2U = mask2.create_dataset('U', tuning2['U'].shape, 'bool', chunks=True)
+				mask2V = mask2.create_dataset('V', tuning2['V'].shape, 'bool', chunks=True)
+			else:
+				mask2I = mask2.get('I', None)
+				mask2Q = mask2.get('Q', None)
+				mask2U = mask2.get('U', None)
+				mask2V = mask2.get('V', None)
+			mask2I[:,:] = self.data.spec.mask[:,4,:]			
+			mask2Q[:,:] = self.data.spec.mask[:,5,:]
+			mask2U[:,:] = self.data.spec.mask[:,6,:]
+			mask2V[:,:] = self.data.spec.mask[:,7,:]
 			
 			h.close()
 
@@ -1006,17 +1028,41 @@ class MainWindow(wx.Frame):
 			tuning1 = hNew.get('Tuning1', None)
 			tuning2 = hNew.get('Tuning2', None)
 			
-			mask1 = tuning1.create_group('Mask')
-			mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
-			mask1X = self.data.spec.mask[:,0,:]
-			mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
-			mask1Y = self.data.spec.mask[:,1,:]
+			mask1 = tuning1.get('Mask', None)
+			if mask1 is None:
+				mask1  = tuning1.create_group('Mask')
+				mask1I = mask1.create_dataset('I', tuning1['I'].shape, 'bool', chunks=True)
+				mask1Q = mask1.create_dataset('Q', tuning1['Q'].shape, 'bool', chunks=True)
+				mask1U = mask1.create_dataset('U', tuning1['U'].shape, 'bool', chunks=True)
+				mask1V = mask1.create_dataset('V', tuning1['V'].shape, 'bool', chunks=True)
+			else:
+				mask1I = mask1.get('I', None)
+				mask1Q = mask1.get('Q', None)
+				mask1U = mask1.get('U', None)
+				mask1V = mask1.get('V', None)
+			mask1I[:,:] = self.data.spec.mask[:,0,:]
+			mask1Q[:,:] = self.data.spec.mask[:,1,:]
+			mask1U[:,:] = self.data.spec.mask[:,2,:]
+			mask1V[:,:] = self.data.spec.mask[:,3,:]
 			
-			mask2 = tuning2.create_group('Mask')
-			mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-			mask2X = self.data.spec.mask[:,2,:]
-			mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
-			mask2Y = self.data.spec.mask[:,3,:]
+			mask2 = tuning2.get('Mask', None)
+			if mask2 is None:
+				mask2  = tuning2.create_group('Mask')
+				mask2I = mask2.create_dataset('I', tuning2['I'].shape, 'bool', chunks=True)
+				mask2Q = mask2.create_dataset('Q', tuning2['Q'].shape, 'bool', chunks=True)
+				mask2U = mask2.create_dataset('U', tuning2['U'].shape, 'bool', chunks=True)
+				mask2V = mask2.create_dataset('V', tuning2['V'].shape, 'bool', chunks=True)
+			else:
+				mask2I = mask2.get('I', None)
+				mask2Q = mask2.get('Q', None)
+				mask2U = mask2.get('U', None)
+				mask2V = mask2.get('V', None)
+			mask2I[:,:] = self.data.spec.mask[:,4,:]
+			mask2Q[:,:] = self.data.spec.mask[:,5,:]
+			mask2U[:,:] = self.data.spec.mask[:,6,:]
+			mask2V[:,:] = self.data.spec.mask[:,7,:]
+
+			print self.data.spec.mask.max(), mask1I.max()
 			
 			hNew.close()
 			
