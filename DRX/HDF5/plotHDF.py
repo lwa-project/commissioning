@@ -14,6 +14,7 @@ import sys
 import h5py
 import time
 import numpy
+import getopt
 import subprocess
 from datetime import datetime
 from multiprocessing import Pool
@@ -22,6 +23,7 @@ from lsl.common.dp import fS
 from lsl.common import stations
 from lsl.misc.mathutil import to_dB, from_dB, savitzky_golay
 from lsl.statistics import robust
+from lsl.statistics.kurtosis import spectralPower, std as skStd
 
 import wx
 import matplotlib
@@ -32,42 +34,56 @@ from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCan
 from matplotlib.figure import Figure
 
 
-def spectralKurtosis(x, N=1):
-	"""
-	Compute the spectral kurtosis for a set of power measurments averaged
-	over N FFTs.  For a distribution consistent with Gaussian noise, this
-	value should be ~1.
-	"""
-	
-	M = len(x)
-	
-	k = M*(x**2).sum()/(x.sum())**2 - 1.0
-	k *= (M*N+1)/(M-1)
-	
-	return k
+def usage(exitCode=None):
+	print """plotHDF.py - Read in a HDF5 waterfall file and plot it interactively.
+
+Usage: plotHDF.py [OPTIONS] file
+
+Options:
+-h, --help                  Display this help information
+-s, --skip                  Skip the specified number of seconds at the beginning
+                            of the file (default = 0)
+-d, --duration              Number of seconds to display
+                            (default = -1 to display all of the file)
+"""
+
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
 
 
-def skStd(M, N=1):
-	"""
-	Return the expected standard deviation of the spectral kurtosis for M points 
-	each composed of N measurments.
+def parseOptions(args):
+	config = {}
+	# Command line flags - default values
+	config['offset'] = 0.0
+	config['duration'] = -1.0
+	config['args'] = []
+
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "hs:d:", ["help", "skip=", "duration="])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
 	
-	.. note::
-		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.std()
-	"""
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-s', '--skip'):
+			config['offset'] = float(value)
+		elif opt in ('-d', '--duration'):
+			config['duration'] = float(value)
+		else:
+			assert False
 	
-	return numpy.sqrt( skVar(M, N) )
+	# Add in arguments
+	config['args'] = args
 
-
-def skVar(M, N=1):
-	"""
-	Return the expected variance (second central moment) of the spectral kurtosis 
-	for M points each composed of N measurments.
-	.. note::
-		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.var()
-	"""
-
-	return 2.0*N*(N+1)*M**2/ float( (M-1)*(M*N+3)*(M*N+2) )
+	# Return configuration
+	return config
 
 
 def findMean(data):
@@ -144,27 +160,37 @@ class Waterfall_GUI(object):
 		tuning1 = h.get('Tuning1', None)
 		tuning2 = h.get('Tuning2', None)
 		
+		# Figure out the selection process
+		self.iOffset = int(round(self.frame.offset / self.tInt))
+		if self.frame.duration < 0:
+			self.iDuration = self.time.size - self.iOffset
+		else:
+			self.iDuration = int(round(self.frame.duration / self.tInt))
+		selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
+		
+		self.time = self.time[:self.iDuration]
+		
 		self.freq1 = numpy.zeros(tuning1['freq'].shape, dtype=tuning1['freq'].dtype)
 		tuning1['freq'].read_direct(self.freq1)
 		self.freq2 = numpy.zeros(tuning2['freq'].shape, dtype=tuning2['freq'].dtype)
 		tuning2['freq'].read_direct(self.freq2)
 				
-		self.spec = numpy.empty((self.time.size, 4, self.freq1.size), dtype=numpy.float32)
+		self.spec = numpy.empty((self.iDuration, 4, self.freq1.size), dtype=numpy.float32)
 		
-		part = numpy.empty(tuning1['X'].shape, dtype=tuning1['X'].dtype)
-		tuning1['X'].read_direct(part)
+		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['X'].dtype)
+		tuning1['X'].read_direct(part, source_sel=selection)
 		self.spec[:,0,:] = part.astype(numpy.float32)
 		
-		part = numpy.empty(tuning1['Y'].shape, dtype=tuning1['Y'].dtype)
-		tuning1['Y'].read_direct(part)
+		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['Y'].dtype)
+		tuning1['Y'].read_direct(part, selection)
 		self.spec[:,1,:] = part.astype(numpy.float32)
 		
-		part = numpy.empty(tuning2['X'].shape, dtype=tuning2['X'].dtype)
-		tuning2['X'].read_direct(part)
+		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['X'].dtype)
+		tuning2['X'].read_direct(part, selection)
 		self.spec[:,2,:] = part.astype(numpy.float32)
 		
-		part = numpy.empty(tuning2['Y'].shape, dtype=tuning2['Y'].dtype)
-		tuning2['Y'].read_direct(part)
+		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['Y'].dtype)
+		tuning2['Y'].read_direct(part, selection)
 		self.spec[:,3,:] = part.astype(numpy.float32)
 		
 		del part
@@ -175,23 +201,23 @@ class Waterfall_GUI(object):
 		mask = numpy.zeros(self.spec.shape, dtype=numpy.bool)
 		
 		if mask1 is not None:
-			part = numpy.empty(mask1['X'].shape, dtype=mask1['X'].dtype)
-			mask1['X'].read_direct(part)
+			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['X'].dtype)
+			mask1['X'].read_direct(part, selection)
 			mask[:,0,:] = part.astype(numpy.bool)
 			
-			part = numpy.empty(mask1['Y'].shape, dtype=mask1['Y'].dtype)
-			mask1['Y'].read_direct(part)
+			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['Y'].dtype)
+			mask1['Y'].read_direct(part, selection)
 			mask[:,1,:] = part.astype(numpy.bool)
 			
 			del part
 		
 		if mask2 is not None:
-			part = numpy.empty(mask2['X'].shape, dtype=mask2['X'].dtype)
-			mask2['X'].read_direct(part)
+			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['X'].dtype)
+			mask2['X'].read_direct(part, selection)
 			mask[:,2,:] = part.astype(numpy.bool)
 			
-			part = numpy.empty(mask2['Y'].shape, dtype=mask2['Y'].dtype)
-			mask2['Y'].read_direct(part)
+			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['Y'].dtype)
+			mask2['Y'].read_direct(part, selection)
 			mask[:,3,:] = part.astype(numpy.bool)
 			
 			del part
@@ -335,7 +361,7 @@ class Waterfall_GUI(object):
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1a.axis('auto')
 		self.ax1a.set_xlabel('Frequency [MHz]')
-		self.ax1a.set_ylabel('Elapsed Time [s]')
+		self.ax1a.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
 		self.ax1a.set_title('Tuning %i, Pol. %s' % (self.index/2+1, 'Y' if self.index %2 else 'X'))
 		
 		if self.oldMarkA is not None:
@@ -344,14 +370,14 @@ class Waterfall_GUI(object):
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
 		self.ax1b.plot(to_dB(self.drift[:,self.index]), self.time, linestyle=' ', marker='x')
 		self.ax1b.set_ylim([self.time[0], self.time[-1]])
-		self.ax1b.set_xlabel('Total Power [arb. dB]')
-		self.ax1b.set_ylabel('Elapsed Time [s]')
+		self.ax1b.set_xlabel('Inner 75% Total Power [arb. dB]')
+		self.ax1b.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
 		
 		if self.oldMarkB is not None:
 			self.ax1b.lines.extend(self.oldMarkB)
@@ -494,7 +520,7 @@ class Waterfall_GUI(object):
 			
 			for j in xrange(self.spec.shape[2]):
 				channel = self.spec.data[tStart:tStop,index,j]
-				kurtosis[k,j] = spectralKurtosis(channel, N=N)
+				kurtosis[k,j] = spectralPower(channel, N=N)
 		
 		kMean = 1.0
 		kStd  = skStd(secSize, N)
@@ -707,6 +733,8 @@ class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
 		self.dirname = ''
 		self.filename = ''
+		self.offset = 0.0
+		self.duration = -1
 		self.data = None
 		
 		self.examineWindow = None
@@ -908,6 +936,9 @@ class MainWindow(wx.Frame):
 			tuning1 = h.get('Tuning1', None)
 			tuning2 = h.get('Tuning2', None)
 			
+			o = self.data.iOffset
+			d = self.data.iDuration
+			
 			mask1 = tuning1.get('Mask', None)
 			if mask1 is None:
 				mask1 = tuning1.create_group('Mask')
@@ -916,8 +947,8 @@ class MainWindow(wx.Frame):
 			else:
 				mask1X = mask1.get('X', None)
 				mask1Y = mask1.get('Y', None)
-			mask1X[:,:] = self.data.spec.mask[:,0,:]
-			mask1Y[:,:] = self.data.spec.mask[:,1,:]
+			mask1X[o:o+d,:] = self.data.spec.mask[:,0,:]
+			mask1Y[o:o+d,:] = self.data.spec.mask[:,1,:]
 			
 			mask2 = tuning2.get('Mask', None)
 			if mask2 is None:
@@ -927,8 +958,8 @@ class MainWindow(wx.Frame):
 			else:
 				mask2X = mask2.get('X', None)
 				mask2Y = mask2.get('Y', None)
-			mask2X[:,:] = self.data.spec.mask[:,2,:]
-			mask2Y[:,:] = self.data.spec.mask[:,3,:]
+			mask2X[o:o+d,:] = self.data.spec.mask[:,2,:]
+			mask2Y[o:o+d,:] = self.data.spec.mask[:,3,:]
 			
 			h.close()
 
@@ -957,6 +988,9 @@ class MainWindow(wx.Frame):
 			tuning1 = hNew.get('Tuning1', None)
 			tuning2 = hNew.get('Tuning2', None)
 			
+			o = self.data.iOffset
+			d = self.data.iDuration
+			
 			mask1 = tuning1.get('Mask', None)
 			if mask1 is None:
 				mask1 = tuning1.create_group('Mask')
@@ -965,8 +999,8 @@ class MainWindow(wx.Frame):
 			else:
 				mask1X = mask1.get('X', None)
 				mask1Y = mask1.get('Y', None)
-			mask1X[:,:] = self.data.spec.mask[:,0,:]
-			mask1Y[:,:] = self.data.spec.mask[:,1,:]
+			mask1X[o:o+d,:] = self.data.spec.mask[:,0,:]
+			mask1Y[o:o+d,:] = self.data.spec.mask[:,1,:]
 			
 			mask2 = tuning2.get('Mask', None)
 			if mask2 is None:
@@ -976,8 +1010,8 @@ class MainWindow(wx.Frame):
 			else:
 				mask2X = mask2.get('X', None)
 				mask2Y = mask2.get('Y', None)
-			mask2X[:,:] = self.data.spec.mask[:,2,:]
-			mask2Y[:,:] = self.data.spec.mask[:,3,:]
+			mask2X[o:o+d,:] = self.data.spec.mask[:,2,:]
+			mask2Y[o:o+d,:] = self.data.spec.mask[:,3,:]
 			
 			hNew.close()
 			
@@ -1759,7 +1793,7 @@ class WaterfallDisplay(wx.Frame):
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1.axis('auto')
 		self.ax1.set_xlabel('Frequency [MHz]')
-		self.ax1.set_ylabel('Elapsed Time [s]')
+		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
 		
 		## Draw and save the click (Why?)
@@ -1891,12 +1925,12 @@ class DriftCurveDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
 		self.ax1.plot(self.parent.data.time, to_dB(self.drift[:,self.parent.data.index]), linestyle='-', marker='x')
 		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])
-		self.ax1.set_xlabel('Elapsed Time [s]')
-		self.ax1.set_ylabel('Total Power [arb. dB]')
+		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
+		self.ax1.set_ylabel('Inner 75% Total Power [arb. dB]')
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
 		
 		## Draw and save the click (Why?)
@@ -1958,12 +1992,16 @@ class DriftCurveDisplay(wx.Frame):
 
 
 def main(args):
+	config = parseOptions(args)
+	
 	app = wx.App(0)
 	frame = MainWindow(None, -1)
-	if len(args) == 1:
-		frame.filename = args[0]
+	if len(config['args']) == 1:
+		frame.filename = config['args'][0]
+		frame.offset = config['offset']
+		frame.duration = config['duration']
 		frame.data = Waterfall_GUI(frame)
-		frame.data.loadData(args[0])
+		frame.data.loadData(config['args'][0])
 		frame.data.draw()
 		
 		if frame.data.filenames is None:

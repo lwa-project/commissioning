@@ -21,6 +21,7 @@ from lsl.common.dp import fS
 from lsl.common import stations
 from lsl.misc.mathutil import to_dB, from_dB, savitzky_golay
 from lsl.statistics import robust
+from lsl.statistics.kurtosis import spectralPower, std as skStd
 
 import wx
 import matplotlib
@@ -29,44 +30,6 @@ matplotlib.interactive(True)
 
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
 from matplotlib.figure import Figure
-
-
-def spectralKurtosis(x, N=1):
-	"""
-	Compute the spectral kurtosis for a set of power measurments averaged
-	over N FFTs.  For a distribution consistent with Gaussian noise, this
-	value should be ~1.
-	"""
-	
-	M = len(x)
-	
-	k = M*(x**2).sum()/(x.sum())**2 - 1.0
-	k *= (M*N+1)/(M-1)
-	
-	return k
-
-
-def skStd(M, N=1):
-	"""
-	Return the expected standard deviation of the spectral kurtosis for M points 
-	each composed of N measurments.
-	
-	.. note::
-		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.std()
-	"""
-	
-	return numpy.sqrt( skVar(M, N) )
-
-
-def skVar(M, N=1):
-	"""
-	Return the expected variance (second central moment) of the spectral kurtosis 
-	for M points each composed of N measurments.
-	.. note::
-		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.var()
-	"""
-
-	return 2.0*N*(N+1)*M**2/ float( (M-1)*(M*N+3)*(M*N+2) )
 
 
 def findMean(data):
@@ -300,13 +263,13 @@ class Waterfall_GUI(object):
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
 		self.ax1b.plot(to_dB(self.drift[:,self.index]), self.time, linestyle=' ', marker='x')
 		self.ax1b.set_ylim([self.time[0], self.time[-1]])
-		self.ax1b.set_xlabel('Total Power [arb. dB]')
+		self.ax1b.set_xlabel('Inner 75% Total Power [arb. dB]')
 		self.ax1b.set_ylabel('Elapsed Time [s]')
 		
 		if self.oldMarkB is not None:
@@ -450,7 +413,7 @@ class Waterfall_GUI(object):
 			
 			for j in xrange(self.spec.shape[2]):
 				channel = self.spec.data[tStart:tStop,index,j]
-				kurtosis[k,j] = spectralKurtosis(channel, N=N)
+				kurtosis[k,j] = spectralPower(channel, N=N)
 		
 		kMean = 1.0
 		kStd  = skStd(secSize, N)
@@ -1784,12 +1747,12 @@ class DriftCurveDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
 		self.ax1.plot(self.parent.data.time, to_dB(self.drift[:,self.parent.data.index]), linestyle='-', marker='x')
 		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])
 		self.ax1.set_xlabel('Elapsed Time [s]')
-		self.ax1.set_ylabel('Total Power [arb. dB]')
+		self.ax1.set_ylabel('Inner 75% Total Power [arb. dB]')
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
 		
 		## Draw and save the click (Why?)
