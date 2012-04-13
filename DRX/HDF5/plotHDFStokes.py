@@ -23,7 +23,7 @@ from scipy.stats import scoreatpercentile as percentile
 
 from lsl.common.dp import fS
 from lsl.common import stations
-from lsl.misc.mathutil import savitzky_golay
+from lsl.misc.mathutil import to_dB, from_dB, savitzky_golay
 from lsl.statistics import robust
 from lsl.statistics.kurtosis import spectralPower, std as skStd
 
@@ -97,17 +97,23 @@ def findMean(data):
 	return numpy.mean(data, axis=0)
 
 
-def findLimits(data):
+def findLimits(data, usedB=True):
 	"""
 	Tiny function to speed up the computing of the data range for the colorbar.
 	Returns a two-element list of the lowest and highest values.
 	"""
 
-	dMin = data.min()
+	if usedB:
+		dMin = to_dB(data).min()
+	else:
+		dMin = data.min()
 	if not numpy.isfinite(dMin):
 		dMin = 0
 	
-	dMax = data.max()
+	if usedB:
+		dMax = to_dB(data).max()
+	else:
+		dMax = data.max()
 	if not numpy.isfinite(dMax):
 		dMax = dMin + 1
 	
@@ -193,6 +199,12 @@ class Waterfall_GUI(object):
 		tuning1 = h.get('Tuning1', None)
 		tuning2 = h.get('Tuning2', None)
 		
+		# Make sure we have a Stokes file
+		try:
+			tuning1['I'].shape
+		except:
+			raise RuntimeError("'%s' does not seem to contain Stokes parameters" % self.filename)
+		
 		# Figure out the selection process
 		self.iOffset = int(round(self.frame.offset / self.tInt))
 		if self.frame.duration < 0:
@@ -200,8 +212,8 @@ class Waterfall_GUI(object):
 		else:
 			self.iDuration = int(round(self.frame.duration / self.tInt))
 		## Make sure we don't fall off the end of the file
-		if self.iOffset + self.iDuration > tuning1['X'].shape[0]:
-			self.iDuration = tuning1['X'].shape[0] - self.iOffset
+		if self.iOffset + self.iDuration > tuning1['I'].shape[0]:
+			self.iDuration = tuning1['I'].shape[0] - self.iOffset
 		selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
 		
 		if self.iOffset != 0:
@@ -350,14 +362,8 @@ class Waterfall_GUI(object):
 		self.limits = [None,]*self.spec.shape[1]
 		#for i,task in taskList:
 			#self.limits[i] = task.get()
-		self.limits[0] = findLimits(self.spec[:,0,:])
-		self.limits[1] = findLimits(self.spec[:,1,:])
-		self.limits[2] = findLimits(self.spec[:,2,:])
-		self.limits[3] = findLimits(self.spec[:,3,:])
-		self.limits[4] = findLimits(self.spec[:,4,:])
-		self.limits[5] = findLimits(self.spec[:,5,:])
-		self.limits[6] = findLimits(self.spec[:,6,:])
-		self.limits[7] = findLimits(self.spec[:,7,:])
+		for i in xrange(self.spec.shape[1]):
+			self.limits[i] = findLimits(self.spec[:,i,:], usedB=False)
 			
 		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
 		#taskPool = Pool(processes=4)
@@ -370,14 +376,8 @@ class Waterfall_GUI(object):
 		self.limitsBandpass = [None,]*self.spec.shape[1]
 		#for i,task in taskList:
 			#self.limitsBandpass[i] = task.get()
-		self.limitsBandpass[0] = findLimits(self.specBandpass[:,0,toUse])
-		self.limitsBandpass[1] = findLimits(self.specBandpass[:,1,toUse])
-		self.limitsBandpass[2] = findLimits(self.specBandpass[:,2,toUse])
-		self.limitsBandpass[3] = findLimits(self.specBandpass[:,3,toUse])
-		self.limitsBandpass[4] = findLimits(self.specBandpass[:,4,toUse])
-		self.limitsBandpass[5] = findLimits(self.specBandpass[:,5,toUse])
-		self.limitsBandpass[6] = findLimits(self.specBandpass[:,6,toUse])
-		self.limitsBandpass[7] = findLimits(self.specBandpass[:,7,toUse])
+		for i in xrange(self.spec.shape[1]):
+			self.limitsBandpass[i] = findLimits(self.specBandpass[:,i,toUse], usedB=False)
 		
 		try:
 			self.disconnect()
@@ -420,7 +420,7 @@ class Waterfall_GUI(object):
 		Draw the waterfall diagram and the total power with time.
 		"""
 		
-		if self.index / 4 == 0:
+		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
 			freq = self.freq2
@@ -479,7 +479,7 @@ class Waterfall_GUI(object):
 		except TypeError:
 			return False
 			
-		if self.index / 4 == 0:
+		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
 			freq = self.freq2
@@ -570,7 +570,7 @@ class Waterfall_GUI(object):
 		Suggest a mask for the current index.
 		"""
 		
-		if self.index / 4 == 0:
+		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
 			freq = self.freq2
@@ -739,7 +739,7 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			if self.index / 4 == 0:
+			if self.index / (self.spec.shape[1]/2) == 0:
 				freq = self.freq1
 			else:
 				freq = self.freq2
@@ -765,7 +765,7 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			if self.index / 4 == 0:
+			if self.index / (self.spec.shape[1]/2) == 0:
 				freq = self.freq1
 			else:
 				freq = self.freq2
@@ -825,6 +825,8 @@ class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
 		self.dirname = ''
 		self.filename = ''
+		self.offset = 0.0
+		self.duration = -1
 		self.data = None
 		
 		self.examineWindow = None
@@ -2098,7 +2100,7 @@ class WaterfallDisplay(wx.Frame):
 		once for this type of window.
 		"""
 
-		if self.parent.data.index / 4 == 0:
+		if self.parent.data.index / (self.parent.data.spec.shape[1]/2) == 0:
 			freq = self.parent.data.freq1
 		else:
 			freq = self.parent.data.freq2
@@ -2147,7 +2149,7 @@ class WaterfallDisplay(wx.Frame):
 		as the stand number of the selected stand (if any).
 		"""
 
-		if self.parent.data.index / 4 == 0:
+		if self.parent.data.index / (self.parent.data.spec.shape[1]/2) == 0:
 			freq = self.parent.data.freq1
 		else:
 			freq = self.parent.data.freq2
@@ -2258,7 +2260,7 @@ class DriftCurveDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		
-		self.drift = spec[:,:,spec.shape[2]/4:3*spec.shape[2]/4].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
 		self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
 		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])

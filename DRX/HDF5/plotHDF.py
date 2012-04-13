@@ -96,17 +96,23 @@ def findMean(data):
 	return numpy.mean(data, axis=0)
 
 
-def findLimits(data):
+def findLimits(data, usedB=True):
 	"""
 	Tiny function to speed up the computing of the data range for the colorbar.
 	Returns a two-element list of the lowest and highest values.
 	"""
 
-	dMin = to_dB(data).min()
+	if usedB:
+		dMin = to_dB(data).min()
+	else:
+		dMin = data.min()
 	if not numpy.isfinite(dMin):
 		dMin = 0
 	
-	dMax = to_dB(data).max()
+	if usedB:
+		dMax = to_dB(data).max()
+	else:
+		dMax = data.max()
 	if not numpy.isfinite(dMax):
 		dMax = dMin + 1
 	
@@ -192,6 +198,12 @@ class Waterfall_GUI(object):
 		tuning1 = h.get('Tuning1', None)
 		tuning2 = h.get('Tuning2', None)
 		
+		# Make sure we have a linear file
+		try:
+			tuning1['X'].shape
+		except:
+			raise RuntimeError("'%s' does not seem to contain linear parameters" % self.filename)
+		
 		# Figure out the selection process
 		self.iOffset = int(round(self.frame.offset / self.tInt))
 		if self.frame.duration < 0:
@@ -217,7 +229,7 @@ class Waterfall_GUI(object):
 		self.spec = numpy.empty((self.iDuration, 4, self.freq1.size), dtype=numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['X'].dtype)
-		tuning1['X'].read_direct(part, source_sel=selection)
+		tuning1['X'].read_direct(part, selection)
 		self.spec[:,0,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['Y'].dtype)
@@ -317,10 +329,8 @@ class Waterfall_GUI(object):
 		self.limits = [None,]*self.spec.shape[1]
 		#for i,task in taskList:
 			#self.limits[i] = task.get()
-		self.limits[0] = findLimits(self.spec[:,0,:])
-		self.limits[1] = findLimits(self.spec[:,1,:])
-		self.limits[2] = findLimits(self.spec[:,2,:])
-		self.limits[3] = findLimits(self.spec[:,3,:])
+		for i in xrange(self.spec.shape[1]):
+			self.limits[i] = findLimits(self.spec[:,i,:], usedB=True)
 			
 		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
 		#taskPool = Pool(processes=4)
@@ -333,10 +343,8 @@ class Waterfall_GUI(object):
 		self.limitsBandpass = [None,]*self.spec.shape[1]
 		#for i,task in taskList:
 			#self.limitsBandpass[i] = task.get()
-		self.limitsBandpass[0] = findLimits(self.specBandpass[:,0,toUse])
-		self.limitsBandpass[1] = findLimits(self.specBandpass[:,1,toUse])
-		self.limitsBandpass[2] = findLimits(self.specBandpass[:,2,toUse])
-		self.limitsBandpass[3] = findLimits(self.specBandpass[:,3,toUse])
+		for i in xrange(self.spec.shape[1]):
+			self.limitsBandpass[i] = findLimits(self.specBandpass[:,i,toUse], usedB=True)
 		
 		try:
 			self.disconnect()
@@ -380,7 +388,7 @@ class Waterfall_GUI(object):
 		Draw the waterfall diagram and the total power with time.
 		"""
 		
-		if self.index / 2 == 0:
+		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
 			freq = self.freq2
@@ -431,7 +439,7 @@ class Waterfall_GUI(object):
 		except TypeError:
 			return False
 			
-		if self.index / 2 == 0:
+		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
 			freq = self.freq2
@@ -522,7 +530,7 @@ class Waterfall_GUI(object):
 		Suggest a mask for the current index.
 		"""
 		
-		if self.index / 2 == 0:
+		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
 			freq = self.freq2
@@ -691,7 +699,7 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			if self.index / 2 == 0:
+			if self.index / (self.spec.shape[1]/2) == 0:
 				freq = self.freq1
 			else:
 				freq = self.freq2
@@ -717,7 +725,7 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			if self.index / 2 == 0:
+			if self.index / (self.spec.shape[1]/2) == 0:
 				freq = self.freq1
 			else:
 				freq = self.freq2
@@ -1952,7 +1960,7 @@ class WaterfallDisplay(wx.Frame):
 		once for this type of window.
 		"""
 
-		if self.parent.data.index / 2 == 0:
+		if self.parent.data.index / (self.parent.data.spec.shape[1]/2) == 0:
 			freq = self.parent.data.freq1
 		else:
 			freq = self.parent.data.freq2
@@ -1993,7 +2001,7 @@ class WaterfallDisplay(wx.Frame):
 		as the stand number of the selected stand (if any).
 		"""
 
-		if self.parent.data.index / 2 == 0:
+		if self.parent.data.index / (self.parent.data.spec.shape[1]/2) == 0:
 			freq = self.parent.data.freq1
 		else:
 			freq = self.parent.data.freq2
