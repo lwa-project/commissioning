@@ -12,12 +12,14 @@ $LastChangedDate$
 import os
 import sys
 import h5py
+import math
 import time
 import numpy
 import getopt
 import subprocess
 from datetime import datetime
 from multiprocessing import Pool
+from scipy.stats import scoreatpercentile as percentile
 
 from lsl.common.dp import fS
 from lsl.common import stations
@@ -111,6 +113,35 @@ def findLimits(data):
 	return [dMin, dMax]
 
 
+def bestFreqUnits(freq):
+	"""Given a numpy array of frequencies in Hz, return a new array with the
+	frequencies in the best units possible (kHz, MHz, etc.)."""
+
+	# Figure out how large the data are
+	try:
+		scale = int(math.log10(freq.max()))
+	except AttributeError:
+		scale = int(math.log10(freq))
+	if scale >= 9:
+		divis = 1e9
+		units = 'GHz'
+	elif scale >= 6:
+		divis = 1e6
+		units = 'MHz'
+	elif scale >= 3:
+		divis = 1e3
+		units = 'kHz'
+	else:
+		divis = 1
+		units = 'Hz'
+
+	# Convert the frequency
+	newFreq = freq / divis
+
+	# Return units and freq
+	return (newFreq, units)
+
+
 class Waterfall_GUI(object):
 	def __init__(self, frame, freq=None, spec=None, tInt=None):
 		self.frame = frame
@@ -151,6 +182,7 @@ class Waterfall_GUI(object):
 		
 		# Load the Data
 		print " %6.3f s - Extracting data" % (time.time() - tStart)
+		self.beam  = h.attrs['Beam']
 		self.srate = h.attrs['sampleRate']
 		self.tInt  = h.attrs['tInt']
 		self.time  = numpy.zeros(h['time'].shape, dtype=h['time'].dtype)
@@ -166,7 +198,14 @@ class Waterfall_GUI(object):
 			self.iDuration = self.time.size - self.iOffset
 		else:
 			self.iDuration = int(round(self.frame.duration / self.tInt))
+		## Make sure we don't fall off the end of the file
+		if self.iOffset + self.iDuration > tuning1['X'].shape[0]:
+			self.iDuration = tuning1['X'].shape[0] - self.iOffset
 		selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
+		
+		if self.iOffset != 0:
+			print "            -> Offsetting %i integrations (%.3f s)" % (self.iOffset, self.iOffset*self.tInt)
+		print "            -> Displaying %i integrations (%.3f s)" % (self.iDuration, self.iDuration*self.tInt)
 		
 		self.time = self.time[:self.iDuration]
 		
@@ -713,6 +752,7 @@ ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
 ID_TUNING2_X = 32
 ID_TUNING2_Y = 33
+ID_CHANGE_RANGE = 34
 
 ID_MASK_SUGGEST_CURRENT = 40
 ID_MASK_SUGGEST_ALL = 41
@@ -785,6 +825,9 @@ class MainWindow(wx.Frame):
 		dataMenu.AppendSeparator()
 		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
+		dataMenu.AppendSeparator()
+		self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, '&Change Time Range')
+		dataMenu.AppendItem(self.changeRangeButton)
 		
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
@@ -873,6 +916,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
 		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
+		self.Bind(wx.EVT_MENU, self.onRangeChange, id=ID_CHANGE_RANGE)
 		
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
@@ -907,8 +951,9 @@ class MainWindow(wx.Frame):
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
 			self.data = Waterfall_GUI(self)
-			self.data.loadData(os.path.join(self.dirname, self.filename))
-			self.data.draw()
+			
+			# Display the time range dialog box and update the image
+			self.onRangeChange(None)
 			
 			if self.cAdjust is not None:
 				try:
@@ -918,7 +963,7 @@ class MainWindow(wx.Frame):
 				self.cAdjust = None
 		dlg.Destroy()
 		
-		if self.data.filenames is None:
+		if self.data.filename is None:
 			self.examineFileButton.Enable(False)
 		else:
 			self.examineFileButton.Enable(True)
@@ -1034,9 +1079,9 @@ class MainWindow(wx.Frame):
 		i = self.data.index
 		toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
 		if self.data.bandpass:
-			self.data.limitsBandpass[i] = [to_dB(self.data.specBandpass[:,i,toUse]).min(), to_dB(self.data.specBandpass[:,i,toUse]).max()] 
+			self.data.limitsBandpass[i] = [percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 5), percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 95)] 
 		else:
-			self.data.limits[i] = [to_dB(self.data.spec[:,i,:]).min(), to_dB(self.data.spec[:,i,:]).max()]
+			self.data.limits[i] = [percentile(to_dB(self.data.spec[:,i,:]).ravel(), 5), percentile(to_dB(self.data.spec[:,i,:]).ravel(), 95)]
 			
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -1106,6 +1151,18 @@ class MainWindow(wx.Frame):
 			self.data.drawSpectrum(self.data.spectrumClick)
 			
 		wx.EndBusyCursor()
+		
+	def onRangeChange(self, event):
+		"""
+		Display a dialog box to change the time range displayed.
+		"""
+		
+		if event is None:
+			mode = 'New'
+		else:
+			mode = 'Adjust'
+			
+		TimeRangeAdjust(self, mode=mode)
 		
 	def onMaskSuggestCurrent(self, event):
 		"""
@@ -1231,6 +1288,8 @@ class MainWindow(wx.Frame):
 		
 		# Get some basic parameter
 		filename = self.data.filename
+		beam = self.data.beam
+		srate, sunit = bestFreqUnits(self.data.srate)
 		tInt = self.data.tInt
 		nInt = self.data.spec.shape[0]
 		isAggregate = False if self.data.filenames is None else True
@@ -1239,10 +1298,14 @@ class MainWindow(wx.Frame):
 		
 		# Build the message string
 		outString = """Filename: %s
+
+Beam:  %i
+Sample Rate: %.3f %s
+
 Integration Time:  %.3f seconds
 Number of Integrations:  %i
 
-Aggregate File?  %s""" % (filename, tInt, nInt, isAggregate)
+Aggregate File?  %s""" % (filename, beam, srate, sunit, tInt, nInt, isAggregate)
 
 		# Expound on aggregate files
 		if isAggregate:
@@ -1527,6 +1590,122 @@ class ContrastAdjust(wx.Frame):
 		
 	def __getIncrement(self, index):
 		return 0.1*self.__getRange(index)
+
+
+ID_RANGE_WHOLE = 100
+ID_RANGE_OK = 101
+ID_RANGE_CANCEL = 102
+
+class TimeRangeAdjust(wx.Frame):
+	def __init__ (self, parent, mode='Adjust'):	
+		wx.Frame.__init__(self, parent, title='Time Range to Display', size=(330, 175), style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
+		
+		self.parent = parent
+		self.mode = mode
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+	def initUI(self):
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		offL = wx.StaticText(panel, label='Offset from file start:')
+		sizer.Add(offL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.offsetText = wx.TextCtrl(panel)
+		offU = wx.StaticText(panel, label='seconds')
+		sizer.Add(self.offsetText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(offU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		durL = wx.StaticText(panel, label='Duration after offset:')
+		sizer.Add(durL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.durationText = wx.TextCtrl(panel)
+		durU = wx.StaticText(panel, label='seconds')
+		sizer.Add(self.durationText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(durU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.wholeFileButton = wx.CheckBox(panel, ID_RANGE_WHOLE, 'Display whole file')
+		sizer.Add(self.wholeFileButton, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		#
+		# Buttons
+		#
+		
+		ok = wx.Button(panel, ID_RANGE_OK, 'Ok', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 0), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		cancel = wx.Button(panel, ID_RANGE_CANCEL, 'Cancel', size=(56, 28))
+		sizer.Add(cancel, pos=(row+0, 1),  flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		#
+		# Fill in values
+		#
+		self.offsetText.SetValue("%.3f" % self.parent.offset)
+		self.durationText.SetValue("%.3f" % self.parent.duration)
+		if self.parent.offset == 0 and self.parent.duration < 0:
+			self.wholeFileButton.SetValue(True)
+			self.offsetText.Disable()
+			self.durationText.Disable()
+			
+		#
+		# Set the operational mode
+		#
+		if self.mode != 'Adjust':
+			cancel.Disable()
+		
+		panel.SetSizerAndFit(sizer)
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_CHECKBOX, self.onWholeFileToggle, id=ID_RANGE_WHOLE)
+		
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_RANGE_OK)
+		self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_RANGE_CANCEL)
+		
+	def onWholeFileToggle(self, event):
+		if self.wholeFileButton.GetValue():
+			self.offsetText.Disable()
+			self.durationText.Disable()
+		else:
+			self.offsetText.Enable()
+			self.durationText.Enable()
+		
+	def onOk(self, event):
+		# Get values
+		if self.wholeFileButton.GetValue():
+			newOffset = 0.0
+			newDuration = -1.0
+		else:
+			newOffset = float(self.offsetText.GetValue())
+			newDuration = float(self.durationText.GetValue())
+		
+		# Figure out if we need to update
+		needToUpdate = False
+		if self.parent.offset != newOffset:
+			needToUpdate = True
+			self.parent.offset = newOffset
+		if self.parent.duration != newDuration:
+			needToUpdate = True
+			self.parent.duration = newDuration
+		
+		try:
+			if needToUpdate or self.mode == 'New':
+				self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename))
+				self.parent.data.draw()
+		except Exception, e:
+			print "ERROR: %s" % str(e)
+		else:
+			self.Close()
+		
+	def onCancel(self, event):
+		self.Close()
 
 
 ID_BANDPASS_CUT_INC = 100

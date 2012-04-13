@@ -12,12 +12,14 @@ $LastChangedDate$
 import os
 import sys
 import h5py
+import math
 import time
 import numpy
 import getopt
 import subprocess
 from datetime import datetime
 from multiprocessing import Pool
+from scipy.stats import scoreatpercentile as percentile
 
 from lsl.common.dp import fS
 from lsl.common import stations
@@ -112,14 +114,41 @@ def findLimits(data):
 	return [dMin, dMax]
 
 
+def bestFreqUnits(freq):
+	"""Given a numpy array of frequencies in Hz, return a new array with the
+	frequencies in the best units possible (kHz, MHz, etc.)."""
+
+	# Figure out how large the data are
+	try:
+		scale = int(math.log10(freq.max()))
+	except AttributeError:
+		scale = int(math.log10(freq))
+	if scale >= 9:
+		divis = 1e9
+		units = 'GHz'
+	elif scale >= 6:
+		divis = 1e6
+		units = 'MHz'
+	elif scale >= 3:
+		divis = 1e3
+		units = 'kHz'
+	else:
+		divis = 1
+		units = 'Hz'
+
+	# Convert the frequency
+	newFreq = freq / divis
+
+	# Return units and freq
+	return (newFreq, units)
+
+
 class Waterfall_GUI(object):
 	def __init__(self, frame, freq=None, spec=None, tInt=None):
 		self.frame = frame
 		self.press = None
 		
 		self.filename = ''
-		self.offset = 0.0
-		self.duration = -1
 		self.index = 0
 		
 		self.bandpass = False
@@ -154,6 +183,7 @@ class Waterfall_GUI(object):
 		
 		# Load the Data
 		print " %6.3f s - Extracting data" % (time.time() - tStart)
+		self.beam  = h.attrs['Beam']
 		self.srate = h.attrs['sampleRate']
 		self.tInt  = h.attrs['tInt']
 		self.time  = numpy.zeros(h['time'].shape, dtype=h['time'].dtype)
@@ -169,9 +199,16 @@ class Waterfall_GUI(object):
 			self.iDuration = self.time.size - self.iOffset
 		else:
 			self.iDuration = int(round(self.frame.duration / self.tInt))
+		## Make sure we don't fall off the end of the file
+		if self.iOffset + self.iDuration > tuning1['X'].shape[0]:
+			self.iDuration = tuning1['X'].shape[0] - self.iOffset
 		selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
 		
-		self.time = self.time[self.iOffset:self.iOffset+self.iDuration]
+		if self.iOffset != 0:
+			print "            -> Offsetting %i integrations (%.3f s)" % (self.iOffset, self.iOffset*self.tInt)
+		print "            -> Displaying %i integrations (%.3f s)" % (self.iDuration, self.iDuration*self.tInt)
+		
+		self.time = self.time[:self.iDuration]
 		
 		self.freq1 = numpy.zeros(tuning1['freq'].shape, dtype=tuning1['freq'].dtype)
 		tuning1['freq'].read_direct(self.freq1)
@@ -181,35 +218,35 @@ class Waterfall_GUI(object):
 		self.spec = numpy.empty((self.iDuration, 8, self.freq1.size), dtype=numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['I'].dtype)
-		tuning1['I'].read_direct(part)
+		tuning1['I'].read_direct(part, selection)
 		self.spec[:,0,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['Q'].dtype)
-		tuning1['Q'].read_direct(part)
+		tuning1['Q'].read_direct(part, selection)
 		self.spec[:,1,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['U'].dtype)
-		tuning1['U'].read_direct(part)
+		tuning1['U'].read_direct(part, selection)
 		self.spec[:,2,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['V'].dtype)
-		tuning1['V'].read_direct(part)
+		tuning1['V'].read_direct(part, selection)
 		self.spec[:,3,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['I'].dtype)
-		tuning2['I'].read_direct(part)
+		tuning2['I'].read_direct(part, selection)
 		self.spec[:,4,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['Q'].dtype)
-		tuning2['Q'].read_direct(part)
+		tuning2['Q'].read_direct(part, selection)
 		self.spec[:,5,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['U'].dtype)
-		tuning2['U'].read_direct(part)
+		tuning2['U'].read_direct(part, selection)
 		self.spec[:,6,:] = part.astype(numpy.float32)
 		
 		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['V'].dtype)
-		tuning2['V'].read_direct(part)
+		tuning2['V'].read_direct(part, selection)
 		self.spec[:,7,:] = part.astype(numpy.float32)
 		
 		del part
@@ -221,38 +258,38 @@ class Waterfall_GUI(object):
 		
 		if mask1 is not None:
 			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['I'].dtype)
-			mask1['I'].read_direct(part)
+			mask1['I'].read_direct(part, selection)
 			mask[:,0,:] = part.astype(numpy.bool)
 			
 			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['Q'].dtype)
-			mask1['Q'].read_direct(part)
+			mask1['Q'].read_direct(part, selection)
 			mask[:,1,:] = part.astype(numpy.bool)
 			
 			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['U'].dtype)
-			mask1['U'].read_direct(part)
+			mask1['U'].read_direct(part, selection)
 			mask[:,2,:] = part.astype(numpy.bool)
 			
 			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['V'].dtype)
-			mask1['V'].read_direct(part)
+			mask1['V'].read_direct(part, selection)
 			mask[:,3,:] = part.astype(numpy.bool)
 			
 			del part
 		
 		if mask2 is not None:
 			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['I'].dtype)
-			mask2['I'].read_direct(part)
+			mask2['I'].read_direct(part, selection)
 			mask[:,4,:] = part.astype(numpy.bool)
 			
 			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['Q'].dtype)
-			mask2['Q'].read_direct(part)
+			mask2['Q'].read_direct(part, selection)
 			mask[:,5,:] = part.astype(numpy.bool)
 			
 			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['U'].dtype)
-			mask2['U'].read_direct(part)
+			mask2['U'].read_direct(part, selection)
 			mask[:,6,:] = part.astype(numpy.bool)
 			
 			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['V'].dtype)
-			mask2['V'].read_direct(part)
+			mask2['V'].read_direct(part, selection)
 			mask[:,7,:] = part.astype(numpy.bool)
 			
 			del part
@@ -767,6 +804,7 @@ ID_TUNING2_I = 34
 ID_TUNING2_Q = 35
 ID_TUNING2_U = 36
 ID_TUNING2_V = 37
+ID_CHANGE_RANGE = 38
 
 ID_MASK_SUGGEST_CURRENT = 40
 ID_MASK_SUGGEST_ALL = 41
@@ -841,6 +879,9 @@ class MainWindow(wx.Frame):
 		dataMenu.AppendRadioItem(ID_TUNING2_Q, 'Tuning 2, Stokes Q')
 		dataMenu.AppendRadioItem(ID_TUNING2_U, 'Tuning 2, Stokes U')
 		dataMenu.AppendRadioItem(ID_TUNING2_V, 'Tuning 2, Stokes V')
+		dataMenu.AppendSeparator()
+		self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, '&Change Time Range')
+		dataMenu.AppendItem(self.changeRangeButton)
 		
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
@@ -933,6 +974,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning2Q, id=ID_TUNING2_Q)
 		self.Bind(wx.EVT_MENU, self.onTuning2U, id=ID_TUNING2_U)
 		self.Bind(wx.EVT_MENU, self.onTuning2V, id=ID_TUNING2_V)
+		self.Bind(wx.EVT_MENU, self.onRangeChange, id=ID_CHANGE_RANGE)
 		
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
@@ -967,8 +1009,9 @@ class MainWindow(wx.Frame):
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
 			self.data = Waterfall_GUI(self)
-			self.data.loadData(os.path.join(self.dirname, self.filename))
-			self.data.draw()
+			
+			# Display the time range dialog box and update the image
+			self.onRangeChange(None)
 			
 			if self.cAdjust is not None:
 				try:
@@ -978,7 +1021,7 @@ class MainWindow(wx.Frame):
 				self.cAdjust = None
 		dlg.Destroy()
 		
-		if self.data.filenames is None:
+		if self.data.filename is None:
 			self.examineFileButton.Enable(False)
 		else:
 			self.examineFileButton.Enable(True)
@@ -996,6 +1039,9 @@ class MainWindow(wx.Frame):
 			tuning1 = h.get('Tuning1', None)
 			tuning2 = h.get('Tuning2', None)
 			
+			o = self.data.iOffset
+			d = self.data.iDuration
+			
 			mask1 = tuning1.get('Mask', None)
 			if mask1 is None:
 				mask1 = tuning1.create_group('Mask')
@@ -1008,10 +1054,10 @@ class MainWindow(wx.Frame):
 				mask1Q = mask1.get('Q', None)
 				mask1U = mask1.get('U', None)
 				mask1V = mask1.get('V', None)
-			mask1I[:,:] = self.data.spec.mask[:,0,:]
-			mask1Q[:,:] = self.data.spec.mask[:,1,:]
-			mask1U[:,:] = self.data.spec.mask[:,2,:]
-			mask1V[:,:] = self.data.spec.mask[:,3,:]
+			mask1I[o:o+d,:] = self.data.spec.mask[:,0,:]
+			mask1Q[o:o+d,:] = self.data.spec.mask[:,1,:]
+			mask1U[o:o+d,:] = self.data.spec.mask[:,2,:]
+			mask1V[o:o+d,:] = self.data.spec.mask[:,3,:]
 			
 			mask2 = tuning2.get('Mask', None)
 			if mask2 is None:
@@ -1025,10 +1071,10 @@ class MainWindow(wx.Frame):
 				mask2Q = mask2.get('Q', None)
 				mask2U = mask2.get('U', None)
 				mask2V = mask2.get('V', None)
-			mask2I[:,:] = self.data.spec.mask[:,4,:]			
-			mask2Q[:,:] = self.data.spec.mask[:,5,:]
-			mask2U[:,:] = self.data.spec.mask[:,6,:]
-			mask2V[:,:] = self.data.spec.mask[:,7,:]
+			mask2I[o:o+d,:] = self.data.spec.mask[:,4,:]			
+			mask2Q[o:o+d,:] = self.data.spec.mask[:,5,:]
+			mask2U[o:o+d,:] = self.data.spec.mask[:,6,:]
+			mask2V[o:o+d,:] = self.data.spec.mask[:,7,:]
 			
 			h.close()
 
@@ -1057,6 +1103,9 @@ class MainWindow(wx.Frame):
 			tuning1 = hNew.get('Tuning1', None)
 			tuning2 = hNew.get('Tuning2', None)
 			
+			o = self.data.iOffset
+			d = self.data.iDuration
+			
 			mask1 = tuning1.get('Mask', None)
 			if mask1 is None:
 				mask1  = tuning1.create_group('Mask')
@@ -1069,10 +1118,10 @@ class MainWindow(wx.Frame):
 				mask1Q = mask1.get('Q', None)
 				mask1U = mask1.get('U', None)
 				mask1V = mask1.get('V', None)
-			mask1I[:,:] = self.data.spec.mask[:,0,:]
-			mask1Q[:,:] = self.data.spec.mask[:,1,:]
-			mask1U[:,:] = self.data.spec.mask[:,2,:]
-			mask1V[:,:] = self.data.spec.mask[:,3,:]
+			mask1I[o:o+d,:] = self.data.spec.mask[:,0,:]
+			mask1Q[o:o+d,:] = self.data.spec.mask[:,1,:]
+			mask1U[o:o+d,:] = self.data.spec.mask[:,2,:]
+			mask1V[o:o+d,:] = self.data.spec.mask[:,3,:]
 			
 			mask2 = tuning2.get('Mask', None)
 			if mask2 is None:
@@ -1086,12 +1135,10 @@ class MainWindow(wx.Frame):
 				mask2Q = mask2.get('Q', None)
 				mask2U = mask2.get('U', None)
 				mask2V = mask2.get('V', None)
-			mask2I[:,:] = self.data.spec.mask[:,4,:]
-			mask2Q[:,:] = self.data.spec.mask[:,5,:]
-			mask2U[:,:] = self.data.spec.mask[:,6,:]
-			mask2V[:,:] = self.data.spec.mask[:,7,:]
-
-			print self.data.spec.mask.max(), mask1I.max()
+			mask2I[o:o+d,:] = self.data.spec.mask[:,4,:]
+			mask2Q[o:o+d,:] = self.data.spec.mask[:,5,:]
+			mask2U[o:o+d,:] = self.data.spec.mask[:,6,:]
+			mask2V[o:o+d,:] = self.data.spec.mask[:,7,:]
 			
 			hNew.close()
 			
@@ -1114,9 +1161,9 @@ class MainWindow(wx.Frame):
 		i = self.data.index
 		toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
 		if self.data.bandpass:
-			self.data.limitsBandpass[i] = [self.data.specBandpass[:,i,toUse].min(), self.data.specBandpass[:,i,toUse].max()] 
+			self.data.limitsBandpass[i] = [percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 5), percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 95)] 
 		else:
-			self.data.limits[i] = [self.data.spec[:,i,:].min(),  self.data.spec[:,i,:].max()]
+			self.data.limits[i] = [percentile(to_dB(self.data.spec[:,i,:]).ravel(), 5), percentile(to_dB(self.data.spec[:,i,:]).ravel(), 95)]
 			
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -1243,6 +1290,18 @@ class MainWindow(wx.Frame):
 			
 		wx.EndBusyCursor()
 		
+	def onRangeChange(self, event):
+		"""
+		Display a dialog box to change the time range displayed.
+		"""
+		
+		if event is None:
+			mode = 'New'
+		else:
+			mode = 'Adjust'
+			
+		TimeRangeAdjust(self, mode=mode)
+		
 	def onMaskSuggestCurrent(self, event):
 		"""
 		Suggest a series of frequency and time-based masks to apply to 
@@ -1367,6 +1426,8 @@ class MainWindow(wx.Frame):
 		
 		# Get some basic parameter
 		filename = self.data.filename
+		beam = self.data.beam
+		srate, sunit = bestFreqUnits(self.data.srate)
 		tInt = self.data.tInt
 		nInt = self.data.spec.shape[0]
 		isAggregate = False if self.data.filenames is None else True
@@ -1375,10 +1436,14 @@ class MainWindow(wx.Frame):
 		
 		# Build the message string
 		outString = """Filename: %s
+
+Beam:  %i
+Sample Rate: %.3f %s
+
 Integration Time:  %.3f seconds
 Number of Integrations:  %i
 
-Aggregate File?  %s""" % (filename, tInt, nInt, isAggregate)
+Aggregate File?  %s""" % (filename, beam, srate, sunit, tInt, nInt, isAggregate)
 
 		# Expound on aggregate files
 		if isAggregate:
@@ -1673,6 +1738,121 @@ class ContrastAdjust(wx.Frame):
 	def __getIncrement(self, index):
 		return 0.1*self.__getRange(index)
 
+
+ID_RANGE_WHOLE = 100
+ID_RANGE_OK = 101
+ID_RANGE_CANCEL = 102
+
+class TimeRangeAdjust(wx.Frame):
+	def __init__ (self, parent, mode='Adjust'):	
+		wx.Frame.__init__(self, parent, title='Time Range to Display', size=(330, 175), style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
+		
+		self.parent = parent
+		self.mode = mode
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+	def initUI(self):
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		offL = wx.StaticText(panel, label='Offset from file start:')
+		sizer.Add(offL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.offsetText = wx.TextCtrl(panel)
+		offU = wx.StaticText(panel, label='seconds')
+		sizer.Add(self.offsetText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(offU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		durL = wx.StaticText(panel, label='Duration after offset:')
+		sizer.Add(durL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.durationText = wx.TextCtrl(panel)
+		durU = wx.StaticText(panel, label='seconds')
+		sizer.Add(self.durationText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(durU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.wholeFileButton = wx.CheckBox(panel, ID_RANGE_WHOLE, 'Display whole file')
+		sizer.Add(self.wholeFileButton, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		#
+		# Buttons
+		#
+		
+		ok = wx.Button(panel, ID_RANGE_OK, 'Ok', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 0), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		cancel = wx.Button(panel, ID_RANGE_CANCEL, 'Cancel', size=(56, 28))
+		sizer.Add(cancel, pos=(row+0, 1),  flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		#
+		# Fill in values
+		#
+		self.offsetText.SetValue("%.3f" % self.parent.offset)
+		self.durationText.SetValue("%.3f" % self.parent.duration)
+		if self.parent.offset == 0 and self.parent.duration < 0:
+			self.wholeFileButton.SetValue(True)
+			self.offsetText.Disable()
+			self.durationText.Disable()
+			
+		#
+		# Set the operational mode
+		#
+		if self.mode != 'Adjust':
+			cancel.Disable()
+		
+		panel.SetSizerAndFit(sizer)
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_CHECKBOX, self.onWholeFileToggle, id=ID_RANGE_WHOLE)
+		
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_RANGE_OK)
+		self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_RANGE_CANCEL)
+		
+	def onWholeFileToggle(self, event):
+		if self.wholeFileButton.GetValue():
+			self.offsetText.Disable()
+			self.durationText.Disable()
+		else:
+			self.offsetText.Enable()
+			self.durationText.Enable()
+		
+	def onOk(self, event):
+		# Get values
+		if self.wholeFileButton.GetValue():
+			newOffset = 0.0
+			newDuration = -1.0
+		else:
+			newOffset = float(self.offsetText.GetValue())
+			newDuration = float(self.durationText.GetValue())
+		
+		# Figure out if we need to update
+		needToUpdate = False
+		if self.parent.offset != newOffset:
+			needToUpdate = True
+			self.parent.offset = newOffset
+		if self.parent.duration != newDuration:
+			needToUpdate = True
+			self.parent.duration = newDuration
+		
+		try:
+			if needToUpdate or self.mode == 'New':
+				self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename))
+				self.parent.data.draw()
+		except Exception, e:
+			print "ERROR: %s" % str(e)
+		else:
+			self.Close()
+		
+	def onCancel(self, event):
+		self.Close()
 
 ID_BANDPASS_CUT_INC = 100
 ID_BANDPASS_CUT_DEC = 101
