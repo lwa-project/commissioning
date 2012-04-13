@@ -11,6 +11,7 @@ $LastChangedDate$
 
 import os
 import sys
+import math
 import time
 import numpy
 import subprocess
@@ -57,6 +58,35 @@ def findLimits(data):
 	return [dMin, dMax]
 
 
+def bestFreqUnits(freq):
+	"""Given a numpy array of frequencies in Hz, return a new array with the
+	frequencies in the best units possible (kHz, MHz, etc.)."""
+
+	# Figure out how large the data are
+	try:
+		scale = int(math.log10(freq.max()))
+	except AttributeError:
+		scale = int(math.log10(freq))
+	if scale >= 9:
+		divis = 1e9
+		units = 'GHz'
+	elif scale >= 6:
+		divis = 1e6
+		units = 'MHz'
+	elif scale >= 3:
+		divis = 1e3
+		units = 'kHz'
+	else:
+		divis = 1
+		units = 'Hz'
+
+	# Convert the frequency
+	newFreq = freq / divis
+
+	# Return units and freq
+	return (newFreq, units)
+
+
 class Waterfall_GUI(object):
 	def __init__(self, frame, freq=None, spec=None, tInt=None):
 		self.frame = frame
@@ -97,6 +127,7 @@ class Waterfall_GUI(object):
 		
 		# Load the Data
 		print " %6.3f s - Extracting data" % (time.time() - tStart)
+		self.beam = dataDictionary['standMapper'][0] / 4 + 1
 		try:
 			self.srate = dataDictionary['srate']
 		except KeyError:
@@ -1053,6 +1084,8 @@ class MainWindow(wx.Frame):
 		
 		# Get some basic parameter
 		filename = self.data.filename
+		beam = self.data.beam
+		srate, sunit = bestFreqUnits(self.data.srate)
 		tInt = self.data.tInt
 		nInt = self.data.spec.shape[0]
 		isAggregate = False if self.data.filenames is None else True
@@ -1061,10 +1094,14 @@ class MainWindow(wx.Frame):
 		
 		# Build the message string
 		outString = """Filename: %s
+
+Beam:  %i
+Sample Rate: %.3f %s
+
 Integration Time:  %.3f seconds
 Number of Integrations:  %i
 
-Aggregate File?  %s""" % (filename, tInt, nInt, isAggregate)
+Aggregate File?  %s""" % (filename, beam, srate, sunit, tInt, nInt, isAggregate)
 
 		# Expound on aggregate files
 		if isAggregate:
