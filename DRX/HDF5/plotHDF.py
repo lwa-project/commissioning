@@ -203,6 +203,7 @@ class Waterfall_GUI(object):
 			tuning1['X'].shape
 		except:
 			raise RuntimeError("'%s' does not seem to contain linear parameters" % self.filename)
+			sys.exit(1)
 		
 		# Figure out the selection process
 		self.iOffset = int(round(self.frame.offset / self.tInt))
@@ -954,7 +955,7 @@ class MainWindow(wx.Frame):
 		Open a file.
 		"""
 		
-		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "HDF5 (*.hdf5;*.h5)|*.hdf5;*.h5|All Files|*.*", wx.OPEN)
 		if dlg.ShowModal() == wx.ID_OK:
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
@@ -1480,12 +1481,12 @@ class ContrastAdjust(wx.Frame):
 		row += 1
 		
 		upr = wx.StaticText(panel, label='Upper Limit:')
-		uprText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		uprText = wx.TextCtrl(panel)
 		uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
 		uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
 		
 		lwr = wx.StaticText(panel, label='Lower Limit:')
-		lwrText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		lwrText = wx.TextCtrl(panel)
 		lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
 		lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
 		
@@ -1541,6 +1542,24 @@ class ContrastAdjust(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.onLowerIncrease, id=ID_CONTRAST_LWR_INC)
 		
 		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
+		
+		self.Bind(wx.EVT_KEY_UP, self.onKeyPress)
+		
+	def onKeyPress(self, event):
+		keycode = event.GetKeyCode()
+		
+		if keycode == wx.WXK_RETURN:
+			index = self.parent.data.index
+			if self.parent.data.bandpass:
+				self.parent.data.limitsBandpass[index][0] = float(self.lText.GetValue())
+				self.parent.data.limitsBandpass[index][1] = float(self.uText.GetValue())
+			else:
+				self.parent.data.limits[index][0] = float(self.lText.GetValue())
+				self.parent.data.limits[index][1] = float(self.uText.GetValue())
+			self.rText.SetValue('%.1f' % self.__getRange(index))
+			self.parent.data.draw()
+		else:
+			pass
 		
 	def onUpperDecrease(self, event):
 		index = self.parent.data.index
