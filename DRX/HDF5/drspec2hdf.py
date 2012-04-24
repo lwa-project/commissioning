@@ -140,21 +140,32 @@ def main(args):
 	tuning2['Y'].attrs['axis1'] = 'frequency'
 
 	# Loop over DR spectrometer frames to fill in the HDF5 file
+	tempTimes = numpy.zeros(nChunks)
+	tempArray = numpy.zeros((4, nChunks, LFFT-1), dtype=numpy.float32)
 	for i in xrange(nChunks):
 		frame = drspec.readFrame(fh)
 		
-		masterTimes[i] = frame.getTime()
+		tempTimes[i] = frame.getTime()
 		
+		tempArray[0,i,:] = frame.data.X0[1:]
+		tempArray[1,i,:] = frame.data.Y0[1:]
+		tempArray[2,i,:] = frame.data.X1[1:]
+		tempArray[3,i,:] = frame.data.Y1[1:]
+
 		if config['normalize']:
-			spec1X[i,:] = frame.data.X0[1:] / LFFT / frame.data.fills[0]
-			spec1Y[i,:] = frame.data.Y0[1:] / LFFT / frame.data.fills[1]
-			spec2X[i,:] = frame.data.X1[1:] / LFFT / frame.data.fills[2]
-			spec2Y[i,:] = frame.data.Y1[1:] / LFFT / frame.data.fills[3]
-		else:
-			spec1X[i,:] = frame.data.X0[1:] / LFFT
-			spec1Y[i,:] = frame.data.Y0[1:] / LFFT
-			spec2X[i,:] = frame.data.X1[1:] / LFFT
-			spec2Y[i,:] = frame.data.Y1[1:] / LFFT
+			tempArray[0,i,:] /= frame.data.fills[0]
+			tempArray[1,i,:] /= frame.data.fills[1]
+			tempArray[2,i,:] /= frame.data.fills[2]
+			tempArray[3,i,:] /= frame.data.fills[3]
+	tempArray /= float(LFFT)
+			
+
+	# Save
+	masterTimes[:] = tempTimes
+	spec1X[:,:] = tempArray[0,:,:]
+	spec1Y[:,:] = tempArray[1,:,:]
+	spec2X[:,:] = tempArray[2,:,:]
+	spec2Y[:,:] = tempArray[3,:,:]
 
 	# Done
 	fh.close()

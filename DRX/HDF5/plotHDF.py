@@ -379,8 +379,8 @@ class Waterfall_GUI(object):
 		# Apply the bandpass correction
 		self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
 		for i in xrange(self.spec.shape[1]):
-			for j in xrange(self.spec.shape[0]):
-				self.specBandpass[j,i,:] = self.spec[j,i,:] / bpm2[i]
+			for j in xrange(self.spec.shape[2]):
+				self.specBandpass[:,i,j] = self.spec[:,i,j] / bpm2[i][j]
 
 		return True
 	
