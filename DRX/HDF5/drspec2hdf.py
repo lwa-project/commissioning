@@ -14,13 +14,65 @@ import os
 import sys
 import h5py
 import numpy
+import getopt
 from datetime import datetime
 
 from lsl.reader import drspec
 
 
+def usage(exitCode=None):
+	print """drspec2hdf.py - Convert a DR spectrometer file to a HDF5 similar to what
+hdfWaterfall.py generates.
+
+Usage: drspec2hdf.py [OPTIONS] file
+
+Options:
+-h, --help                  Display this help information
+-n, --normalize             Normalize the spectrometer data by the number of fills
+"""
+
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseOptions(args):
+	config = {}
+	# Command line flags - default values
+	config['normalize'] = False
+	config['args'] = []
+
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "hn", ["help", "normalize"])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+	
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-q', '--quiet'):
+			config['verbose'] = False
+		elif opt in ('-n', '--normalize'):
+			config['normalize'] = True
+		else:
+			assert False
+	
+	# Add in arguments
+	config['args'] = args
+
+	# Return configuration
+	return config
+
+
 def main(args):
-	filename = sys.argv[1]
+	config = parseOptions(args)
+
+	filename = config['args'][0]
 	fh = open(filename, 'rb')
 
 	# Interogate the file to figure out what frames sizes to expect, now many 
@@ -93,10 +145,16 @@ def main(args):
 		
 		masterTimes[i] = frame.getTime()
 		
-		spec1X[i,:] = frame.data.X0[1:] / LFFT
-		spec1Y[i,:] = frame.data.Y0[1:] / LFFT
-		spec2X[i,:] = frame.data.X1[1:] / LFFT
-		spec2Y[i,:] = frame.data.Y1[1:] / LFFT
+		if config['normalize']:
+			spec1X[i,:] = frame.data.X0[1:] / LFFT / frame.data.fills[0]
+			spec1Y[i,:] = frame.data.Y0[1:] / LFFT / frame.data.fills[1]
+			spec2X[i,:] = frame.data.X1[1:] / LFFT / frame.data.fills[2]
+			spec2Y[i,:] = frame.data.Y1[1:] / LFFT / frame.data.fills[3]
+		else:
+			spec1X[i,:] = frame.data.X0[1:] / LFFT
+			spec1Y[i,:] = frame.data.Y0[1:] / LFFT
+			spec2X[i,:] = frame.data.X1[1:] / LFFT
+			spec2Y[i,:] = frame.data.Y1[1:] / LFFT
 
 	# Done
 	fh.close()
