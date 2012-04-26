@@ -177,6 +177,7 @@ def main(args):
 	print " Tuning 2: %i" % clip2
 	
 	print filename, tFile, tInt, int(tFile/tInt)
+	print cFreq1, cFreq2
 	nChunks = int(tFile/tInt)
 	for i in xrange(nChunks):
 		junkFrame = drx.readFrame(fh)

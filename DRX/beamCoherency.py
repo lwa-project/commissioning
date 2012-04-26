@@ -53,12 +53,17 @@ def main(args):
 	for filename in files:
 		fh.append( open(filename, "rb") )
 		nFramesFile.append( os.path.getsize(filename) / drx.FrameSize )
-		junkFrame = drx.readFrame(fh[-1])
-		fh[-1].seek(0)
+		
+		while True:
+			junkFrame = drx.readFrame(fh[-1])
+			try:
+				srate = junkFrame.getSampleRate()
+				break
+			except ZeroDivisionError:
+				pass
+		fh[-1].seek(-drx.FrameSize, 1)
 	
 		beam, tune, pol = junkFrame.parseID()
-		srate.append( junkFrame.getSampleRate() )
-	
 		beams.append( beam )
 		tunepols.append( drx.getFramesPerObs(fh[-1]) )
 		tunepols.append( tunepols[-1][0] + tunepols[-1][1] + tunepols[-1][2] + tunepols[-1][3] )

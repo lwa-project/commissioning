@@ -164,15 +164,19 @@ def main(args):
 
 	drxFile.open()
 	nFramesFile = drxFile.size / drx.FrameSize
-	junkFrame = drx.readFrame(drxFile.fh)
-	beam,tune,pol = junkFrame.parseID()
-	drxFile.fh.seek(-drx.FrameSize, 1)
 	
-	srate = junkFrame.getSampleRate()
+	while True:
+		junkFrame = drx.readFrame(fh)
+		try:
+			srate = junkFrame.getSampleRate()
+			break
+		except ZeroDivisionError:
+			pass
+	fh.seek(-drx.FrameSize, 1)
+	
+	beam,tune,pol = junkFrame.parseID()
 	beams = drx.getBeamCount(drxFile.fh)
-	drxFile.seek(0)
 	tunepols = drx.getFramesPerObs(drxFile.fh)
-	drxFile.seek(0)
 	tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
 	beampols = tunepol
 
