@@ -32,10 +32,15 @@ def main(args):
 	# Get the first frame and find out what the firt time tag is, which the
 	# first frame number is, and what the sample rate it.  From the sample 
 	# rate, estimate how the time tag should advance between frames.
-	junkFrame = drx.readFrame(fh)
-	sampleRate = junkFrame.getSampleRate()
+	while True:
+		junkFrame = drx.readFrame(fh)
+		try:
+			srate = junkFrame.getSampleRate()
+			break
+		except ZeroDivisionError:
+			pass
 	tagSkip = int(fS / sampleRate * junkFrame.data.iq.shape[0])
-	fh.seek(0)
+	fh.seek(-drx.FrameSize, 1)
 
 	# Store the information about the first frame and convert the timetag to 
 	# an ephem.Date object.
