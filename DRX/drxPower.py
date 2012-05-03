@@ -43,7 +43,8 @@ Options:
 -d, --duration              Number of seconds to calculate the waterfall for 
                             (default = 10)
 -q, --quiet                 Run drxSpectra in silent mode
--o, --output                Output file name for time series image
+-o, --output                Output file name for average power image
+-w, --write-npz             Write a NPZ file of the averaged power
 """
 
 	if exitCode is not None:
@@ -62,11 +63,12 @@ def parseOptions(args):
 	config['output'] = None
 	config['verbose'] = True
 	config['trimLevel'] = 49
+	config['writeNPZ'] = False
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqt:o:s:a:d:", ["help", "quiet", "trim-level=", "output=", "skip=", "average=", "duration="])
+		opts, args = getopt.getopt(args, "hqt:o:s:a:d:w", ["help", "quiet", "trim-level=", "output=", "skip=", "average=", "duration=", "write-npz"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -86,8 +88,10 @@ def parseOptions(args):
 			config['offset'] = float(value)
 		elif opt in ('-a', '--average'):
 			config['average'] = float(value)
-		elif opt in('-d', '--duration'):
+		elif opt in ('-d', '--duration'):
 			config['duration'] = float(value)
+		elif opt in ('-w', '--write-npz'):
+			config['writeNPZ'] = True
 		else:
 			assert False
 	
@@ -104,16 +108,8 @@ def main(args):
 	
 	fh = open(config['args'][0], "rb")
 	nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
-	
-	while True:
-		junkFrame = drx.readFrame(fh)
-		try:
-			srate = junkFrame.getSampleRate()
-			break
-		except ZeroDivisionError:
-			pass
-	fh.seek(-drx.FrameSize, 1)
-	
+	junkFrame = drx.readFrame(fh)
+	fh.seek(0)
 	srate = junkFrame.getSampleRate()
 	beams = drx.getBeamCount(fh)
 	tunepols = drx.getFramesPerObs(fh)
@@ -153,6 +149,7 @@ def main(args):
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
 	print "Integration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], maxFrames, maxFrames / beampols)
 	print "Duration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols)
+	print " "
 
 	# Sanity check
 	if offset > nFramesFile:
@@ -173,6 +170,8 @@ def main(args):
 	masterTimes = numpy.zeros((nChunks, 4), dtype=numpy.float64)
 	masterData  = numpy.zeros((nChunks, 4), dtype=numpy.float32)
 	masterData2 = numpy.zeros((nChunks, 4), dtype=numpy.float32)
+	masterProcessed = [0, 0, 0, 0]
+	masterRemoved = [0, 0, 0, 0]
 	for i in range(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -182,14 +181,14 @@ def main(args):
 			framesWork = maxFrames
 		else:
 			framesWork = framesRemaining
-		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
+		#print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
 		count = {0:0, 1:0, 2:0, 3:0}
 		data  = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
 		data2 = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
 		
-		# Inner loop that actually reads the frames into the data array
-		print "Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+		## Inner loop that actually reads the frames into the data array
+		#print "Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
 		t0 = time.time()
 		
 		for j in xrange(framesWork):
@@ -211,18 +210,33 @@ def main(args):
 				masterTimes[i,aStand] = cFrame.getTime()
 
 			data[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
-			data2[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.where( numpy.abs(cFrame.data.iq)**2 <= config['trimLevel'], numpy.abs(cFrame.data.iq)**2, 0 )
 			
 			# Update the counters so that we can average properly later on
 			count[aStand] += 1
+
+		# Calculate the clipping
+		mask = numpy.where( data <= config['trimLevel'], 1, 0 )
+		data2 = data*mask
+		for j in xrange(4):
+			masterProcessed[j] += mask.shape[1]
+			masterRemoved[j] += (mask.shape[1] - mask[j,:].sum())
 
 		# Save the data
 		masterData[i,:]  = data.sum(axis=1)
 		masterData2[i,:] = data2.sum(axis=1)
 		
 	# Really save the data to a NPZ file
-	outfile = config['args'][0].replace('.dat', '-power.npz')
-	numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, times=masterTimes, trimLevel=config['trimLevel'])
+	if config['writeNPZ']:
+		outfile = config['args'][0].replace('.dat', '-power.npz')
+		numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, times=masterTimes, trimLevel=config['trimLevel'])
+
+	# Report on the clipping
+	print "Summary:"
+	for i in xrange(4):
+		print "  Tuning %i, Pol. %s:" % (i/2+1, 'X' if i%2 else 'Y')
+		print "    Processed: %i samples" % masterProcessed[i]
+		print "    Clipped:   %i samples" % masterRemoved[i]
+		print "      -> %.1f%% blanked" % (100.0*masterRemoved[i]/masterProcessed[i],)
 
 	# The plots:  This is setup for the current configuration of 20 beampols
 	fig = plt.figure()
