@@ -209,10 +209,13 @@ def main(args):
 			if j < 4:
 				masterTimes[i,aStand] = cFrame.getTime()
 
-			data[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
+			try:
+				data[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
 			
-			# Update the counters so that we can average properly later on
-			count[aStand] += 1
+				# Update the counters so that we can average properly later on
+				count[aStand] += 1
+			except ValueError:
+				pass
 
 		# Calculate the clipping
 		mask = numpy.where( data <= config['trimLevel'], 1, 0 )
