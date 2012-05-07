@@ -210,19 +210,21 @@ def main(args):
 				masterTimes[i,aStand] = cFrame.getTime()
 
 			try:
-				data[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
+				framePower = numpy.abs(cFrame.data.iq)**2
+				
+				# Calculate the clipping
+				mask = numpy.where( framePower <= config['trimLevel'], 1, 0 )
+				
+				data[ aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = framePower
+				data2[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = framePower*mask
+				
+				masterProcessed[aStand] += mask.size
+				masterRemoved[aStand] += (mask.size - mask.sum())
 			
 				# Update the counters so that we can average properly later on
 				count[aStand] += 1
 			except ValueError:
 				pass
-
-		# Calculate the clipping
-		mask = numpy.where( data <= config['trimLevel'], 1, 0 )
-		data2 = data*mask
-		for j in xrange(4):
-			masterProcessed[j] += mask.shape[1]
-			masterRemoved[j] += (mask.shape[1] - mask[j,:].sum())
 
 		# Save the data
 		masterData[i,:]  = data.sum(axis=1)
