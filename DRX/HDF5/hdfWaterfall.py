@@ -306,7 +306,6 @@ def main(args):
 	
 	# Setup the output file
 	outname = config['args'][0].replace('.dat', '-waterfall.hdf5')
-	outname = config['args'][0].replace('.DAT', '-waterfall.hdf5')
 	
 	f = h5py.File(outname, 'w')
 	f.attrs['Beam'] = beam
