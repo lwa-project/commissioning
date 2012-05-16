@@ -166,7 +166,7 @@ def main(args):
 	fh.seek(-drx.FrameSize, 1)
 	
 	beam,tune,pol = junkFrame.parseID()
-	beams = drx.getBeamCount(drxFile.fh)
+	beams = drx.getBeamCount(fh)
 	tunepols = drx.getFramesPerObs(fh)
 	tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
 	beampols = tunepol
@@ -306,6 +306,7 @@ def main(args):
 	
 	# Setup the output file
 	outname = config['args'][0].replace('.dat', '-waterfall.hdf5')
+	outname = config['args'][0].replace('.DAT', '-waterfall.hdf5')
 	
 	f = h5py.File(outname, 'w')
 	f.attrs['Beam'] = beam
