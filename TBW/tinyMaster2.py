@@ -29,11 +29,13 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-	print """stationMaster2.py - Read in TBW files and create a collection of 
-time-averaged spectra.  This script differs from stationMaster.py in that it uses
-the 'ClipLevel' keyword fx.SpecMaster to mask impulsive RFI events.
+	print """tinyMaster2.py - Read in TBW files and create a collection of 
+time-averaged spectra using less memory that stationMaster2.py.  This 
+script differs from stationMaster.py in that it uses
+the 'ClipLevel' keyword fx.SpecMaster to mask impulsive 
+RFI events.
 
-Usage: stationMaster2.py [OPTIONS] file
+Usage: tinyMaster2.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
@@ -209,8 +211,9 @@ def main(args):
 				# Actually load the data.  x pol goes into the even numbers, y pol into the 
 				# odd numbers
 				count = cFrame.header.frameCount - 1
-				data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.data.xy[0,:]
-				data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.data.xy[1,:]
+				data[aStand,   count*nSamples:(count+1)*nSamples] = 1*cFrame.data.xy[0,:]
+				data[aStand+1, count*nSamples:(count+1)*nSamples] = 1*cFrame.data.xy[1,:]
+				del cFrame
 
 			# Calculate the spectra for this block of data and then weight the results by 
 			# the total number of frames read.  This is needed to keep the averages correct.
