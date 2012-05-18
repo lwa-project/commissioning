@@ -704,9 +704,9 @@ class MainWindow(wx.Frame):
 		## Data Menu
 		dataMenu.AppendRadioItem(ID_TUNING1_X, 'Tuning 1, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING1_Y, 'Tuning 1, Pol. Y')
-		dataMenu.AppendSeparator()
 		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
+		dataMenu.InsertSeparator(2)
 		
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
