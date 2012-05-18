@@ -211,15 +211,13 @@ def main(args):
 			# the total number of frames read.  This is needed to keep the averages correct.
 			# NB:  The weighting is the same for the x and y polarizations because of how 
 			# the data are packed in TBW
-			for j in xrange(masterSpectra.shape[1]/4):
+			for j in xrange(0, masterSpectra.shape[1], 4):
 				tempData = numpy.zeros((4, data.shape[1]), dtype=data.dtype)
-				tempData = data[j*4:(j+1)*4,:]
+				tempData = data[j:j+4,:]
 				
 				freq, tempSpec = fxc.SpecMaster(tempData, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
-				for stand in xrange(j*4,(j+1)*4):
-					k = j % 4
-					masterSpectra[i,stand,:] = tempSpec[k,:]
-
+				masterSpectra[i,j:j+4,:] = tempSpec
+				
 			# Compute the 1 ms average power and the data range within each 1 ms window
 			subSize = 1960
 			nSegments = data.shape[1] / subSize

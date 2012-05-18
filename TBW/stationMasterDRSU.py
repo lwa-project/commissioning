@@ -215,8 +215,7 @@ def main(args):
 			# NB:  The weighting is the same for the x and y polarizations because of how 
 			# the data are packed in TBW
 			freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
-			for stand in xrange(masterSpectra.shape[1]):
-				masterSpectra[i,stand,:] = tempSpec[stand,:]
+			masterSpectra[i,:,:] = tempSpec
 
 			# Compute the 1 ms average power and the data range within each 1 ms window
 			subSize = 1960
