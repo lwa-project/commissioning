@@ -440,6 +440,7 @@ class Waterfall_GUI(object):
 		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 		cm.ax.set_ylabel('PSD ')
 		self.ax1a.axis('auto')
+		self.ax1a.set_xlim((freq[0]/1e6, freq[-1]/1e6))
 		self.ax1a.set_xlabel('Frequency [MHz]')
 		self.ax1a.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
 		if self.index % 4 == 0:
@@ -2138,6 +2139,7 @@ class WaterfallDisplay(wx.Frame):
 		cm = self.figure.colorbar(m, ax=self.ax1)
 		cm.ax.set_ylabel('PSD')
 		self.ax1.axis('auto')
+		self.ax1.set_xlim((freq[0]/1e6, freq[-1]/1e6))
 		self.ax1.set_xlabel('Frequency [MHz]')
 		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		if self.parent.data.index % 4 == 0:
