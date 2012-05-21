@@ -35,7 +35,7 @@ def main(args):
 	while True:
 		junkFrame = drx.readFrame(fh)
 		try:
-			srate = junkFrame.getSampleRate()
+			sampleRate = junkFrame.getSampleRate()
 			break
 		except ZeroDivisionError:
 			pass
