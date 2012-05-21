@@ -441,6 +441,7 @@ class Waterfall_GUI(object):
 		cm.ax.set_ylabel('PSD ')
 		self.ax1a.axis('auto')
 		self.ax1a.set_xlim((freq[0]/1e6, freq[-1]/1e6))
+		self.ax1a.set_ylim((self.time[0], self.time[-1]))
 		self.ax1a.set_xlabel('Frequency [MHz]')
 		self.ax1a.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
 		if self.index % 4 == 0:
@@ -464,7 +465,7 @@ class Waterfall_GUI(object):
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
 		self.ax1b.plot(self.drift[:,self.index], self.time, linestyle=' ', marker='x')
-		self.ax1b.set_ylim([self.time[0], self.time[-1]])
+		self.ax1b.set_ylim((self.time[0], self.time[-1]))
 		self.ax1b.set_xlabel('Inner 75% Total Power [lin. units]')
 		self.ax1b.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
 		
@@ -2140,6 +2141,7 @@ class WaterfallDisplay(wx.Frame):
 		cm.ax.set_ylabel('PSD')
 		self.ax1.axis('auto')
 		self.ax1.set_xlim((freq[0]/1e6, freq[-1]/1e6))
+		self.ax1.set_ylim((self.parent.data.time[0], self.parent.data.time[-1]))
 		self.ax1.set_xlabel('Frequency [MHz]')
 		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		if self.parent.data.index % 4 == 0:
@@ -2284,7 +2286,7 @@ class DriftCurveDisplay(wx.Frame):
 		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
 		self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
-		self.ax1.set_xlim([self.parent.data.time[0], self.parent.data.time[-1]])
+		self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
 		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		self.ax1.set_ylabel('Inner 75% Total Power [lin. units]')
 		if self.parent.data.index % 4 == 0:
