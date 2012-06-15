@@ -80,6 +80,11 @@ Modified version of drxTimeseries.py that plots the power for each DRX sample in
 of the raw I/Q values.  The power is summed for the integration time (listed as 
 average) and displayed for the duration that it is computed.
 
+drxFileCheck.py
+---------------
+Script for inspecting one second of DRX data every 15 minutes to check the gains
+setting.
+
 drxSpectra.py
 -------------
 Script for reading in DRX data and created time-averaged power spectral density 
