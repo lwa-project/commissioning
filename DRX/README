@@ -29,11 +29,6 @@ elevation in degrees) at a specified frequency.
 	be converted to binary packed files with the MCS/Executive commands megfg 
 	and medfg.
 
-generateDelaysMixed.py
-----------------------
-Modified version of generateDelays.py that forms the beam only with the X pol. and 
-leaves only the outlier (#258) on the Y pol.
-
 estimateBeam.py
 ---------------
 Use the LSL misc.beamformer's integer delay and sum to estimate the beam shape 
@@ -106,7 +101,7 @@ etc.) for the combining to make sense.
 
 plotWaterfall.py
 ----------------
-Given the NPZ output of drxWaterfall, plot it in an interative way.
+Given the NPZ output of drxWaterfall, plot it in an interactive way.
 
 eyeDiagram.py
 -------------

@@ -35,6 +35,7 @@ Options:
 -p, --plot-range            Number of seconds of data to show in the I/Q plots
                             (default = 0.0001)
 -i, --instanenous-power     Plot I*I + Q*Q instead of the raw samples
+-m, --mark-frames           Mark the frame bounaries in time
 -q, --quiet                 Run drxSpectra in silent mode
 -o, --output                Output file name for time series image
 """
@@ -54,11 +55,12 @@ def parseOptions(args):
 	config['output'] = None
 	config['verbose'] = True
 	config['doPower'] = False
+	config['markFrames'] = False
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:p:i", ["help", "quiet", "output=", "skip=", "plot-range=", "instanenous-power"])
+		opts, args = getopt.getopt(args, "hqo:s:p:im", ["help", "quiet", "output=", "skip=", "plot-range=", "instanenous-power", "mark-frames"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -78,6 +80,8 @@ def parseOptions(args):
 			config['average'] = float(value)
 		elif opt in ('-i', '--instanenous-power'):
 			config['doPower'] = True
+		elif opt in ('-m', '--mark-frames'):
+			config['markFrames'] = True
 		else:
 			assert False
 	
@@ -172,6 +176,7 @@ def main(args):
 		print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
 		
 		count = {0:0, 1:0, 2:0, 3:0}
+		tt = numpy.zeros((beampols,framesWork/beampols), dtype=numpy.int64) - 1
 		data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
 		
 		# Inner loop that actually reads the frames into the data array
@@ -193,6 +198,7 @@ def main(args):
 			beam,tune,pol = cFrame.parseID()
 			aStand = 2*(tune-1) + pol
 			
+			tt[aStand, count[aStand]] = cFrame.data.timeTag
 			if config['doPower']:
 				data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
 			else:
@@ -214,21 +220,26 @@ def main(args):
 		for i in xrange(data.shape[0]):
 			ax = fig.add_subplot(figsX,figsY,i+1)
 			if config['doPower']:
+				limits = (-10, 100)
 				if toClip:
 					ax.plot(config['offset'] + numpy.arange(0,samples)/srate, data[i,0:samples])
 				else:
 					ax.plot(config['offset'] + numpy.arange(0,data.shape[1])/srate, data[i,:])
-				ax.set_ylim([-10, 100])
 			else:
+				limits = (-8, 8)
 				if toClip:
 					ax.plot(config['offset'] + numpy.arange(0,samples)/srate, data[i,0:samples].real, label='I')
 					ax.plot(config['offset'] + numpy.arange(0,samples)/srate, data[i,0:samples].imag, label='Q')
 				else:
 					ax.plot(config['offset'] + numpy.arange(0,data.shape[1])/srate, data[i,:].real, label='I')
 					ax.plot(config['offset'] + numpy.arange(0,data.shape[1])/srate, data[i,:].imag, label='Q')
-				ax.set_ylim([-8, 8])
 				ax.legend(loc=0)
-			
+
+			if config['markFrames']:
+				for j in xrange(0, samples-4096, 4096):
+					ax.vlines(float(j)/srate, limits[0], limits[1], color='k', label='%i' % tt[i,j/4096])
+
+			ax.set_ylim(limits)
 			ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1,i%2))
 			ax.set_xlabel('Time [seconds]')
 			if config['doPower']:
