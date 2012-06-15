@@ -51,6 +51,7 @@ Usage: astroevents2.py [OPTIONS] [YYYY/MM/DD [HH:MM:SS]]
 
 Options:
 -h, --help                  Display this help information
+-u, --utc                   Display rise, transit, and set times in UTC instead of MST/MDT
 -p, --position-mode         Display the azimuth and elevation of sources above the
                             horizon.
 """
@@ -63,11 +64,12 @@ Options:
 
 def parseOptions(args):
 	config = {}
+	config['useMountain'] = True
 	config['positionMode'] = False
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hp", ["help", "position-mode"])
+		opts, args = getopt.getopt(args, "hup", ["help", "utc", "position-mode"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -77,6 +79,8 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-u', '--utc'):
+			config['useMountain'] = False
 		elif opt in ('-p', '--position-mode'):
 			config['positionMode'] = True
 		else:
@@ -100,6 +104,7 @@ def main(args):
 	# Set the current time so we can find the "next" transit.  Go ahead
 	# and report the time and the current LST (for reference)
 	if len(config['args']) == 2:
+		config['args'][0] = config['args'][0].replace('-', '/')
 		year, month, day = config['args'][0].split('/', 2)
 		year = int(year)
 		month = int(month)
@@ -114,6 +119,7 @@ def main(args):
 		tNow = tNow.astimezone(_UTC)
 	
 	elif len(config['args']) == 1:
+		config['args'][0] = config['args'][0].replace('-', '/')
 		year, month, day = config['args'][0].split('/', 2)
 		year = int(year)
 		month = int(month)
@@ -122,10 +128,11 @@ def main(args):
 		tNow = tNow.astimezone(_UTC)
 		
 	else:
-		tNow = datetime.utcnow()
+		tNow = _UTC.localize(datetime.utcnow())
 	observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
-	print "Current time is %s UTC" % tNow.strftime("%Y/%m/%d %H:%M:%S")
-	print "CUrrent LST at %s is %s" % (lwa1.name, observer.sidereal_time())
+	print "Current time is %s" % tNow.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z")
+	print "                %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z")
+	print "Current LST at %s is %s" % (lwa1.name, observer.sidereal_time())
 	
 	# Load in the sources and compute
 	srcs = [ephem.Sun(), ephem.Jupiter()]
@@ -153,18 +160,21 @@ def main(args):
 			try:
 				nR = str(observer.next_rising(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
 				nR = _UTC.localize( datetime.strptime(nR, "%Y/%m/%d %H:%M:%S") )
-				nR = nR.astimezone(_MST)
+				if config['useMountain']:
+					nR = nR.astimezone(_MST)
 			except ephem.AlwaysUpError:
 				nR = None
 		
 			nT = str(observer.next_transit(src, start=tNow.strftime("%Y/%m/%d %H:%M:%S")))
 			nT = _UTC.localize( datetime.strptime(nT, "%Y/%m/%d %H:%M:%S") )
-			nT = nT.astimezone(_MST)
+			if config['useMountain']:
+				nT = nT.astimezone(_MST)
 		
 			try:
 				nS = str(observer.next_setting(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
 				nS = _UTC.localize( datetime.strptime(nS, "%Y/%m/%d %H:%M:%S") )
-				nS = nS.astimezone(_MST)
+				if config['useMountain']:
+					nS = nS.astimezone(_MST)
 			except ephem.AlwaysUpError:
 				nS = None
 		
