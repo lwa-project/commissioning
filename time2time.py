@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Convert a local date/time string in the format of "YYYY-MM-DD HH:MM:SS[.SSS]" into 
+Convert a local date/time string in the format of "YYYY/MM/DD HH:MM:SS[.SSS]" into 
 MJD and MPM UTC values.  If no date/time string is supplied, the current local 
 date/time is used.
 
@@ -17,13 +17,15 @@ import pytz
 import datetime
 import getopt
 
+from lsl.common.mcs import datetime2mjdmpm
+
 
 def usage(exitCode=None):
 	print """time2time.py - Convert a local date/time string in the format of 
 "YYYY-MM-DD HH:MM:SS[.SSS]" into MJD and MPM UTC values.  If no date/time string
 is supplied, the current local date/time is used.
 
-Usage: time2time.py [OPTIONS] YYYY-MM-DD HH:MM:SS[.SSS]
+Usage: time2time.py [OPTIONS] YYYY/MM/DD HH:MM:SS[.SSS]
 
 Options:
 -h, --help                  Display this help information
@@ -60,38 +62,6 @@ def parseOptions(args):
 	return config
 
 
-def time2time(dt=datetime.datetime.utcnow()):
-	"""
-	Convert a UTC datetime object into MJD and MPM.  Based on the JPL get_time()
-	function found in DRX/test_analog_in2.py.
-	"""
-	
-	year        = dt.year             
-	month       = dt.month      
-	day         = dt.day    
-
-	hour        = dt.hour
-	minute      = dt.minute
-	second      = dt.second     
-	millisecond = dt.microsecond / 1000
-
-	# compute MJD         
-	# adapted from http://paste.lisp.org/display/73536
-	# can check result using http://www.csgnetwork.com/julianmodifdateconv.html
-	a = (14 - month) // 12
-	y = year + 4800 - a          
-	m = month + (12 * a) - 3                    
-	p = day + (((153 * m) + 2) // 5) + (365 * y)   
-	q = (y // 4) - (y // 100) + (y // 400) - 32045
-	mjdi = int(math.floor( (p+q) - 2400000.5))
-	mjd = mjdi
-
-	# compute MPM
-	mpmi = int(math.floor( (hour*3600 + minute*60 + second)*1000 + millisecond ))
-	mpm = mpmi
-	return (mjd, mpm)
-
-
 def main(args):
 	config = parseOptions(args)
 	
@@ -102,7 +72,8 @@ def main(args):
 		dt = datetime.datetime.utcnow()
 		dt = UTC.localize(dt)
 	else:
-		year, month, day = args[0].split('-', 2)
+		args[0] = args[0].replace('-', '/')
+		year, month, day = args[0].split('/', 2)
 		hour, minute, second = args[1].split(':', 2)
 		iSeconds = int(float(second))
 		mSeconds = int(round((float(second) - iSeconds)*1000000))
@@ -110,7 +81,7 @@ def main(args):
 		dt = MST.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
 		dt = dt.astimezone(UTC)
 	
-	mjd, mpm = time2time(dt)
+	mjd, mpm = datetime2mjdmpm(dt)
 	
 	print "Localtime: %s" % dt.astimezone(MST).strftime("%B %d, %Y at %H:%M:%S %Z")
 	print "MJD: %i" % mjd

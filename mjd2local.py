@@ -14,7 +14,7 @@ import sys
 import pytz
 import getopt
 
-from lsl import astro
+from lsl.common.mcs import mjdmpm2datetime
 from datetime import datetime
 
 MST = pytz.timezone('US/Mountain')
@@ -29,6 +29,7 @@ Usage: mjd2local.py [OPTIONS] MJD [MJD [MJD [...]]]
 
 Options:
 -h, --help                  Display this help information
+-p, --pairs                 Interpret the input as MJD, MPM pairs
 """
 
 	if exitCode is not None:
@@ -39,10 +40,11 @@ Options:
 
 def parseOptions(args):
 	config = {}
+	config['pairs'] = False
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "h", ["help",])
+		opts, args = getopt.getopt(args, "hp", ["help", "pairs"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -52,6 +54,8 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		if opt in ('-p', '--pairs'):
+			config['pairs'] = True
 		else:
 			assert False
 	
@@ -65,22 +69,27 @@ def parseOptions(args):
 def main(args):
 	config = parseOptions(args)
 
-	for arg in config['args']:
-		mjd1 = int(arg)
-		mjd2 = float(mjd1) + 0.99999
+	if not config['pairs']:
+		for arg in config['args']:
+			mjd1 = int(arg)
+			mjd2 = float(mjd1) + 0.99999
 
-		j1 = astro.mjd_to_jd(mjd1)
-		t1  = astro.get_timet_from_julian(j1)
-		d1  = UTC.localize(datetime.utcfromtimestamp(t1))
-		d1  = d1.astimezone(MST)
+			d1 = mjdmpm2datetime(mjd1, 0)
+			d1  = d1.astimezone(MST)
 
-		j2 = astro.mjd_to_jd(mjd2)
-		t2  = astro.get_timet_from_julian(j2)
-		d2  = UTC.localize(datetime.utcfromtimestamp(t2))
-		d2  = d2.astimezone(MST)
+			d2 = mjdmpm2datetime(mjd2, 0)
+			d2  = d2.astimezone(MST)
 
-		print "MJD: %i" % mjd1
-		print "Localtime: %s to %s" % (d1.strftime("%B %d, %Y at %H:%M:%S %Z"), d2.strftime("%B %d, %Y at %H:%M:%S %Z"))
+			print "MJD: %i" % mjd1
+			print "Localtime: %s to %s" % (d1.strftime("%B %d, %Y at %H:%M:%S %Z"), d2.strftime("%B %d, %Y at %H:%M:%S %Z"))
+	else:
+		for arg in zip(config['args'][0::2], config['args'][1::2]):
+			mjd, mpm = [int(i) for i in arg]
+			d = mjdmpm2datetime(mjd, mpm)
+			d = d.astimezone(MST)
+
+			print "MJD: %i, MPM: %i" % (mjd, mpm)
+			print "Localtime: %s" % d.strftime("%B %d, %Y at %H:%M:%S %Z")
 
 
 if __name__ == "__main__":
