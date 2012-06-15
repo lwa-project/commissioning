@@ -114,18 +114,18 @@ def main(args):
 	data = data.ravel()
 	data.sort()
 	vmin1 = data[int(round(0.15*len(data)))]
-	vmax1 = data[int(round(0.99*len(data)))]
+	vmax1 = data[int(round(0.85*len(data)))]
 	print 'Plot range for tuning 1:', vmin1, vmax1
 
 	data = 1.0*numpy.abs(vis2)
 	data = data.ravel()
 	data.sort()
 	vmin2 = data[int(round(0.15*len(data)))]
-	vmax2 = data[int(round(0.99*len(data)))]
+	vmax2 = data[int(round(0.85*len(data)))]
 	print 'Plot range for tuning 2:', vmin2, vmax2
 
-	ax1.imshow(numpy.abs(vis1), interpolation='nearest', extent=(freq1[0], freq1[-1], dTimes[0], dTimes[-1]), origin='lower', vmin=vmin1, vmax=vmax1)
-	ax2.imshow(numpy.abs(vis2), interpolation='nearest', extent=(freq2[0], freq2[-1], dTimes[0], dTimes[-1]), origin='lower', vmin=vmin2, vmax=vmax2)
+	ax1.imshow(numpy.abs(vis1), extent=(freq1[0], freq1[-1], dTimes[0], dTimes[-1]), origin='lower', vmin=vmin1, vmax=vmax1)
+	ax2.imshow(numpy.abs(vis2), extent=(freq2[0], freq2[-1], dTimes[0], dTimes[-1]), origin='lower', vmin=vmin2, vmax=vmax2)
 
 	ax1.axis('auto')
 	ax2.axis('auto')
