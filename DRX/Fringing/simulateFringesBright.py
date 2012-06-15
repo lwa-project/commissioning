@@ -5,10 +5,6 @@
 Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.buildSimData()
 function and the bright sources listed in lsl.sim.vis.srcs.
 
-Usage:
-  simulateFringesBright.py freq1 freq2 stand1 stand2 reference_file
-where freq1 and freq1 are in MHz.
-
 $Rev$
 $LastChangedBy$
 $LastChangedDate$

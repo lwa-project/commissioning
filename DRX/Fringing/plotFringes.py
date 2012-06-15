@@ -3,6 +3,10 @@
 
 """
 Simple script to plot up the NPZ files created by fringeDipole.py/fringeBeam.py.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os
