@@ -68,10 +68,10 @@ def main(args):
 	ax1b = ax1.twinx()
 	ax2b = ax2.twinx()
 
-	ax1.plot_date(times, amp1, linestyle='-')
-	ax1b.plot_date(times, amp3, linestyle='--', color='green', alpha=0.40)
-	ax2.plot_date(times, amp2, linestyle='-')
-	ax2b.plot_date(times, amp4, linestyle='--', color='green', alpha=0.40)
+	l1 = ax1.plot_date(times, amp1, linestyle='-', label='Beam-Outlier')
+	l3 = ax1b.plot_date(times, amp3, linestyle='--', color='green', alpha=0.40, label='Beam-Beam')
+	l2 = ax2.plot_date(times, amp2, linestyle='-', label='Beam-Outlier')
+	l4 = ax2b.plot_date(times, amp4, linestyle='--', color='green', alpha=0.40, label='Beam-Beam')
 
 	fig.suptitle("%s to %s UTC" % (times[0].strftime("%Y/%m/%d %H:%M"), times[-1].strftime("%Y/%m/%d %H:%M")))
 	ax1.set_xlabel('Time')
@@ -80,6 +80,8 @@ def main(args):
 	ax2.set_ylabel('Vis. Amp. [arb.]')
 	ax1.set_title('%.1f MHz @ %.2f MHz BW' % (freq1.mean()/1e6, 0.75*srate/1e6))
 	ax2.set_title('%.1f MHz @ %.2f MHz BW' % (freq2.mean()/1e6, 0.75*srate/1e6))
+	ax1.legend([l1, l3], ['Beam-Outlier', 'Beam-Beam'], loc=0)
+	ax2.legend([l2, l4], ['Beam-Outlier', 'Beam-Beam'], loc=0)
 
 	r1 = amp1.max() - amp2.min()
 	r2 = amp2.max() - amp2.min()

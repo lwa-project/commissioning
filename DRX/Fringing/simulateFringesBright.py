@@ -133,6 +133,7 @@ def main(args):
 	ax1.axis('auto')
 	ax2.axis('auto')
 
+	fig.suptitle("%s to %s UTC" % (times[0].strftime("%Y/%m/%d %H:%M"), times[-1].strftime("%Y/%m/%d %H:%M")))
 	ax1.set_xlabel('Frequency [MHz]')
 	ax2.set_xlabel('Frequency [MHz]')
 	ax1.set_ylabel('Elapsed Time [s]')
