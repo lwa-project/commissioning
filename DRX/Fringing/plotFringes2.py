@@ -134,7 +134,7 @@ def main(args):
 	ax1.axis('auto')
 	ax2.axis('auto')
 
-	fig.suptitle("%s to %s UTC" % (times[0].strftime("%Y/%m/%d %H:%M"), times[-1].strftime("%Y/%m/%d %H:%M")))
+	fig1.suptitle("%s to %s UTC" % (times[0].strftime("%Y/%m/%d %H:%M"), times[-1].strftime("%Y/%m/%d %H:%M")))
 	ax1.set_xlabel('Frequency [MHz]')
 	ax2.set_xlabel('Frequency [MHz]')
 	ax1.set_ylabel('Elapsed Time [s]')
@@ -143,7 +143,7 @@ def main(args):
 	ax3.plot(freq1, numpy.abs(vis1).mean(axis=0))
 	ax4.plot(freq2, numpy.abs(vis2).mean(axis=0))
 
-	fig.suptitle("%s to %s UTC" % (times[0].strftime("%Y/%m/%d %H:%M"), times[-1].strftime("%Y/%m/%d %H:%M")))
+	fig2.suptitle("%s to %s UTC" % (times[0].strftime("%Y/%m/%d %H:%M"), times[-1].strftime("%Y/%m/%d %H:%M")))
 	ax3.set_xlabel('Frequency [MHz]')
 	ax4.set_xlabel('Frequency [MHz]')
 	ax3.set_ylabel('Mean Vis. Amp. [arb.]')
