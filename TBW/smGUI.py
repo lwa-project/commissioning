@@ -643,6 +643,9 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onSelectStand, id=ID_SELECT_STAND)
 		self.Bind(wx.EVT_MENU, self.onSelectDigitizer, id=ID_SELECT_DIGITIZER)
 		
+		# Keyboard events
+		self.Bind(wx.EVT_KEY_UP, self.onKeyPress)
+		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
 	
@@ -1167,6 +1170,33 @@ Global Range:
 						break
 				
 		box.Destroy()
+		
+	def onKeyPress(self, event):
+		"""
+		Use the arrow keys to move around the array.
+		"""
+		
+		keycode = event.GetKeyCode()
+		try:
+			currStand = self.data.antennas[self.data.bestX-1].stand.id
+		except:
+			currStand = 1
+		if keycode == wx.WXK_LEFT and currStand > 1:
+			## Left decreases the stand number by 1
+			currStand -= 1
+		elif keycode == wx.WXK_RIGHT and currStand < len(self.data.antennas):
+			## Right increases the stand number by 1
+			currStand +=1
+		else:
+			return False
+			
+		for ant in self.data.antennas:
+			if ant.stand.id == currStand:
+				self.data.drawSpectrum(ant.stand.x, ant.stand.y, preferStand=currStand)
+				self.data.makeMark(ant.stand.x, ant.stand.y)
+				break
+				
+		return True
 
 	def resizePlots(self, event):
 		w, h = self.GetSize()
