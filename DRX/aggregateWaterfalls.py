@@ -23,48 +23,11 @@ import os
 import sys
 import time
 import numpy
+from datetime import datetime
 
 from scipy.stats import scoreatpercentile
 
-from datetime import datetime
-
-
-def spectralKurtosis(x, N=1):
-	"""
-	Compute the spectral kurtosis for a set of power measurments averaged
-	over N FFTs.  For a distribution consistent with Gaussian noise, this
-	value should be ~1.
-	"""
-	
-	M = len(x)
-	
-	k = M*(x**2).sum()/(x.sum())**2 - 1.0
-	k *= (M*N+1)/(M-1)
-	
-	return k
-
-
-def skStd(M, N=1):
-	"""
-	Return the expected standard deviation of the spectral kurtosis for M points 
-	each composed of N measurments.
-	
-	.. note::
-		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.std()
-	"""
-	
-	return numpy.sqrt( skVar(M, N) )
-
-
-def skVar(M, N=1):
-	"""
-	Return the expected variance (second central moment) of the spectral kurtosis 
-	for M points each composed of N measurments.
-	.. note::
-		In the future (LSL 0.5), this will be lsl.statistics.kurtosis.var()
-	"""
-
-	return 2.0*N*(N+1)*M**2/ float( (M-1)*(M*N+3)*(M*N+2) )
+from lsl.statistics import kurtosis
 
 
 def main(args):
@@ -163,10 +126,10 @@ Options:
 				for k in xrange(spec.shape[1]):
 					for j in xrange(spec.shape[2]):
 						channel = cSpec[:,k,j]
-						kurtosis[k,j] = spectralKurtosis(channel, N=N)
+						kurtosis[k,j] = kurtosis.spectralPower(channel, N=N)
 		
 				kMean = 1.0
-				kStd  = skStd(cSpec.shape[0], N)
+				kStd  = kurtosis.std(cSpec.shape[0], N)
 				
 				for k in xrange(spec.shape[1]):
 					bad = numpy.where( numpy.abs(kurtosis[k,:] - kMean) >= kurtosisCut*kStd )[0]
