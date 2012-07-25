@@ -802,6 +802,8 @@ class MainWindow(wx.Frame):
 			coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
 			fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)	
 			res1 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
+			if len(res1) < 1:
+				res1 = 0.0
 			
 			i = self.data.bestY-1
 			bestOrder = 0
@@ -817,7 +819,9 @@ class MainWindow(wx.Frame):
 			coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
 			fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)	
 			res2 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
-			
+			if len(res2) < 1:
+				res2 = 0.0
+
 			outString = """Antenna: %i
 Polarization: %i
 
@@ -825,6 +829,9 @@ Est. Resonance: %.3f MHz
 
 DP1 Board: %i
 Digitizer: %i
+
+ARX Board: %s
+Channel:   %i
 
 Status: %i
 
@@ -838,9 +845,12 @@ Est. Resonance: %.3f MHz
 DP1 Board: %i
 Digitizer: %i
 
+ARX Board: %s
+Channel:   %i
+
 Status: %i
-""" % (ant1.id, ant1.pol, res1, ant1.board, ant1.digitizer, ant1.status, 
-		ant2.id, ant2.pol, res2, ant2.board, ant2.digitizer, ant2.status)
+""" % (ant1.id, ant1.pol, res1, ant1.board, ant1.digitizer, ant1.arx.id, ant1.arx.channel, ant1.status, 
+		ant2.id, ant2.pol, res2, ant2.board, ant2.digitizer, ant2.arx.id, ant2.arx.channel, ant2.status)
 		
 			box = wx.MessageDialog(self, outString, "Antenna Details")
 			box.ShowModal()
