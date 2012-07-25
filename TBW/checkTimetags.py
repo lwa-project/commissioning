@@ -110,9 +110,14 @@ def main(args):
 	# Check for missing frames
 	missing = numpy.where( timeTags < 0 )
 	if len(missing) != 0:
+		dp1Boards = []
 		print "Found %i missing frames (%i missing time tags).  Missing data from:" % (len(missing[0])/2, len(missing[0]))
 		for i,f in zip(missing[0], missing[1]):
+			if antennas[i].board not in dp1Boards:
+				dp1Boards.append(antennas[i].board)
+
 			print "  stand %3i, pol. %1i (dig. %3i) @ frame %5i" % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer, f+1)
+		print "-> DP1 boards with missing frames: %s" % ','.join([str(b) for b in dp1Boards])
 
 	# Check time tags to make sure every ant/pol as the same time as each frame
 	for f in xrange(timeTags.shape[1]):
