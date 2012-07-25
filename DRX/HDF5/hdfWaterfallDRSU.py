@@ -175,9 +175,9 @@ def main(args):
 			except ZeroDivisionError:
 				pass
 		except errors.syncError:
-			fh.seek(-drx.FrameSize+1, 1)
+			drxFile.fh.seek(-drx.FrameSize+1, 1)
 			
-	fh.seek(-drx.FrameSize, 1)
+	drxFile.fh.seek(-drx.FrameSize, 1)
 	
 	beam,tune,pol = junkFrame.parseID()
 	beams = drx.getBeamCount(drxFile.fh)
