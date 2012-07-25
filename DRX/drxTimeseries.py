@@ -100,13 +100,17 @@ def main(args):
 	nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
 	
 	while True:
-		junkFrame = drx.readFrame(fh)
 		try:
-			srate = junkFrame.getSampleRate()
-			t0 = junkFrame.getTime()
-			break
-		except ZeroDivisionError:
-			pass
+			junkFrame = drx.readFrame(fh)
+			try:
+				srate = junkFrame.getSampleRate()
+				t0 = junkFrame.getTime()
+				break
+			except ZeroDivisionError:
+				pass
+		except errors.syncError:
+			fh.seek(-drx.FrameSize+1, 1)
+			
 	fh.seek(-drx.FrameSize, 1)
 	
 	beams = drx.getBeamCount(fh)

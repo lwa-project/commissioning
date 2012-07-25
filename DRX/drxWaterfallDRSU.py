@@ -165,13 +165,17 @@ def main(args):
 	nFramesFile = drxFile.size / drx.FrameSize
 	
 	while True:
-		junkFrame = drx.readFrame(fh)
 		try:
-			srate = junkFrame.getSampleRate()
-			t0 = junkFrame.getTime()
-			break
-		except ZeroDivisionError:
-			pass
+			junkFrame = drx.readFrame(fh)
+			try:
+				srate = junkFrame.getSampleRate()
+				t0 = junkFrame.getTime()
+				break
+			except ZeroDivisionError:
+				pass
+		except errors.syncError:
+			fh.seek(-drx.FrameSize+1, 1)
+			
 	fh.seek(-drx.FrameSize, 1)
 	
 	beam,tune,pol = junkFrame.parseID()

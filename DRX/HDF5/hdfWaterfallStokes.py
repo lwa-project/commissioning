@@ -156,11 +156,22 @@ def main(args):
 
 	fh = open(config['args'][0], "rb")
 	nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
-	junkFrame = drx.readFrame(fh)
+
+	while True:
+		try:
+			junkFrame = drx.readFrame(fh)
+			try:
+				srate = junkFrame.getSampleRate()
+				t0 = junkFrame.getTime()
+				break
+			except ZeroDivisionError:
+				pass
+		except errors.syncError:
+			fh.seek(-drx.FrameSize+1, 1)
+			
+	fh.seek(-drx.FrameSize, 1)
+
 	beam, tune, pol = junkFrame.parseID()
-	fh.seek(0)
-	
-	srate = junkFrame.getSampleRate()
 	beams = drx.getBeamCount(fh)
 	tunepols = drx.getFramesPerObs(fh)
 	tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
@@ -170,7 +181,39 @@ def main(args):
 	offset = int(config['offset'] * srate / 4096 * beampols)
 	offset = int(1.0 * offset / beampols) * beampols
 	config['offset'] = 1.0 * offset / beampols * 4096 / srate
-	fh.seek(offset*drx.FrameSize)
+	fh.seek(offset*drx.FrameSize, 1)
+
+	# Iterate on the offsets until we reach the right point in the file.  This
+	# is needed to deal with files that start with only one tuning and/or a 
+	# different sample rate.  
+	while True:
+		## Figure out where in the file we are and what the current tuning/sample 
+		## rate is
+		junkFrame = drx.readFrame(fh)
+		srate = junkFrame.getSampleRate()
+		t1 = junkFrame.getTime()
+		tunepols = drx.getFramesPerObs(fh)
+		tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
+		beampols = tunepol
+		fh.seek(-drx.FrameSize, 1)
+		
+		## See how far off the current frame is from the target
+		tDiff = t1 - (t0 + config['offset'])
+		
+		## Half that to come up with a new seek parameter
+		tCorr = -tDiff / 2.0
+		cOffset = int(tCorr * srate / 4096 * beampols)
+		cOffset = int(1.0 * cOffset / beampols) * beampols
+		offset += cOffset
+		
+		## If the offset is zero, we are done.  Otherwise, apply the offset
+		## and check the location in the file again/
+		if cOffset is 0:
+			break
+		fh.seek(cOffset*drx.FrameSize, 1)
+	
+	# Update the offset actually used
+	config['offset'] = t1 - t0
 
 	# Make sure that the file chunk size contains is an integer multiple
 	# of the FFT length so that no data gets dropped.  This needs to
