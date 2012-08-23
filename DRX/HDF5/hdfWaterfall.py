@@ -358,20 +358,20 @@ def main(args):
 	tuning1 = f.create_group('/Tuning1')
 	tuning1['freq'] = freq + config['freq1']
 	tuning1['freq'].attrs['Units'] = 'Hz'
-	spec1X = tuning1.create_dataset('X', (nChunks, LFFT-1), 'f8', chunks=True)
+	spec1X = tuning1.create_dataset('X', (nChunks, LFFT-1), 'f8')
 	tuning1['X'].attrs['axis0'] = 'time'
 	tuning1['X'].attrs['axis1'] = 'frequency'
-	spec1Y = tuning1.create_dataset('Y', (nChunks, LFFT-1), 'f8', chunks=True)
+	spec1Y = tuning1.create_dataset('Y', (nChunks, LFFT-1), 'f8')
 	tuning1['Y'].attrs['axis0'] = 'time'
 	tuning1['Y'].attrs['axis1'] = 'frequency'
 	
 	tuning2 = f.create_group('/Tuning2')
 	tuning2['freq'] = freq + config['freq2']
 	tuning2['freq'].attrs['Units'] = 'Hz'
-	spec2X = tuning2.create_dataset('X', (nChunks, LFFT-1), 'f8', chunks=True)
+	spec2X = tuning2.create_dataset('X', (nChunks, LFFT-1), 'f8')
 	tuning2['X'].attrs['axis0'] = 'time'
 	tuning2['X'].attrs['axis1'] = 'frequency'
-	spec2Y = tuning2.create_dataset('Y', (nChunks, LFFT-1), 'f8', chunks=True)
+	spec2Y = tuning2.create_dataset('Y', (nChunks, LFFT-1), 'f8')
 	tuning2['Y'].attrs['axis0'] = 'time'
 	tuning2['Y'].attrs['axis1'] = 'frequency'
 

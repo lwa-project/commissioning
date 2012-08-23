@@ -376,32 +376,32 @@ def main(args):
 	tuning1 = f.create_group('/Tuning1')
 	tuning1['freq'] = freq + config['freq1']
 	tuning1['freq'].attrs['Units'] = 'Hz'
-	spec1I = tuning1.create_dataset('I', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec1I = tuning1.create_dataset('I', (nChunks, LFFT-1), 'f4')
 	tuning1['I'].attrs['axis0'] = 'time'
 	tuning1['I'].attrs['axis1'] = 'frequency'
-	spec1Q = tuning1.create_dataset('Q', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec1Q = tuning1.create_dataset('Q', (nChunks, LFFT-1), 'f4')
 	tuning1['Q'].attrs['axis0'] = 'time'
 	tuning1['Q'].attrs['axis1'] = 'frequency'
-	spec1U = tuning1.create_dataset('U', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec1U = tuning1.create_dataset('U', (nChunks, LFFT-1), 'f4')
 	tuning1['U'].attrs['axis0'] = 'time'
 	tuning1['U'].attrs['axis1'] = 'frequency'
-	spec1V = tuning1.create_dataset('V', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec1V = tuning1.create_dataset('V', (nChunks, LFFT-1), 'f4')
 	tuning1['V'].attrs['axis0'] = 'time'
 	tuning1['V'].attrs['axis1'] = 'frequency'
 	
 	tuning2 = f.create_group('/Tuning2')
 	tuning2['freq'] = freq + config['freq2']
 	tuning2['freq'].attrs['Units'] = 'Hz'
-	spec2I = tuning2.create_dataset('I', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec2I = tuning2.create_dataset('I', (nChunks, LFFT-1), 'f4')
 	tuning2['I'].attrs['axis0'] = 'time'
 	tuning2['I'].attrs['axis1'] = 'frequency'
-	spec2Q = tuning2.create_dataset('Q', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec2Q = tuning2.create_dataset('Q', (nChunks, LFFT-1), 'f4')
 	tuning2['Q'].attrs['axis0'] = 'time'
 	tuning2['Q'].attrs['axis1'] = 'frequency'
-	spec2U = tuning2.create_dataset('U', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec2U = tuning2.create_dataset('U', (nChunks, LFFT-1), 'f4')
 	tuning2['U'].attrs['axis0'] = 'time'
 	tuning2['U'].attrs['axis1'] = 'frequency'
-	spec2V = tuning2.create_dataset('V', (nChunks, LFFT-1), 'f4', chunks=True)
+	spec2V = tuning2.create_dataset('V', (nChunks, LFFT-1), 'f4')
 	tuning2['V'].attrs['axis0'] = 'time'
 	tuning2['V'].attrs['axis1'] = 'frequency'
 
