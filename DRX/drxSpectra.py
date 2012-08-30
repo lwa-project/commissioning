@@ -195,7 +195,8 @@ def main(args):
 	
 	# Update the offset actually used
 	config['offset'] = t1 - t0
-	offset = int(config['offset'] * srate / 4096 * beampols)
+	offset = int(round(config['offset'] * srate / 4096 * beampols))
+	offset = int(1.0 * offset / beampols) * beampols
 
 	# Make sure that the file chunk size contains is an intger multiple
 	# of the FFT length so that no data gets dropped.  This needs to
