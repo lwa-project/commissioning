@@ -160,6 +160,7 @@ def main(args):
 	
 	# Update the offset actually used
 	config['offset'] = t1 - t0
+	offset = int(config['offset'] * srate / 4096 * beampols)
 
 	# Make sure that the file chunk size contains is an intger multiple
 	# of the beampols.
@@ -191,8 +192,6 @@ def main(args):
 	print " "
 
 	# Sanity check
-	if offset > nFramesFile:
-		raise RuntimeError("Requested offset is greater than file length")
 	if nFrames > (nFramesFile - offset):
 		raise RuntimeError("Requested integration time+offset is greater than file length")
 

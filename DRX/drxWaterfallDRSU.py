@@ -221,6 +221,7 @@ def main(args):
 	
 	# Update the offset actually used
 	config['offset'] = t1 - t0
+	offset = int(config['offset'] * srate / 4096 * beampols)
 
 	# Make sure that the file chunk size contains is an integer multiple
 	# of the FFT length so that no data gets dropped.  This needs to
@@ -282,8 +283,6 @@ def main(args):
 	print "Chunks: %i" % nChunks
 
 	# Sanity check
-	if offset > nFramesFile:
-		raise RuntimeError("Requested offset is greater than file length")
 	if nFrames > (nFramesFile - offset):
 		raise RuntimeError("Requested integration time+offset is greater than file length")
 	
