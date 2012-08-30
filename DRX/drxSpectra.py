@@ -252,8 +252,6 @@ def main(args):
 	print "Chunks: %i" % nChunks
 
 	# Sanity check
-	if offset > nFramesFile:
-		raise RuntimeError("Requested offset is greater than file length")
 	if nFrames > (nFramesFile - offset):
 		raise RuntimeError("Requestion integration time+offset is greater than file length")
 
