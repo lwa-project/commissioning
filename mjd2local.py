@@ -75,9 +75,11 @@ def main(args):
 			mjd2 = float(mjd1) + 0.99999
 
 			d1 = mjdmpm2datetime(mjd1, 0)
+			d1 = UTC.localize(d1)
 			d1  = d1.astimezone(MST)
 
 			d2 = mjdmpm2datetime(mjd2, 0)
+			d2 = UTC.localize(d2)
 			d2  = d2.astimezone(MST)
 
 			print "MJD: %i" % mjd1
