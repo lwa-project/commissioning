@@ -88,6 +88,7 @@ def main(args):
 		for arg in zip(config['args'][0::2], config['args'][1::2]):
 			mjd, mpm = [int(i) for i in arg]
 			d = mjdmpm2datetime(mjd, mpm)
+			d = UTC.localize(d)
 			d = d.astimezone(MST)
 
 			print "MJD: %i, MPM: %i" % (mjd, mpm)
