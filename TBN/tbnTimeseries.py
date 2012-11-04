@@ -40,6 +40,7 @@ Options:
                             (default = 0.01)
 -k, --keep                  Only display the following comma-seperated list of 
                             stands (default = show all 260 dual pol)
+-i, --instantaneous-power   Plot I*I + Q*Q instead of the raw samples
 -q, --quiet                 Run tbnTimeseries in silent mode
 -o, --output                Output file name for time series image
 """
@@ -59,11 +60,12 @@ def parseOptions(args):
 	config['output'] = None
 	config['verbose'] = True
 	config['keep'] = None
+	config['power'] = False
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:p:k:", ["help", "quiet", "output=", "skip=", "plot-range=", "keep="])
+		opts, args = getopt.getopt(args, "hqo:s:p:k:i", ["help", "quiet", "output=", "skip=", "plot-range=", "keep=", "instantaneous-power"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -83,6 +85,8 @@ def parseOptions(args):
 			config['average'] = float(value)
 		elif opt in ('-k', '--keep'):
 			config['keep'] = [int(i) for i in value.split(',')]
+		elif opt in ('-i', '--instantaneous-power'):
+			config['power'] = True
 		else:
 			assert False
 	
@@ -266,17 +270,26 @@ def main(args):
 
 			ax = fig.add_subplot(figsX, figsY, (k%20)+1)
 			if toClip:
-				ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].real, label='Real')
-				ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].imag, label='Imag')
+				if config['power']:
+					ax.plot(numpy.arange(0,samples)/srate, numpy.abs(currTS[0:samples])**2)
+				else:
+					ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].real, label='Real')
+					ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].imag, label='Imag')
 			else:
-				ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.real, label='Real')
-				ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.imag, label='Imag')
-			ax.set_ylim([-127, 127])
-			ax.legend(loc=0)
-			
+				if config['power']:
+					ax.plot(numpy.arange(0,data.shape[1])/srate, numpy.abs(currTS)**2)
+				else:
+					ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.real, label='Real')
+					ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.imag, label='Imag')
 			ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[j].stand.id, antennas[j].pol, antennas[j].digitizer, antennas[j].getStatus()))
 			ax.set_xlabel('Time [seconds]')
-			ax.set_ylabel('Output Level')
+
+			if config['power']:
+				ax.set_ylabel('I$^2$ + Q$^2$')
+			else:
+				ax.legend(loc=0)
+				ax.set_ylim([-127, 127])
+				ax.set_ylabel('Output Level')
 			
 		# Save spectra image if requested
 		if config['output'] is not None:
