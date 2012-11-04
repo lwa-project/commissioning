@@ -34,7 +34,7 @@ Options:
                             of the file (default = 0)
 -p, --plot-range            Number of seconds of data to show in the I/Q plots
                             (default = 0.0001)
--i, --instanenous-power     Plot I*I + Q*Q instead of the raw samples
+-i, --instantaneous-power   Plot I*I + Q*Q instead of the raw samples
 -m, --mark-frames           Mark the frame bounaries in time
 -q, --quiet                 Run drxSpectra in silent mode
 -o, --output                Output file name for time series image
@@ -60,7 +60,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:p:im", ["help", "quiet", "output=", "skip=", "plot-range=", "instanenous-power", "mark-frames"])
+		opts, args = getopt.getopt(args, "hqo:s:p:im", ["help", "quiet", "output=", "skip=", "plot-range=", "instantaneous-power", "mark-frames"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -78,7 +78,7 @@ def parseOptions(args):
 			config['offset'] = float(value)
 		elif opt in ('-p', '--plot-range'):
 			config['average'] = float(value)
-		elif opt in ('-i', '--instanenous-power'):
+		elif opt in ('-i', '--instantaneous-power'):
 			config['doPower'] = True
 		elif opt in ('-m', '--mark-frames'):
 			config['markFrames'] = True
