@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Check the time tags in an old 20-stand prototype system data file.
+Check the time tags in a TBN file from the prototype system at the
+north arm.
 
 $Rev$
 $LastChangedBy$

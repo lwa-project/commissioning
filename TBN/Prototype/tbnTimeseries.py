@@ -4,6 +4,9 @@
 """
 Given a TBN file, plot the time series I and Q data as a function of time.
 
+.. note::
+	This version is for data from the current prototype system.
+
 $Rev$
 $LastChangedBy$
 $LastChangedDate$
@@ -27,8 +30,9 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-	print """tbnTimeseries.py - Read in TBN files and create a collection of 
-timeseries (I/Q) plots.
+	print """tbnTimeseries.py - Read in TBN files created by the prototype
+system at the north arm  and create a collection of timeseries 
+(I/Q) plots.
 
 Usage: tbnTimeseries.py [OPTIONS] file
 
@@ -37,8 +41,11 @@ Options:
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
 -p, --plot-range            Number of seconds of data to show in the I/Q plots
-                            (default = 0.0001)
--q, --quiet                 Run drxSpectra in silent mode
+                            (default = 0.01)
+-k, --keep                  Only display the following comma-seperated list of 
+                            stands (default = show all 260 dual pol)
+-i, --instantaneous-power   Plot I*I + Q*Q instead of the raw samples
+-q, --quiet                 Run tbnTimeseries in silent mode
 -o, --output                Output file name for time series image
 """
 
@@ -53,14 +60,16 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['offset'] = 0.0
 	config['average'] = 0.01
-	config['maxFrames'] = 2*260*1000
+	config['maxFrames'] = 2*10*1000
 	config['output'] = None
 	config['verbose'] = True
+	config['keep'] = None
+	config['power'] = False
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:p:", ["help", "quiet", "output=", "skip=", "plot-range="])
+		opts, args = getopt.getopt(args, "hqo:s:p:k:i", ["help", "quiet", "output=", "skip=", "plot-range=", "keep=", "instantaneous-power"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -78,6 +87,10 @@ def parseOptions(args):
 			config['offset'] = float(value)
 		elif opt in ('-p', '--plot-range'):
 			config['average'] = float(value)
+		elif opt in ('-k', '--keep'):
+			config['keep'] = [int(i) for i in value.split(',')]
+		elif opt in ('-i', '--instantaneous-power'):
+			config['power'] = True
 		else:
 			assert False
 	
@@ -98,14 +111,14 @@ def main(args):
 	for a in station.getAntennas():
 		if a.digitizer != 0:
 			antennas.append(a)
-
+			
 	fh = open(config['args'][0], "rb")
 	nFramesFile = os.path.getsize(config['args'][0]) / tbn.FrameSize
 	srate = tbn.getSampleRate(fh)
 	antpols = len(antennas)
 
 	# Offset in frames for beampols beam/tuning/pol. sets
-	offset = int(config['offset'] * srate / 512 * antpols)
+	offset = int(round(config['offset'] * srate / 512 * antpols))
 	offset = int(1.0 * offset / antpols) * antpols
 	config['offset'] = 1.0 * offset / antpols * 512 / srate
 	fh.seek(offset*tbn.FrameSize)
@@ -117,10 +130,12 @@ def main(args):
 	# Number of frames to integrate over
 	toClip = False
 	oldAverage = config['average']
-	if config['average'] < 512/srate:		
+	if config['average'] < maxFrames:		
 		toClip = True
-		config['average'] = 512/srate
-	nFrames = int(config['average'] * srate / 512 * antpols)
+		if config['average'] < 512/srate:
+			config['average'] = 512/srate
+	nFrames = int(round(config['average'] * srate / 512 * antpols))
+	print config['average'], nFrames
 	nFrames = int(1.0 * nFrames / antpols) * antpols
 	config['average'] = 1.0 * nFrames / antpols * 512 / srate
 
@@ -130,7 +145,8 @@ def main(args):
 	# Read in the first frame and get the date/time of the first sample 
 	# of the frame.  This is needed to get the list of stands.
 	junkFrame = tbn.readFrame(fh)
-	fh.seek(0)
+	fh.seek(-tbn.FrameSize, 1)
+	centralFreq = junkFrame.getCentralFreq()
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 
 	# File summary
@@ -138,6 +154,7 @@ def main(args):
 	print "Date of First Frame: %s" % str(beginDate)
 	print "Ant/Pols: %i" % antpols
 	print "Sample Rate: %i Hz" % srate
+	print "Tuning Frequency: %.3f Hz" % centralFreq
 	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
 	print "---"
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
@@ -204,7 +221,6 @@ def main(args):
 				aStand = 2*(stand-1)+pol
 				
 				data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
-				
 				# Update the counters so that we can average properly later on
 				count[aStand] = count[aStand] + 1
 			
@@ -224,39 +240,63 @@ def main(args):
 			aStand = 2*(stand-1)+pol
 			
 			data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
-				
 			# Update the counters so that we can average properly later on
 			count[aStand] = count[aStand] + 1
 	
-	samples = int(oldAverage * srate)
+	samples = int(round(oldAverage * srate))
 	if toClip:
 		print "Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0)
 
-	for i in xrange(int(numpy.ceil(antpols/20))):
+	# Deal with the `keep` options
+	if config['keep'] is None:
+		antpolsDisp = int(numpy.ceil(antpols/20))
+		js = [i for i in xrange(antpols)]
+	else:
+		antpolsDisp = int(numpy.ceil(len(config['keep'])*2/20))
+		if antpolsDisp < 1:
+			antpolsDisp = 1
+		
+		js = []
+		for k in config['keep']:
+			for i,ant in enumerate(antennas):
+				if ant.stand.id == k:
+					js.append(i)
+
+	for i in xrange(antpolsDisp):
 		# Normal plotting
 		fig = plt.figure()
 		figsY = 4
 		figsX = 5
 		fig.subplots_adjust(left=0.06, bottom=0.06, right=0.94, top=0.94, wspace=0.20, hspace=0.50)
-		for j in xrange(i*20, i*20+20):
-			ax = fig.add_subplot(figsX, figsY, (j%20)+1)
+		for k in xrange(i*20, i*20+20):
 			try:
+				j = js[k]
 				currTS = data[j,:]
 			except IndexError:
 				break
 
+			ax = fig.add_subplot(figsX, figsY, (k%20)+1)
 			if toClip:
-				ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].real, label='Real')
-				ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].imag, label='Imag')
+				if config['power']:
+					ax.plot(numpy.arange(0,samples)/srate, numpy.abs(currTS[0:samples])**2)
+				else:
+					ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].real, label='Real')
+					ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].imag, label='Imag')
 			else:
-				ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.real, label='Real')
-				ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.imag, label='Imag')
-			ax.set_ylim([-128, 127])
-			ax.legend(loc=0)
-			
+				if config['power']:
+					ax.plot(numpy.arange(0,data.shape[1])/srate, numpy.abs(currTS)**2)
+				else:
+					ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.real, label='Real')
+					ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.imag, label='Imag')
 			ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[j].stand.id, antennas[j].pol, antennas[j].digitizer, antennas[j].getStatus()))
 			ax.set_xlabel('Time [seconds]')
-			ax.set_ylabel('Output Level')
+
+			if config['power']:
+				ax.set_ylabel('I$^2$ + Q$^2$')
+			else:
+				ax.legend(loc=0)
+				ax.set_ylim([-127, 127])
+				ax.set_ylabel('Output Level')
 			
 		# Save spectra image if requested
 		if config['output'] is not None:
