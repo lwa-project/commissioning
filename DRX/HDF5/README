@@ -54,7 +54,7 @@ GROUP "/" {
    }
    GROUP "Tuning1" {
       GROUP "Mask" {
-         DATASET "X" {
+         DATASET "XX" {
             DATATYPE  H5T_ENUM {
                   H5T_STD_I8LE;
                   "FALSE"            0;
@@ -62,7 +62,7 @@ GROUP "/" {
                }
             DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          }
-         DATASET "Y" {
+         DATASET "YY" {
             DATATYPE  H5T_ENUM {
                   H5T_STD_I8LE;
                   "FALSE"            0;
@@ -71,8 +71,8 @@ GROUP "/" {
             DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          }
       }
-      DATASET "X" {
-         DATATYPE  H5T_IEEE_F64LE
+      DATASET "XX" {
+         DATATYPE  H5T_IEEE_F32LE
          DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          ATTRIBUTE "axis0" {
             DATATYPE  H5T_STRING {
@@ -93,8 +93,8 @@ GROUP "/" {
             DATASPACE  SCALAR
          }
       }
-      DATASET "Y" {
-         DATATYPE  H5T_IEEE_F64LE
+      DATASET "YY" {
+         DATATYPE  H5T_IEEE_F32LE
          DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          ATTRIBUTE "axis0" {
             DATATYPE  H5T_STRING {
@@ -131,7 +131,7 @@ GROUP "/" {
    }
    GROUP "Tuning2" {
       GROUP "Mask" {
-         DATASET "X" {
+         DATASET "XX" {
             DATATYPE  H5T_ENUM {
                   H5T_STD_I8LE;
                   "FALSE"            0;
@@ -139,7 +139,7 @@ GROUP "/" {
                }
             DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          }
-         DATASET "Y" {
+         DATASET "YY" {
             DATATYPE  H5T_ENUM {
                   H5T_STD_I8LE;
                   "FALSE"            0;
@@ -148,8 +148,8 @@ GROUP "/" {
             DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          }
       }
-      DATASET "X" {
-         DATATYPE  H5T_IEEE_F64LE
+      DATASET "XX" {
+         DATATYPE  H5T_IEEE_F32LE
          DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          ATTRIBUTE "axis0" {
             DATATYPE  H5T_STRING {
@@ -170,8 +170,8 @@ GROUP "/" {
             DATASPACE  SCALAR
          }
       }
-      DATASET "Y" {
-         DATATYPE  H5T_IEEE_F64LE
+      DATASET "YY" {
+         DATATYPE  H5T_IEEE_F32LE
          DATASPACE  SIMPLE { ( 3601, 16383 ) / ( 3601, 16383 ) }
          ATTRIBUTE "axis0" {
             DATATYPE  H5T_STRING {

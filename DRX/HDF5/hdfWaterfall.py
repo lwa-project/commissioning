@@ -358,22 +358,22 @@ def main(args):
 	tuning1 = f.create_group('/Tuning1')
 	tuning1['freq'] = freq + config['freq1']
 	tuning1['freq'].attrs['Units'] = 'Hz'
-	spec1X = tuning1.create_dataset('X', (nChunks, LFFT-1), 'f8')
-	tuning1['X'].attrs['axis0'] = 'time'
-	tuning1['X'].attrs['axis1'] = 'frequency'
-	spec1Y = tuning1.create_dataset('Y', (nChunks, LFFT-1), 'f8')
-	tuning1['Y'].attrs['axis0'] = 'time'
-	tuning1['Y'].attrs['axis1'] = 'frequency'
+	spec1X = tuning1.create_dataset('XX', (nChunks, LFFT-1), 'f4')
+	tuning1['XX'].attrs['axis0'] = 'time'
+	tuning1['XX'].attrs['axis1'] = 'frequency'
+	spec1Y = tuning1.create_dataset('YY', (nChunks, LFFT-1), 'f4')
+	tuning1['YY'].attrs['axis0'] = 'time'
+	tuning1['YY'].attrs['axis1'] = 'frequency'
 	
 	tuning2 = f.create_group('/Tuning2')
 	tuning2['freq'] = freq + config['freq2']
 	tuning2['freq'].attrs['Units'] = 'Hz'
-	spec2X = tuning2.create_dataset('X', (nChunks, LFFT-1), 'f8')
-	tuning2['X'].attrs['axis0'] = 'time'
-	tuning2['X'].attrs['axis1'] = 'frequency'
-	spec2Y = tuning2.create_dataset('Y', (nChunks, LFFT-1), 'f8')
-	tuning2['Y'].attrs['axis0'] = 'time'
-	tuning2['Y'].attrs['axis1'] = 'frequency'
+	spec2X = tuning2.create_dataset('XX', (nChunks, LFFT-1), 'f4')
+	tuning2['XX'].attrs['axis0'] = 'time'
+	tuning2['XX'].attrs['axis1'] = 'frequency'
+	spec2Y = tuning2.create_dataset('YY', (nChunks, LFFT-1), 'f4')
+	tuning2['YY'].attrs['axis0'] = 'time'
+	tuning2['YY'].attrs['axis1'] = 'frequency'
 
 	# Master loop over all of the file chunks
 	masterSpectra = [spec1X, spec1Y, spec2X, spec2Y]

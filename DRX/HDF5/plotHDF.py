@@ -200,7 +200,7 @@ class Waterfall_GUI(object):
 		
 		# Make sure we have a linear file
 		try:
-			tuning1['X'].shape
+			tuning1['XX'].shape
 		except:
 			raise RuntimeError("'%s' does not seem to contain linear parameters" % self.filename)
 			sys.exit(1)
@@ -212,8 +212,8 @@ class Waterfall_GUI(object):
 		else:
 			self.iDuration = int(round(self.frame.duration / self.tInt))
 		## Make sure we don't fall off the end of the file
-		if self.iOffset + self.iDuration > tuning1['X'].shape[0]:
-			self.iDuration = tuning1['X'].shape[0] - self.iOffset
+		if self.iOffset + self.iDuration > tuning1['XX'].shape[0]:
+			self.iDuration = tuning1['XX'].shape[0] - self.iOffset
 		selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
 		
 		if self.iOffset != 0:
@@ -229,20 +229,20 @@ class Waterfall_GUI(object):
 				
 		self.spec = numpy.empty((self.iDuration, 4, self.freq1.size), dtype=numpy.float32)
 		
-		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['X'].dtype)
-		tuning1['X'].read_direct(part, selection)
+		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['XX'].dtype)
+		tuning1['XX'].read_direct(part, selection)
 		self.spec[:,0,:] = part.astype(numpy.float32)
 		
-		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['Y'].dtype)
-		tuning1['Y'].read_direct(part, selection)
+		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['YY'].dtype)
+		tuning1['YY'].read_direct(part, selection)
 		self.spec[:,1,:] = part.astype(numpy.float32)
 		
-		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['X'].dtype)
-		tuning2['X'].read_direct(part, selection)
+		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['XX'].dtype)
+		tuning2['XX'].read_direct(part, selection)
 		self.spec[:,2,:] = part.astype(numpy.float32)
 		
-		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['Y'].dtype)
-		tuning2['Y'].read_direct(part, selection)
+		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['YY'].dtype)
+		tuning2['YY'].read_direct(part, selection)
 		self.spec[:,3,:] = part.astype(numpy.float32)
 		
 		del part
@@ -253,23 +253,23 @@ class Waterfall_GUI(object):
 		mask = numpy.zeros(self.spec.shape, dtype=numpy.bool)
 		
 		if mask1 is not None:
-			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['X'].dtype)
-			mask1['X'].read_direct(part, selection)
+			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['XX'].dtype)
+			mask1['XX'].read_direct(part, selection)
 			mask[:,0,:] = part.astype(numpy.bool)
 			
-			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['Y'].dtype)
-			mask1['Y'].read_direct(part, selection)
+			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['YY'].dtype)
+			mask1['YY'].read_direct(part, selection)
 			mask[:,1,:] = part.astype(numpy.bool)
 			
 			del part
 		
 		if mask2 is not None:
-			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['X'].dtype)
-			mask2['X'].read_direct(part, selection)
+			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['XX'].dtype)
+			mask2['XX'].read_direct(part, selection)
 			mask[:,2,:] = part.astype(numpy.bool)
 			
-			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['Y'].dtype)
-			mask2['Y'].read_direct(part, selection)
+			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['YY'].dtype)
+			mask2['YY'].read_direct(part, selection)
 			mask[:,3,:] = part.astype(numpy.bool)
 			
 			del part
@@ -998,22 +998,22 @@ class MainWindow(wx.Frame):
 			mask1 = tuning1.get('Mask', None)
 			if mask1 is None:
 				mask1 = tuning1.create_group('Mask')
-				mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
-				mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
+				mask1X = mask1.create_dataset('XX', tuning1['XX'].shape, 'bool', chunks=True)
+				mask1Y = mask1.create_dataset('YY', tuning1['YY'].shape, 'bool', chunks=True)
 			else:
-				mask1X = mask1.get('X', None)
-				mask1Y = mask1.get('Y', None)
+				mask1X = mask1.get('XX', None)
+				mask1Y = mask1.get('YY', None)
 			mask1X[o:o+d,:] = self.data.spec.mask[:,0,:]
 			mask1Y[o:o+d,:] = self.data.spec.mask[:,1,:]
 			
 			mask2 = tuning2.get('Mask', None)
 			if mask2 is None:
 				mask2 = tuning2.create_group('Mask')
-				mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-				mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
+				mask2X = mask2.create_dataset('XX', tuning2['XX'].shape, 'bool', chunks=True)
+				mask2Y = mask2.create_dataset('YY', tuning2['YY'].shape, 'bool', chunks=True)
 			else:
-				mask2X = mask2.get('X', None)
-				mask2Y = mask2.get('Y', None)
+				mask2X = mask2.get('XX', None)
+				mask2Y = mask2.get('YY', None)
 			mask2X[o:o+d,:] = self.data.spec.mask[:,2,:]
 			mask2Y[o:o+d,:] = self.data.spec.mask[:,3,:]
 			
@@ -1050,22 +1050,22 @@ class MainWindow(wx.Frame):
 			mask1 = tuning1.get('Mask', None)
 			if mask1 is None:
 				mask1 = tuning1.create_group('Mask')
-				mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
-				mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
+				mask1X = mask1.create_dataset('XX', tuning1['XX'].shape, 'bool', chunks=True)
+				mask1Y = mask1.create_dataset('YY', tuning1['YY'].shape, 'bool', chunks=True)
 			else:
-				mask1X = mask1.get('X', None)
-				mask1Y = mask1.get('Y', None)
+				mask1X = mask1.get('XX', None)
+				mask1Y = mask1.get('YY', None)
 			mask1X[o:o+d,:] = self.data.spec.mask[:,0,:]
 			mask1Y[o:o+d,:] = self.data.spec.mask[:,1,:]
 			
 			mask2 = tuning2.get('Mask', None)
 			if mask2 is None:
 				mask2 = tuning2.create_group('Mask')
-				mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
-				mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
+				mask2X = mask2.create_dataset('XX', tuning2['XX'].shape, 'bool', chunks=True)
+				mask2Y = mask2.create_dataset('YY', tuning2['YY'].shape, 'bool', chunks=True)
 			else:
-				mask2X = mask2.get('X', None)
-				mask2Y = mask2.get('Y', None)
+				mask2X = mask2.get('XX', None)
+				mask2Y = mask2.get('YY', None)
 			mask2X[o:o+d,:] = self.data.spec.mask[:,2,:]
 			mask2Y[o:o+d,:] = self.data.spec.mask[:,3,:]
 			

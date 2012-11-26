@@ -48,38 +48,38 @@ def main(args):
 		tuning1 = f.create_group('/Tuning1')
 		tuning1['freq'] = freq1.astype(numpy.float64)
 		tuning1['freq'].attrs['Units'] = 'Hz'
-		tuning1['X'] = numpy.squeeze(spec[:,0,:].astype(numpy.float64))
-		tuning1['X'].chunks = True
-		tuning1['X'].attrs['axis0'] = 'time'
-		tuning1['X'].attrs['axis1'] = 'frequency'
-		tuning1['Y'] = numpy.squeeze(spec[:,1,:].astype(numpy.float64))
-		tuning1['Y'].chunks = True
-		tuning1['Y'].attrs['axis0'] = 'time'
-		tuning1['Y'].attrs['axis1'] = 'frequency'
+		tuning1['XX'] = numpy.squeeze(spec[:,0,:].astype(numpy.float32))
+		tuning1['XX'].chunks = True
+		tuning1['XX'].attrs['axis0'] = 'time'
+		tuning1['XX'].attrs['axis1'] = 'frequency'
+		tuning1['YY'] = numpy.squeeze(spec[:,1,:].astype(numpy.float32))
+		tuning1['YY'].chunks = True
+		tuning1['YY'].attrs['axis0'] = 'time'
+		tuning1['YY'].attrs['axis1'] = 'frequency'
 		
 		tuning2 = f.create_group('/Tuning2')
 		tuning2['freq'] = freq2.astype(numpy.float64)
 		tuning2['freq'].attrs['Units'] = 'Hz'
-		tuning2['X'] = numpy.squeeze(spec[:,2,:].astype(numpy.float64))
-		tuning2['X'].chunks = True
-		tuning2['X'].attrs['axis0'] = 'time'
-		tuning2['X'].attrs['axis1'] = 'frequency'
-		tuning2['Y'] = numpy.squeeze(spec[:,3,:].astype(numpy.float64))
-		tuning2['Y'].chunks = True
-		tuning2['Y'].attrs['axis0'] = 'time'
-		tuning2['Y'].attrs['axis1'] = 'frequency'
+		tuning2['XX'] = numpy.squeeze(spec[:,2,:].astype(numpy.float32))
+		tuning2['XX'].chunks = True
+		tuning2['XX'].attrs['axis0'] = 'time'
+		tuning2['XX'].attrs['axis1'] = 'frequency'
+		tuning2['YY'] = numpy.squeeze(spec[:,3,:].astype(numpy.float32))
+		tuning2['YY'].chunks = True
+		tuning2['YY'].attrs['axis0'] = 'time'
+		tuning2['YY'].attrs['axis1'] = 'frequency'
 		
 		if mask is not None:
 			mask1 = tuning1.create_group('Mask')
-			mask1X = mask1.create_dataset('X', tuning1['X'].shape, 'bool', chunks=True)
+			mask1X = mask1.create_dataset('XX', tuning1['XX'].shape, 'bool', chunks=True)
 			mask1X = mask[:,0,:]
-			mask1Y = mask1.create_dataset('Y', tuning1['Y'].shape, 'bool', chunks=True)
+			mask1Y = mask1.create_dataset('YY', tuning1['YY'].shape, 'bool', chunks=True)
 			mask1Y = mask[:,1,:]
 			
 			mask2 = tuning2.create_group('Mask')
-			mask2X = mask2.create_dataset('X', tuning2['X'].shape, 'bool', chunks=True)
+			mask2X = mask2.create_dataset('XX', tuning2['XX'].shape, 'bool', chunks=True)
 			mask2X = mask[:,2,:]
-			mask2Y = mask2.create_dataset('Y', tuning2['Y'].shape, 'bool', chunks=True)
+			mask2Y = mask2.create_dataset('YY', tuning2['YY'].shape, 'bool', chunks=True)
 			mask2Y = mask[:,3,:]
 		
 		f.close()

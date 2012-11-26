@@ -30,8 +30,6 @@ Usage: drspec2hdf.py [OPTIONS] file
 Options:
 -h, --help                  Display this help information
 -t, --integrate-time        Resample the time resolution
--n, --no-normalize          Do not normalize the spectrometer data by the number 
-                            of fills
 """
 	
 	if exitCode is not None:
@@ -44,12 +42,11 @@ def parseOptions(args):
 	config = {}
 	# Command line flags - default values
 	config['intTime'] = None
-	config['normalize'] = True
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "ht:n", ["help", "integrate-time=", "no-normalize"])
+		opts, args = getopt.getopt(args, "ht:", ["help", "integrate-time="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -63,8 +60,6 @@ def parseOptions(args):
 			config['verbose'] = False
 		elif opt in ('-t', '--integrate-time'):
 			config['intTime'] = float(value)
-		elif opt in ('-n', '--no-normalize'):
-			config['normalize'] = False
 		else:
 			assert False
 	
@@ -99,6 +94,9 @@ def main(args):
 	tInt = junkFrame.header.nInts*LFFT/srate
 	beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
 	
+	products = junkFrame.getDataProducts()
+	nProducts = len(products)
+	
 	# Conversions
 	if config['intTime'] is None:
 		nSubInts = 1
@@ -114,6 +112,7 @@ def main(args):
 	print "Beam: %i" % beam
 	print "Sample Rate: %i Hz" % srate
 	print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
+	print "Data Products: %s" % (', '.join(products),)
 	print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
 	print "---"
 	print "Transform Length: %i" % LFFT
@@ -139,44 +138,36 @@ def main(args):
 	tuning1 = f.create_group('/Tuning1')
 	tuning1['freq'] = freq + centralFreq1
 	tuning1['freq'].attrs['Units'] = 'Hz'
-	spec1X = tuning1.create_dataset('X', (nChunks/nSubInts, LFFT-1), 'f4')
-	tuning1['X'].attrs['axis0'] = 'time'
-	tuning1['X'].attrs['axis1'] = 'frequency'
-	spec1Y = tuning1.create_dataset('Y', (nChunks/nSubInts, LFFT-1), 'f4')
-	tuning1['Y'].attrs['axis0'] = 'time'
-	tuning1['Y'].attrs['axis1'] = 'frequency'
 	
 	tuning2 = f.create_group('/Tuning2')
 	tuning2['freq'] = freq + centralFreq2
 	tuning2['freq'].attrs['Units'] = 'Hz'
-	spec2X = tuning2.create_dataset('X', (nChunks/nSubInts, LFFT-1), 'f4')
-	tuning2['X'].attrs['axis0'] = 'time'
-	tuning2['X'].attrs['axis1'] = 'frequency'
-	spec2Y = tuning2.create_dataset('Y', (nChunks/nSubInts, LFFT-1), 'f4')
-	tuning2['Y'].attrs['axis0'] = 'time'
-	tuning2['Y'].attrs['axis1'] = 'frequency'
 	
+	spec = {}
+	for p in products:
+		k = "%s0" % p
+		spec[k] = tuning1.create_dataset(p, (nChunks/nSubInts, LFFT-1), 'f4')
+		tuning1[p].attrs['axis0'] = 'time'
+		tuning1[p].attrs['axis1'] = 'frequency'
+		
+		k = "%s1" % p
+		spec[k] = tuning2.create_dataset(p, (nChunks/nSubInts, LFFT-1), 'f4')
+		tuning2[p].attrs['axis0'] = 'time'
+		tuning2[p].attrs['axis1'] = 'frequency'
+		
 	# Loop over DR spectrometer frames to fill in the HDF5 file
 	tempTimes = numpy.zeros(nChunks, dtype=numpy.float64)
-	tempArray = numpy.zeros((4, nChunks, LFFT-1), dtype=numpy.float32)
-	tempFills = numpy.zeros((4, nChunks, LFFT-1), dtype=numpy.int32)
+	tempArray = numpy.zeros((2*nProducts, nChunks, LFFT-1), dtype=numpy.float32)
 	
 	pbar = progress.ProgressBar(max=nChunks)
 	for i in xrange(nChunks):
 		frame = drspec.readFrame(fh)
 		
 		tempTimes[i] = frame.getTime()
-		
-		tempArray[0,i,:] = frame.data.X0[1:]
-		tempArray[1,i,:] = frame.data.Y0[1:]
-		tempArray[2,i,:] = frame.data.X1[1:]
-		tempArray[3,i,:] = frame.data.Y1[1:]
-		
-		tempFills[0,i,:] = frame.data.fills[0]
-		tempFills[1,i,:] = frame.data.fills[1]
-		tempFills[2,i,:] = frame.data.fills[2]
-		tempFills[3,i,:] = frame.data.fills[3]
-		
+		for j,p in enumerate(products):
+			tempArray[0*nProducts+j,i,:] = getattr(frame.data, "%s0" % p, None)[1:]
+			tempArray[1*nProducts+j,i,:] = getattr(frame.data, "%s1" % p, None)[1:]
+			
 		pbar.inc()
 		if i % 10 == 0:
 			sys.stdout.write(pbar.show()+'\r')
@@ -195,15 +186,10 @@ def main(args):
 	if nSubInts is 1:
 		masterTimes[:] = tempTimes
 		
-		if config['normalize']:
-			for j in xrange(tempArray.shape[0]):
-				tempArray[j,:,:] /= tempFills[j,:,:]
-		
 		# Save the results to the HDF5 file
-		spec1X[:,:] = tempArray[0,:,:]
-		spec1Y[:,:] = tempArray[1,:,:]
-		spec2X[:,:] = tempArray[2,:,:]
-		spec2Y[:,:] = tempArray[3,:,:]
+		for j,p in enumerate(products):
+			spec['%s0' % p][:,:] = tempArray[0*nProducts+j,:,:]
+			spec['%s1' % p][:,:] = tempArray[1*nProducts+j,:,:]
 		
 	else:
 		# Calculate the spans to add
@@ -218,10 +204,8 @@ def main(args):
 		pbar = progress.ProgressBar(max=tempArray.shape[0]*tempArray.shape[2])
 		for j in xrange(tempArray.shape[0]):
 			for i in xrange(tempArray.shape[2]):
-				tempArray2[j,:,i] = numpy.add.reduceat(tempArray[j,:,i], spans, dtype=numpy.float32)
-				if config['normalize']:
-					tempArray2[j,:,i] /= numpy.add.reduceat(tempFills[j,:,i], spans, dtype=numpy.float32)
-					
+				tempArray2[j,:,i] = numpy.add.reduceat(tempArray[j,:,i], spans, dtype=numpy.float64)
+				
 				pbar.inc()
 				if (j*tempArray.shape[2] + i) % 10 == 0:
 					sys.stdout.write(pbar.show()+'\r')
@@ -231,11 +215,10 @@ def main(args):
 		sys.stdout.flush()
 		
 		# Save the results to the HDF5 file
-		spec1X[:,:] = tempArray2[0,:-1,:]
-		spec1Y[:,:] = tempArray2[1,:-1,:]
-		spec2X[:,:] = tempArray2[2,:-1,:]
-		spec2Y[:,:] = tempArray2[3,:-1,:]
-
+		for j,p in enumerate(products):
+			spec['%s0' % p][:,:] = tempArray[0*nProducts+j,:-1,:]
+			spec['%s1' % p][:,:] = tempArray[1*nProducts+j,:-1,:]
+			
 	# Done
 	fh.close()
 
