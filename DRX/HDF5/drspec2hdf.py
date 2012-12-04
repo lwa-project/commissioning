@@ -29,6 +29,7 @@ Usage: drspec2hdf.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
+-s, --skip                  Skip foward the specified number of seconds into the file
 -t, --integrate-time        Resample the time resolution
 """
 	
@@ -41,12 +42,13 @@ Options:
 def parseOptions(args):
 	config = {}
 	# Command line flags - default values
+	config['offset'] = 0.0
 	config['intTime'] = None
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "ht:", ["help", "integrate-time="])
+		opts, args = getopt.getopt(args, "ht:s:", ["help", "integrate-time=", "skip="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -58,6 +60,8 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-q', '--quiet'):
 			config['verbose'] = False
+		elif opt in ('-s', '--skip'):
+			config['offset'] = float(value)
 		elif opt in ('-t', '--integrate-time'):
 			config['intTime'] = float(value)
 		else:
@@ -78,19 +82,58 @@ def main(args):
 
 	# Interogate the file to figure out what frames sizes to expect, now many 
 	# frames there are, and what the transform length is
-	nFrames = os.path.getsize(filename) / drspec.getFrameSize(fh)
+	FrameSize = drspec.getFrameSize(fh)
+	nFrames = os.path.getsize(filename) / FrameSize
 	nChunks = nFrames
 	LFFT = drspec.getTransformSize(fh)
 
 	# Read in the first frame to figure out the DP information
-	cPos = fh.tell()
 	junkFrame = drspec.readFrame(fh)
-	fh.seek(cPos)
-
+	fh.seek(-FrameSize, 1)
+	srate = junkFrame.getSampleRate()
+	t0 = junkFrame.getTime()
+	tInt = junkFrame.header.nInts*LFFT/srate
+	
+	# Offset in frames for beampols beam/tuning/pol. sets
+	offset = int(round(config['offset'] / tInt))
+	fh.seek(offset*FrameSize, 1)
+	
+	# Iterate on the offsets until we reach the right point in the file.  This
+	# is needed to deal with files that start with only one tuning and/or a 
+	# different sample rate.  
+	while True:
+		## Figure out where in the file we are and what the current tuning/sample 
+		## rate is
+		junkFrame = drspec.readFrame(fh)
+		srate = junkFrame.getSampleRate()
+		t1 = junkFrame.getTime()
+		tInt = junkFrame.header.nInts*LFFT/srate
+		fh.seek(-FrameSize, 1)
+		
+		## See how far off the current frame is from the target
+		tDiff = t1 - (t0 + config['offset'])
+		
+		## Half that to come up with a new seek parameter
+		tCorr = -tDiff / 2.0
+		cOffset = int(round(tCorr / tInt))
+		offset += cOffset
+		
+		## If the offset is zero, we are done.  Otherwise, apply the offset
+		## and check the location in the file again/
+		if cOffset is 0:
+			break
+		fh.seek(cOffset*FrameSize, 1)
+		
+	# Update the offset actually used
+	config['offset'] = t1 - t0
+	nChunks = (os.path.getsize(filename) - fh.tell()) / FrameSize
+	
+	# Update the file contents
 	beam = junkFrame.parseID()
 	centralFreq1 = junkFrame.getCentralFreq(1)
 	centralFreq2 = junkFrame.getCentralFreq(2)
 	srate = junkFrame.getSampleRate()
+	t0 = junkFrame.getTime()
 	tInt = junkFrame.header.nInts*LFFT/srate
 	beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
 	
@@ -115,6 +158,7 @@ def main(args):
 	print "Data Products: %s" % (', '.join(products),)
 	print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
 	print "---"
+	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
 	print "Transform Length: %i" % LFFT
 	print "Integration: %.3f s" % tInt
 	if config['intTime'] != tInt:
@@ -216,8 +260,8 @@ def main(args):
 		
 		# Save the results to the HDF5 file
 		for j,p in enumerate(products):
-			spec['%s0' % p][:,:] = tempArray[0*nProducts+j,:-1,:]
-			spec['%s1' % p][:,:] = tempArray[1*nProducts+j,:-1,:]
+			spec['%s0' % p][:,:] = tempArray2[0*nProducts+j,:-1,:]
+			spec['%s1' % p][:,:] = tempArray2[1*nProducts+j,:-1,:]
 			
 	# Done
 	fh.close()
