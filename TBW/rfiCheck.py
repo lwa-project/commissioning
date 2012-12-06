@@ -292,7 +292,9 @@ def main(args):
 		masterSpectra = numpy.ma.array(masterSpectra, mask=mask)
 		
 		# Save the data to an HDF5 file
-		outname = config['args'][0].replace('.dat', '-RFI.hdf5')
+		outname = os.path.splitext(config['args'][0])[0]
+		outname = "%s-RFI.hdf5" % outname
+		
 		f = h5py.File(outname, 'w')
 		f.attrs['filename'] = config['args'][0]
 		f.attrs['mode'] = 'TBW'

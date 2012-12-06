@@ -74,7 +74,9 @@ def main(args):
 	print "Skipped %i non-TBW frames at the beginning of the file" % i
 	
 	# Create the HDF5 file
-	outname = filename.replace('.dat', '.hdf5')
+	outname = os.path.splitext(filename)[0]
+	outname = "%shdf5" % outname
+	
 	f = h5py.File(outname, 'w')
 	f.attrs['filename'] = filename
 	f.attrs['mode'] = 'TBW'
