@@ -347,7 +347,8 @@ def main(args):
 	plt.subplots_adjust(hspace=0.35, wspace=0.30)
 	plt.show()
 
-	outfile = config['args'][0].replace('.dat', '.npz')
+	outfile = os.path.splitext(config['args'][0])[0]
+	outfile = '%s.npz' % outfile
 	numpy.savez(outfile, freq1=freq1, freq2=freq2, units1=units1, units2=units2, spec=spec, standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 
 	# Save spectra image if requested

@@ -234,7 +234,8 @@ def main(args):
 					print " -> Clip-o-rama likely occuring with %i %i-sigma detections on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2)
 		
 		else:
-			outfile = config['args'][0].replace('.dat', '.txt')
+			outfile = os.path.splitext(config['args'][0])[0]
+			outfile = '%s.txt' % outfile
 			fh = open(outfile, 'w')
 			
 			# Plot possible clip-o-rama and flag it
