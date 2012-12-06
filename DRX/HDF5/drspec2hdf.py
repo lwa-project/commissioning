@@ -165,7 +165,8 @@ def main(args):
 		print "-> Resampling to %.3f s integrations" % config['intTime']
 	
 	# Setup the output file
-	outname = filename.replace('.dat', '-waterfall.hdf5')
+	outname = os.path.splitext(filename)[0]
+	outname = '%s-waterfall.hdf5' % outname
 		
 	f = h5py.File(outname, 'w')
 	f.attrs['Beam'] = beam

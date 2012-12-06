@@ -341,7 +341,8 @@ def main(args):
 		clip2 = config['clip']
 	
 	# Setup the output file
-	outname = config['args'][0].replace('.dat', '-waterfall.hdf5')
+	outname = os.path.splitext(config['args'][0])[0]
+	outname = '%s-waterfall.hdf5' % outname
 	
 	f = h5py.File(outname, 'w')
 	f.attrs['Beam'] = beam
