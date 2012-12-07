@@ -181,7 +181,8 @@ def main(args):
 	
 	# Save the data
 	try:
-		outname = filename.replace('.dat', '-vis.npz')
+		outname = os.path.splitext(filename)[0]
+		outname = "%s-vis.npz" % outname
 		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreq=centralFreq, times=times, fullVis=fullVis, simpleVis=simpleVis)
 	except:
 		pass
