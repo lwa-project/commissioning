@@ -188,9 +188,9 @@ def main(args):
 				if j == 0 and aStand == 0:
 					times[i] = cFrame.getTime()
 					try:
-						centralFreqs[i] = junkFrame.getCentralFreq()
+						centralFreqs[i] = cFrame.getCentralFreq()
 					except AttributeError:
-						centralFreqs[i] = fS * junkFrame.header.secondsCount / 2**32
+						centralFreqs[i] = fS * cFrame.header.secondsCount / 2**32
 					if i > 0:
 						if centralFreqs[i] != centralFreqs[i-1]:
 							print "Frequency change from %.3f to %.3f MHz at chunk %i" % (centralFreqs[i-1]/1e6, centralFreqs[i]/1e6, i+1)
