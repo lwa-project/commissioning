@@ -99,6 +99,8 @@ def main(args):
 		src = ephem.readdb(line)
 		if src.name == reference:
 			refSrc = src
+	if reference == 'Sun':
+		refSrc = ephem.Sun()
 	
 	if refSrc is None:
 		print "Cannot find reference source '%s' in source list, aborting." % reference
@@ -217,7 +219,7 @@ def main(args):
 	#
 	# Compute source positions/fringe stop and remove the source
 	#
-	print "Fringe stopping:"
+	print "Fringe stopping on '%s':" % refSrc.name
 	pbar = ProgressBar(max=freq.size*520)
 
 	
