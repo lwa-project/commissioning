@@ -213,10 +213,6 @@ GROUP "/" {
 }
 }
 
-hdfWaterfallDRSU.py
--------------------
-DRSU direct-access version of hdfWaterfall.py.
-
 plotHDF.py
 ----------
 Version of plotWaterfall.py for viewing HDF5 files.
