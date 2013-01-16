@@ -8,6 +8,9 @@ cross-correlation of TBN data for all stands relative to the outlier (#258).
 This script differs from simpleFringe.py in that it is designed to deal with
 multiple TBN captures (frequencies) that are stored in a single file.
 
+Usage:
+./simpleFringeDemux.py <TBN data file>
+
 $Rev$
 $LastChangedBy$
 $LastChangedDate$

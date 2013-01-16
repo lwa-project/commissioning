@@ -4,6 +4,13 @@
 """
 Split multi-vis NPZ files that are generated from combined TBN observations into
 single NPZ files, one for each frequency.
+
+Usage:
+./splitMultiVis.py <NPZ multi-vis. file> [<NPZ multi-vis. file> [...]]
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os
