@@ -55,13 +55,6 @@ phasedBeam.py
 Given a reference file for calibration and a pointing azimuth and elevation 
 in degrees, create a set of phase-and-sum beamforming coefficients for DRX.
 
-trackSource.py
---------------
-Modified version of phasedBeam.py that takes a calibration file, a source name
-from astroevents2.py, a start date/time, and a duration in hours to generate
-course tracking.  The script generates delay files for every 4 minutes in the 
-time range as well as a bash script that orchestrates everything.
-
 phase-calib-Sun-38MHz.npz
 -------------------------
 Calibration file for phasedBeam.py at 37.90 MHz.
