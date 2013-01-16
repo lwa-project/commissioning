@@ -13,6 +13,10 @@ import numpy
 from datetime import datetime
 
 
+# Minimum number of integrations needed for a frequency to make it useable
+MIN_INTS_TO_KEEP = 20
+
+
 def main(args):
 	filename = args[0]
 	dataDict = numpy.load(filename)
@@ -30,8 +34,9 @@ def main(args):
 	
 	centralFreqs = dataDict['centralFreqs']
 
-	# Find the unique sets of frequencies and report
+	# Find the unique sets of (non-zero) frequencies and report
 	uFreq = numpy.unique(centralFreqs)
+	uFreq = uFreq[numpy.where(uFreq != 0)]
 	print "  Found %i unique frequencies from %.3f to %.3f MHz" % (len(uFreq), uFreq.min()/1e6, uFreq.max()/1e6)
 	
 	# Report on the start time
@@ -49,8 +54,8 @@ def main(args):
 		subTimes = times[toKeep]
 		subPhase = phase[toKeep,:]
 		
-		if len(toKeep) < 20:
-			print "  -> Skipping %.3f MHz with only %i integrations" % (f, len(toKeep))
+		if len(toKeep) < MIN_INTS_TO_KEEP:
+			print "  -> Skipping %.3f MHz with only %i integrations (%.1f s)" % (f, len(toKeep), len(toKeep)*tInt)
 			continue
 		
 		## Save the split data to its own file
