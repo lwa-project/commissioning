@@ -104,8 +104,8 @@ def main(args):
 	print "Integration Time: %.3f s" % tInt
 	print "Number of time samples: %i (%.3f s)" % (phase.shape[0], phase.shape[0]*tInt)
 	
-	# Compute the loations of all of the sources to figure out where the 
-	# referenece is
+	# Compute the locations of all of the sources to figure out where the 
+	# reference is
 	print "Starting Source Positions:"
 	
 	refSrc = None
@@ -129,7 +129,7 @@ def main(args):
 			fRate = getFringeRate(antennas[0], antennas[refX], observer, src, centralFreq)
 			print " source %-4s: %+6.3f mHz" % (src.name, fRate*1e3)
 	
-	# Fring stopping using the reference source
+	# Fringe stopping using the reference source
 	print "Fringe stopping:"
 	pbar = ProgressBar(max=phase.shape[1])
 

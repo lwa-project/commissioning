@@ -5,6 +5,9 @@
 Simple script (with hard coded integration times) for performing time series
 cross-correlation of TBN data for all stands relative to the outlier (#258).
 
+Usage:
+./simpleFringe.py <TBN data file>
+
 $Rev$
 $LastChangedBy$
 $LastChangedDate$
@@ -46,7 +49,9 @@ Options:
 -m, --metadata        Name of SSMIF file to use for mappings
 -a, --average         Integration time in seconds (default = 10)
 -r, --reference	      Stand to use as a reference (default = 258)
-
+-c, --clip            Clip level in sqrt(I*I + Q*Q) to use to exclude
+                      samples in the time domain (default = 0 = no 
+                      excision)
 """
 
 	if exitCode is not None:
@@ -61,10 +66,11 @@ def parseOptions(args):
 	config['SSMIF'] = None
 	config['tInt'] = 10.0
 	config['refStand'] = 258
+	config['clipLevel'] = 0
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hm:a:", ["help", "metadata=", "average="])
+		opts, args = getopt.getopt(args, "hm:a:c:", ["help", "metadata=", "average=", "clip="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -80,6 +86,8 @@ def parseOptions(args):
 			config['tInt'] = float(value)
 		elif opt in ('-r', '--reference'):
 			config['refStand'] = int(value)
+		elif opt in ('-c', '--clip'):
+			config['clipLevel'] = float(value)
 		else:
 			assert False
 	
@@ -235,8 +243,9 @@ def main(args):
 			j += 1
 			
 		# Mask
-		#bad = numpy.where( numpy.abs(data) >= 90 )
-		#data[bad] *= 0.0
+		if config['clipLevel'] > 0:
+			bad = numpy.where( numpy.abs(data) >= 90 )
+			data[bad] *= 0.0
 		
 		# Simple correlation
 		for l in xrange(520):

@@ -372,7 +372,7 @@ def main(args):
 			#pylab.plot(numpy.abs(f))
 			#pylab.show()
 			
-			# Calculate the geomtric delay term at the start of the data
+			# Calculate the geometric delay term at the start of the data
 			jd = time[i,0]
 			
 			try:
