@@ -16,16 +16,63 @@ $LastChangedDate$
 import os
 import sys
 import numpy
+import getopt
 
 from datetime import datetime
 
 
-# Minimum number of integrations needed for a frequency to make it useable
-MIN_INTS_TO_KEEP = 20
+def usage(exitCode=None):
+	print """splitMultiVis.py - Split multi-vis NPZ files that are generated from combined TBN
+observations into single NPZ files, one for each frequency.
+
+Usage: splitMultiVis.py [OPTIONS] file [file [...]]
+
+Options:
+-h, --help              Display this help information
+-m, --min-integrations  Minimum number of integrations needed to keep
+                        split out a frequency (default = 20)
+"""
+
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseOptions(args):
+	config = {}
+	# Command line flags - default values
+	config['minInts'] = 20
+	
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "hm:", ["help", "min-integrations="])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+	
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-m', '--metadata'):
+			config['minInts'] = int(value)
+		else:
+			assert False
+	
+	# Add in arguments
+	config['args'] = args
+
+	# Return configuration
+	return config
 
 
 def main(args):
-	for filename in args:
+	config = parseOptions(args)
+	filenames = config['args']
+
+	for filename in filenames:
 		dataDict = numpy.load(filename)
 	
 		print "Working on file '%s'" % filename
@@ -61,7 +108,7 @@ def main(args):
 			subTimes = times[toKeep]
 			subPhase = phase[toKeep,:]
 		
-			if len(toKeep) < MIN_INTS_TO_KEEP:
+			if len(toKeep) < config['minInts']:
 				print "  -> Skipping %.3f MHz with only %i integrations (%.1f s)" % (f, len(toKeep), len(toKeep)*tInt)
 				continue
 		

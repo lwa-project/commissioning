@@ -21,6 +21,7 @@ import os
 import sys
 import ephem
 import numpy
+import getopt
 
 from datetime import datetime
 
@@ -29,7 +30,7 @@ from scipy.stats import pearsonr
 
 from lsl.common.constants import c as vLight
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
-from lsl.common.stations import lwa1
+from lsl.common.stations import parseSSMIF, lwa1
 from lsl.correlator.uvUtils import computeUVW
 from lsl.misc.mathutil import to_dB
 from lsl.statistics import robust
@@ -45,6 +46,55 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
          "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
+
+
+def usage(exitCode=None):
+	print """prepareDelayData.py - Aggregate a collection of complex visibility together to make
+delay fitting a little easier.
+
+Usage: prepareDelayData [OPTIONS] ref_source file [file [...]]
+
+Options:
+-h, --help            Display this help information
+-m, --metadata        Name of SSMIF file to use for mappings
+-o, --output          Name for the final NPZ file (default = 
+                      'prepared-dat-stopped.npz')
+"""
+
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseOptions(args):
+	config = {}
+	# Command line flags - default values
+	config['SSMIF'] = None
+	config['output'] = 'prepared-dat-stopped.npz'
+	
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "hm:o:", ["help", "metadata=", "output="])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+	
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-m', '--metadata'):
+			config['SSMIF'] = value
+		else:
+			assert False
+	
+	# Add in arguments
+	config['args'] = args
+
+	# Return configuration
+	return config
 
 
 def getGeoDelay(antenna1, antenna2, az, el, Degrees=False):
@@ -88,15 +138,21 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 
 
 def main(args):
+	config = parseOptions(args)
+	
 	#
 	# Gather the station meta-data from its various sources
 	#
-	observer = lwa1.getObserver()
-	antennas = lwa1.getAntennas()
+	if config['SSMIF'] is not None:
+		site = parseSSMIF(config['SSMIF'])
+	else:
+		site = lwa1
+	observer = site.getObserver()
+	antennas = site.getAntennas()
 	nAnts = len(antennas)
 	
-	reference = args[0]
-	filenames = args[1:]
+	reference = config['args'][0]
+	filenames = config['args'][1:]
 	
 	#
 	# Find the reference source
@@ -252,8 +308,7 @@ def main(args):
 		print "  >=60 MHz and <80 MHz: %.3f s" % (m80*tInt,)
 	if found88:
 		print "  >=80 MHz and <88 MHz: %.3f s" % (m88*tInt,)
-	
-	
+		
 	#
 	# Report on progress and data coverage
 	#
@@ -366,7 +421,8 @@ def main(args):
 	#
 	# Save
 	#
-	numpy.savez('prepared-dat-stopped.npz', refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data)
+	outname = config['output']
+	numpy.savez(outname, refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data)
 
 
 if __name__ == "__main__":
