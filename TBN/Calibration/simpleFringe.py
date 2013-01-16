@@ -244,7 +244,7 @@ def main(args):
 			
 		# Mask
 		if config['clipLevel'] > 0:
-			bad = numpy.where( numpy.abs(data) >= 90 )
+			bad = numpy.where( numpy.abs(data) >= config['clipLevel'] )
 			data[bad] *= 0.0
 		
 		# Simple correlation
