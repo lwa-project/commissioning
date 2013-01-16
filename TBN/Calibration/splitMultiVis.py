@@ -59,7 +59,7 @@ def main(args):
 				continue
 		
 			## Save the split data to its own file
-			outname = os.path.splitext(filename)[1]
+			outname = os.path.splitext(filename)[0]
 			outname = "%s-%03i.npz" % (outname, i+1)
 			print "    Saving visibility data to '%s'" % outname
 			numpy.savez(outname, ref=refAnt, refX=refX, refY=refY, tInt=tInt, centralFreq=f, 
