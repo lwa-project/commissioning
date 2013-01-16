@@ -14,8 +14,9 @@ import os
 import sys
 import ephem
 import numpy
+import getopt
 
-from lsl.common.stations import lwa1
+from lsl.common.stations import parseSSMIF, lwa1
 from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
@@ -34,13 +35,74 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
 
 
+def usage(exitCode=None):
+	print """simpleFringe.py - Simple script for performing time series cross-correlation 
+of TBN data for all stands relative to the outlier
+
+Usage: simpleFringe.py [OPTIONS] file
+
+Options:
+-h, --help            Display this help information
+-m, --metadata        Name of SSMIF file to use for mappings
+-a, --average         Integration time in seconds (default = 10)
+-r, --reference	      Stand to use as a reference (default = 258)
+
+"""
+
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseOptions(args):
+	config = {}
+	# Command line flags - default values
+	config['SSMIF'] = None
+	config['tInt'] = 10.0
+	config['refStand'] = 258
+	
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "hm:a:", ["help", "metadata=", "average="])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+	
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-m', '--metadata'):
+			config['SSMIF'] = value
+		elif opt in ('-a', '--average'):
+			config['tInt'] = float(value)
+		elif opt in ('-r', '--reference'):
+			config['refStand'] = int(value)
+		else:
+			assert False
+	
+	# Add in arguments
+	config['args'] = args
+
+	# Return configuration
+	return config
+
+
 def main(args):
+	config = parseOptions(args)
+
 	# The task at hand
-	filename = args[0]
+	filename = config['args'][0]
 	
 	# The station
-	observer = lwa1.getObserver()
-	antennas = lwa1.getAntennas()
+	if config['SSMIF'] is not None:
+		site = parseSSMIF(config['SSMIF'])
+	else:
+		site = lwa1
+	observer = site.getObserver()
+	antennas = site.getAntennas()
 	
 	# The file's parameters
 	fh = open(filename, 'rb')
@@ -49,17 +111,21 @@ def main(args):
 	antpols = len(antennas)
 	
 	# Reference antenna
-	ref = 258
+	ref = config['refStand']
+	foundRef = False
 	for i,a in enumerate(antennas):
 		if a.stand.id == ref and a.pol == 0:
 			refX = i
+			foundRef = True
 		elif a.stand.id == ref and a.pol == 1:
 			refY = i
 		else:
 			pass
+	if not foundRef:
+		raise RuntimeError("Cannot file Stand #%i" % ref)
 	
 	# Integration time (seconds and frames)
-	tInt = 10.0
+	tInt = config['tInt']
 	nFrames = int(round(tInt*srate/512*antpols))
 	tInt = nFrames / antpols * 512 / srate
 	

@@ -87,6 +87,8 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-m', '--metadata'):
 			config['SSMIF'] = value
+		elif opt in ('-o', '--output'):
+			config['output'] = value
 		else:
 			assert False
 	
