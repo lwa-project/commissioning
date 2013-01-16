@@ -8,8 +8,8 @@ cross-correlation of TBN data for all stands relative to the outlier (#258).
 
 simpleFringeDemux.py
 --------------------
-Version of simpleFringe.py that can deal with TBN files on a DRSU with more 
-than one frequency.
+Version of simpleFringe.py that can deal with TBN files with more than one 
+frequency.
 
 .. note::
 	This version needs the fringe.so Python module (built with the 

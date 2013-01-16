@@ -21,7 +21,6 @@ import numpy
 from lsl.common.stations import lwa1
 from lsl.reader import tbn
 from lsl.reader import errors
-from lsl.reader import drsu
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
@@ -57,21 +56,19 @@ def unitRead(fh, count=520, found={}):
 
 def main(args):
 	# The task at hand
-	device = args[0]
-	filename = args[1]
+	filename = args[0]
 	
 	# The station
 	observer = lwa1.getObserver()
 	antennas = lwa1.getAntennas()
 	
 	# The file's parameters
-	tbnFile = drsu.getFileByName(device, filename)
-	tbnFile.open()
+	fh = open(filename, 'rb')
 	
-	nFramesFile =tbnFile.size / tbn.FrameSize
-	srate = tbn.getSampleRate(tbnFile.fh)
+	nFramesFile = os.path.getsize(filename) / tbn.FrameSize
+	srate = tbn.getSampleRate(fh)
 	antpols = len(antennas)
-	tbnFile.seek(0)
+	fh.seek(0)
 	
 	# Reference antenna
 	ref = 258
@@ -93,8 +90,8 @@ def main(args):
 	
 	# Read in the first frame and get the date/time of the first sample 
 	# of the frame.  This is needed to get the list of stands.
-	junkFrame = tbn.readFrame(tbnFile.fh)
-	tbnFile.fh.seek(-tbn.FrameSize, 1)
+	junkFrame = tbn.readFrame(fh)
+	fh.seek(-tbn.FrameSize, 1)
 	startFC = junkFrame.header.frameCount
 	try:
 		centralFreq = junkFrame.getCentralFreq()
@@ -159,7 +156,7 @@ def main(args):
 			cFrames = deque()
 			for l in xrange(520):
 				try:
-					cFrames.append( tbn.readFrame(tbnFile.fh) )
+					cFrames.append( tbn.readFrame(fh) )
 					k = k + 1
 				except errors.eofError:
 					## Exit at the EOF
@@ -204,15 +201,19 @@ def main(args):
 			
 			if done:
 				break
+
+		if done:
+			break
 		
 		# Time-domain blanking and cross-correlation with the outlier
 		simpleVis[i,:] = fringe.Simple(data, refX, refY, 90.0)
 	
-	tbnFile.close()
+	fh.close()
 	
 	# Save the data
 	try:
-		outname = "%s-multi-vis.npz" % filename
+		outname = os.path.splitext(filename)[0]
+		outname = "%s-multi-vis.npz" % outname
 		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, simpleVis=simpleVis)
 	except:
 		pass

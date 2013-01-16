@@ -60,6 +60,7 @@ def main(args):
 		
 			## Save the split data to its own file
 			outname = os.path.splitext(filename)[0]
+			outname = outname.replace('-multi', '')
 			outname = "%s-%03i.npz" % (outname, i+1)
 			print "  Saving visibility data for %.3f MHz to '%s'" % (f/1e6, outname)
 			numpy.savez(outname, ref=refAnt, refX=refX, refY=refY, tInt=tInt, centralFreq=f, 
