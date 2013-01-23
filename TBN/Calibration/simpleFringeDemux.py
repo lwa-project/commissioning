@@ -57,7 +57,7 @@ Options:
 -a, --average         Integration time in seconds (default = 10)
 -r, --reference	      Stand to use as a reference (default = 258)
 -c, --clip            Clip level in sqrt(I*I + Q*Q) to use to exclude
-                      samples in the time domain (default = 90)
+                      samples in the time domain (default = 120)
 """
 
 	if exitCode is not None:
@@ -72,7 +72,7 @@ def parseOptions(args):
 	config['SSMIF'] = None
 	config['tInt'] = 10.0
 	config['refStand'] = 258
-	config['clipLevel'] = 90.0
+	config['clipLevel'] = 120.0
 	
 	# Read in and process the command line flags
 	try:
