@@ -24,6 +24,7 @@ from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
+from lsl.common.paths import data as dataPath
 
 from matplotlib import pyplot as plt
 
@@ -107,8 +108,10 @@ def main(args):
 	# The station
 	if config['SSMIF'] is not None:
 		site = parseSSMIF(config['SSMIF'])
+		ssmifContents = open(config['SSMIF']).readlines()
 	else:
 		site = lwa1
+		ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
 	observer = site.getObserver()
 	antennas = site.getAntennas()
 	
@@ -255,12 +258,10 @@ def main(args):
 				simpleVis[i,l] = (data[l,:]*data[refY,:].conj()).mean()
 	
 	# Save the data
-	try:
-		outname = os.path.splitext(filename)[0]
-		outname = "%s-vis.npz" % outname
-		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreq=centralFreq, times=times, fullVis=fullVis, simpleVis=simpleVis)
-	except:
-		pass
+	outname = os.path.splitext(filename)[0]
+	outname = "%s-ref%03i-vis.npz" % (config['refStand'], outname)
+	numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreq=centralFreq, times=times, 
+			fullVis=fullVis, simpleVis=simpleVis, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":

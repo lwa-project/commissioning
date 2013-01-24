@@ -27,6 +27,7 @@ from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
+from lsl.common.paths import data as dataPath
 
 from matplotlib import pyplot as plt
 
@@ -126,8 +127,10 @@ def main(args):
 	# The station
 	if config['SSMIF'] is not None:
 		site = parseSSMIF(config['SSMIF'])
+		ssmifContents = open(config['SSMIF']).readlines()
 	else:
 		site = lwa1
+		ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
 	observer = site.getObserver()
 	antennas = site.getAntennas()
 	
@@ -286,8 +289,9 @@ def main(args):
 	# Save the data
 	try:
 		outname = os.path.splitext(filename)[0]
-		outname = "%s-multi-vis.npz" % outname
-		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, simpleVis=simpleVis)
+		outname = "%s-ref%03i-multi-vis.npz" % (config['refStand'], outname)
+		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, 
+				simpleVis=simpleVis, ssmifContents=ssmifContents)
 	except:
 		pass
 

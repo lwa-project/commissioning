@@ -7,7 +7,7 @@ or simpleFringeDemux.py/splitMultiVis.py together to make delay fitting a little
 easier.
 
 Note:  The output of this script is always saved to an NPZ file named 
-       prepared-dat-stopped.npz
+       prepared-dat-stopped-ref###.npz
 
 Usage:
 ./prepareDelayData.py <reference source> <NPZ vis. file> [<NPZ vis. file> [...]]
@@ -22,7 +22,9 @@ import sys
 import ephem
 import numpy
 import getopt
+import tempfile
 
+from hashlib import md5
 from datetime import datetime
 
 from scipy.optimize import leastsq, fmin
@@ -56,7 +58,6 @@ Usage: prepareDelayData [OPTIONS] ref_source file [file [...]]
 
 Options:
 -h, --help            Display this help information
--m, --metadata        Name of SSMIF file to use for mappings
 -o, --output          Name for the final NPZ file (default = 
                       'prepared-dat-stopped.npz')
 """
@@ -70,12 +71,11 @@ Options:
 def parseOptions(args):
 	config = {}
 	# Command line flags - default values
-	config['SSMIF'] = None
 	config['output'] = 'prepared-dat-stopped.npz'
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hm:o:", ["help", "metadata=", "output="])
+		opts, args = getopt.getopt(args, "ho:", ["help", "output="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -85,8 +85,6 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
-		elif opt in ('-m', '--metadata'):
-			config['SSMIF'] = value
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		else:
@@ -97,6 +95,13 @@ def parseOptions(args):
 
 	# Return configuration
 	return config
+
+
+def md5sum(ssmifContents):
+	m = md5()
+	for line in ssmifContents:
+		m.update(line)
+	return m.hexdigest()
 
 
 def getGeoDelay(antenna1, antenna2, az, el, Degrees=False):
@@ -142,19 +147,28 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 def main(args):
 	config = parseOptions(args)
 	
+	reference = config['args'][0]
+	filenames = config['args'][1:]
+
 	#
 	# Gather the station meta-data from its various sources
 	#
-	if config['SSMIF'] is not None:
-		site = parseSSMIF(config['SSMIF'])
-	else:
+	dataDict = numpy.load(filenames[0])
+	ssmifContents = dataDict['ssmifContents']
+	if ssmifContents.shape == ():
 		site = lwa1
+	else:
+		fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
+		fh = open(tempSSMIF, 'w')
+		for line in ssmifContents:
+			fh.write('%s\n' % line)
+		fh.close()
+		
+		site = parseSSMIF(tempSSMIF)
+		os.unlink(tempSSMIF)
 	observer = site.getObserver()
 	antennas = site.getAntennas()
 	nAnts = len(antennas)
-	
-	reference = config['args'][0]
-	filenames = config['args'][1:]
 	
 	#
 	# Find the reference source
@@ -178,6 +192,8 @@ def main(args):
 	data = []
 	time = []
 	freq = []
+	oldRef = None
+	oldMD5 = None
 	maxTime = -1
 	for filename in filenames:
 		dataDict = numpy.load(filename)
@@ -191,9 +207,24 @@ def main(args):
 		phase = dataDict['simpleVis']
 		
 		centralFreq = dataDict['centralFreq'].item()
+
+		ssmifContents = dataDict['ssmifContents']
 		
 		beginDate = datetime.utcfromtimestamp(times[0])
 		observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
+
+		# Make sure we aren't mixing reference antennas
+		if oldRef is None:
+			oldRef = ref
+		if ref != oldRef:
+			raise RuntimeError("Dataset has different reference antennas than previous (%i != %i)" % (ref, oldRef))
+
+		# Make sure we aren't mixing SSMIFs
+		ssmifMD5 = md5sum(ssmifContents)
+		if oldMD5 is None:
+			oldMD5 = ssmifMD5
+		if ssmifMD5 != oldMD5:
+			raise RuntimeError("Dataset has different SSMIF than previous (%s != %s)" % (ssmifMD5, oldMD5))
 			
 		print "Central Frequency: %.3f Hz" % centralFreq
 		print "Start date/time: %s" % beginDate.strftime("%Y/%m/%d %H:%M:%S")
@@ -424,7 +455,9 @@ def main(args):
 	# Save
 	#
 	outname = config['output']
-	numpy.savez(outname, refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data)
+	outname, ext = os.path.splitext(outname)
+	outname = "%s-ref%03i%s" % (outname, ref, ext)
+	numpy.savez(outname, refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":

@@ -56,7 +56,7 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
-		elif opt in ('-m', '--metadata'):
+		elif opt in ('-m', '--min-integrations'):
 			config['minInts'] = int(value)
 		else:
 			assert False
@@ -88,6 +88,9 @@ def main(args):
 	
 		centralFreqs = dataDict['centralFreqs']
 
+		# Load in the SSMIF
+		ssmifContents = dataDict['ssmifContents']
+
 		# Find the unique sets of (non-zero) frequencies and report
 		uFreq = numpy.unique(centralFreqs)
 		uFreq = uFreq[numpy.where(uFreq != 0)]
@@ -118,7 +121,7 @@ def main(args):
 			outname = "%s-%03i.npz" % (outname, i+1)
 			print "  Saving visibility data for %.3f MHz to '%s'" % (f/1e6, outname)
 			numpy.savez(outname, ref=refAnt, refX=refX, refY=refY, tInt=tInt, centralFreq=f, 
-						times=subTimes, simpleVis=subPhase)
+						times=subTimes, simpleVis=subPhase, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":
