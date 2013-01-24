@@ -258,7 +258,8 @@ def main(args):
 				simpleVis[i,l] = (data[l,:]*data[refY,:].conj()).mean()
 	
 	# Save the data
-	outname = os.path.splitext(filename)[0]
+	outname = os.path.split(filename)[1]
+	outname = os.path.splitext(outname)[0]
 	outname = "%s-ref%03i-vis.npz" % (config['refStand'], outname)
 	numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreq=centralFreq, times=times, 
 			fullVis=fullVis, simpleVis=simpleVis, ssmifContents=ssmifContents)

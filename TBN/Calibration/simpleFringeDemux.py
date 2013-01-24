@@ -287,13 +287,11 @@ def main(args):
 	fh.close()
 	
 	# Save the data
-	try:
-		outname = os.path.splitext(filename)[0]
-		outname = "%s-ref%03i-multi-vis.npz" % (config['refStand'], outname)
-		numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, 
-				simpleVis=simpleVis, ssmifContents=ssmifContents)
-	except:
-		pass
+	outname = os.path.split(filename)[1]
+	outname = os.path.splitext(outname)[0]
+	outname = "%s-ref%03i-multi-vis.npz" % (config['refStand'], outname)
+	numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, 
+			simpleVis=simpleVis, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":
