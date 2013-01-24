@@ -23,6 +23,7 @@ from lsl.reader import errors
 from lsl.correlator import fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
+from lsl.common.paths import data as dataPath
 
 import matplotlib.pyplot as plt
 
@@ -107,7 +108,7 @@ def main(args):
 		ssmifContents = open(config['SSMIF']).readlines()
 	else:
 		station = stations.lwa2
-		ssmifContents = ''
+		ssmifContents = open(os.path.join(dataPath, 'lwa2-ssmif.txt')).readlines()
 	antennas = []
 	for a in station.getAntennas():
 		if a.digitizer != 0:

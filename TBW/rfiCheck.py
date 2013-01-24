@@ -30,6 +30,7 @@ from lsl.correlator._core import FEngineR2
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
 from lsl.statistics import kurtosis
+from lsl.common.paths import data as dataPath
 
 import matplotlib.pyplot as plt
 
@@ -135,7 +136,7 @@ def main(args):
 		ssmifContents = open(config['SSMIF']).readlines()
 	else:
 		station = stations.lwa1
-		ssmifContents = ''
+		ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
 	antennas = station.getAntennas()
 	
 	toKeep = []
