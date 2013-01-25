@@ -289,7 +289,7 @@ def main(args):
 	# Save the data
 	outname = os.path.split(filename)[1]
 	outname = os.path.splitext(outname)[0]
-	outname = "%s-ref%03i-multi-vis.npz" % (config['refStand'], outname)
+	outname = "%s-ref%03i-multi-vis.npz" % (outname, config['refStand'])
 	numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, 
 			simpleVis=simpleVis, ssmifContents=ssmifContents)
 
