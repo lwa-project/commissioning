@@ -215,9 +215,9 @@ def main(args):
 
 		# Make sure we aren't mixing reference antennas
 		if oldRef is None:
-			oldRef = ref
-		if ref != oldRef:
-			raise RuntimeError("Dataset has different reference antennas than previous (%i != %i)" % (ref, oldRef))
+			oldRef = refAnt
+		if refAnt != oldRef:
+			raise RuntimeError("Dataset has different reference antennas than previous (%i != %i)" % (refAnt, oldRef))
 
 		# Make sure we aren't mixing SSMIFs
 		ssmifMD5 = md5sum(ssmifContents)
@@ -456,7 +456,7 @@ def main(args):
 	#
 	outname = config['output']
 	outname, ext = os.path.splitext(outname)
-	outname = "%s-ref%03i%s" % (outname, ref, ext)
+	outname = "%s-ref%03i%s" % (outname, refAnt, ext)
 	numpy.savez(outname, refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data, ssmifContents=ssmifContents)
 
 
