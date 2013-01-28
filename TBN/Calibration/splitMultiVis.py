@@ -20,6 +20,8 @@ import getopt
 
 from datetime import datetime
 
+from lsl.statistics import robust
+
 
 def usage(exitCode=None):
 	print """splitMultiVis.py - Split multi-vis NPZ files that are generated from combined TBN
@@ -28,9 +30,11 @@ observations into single NPZ files, one for each frequency.
 Usage: splitMultiVis.py [OPTIONS] file [file [...]]
 
 Options:
--h, --help              Display this help information
--m, --min-integrations  Minimum number of integrations needed to keep
-                        split out a frequency (default = 20)
+-h, --help                Display this help information
+-a, --auto-integrations   Use automatic integration selection (median count
+                          less 2 integrations)
+-m, --min-integrations    Minimum number of integrations needed to keep
+                          split out a frequency (default = 20)
 """
 
 	if exitCode is not None:
@@ -43,10 +47,11 @@ def parseOptions(args):
 	config = {}
 	# Command line flags - default values
 	config['minInts'] = 20
+	config['autoInts'] = False
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hm:", ["help", "min-integrations="])
+		opts, args = getopt.getopt(args, "hm:a", ["help", "min-integrations=", "auto-integrations"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -58,6 +63,8 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-m', '--min-integrations'):
 			config['minInts'] = int(value)
+		elif opt in ('-a', '--auto-integrations'):
+			config['autoInts'] = True
 		else:
 			assert False
 	
@@ -99,6 +106,20 @@ def main(args):
 		# Report on the start time
 		beginDate = datetime.utcfromtimestamp(times[0])
 		print "  Start date/time of data: %s UTC" % beginDate
+		
+		# Gather
+		tInts = []
+		for i,f in enumerate(uFreq):
+			## Select what we need and trim off the last index to deal 
+			## with frequency changes
+			toKeep = numpy.where( centralFreqs == f )[0]
+			toKeep = toKeep[:-1]
+			
+			tInts.append(len(toKeep))
+		cutLength = numpy.median(tInts) - 2
+		if config['autoInts']:
+			print "  Setting minimum integration count to %i (%.1f s)" % (cutLength, cutLength*tInt)
+			config['minInts'] = cutLength
 	
 		# Split
 		for i,f in enumerate(uFreq):

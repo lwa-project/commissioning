@@ -284,63 +284,27 @@ def main(args):
 	# 
 	# Find the fringe stopping averaging times
 	#
-	l30 = numpy.where( (freq >= 20e6) & (freq < 30e6) )[0]
-	l50 = numpy.where( (freq >= 30e6) & (freq < 50e6) )[0]
-	l60 = numpy.where( (freq >= 50e6) & (freq < 60e6) )[0]
-	l80 = numpy.where( (freq >= 60e6) & (freq < 80e6) )[0]
-	l88 = numpy.where( (freq >= 80e6) & (freq < 88e6) )[0]
-	
-	m30 = 1e6
-	found30 = False
-	for l in l30:
-		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
-		if len(good) < m30:
-			m30 = len(good)
-			found30 = True
+	ls = {}
+	for fStart in xrange(20, 90, 5):
+		fStop = fStart + 5
+		l = numpy.where( (freq >= fStart*1e6) & (freq < fStop*1e6) )[0]
+		if len(l) > 0:
+			ls[fStart] = l
 			
-	m50 = 1e6
-	found50 = False
-	for l in l50:
-		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
-		if len(good) < m50:
-			m50 = len(good)
-			found50 = True
-			
-	m60 = 1e6
-	found60 = False
-	for l in l60:
-		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
-		if len(good) < m60:
-			m60 = len(good)
-			found60 = True
-			
-	m80 = 1e6
-	found80 = False
-	for l in l80:
-		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
-		if len(good) < m80:
-			m80 = len(good)
-			found80 = True
-			
-	m88 = 1e6
-	found88 = False
-	for l in l88:
-		good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
-		if len(good) < m88:
-			m88 = len(good)
-			found88 = True
+	ms = {}
+	for fStart in ls.keys():
+		m = 1e6
+		for l in ls[fStart]:
+			good = numpy.where( numpy.isfinite(time[l,:]) == 1 )[0]
+			if len(good) < m:
+				m = len(good)
+		ms[fStart] = m
 			
 	print "Minimum fringe stopping times:"
-	if found30:
-		print "  >=20 Mhz and <30 MHz: %.3f s" % (m30*tInt,)
-	if found50:
-		print "  >=30 MHz and <50 MHz: %.3f s" % (m50*tInt,)
-	if found60:
-		print "  >=50 MHz and <60 MHz: %.3f s" % (m60*tInt,)
-	if found80:
-		print "  >=60 MHz and <80 MHz: %.3f s" % (m80*tInt,)
-	if found88:
-		print "  >=80 MHz and <88 MHz: %.3f s" % (m88*tInt,)
+	for fStart in ls.keys():
+		fStop = fStart + 5
+		m = ms[fStart]
+		print "  >=%i Mhz and <%i MHz: %.3f s" % (fStart, fStop, m*tInt,)
 		
 	#
 	# Report on progress and data coverage
@@ -436,16 +400,10 @@ def main(args):
 	
 	data2 = numpy.zeros((data.shape[0], data.shape[2]), dtype=data.dtype)
 	for j in xrange(data2.shape[1]):
-		if found30:
-			data2[l30,j] = data[l30,:m30,j].mean(axis=1)
-		if found50:
-			data2[l50,j] = data[l50,:m50,j].mean(axis=1)
-		if found60:
-			data2[l60,j] = data[l60,:m60,j].mean(axis=1)
-		if found80:
-			data2[l80,j] = data[l80,:m80,j].mean(axis=1)
-		if found88:
-			data2[l88,j] = data[l88,:m88,j].mean(axis=1)
+		for fStart in ls.keys():
+			l = ls[fStart]
+			m = ms[fStart]
+			data2[l,j] = data[l,:m,j].mean(axis=1)
 	data = data2
 	print "Output (post-averaging) data shapes:"
 	print "  time:", time.shape
