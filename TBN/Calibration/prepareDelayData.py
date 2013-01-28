@@ -301,7 +301,7 @@ def main(args):
 		ms[fStart] = m
 			
 	print "Minimum fringe stopping times:"
-	for fStart in ls.keys():
+	for fStart in sorted(ls.keys()):
 		fStop = fStart + 5
 		m = ms[fStart]
 		print "  >=%i Mhz and <%i MHz: %.3f s" % (fStart, fStop, m*tInt,)
