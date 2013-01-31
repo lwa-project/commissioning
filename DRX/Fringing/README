@@ -18,7 +18,7 @@ At the end of the correlation, the visibilities are written to a NPZ file.
 
 fringeBeam.py
 -------------
-Simlar to fringeDipole.py, but expects the beam to be on X pol. and the dipole on
+Similar to fringeDipole.py, but expects the beam to be on X pol. and the dipole on
 Y pol.  Accepts two command line arguments:
  1) stand number on Y pol.
  2) DRX filename(s)
