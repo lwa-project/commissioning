@@ -36,6 +36,7 @@ Options:
                             (Default = 90 degrees)
 -e, --elevation             Elevation above the horizon in degrees for the pointing
                             center (Default = 90 degrees)
+-n, --no-plots              Do not show plots of the beam response
 """
 	if exitCode is not None:
 		sys.exit(exitCode)
@@ -49,11 +50,12 @@ def parseOptions(args):
 	config['freq'] = 65.0e6
 	config['az'] = 90.0
 	config['el'] = 90.0
+	config['plots'] = True
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hf:a:e:", ["help", "frequency=", "azimuth=", "elevation="])
+		opts, args = getopt.getopt(args, "hf:a:e:n", ["help", "frequency=", "azimuth=", "elevation=", "no-plots"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -69,6 +71,8 @@ def parseOptions(args):
 			config['az'] = float(value)
 		elif opt in ('-e', '--elevation'):
 			config['el'] = float(value)
+		elif opt in ('-n', '--no-plots'):
+			config['plots'] = False
 		else:
 			assert False
 	
@@ -111,19 +115,23 @@ def main(args):
 
 		print "Calculating beam for az. %.2f, el. %.2f at %.2f MHz - %s with %i antennas" % (config['az'], config['el'], config['freq']/1e6, name, len(antennas2))
 		tStart = time.time()
-		beam = beamformer.intBeamShape(antennas2, azimuth=config['az'], elevation=config['el'], progress=True)
+		beam = beamformer.intBeamShape(antennas2, azimuth=config['az'], elevation=config['el'], freq=config['freq'], progress=True)
 		print "-> Finished in %.3f seconds" % (time.time() - tStart)
 		
+		# Older version of the intBeamShape function return the square root of the beam profile
+		if float(beamformer.__version__) < 0.5:
+			beam = beam**2
 		beams.append(beam)
 		
 		numpy.savez('test_%iMHz_%iaz_%iel_%s.npz' % (config['freq']/1e6, config['az'], config['el'], name), beam=beam, freq=config['freq'], pol=name, az=config['az'], el=config['el'])
 	
-	fig = plt.figure()
-	ax1 = fig.add_subplot(1, 2, 1)
-	ax2 = fig.add_subplot(1, 2, 2)
-	ax1.imshow( beams[0], interpolation='nearest' )
-	ax2.imshow( beams[1], interpolation='nearest' )
-	plt.show()
+	if config['plots']:
+		fig = plt.figure()
+		ax1 = fig.add_subplot(1, 2, 1)
+		ax2 = fig.add_subplot(1, 2, 2)
+		ax1.imshow( beams[0], interpolation='nearest' )
+		ax2.imshow( beams[1], interpolation='nearest' )
+		plt.show()
 	
 
 
