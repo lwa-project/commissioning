@@ -22,11 +22,11 @@ or the script can be used to just list the observations within an HDF5 file.
 
 calculateSK.py
 --------------
-calculateSK.py - Read in a DRX/HDF5 wataerfall file and calculate the pseudo-
-spectral kurtosis (pSK) for each observation (XX and YY or I).  The pSK values
-are "pseudo" since the spectra contained within the HDF5 file are averaged 
-over N FFTs where N > 1.  The pSK value for each channel is calculated by 
-examining M consecutive spectra.
+Read in a DRX/HDF5 wataerfall file and calculate the pseudo-spectral kurtosis 
+(pSK) for each observation (XX and YY or I).  The pSK values are "pseudo" since 
+the spectra contained within the HDF5 file are averaged over N FFTs where 
+N > 1.  The pSK value for each channel is calculated by examining M consecutive 
+spectra.
 
 Note:  Although the pSK method works reasonable well for short integration times
 (<~0.3 s) the method may break down for much longer integration times.
