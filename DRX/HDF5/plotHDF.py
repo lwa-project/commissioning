@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Given the NPZ output of drxWaterfall, plot it in an interative way.
+Given a DRX HDF5 waterfall file, plot it in an interative way.
 
 $Rev$
 $LastChangedBy$
@@ -15,6 +15,7 @@ import h5py
 import math
 import time
 import numpy
+import ephem
 import getopt
 import subprocess
 from datetime import datetime
@@ -47,6 +48,7 @@ Options:
                             of the file (default = 0)
 -d, --duration              Number of seconds to display
                             (default = -1 to display all of the file)
+-o, --observation           Plot the specified observation (default = 1)
 """
 
 	if exitCode is not None:
@@ -60,11 +62,12 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['offset'] = 0.0
 	config['duration'] = -1.0
+	config['obsID'] = 1
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:d:", ["help", "skip=", "duration="])
+		opts, args = getopt.getopt(args, "hs:d:o:", ["help", "skip=", "duration=", "observation="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -78,6 +81,8 @@ def parseOptions(args):
 			config['offset'] = float(value)
 		elif opt in ('-d', '--duration'):
 			config['duration'] = float(value)
+		elif opt in ('-o', '--observation'):
+			config['obsID'] = int(value)
 		else:
 			assert False
 	
@@ -101,7 +106,7 @@ def findLimits(data, usedB=True):
 	Tiny function to speed up the computing of the data range for the colorbar.
 	Returns a two-element list of the lowest and highest values.
 	"""
-
+	
 	if usedB:
 		dMin = to_dB(data).min()
 	else:
@@ -164,6 +169,7 @@ class Waterfall_GUI(object):
 		
 		self.ax1a = None
 		self.ax1b = None
+		self.ax1c = None
 		self.ax2 = None
 		
 		self.spectrumClick = None
@@ -174,7 +180,7 @@ class Waterfall_GUI(object):
 		self.kurtosisSec = 1
 		self.kurtosisCut = 4
 		
-	def loadData(self, filename):
+	def loadData(self, filename, obsID=1):
 		"""
 		Load in data from an NPZ file.
 		"""
@@ -184,27 +190,41 @@ class Waterfall_GUI(object):
 		
 		# Save the filename
 		self.filename = filename
+		self.obsID = obsID
 		h = h5py.File(self.filename, 'r')
+		obs = h.get('Observation%i' % obsID, None)
+		if obs is None:
+			raise RuntimeError("No observation #%i in file '%s'" % (obsID, os.path.basename(self.filename)))
 		
 		# Load the Data
-		print " %6.3f s - Extracting data" % (time.time() - tStart)
-		self.beam  = h.attrs['Beam']
-		self.srate = h.attrs['sampleRate']
-		self.tInt  = h.attrs['tInt']
-		self.time  = numpy.zeros(h['time'].shape, dtype=h['time'].dtype)
-		h['time'].read_direct(self.time)
-		self.time -= self.time.min()
+		print " %6.3f s - Extracting data for observation #%i" % (time.time() - tStart, obsID)
+		self.beam  = obs.attrs['Beam']
+		self.srate = obs.attrs['sampleRate']
+		self.tInt  = obs.attrs['tInt']
+		self.time  = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
+		obs['time'].read_direct(self.time)
+		self.time -= self.time[0]
+		valid = numpy.where( self.time >= 0 )
+		self.time = self.time[valid]
 		
-		tuning1 = h.get('Tuning1', None)
-		tuning2 = h.get('Tuning2', None)
+		tuning1 = obs.get('Tuning1', None)
+		tuning2 = obs.get('Tuning2', None)
 		
-		# Make sure we have a linear file
-		try:
-			tuning1['XX'].shape
-		except:
-			raise RuntimeError("'%s' does not seem to contain linear parameters" % self.filename)
-			sys.exit(1)
-		
+		dataProducts = list(tuning1)
+		mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
+		for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
+			try:
+				ind = dataProducts.index(exclude)
+				del dataProducts[ind]
+			except ValueError:
+				pass
+		if dataProducts[0][0] in ('X', 'Y'):
+			self.linear = True
+			self.usedB = True
+		else:
+			self.linear = False
+			self.usedB = False
+			
 		# Figure out the selection process
 		self.iOffset = int(round(self.frame.offset / self.tInt))
 		if self.frame.duration < 0:
@@ -212,8 +232,8 @@ class Waterfall_GUI(object):
 		else:
 			self.iDuration = int(round(self.frame.duration / self.tInt))
 		## Make sure we don't fall off the end of the file
-		if self.iOffset + self.iDuration > tuning1['XX'].shape[0]:
-			self.iDuration = tuning1['XX'].shape[0] - self.iOffset
+		if self.iOffset + self.iDuration > tuning1[dataProducts[0]].shape[0]:
+			self.iDuration = tuning1[dataProducts[0]].shape[0] - self.iOffset
 		selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
 		
 		if self.iOffset != 0:
@@ -226,53 +246,59 @@ class Waterfall_GUI(object):
 		tuning1['freq'].read_direct(self.freq1)
 		self.freq2 = numpy.zeros(tuning2['freq'].shape, dtype=tuning2['freq'].dtype)
 		tuning2['freq'].read_direct(self.freq2)
-				
-		self.spec = numpy.empty((self.iDuration, 4, self.freq1.size), dtype=numpy.float32)
 		
-		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['XX'].dtype)
-		tuning1['XX'].read_direct(part, selection)
-		self.spec[:,0,:] = part.astype(numpy.float32)
+		self.spec = numpy.empty((self.iDuration, 8, self.freq1.size), dtype=numpy.float32)
 		
-		part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1['YY'].dtype)
-		tuning1['YY'].read_direct(part, selection)
-		self.spec[:,1,:] = part.astype(numpy.float32)
-		
-		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['XX'].dtype)
-		tuning2['XX'].read_direct(part, selection)
-		self.spec[:,2,:] = part.astype(numpy.float32)
-		
-		part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2['YY'].dtype)
-		tuning2['YY'].read_direct(part, selection)
-		self.spec[:,3,:] = part.astype(numpy.float32)
-		
+		for p in dataProducts:
+			## Tuning 1
+			ind = 4*(1-1) + mapper[p]
+			part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
+			tuning1[p].read_direct(part, selection)
+			self.spec[:,ind,:] = part.astype(numpy.float32)
+			
+			## Tuning 2
+			ind = 4*(2-1) + mapper[p]
+			part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2[p].dtype)
+			tuning2[p].read_direct(part, selection)
+			self.spec[:,ind,:] = part.astype(numpy.float32)
+			
+			del part
+			
+		self.sats = numpy.empty((self.iDuration, 4), dtype=numpy.float32)
+		part = numpy.empty((self.iDuration, 2), dtype=tuning1['Saturation'].dtype)
+		tuning1['Saturation'].read_direct(part, selection)
+		self.sats[:,0:2] = part / (self.tInt * self.srate)
+		part = numpy.empty((self.iDuration, 2), dtype=tuning2['Saturation'].dtype)
+		tuning2['Saturation'].read_direct(part, selection)
+		self.sats[:,2:4] = part / (self.tInt * self.srate)
 		del part
+		# Mask out negative saturation values since that indicates the data is
+		# not avaliable
+		self.sats = numpy.ma.array(self.sats, mask=(self.sats < 0))
 		
 		mask1 = tuning1.get('Mask', None)
 		mask2 = tuning2.get('Mask', None)
 		
 		mask = numpy.zeros(self.spec.shape, dtype=numpy.bool)
 		
-		if mask1 is not None:
-			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['XX'].dtype)
-			mask1['XX'].read_direct(part, selection)
-			mask[:,0,:] = part.astype(numpy.bool)
-			
-			part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1['YY'].dtype)
-			mask1['YY'].read_direct(part, selection)
-			mask[:,1,:] = part.astype(numpy.bool)
-			
-			del part
-		
-		if mask2 is not None:
-			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['XX'].dtype)
-			mask2['XX'].read_direct(part, selection)
-			mask[:,2,:] = part.astype(numpy.bool)
-			
-			part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2['YY'].dtype)
-			mask2['YY'].read_direct(part, selection)
-			mask[:,3,:] = part.astype(numpy.bool)
-			
-			del part
+		for p in dataProducts:
+			if mask1 is not None:
+				## Tuning 1
+				ind = 4*(1-1) + mapper[p]
+				part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1[p].dtype)
+				mask1[p].read_direct(part, selection)
+				mask[:,ind,:] = part.astype(numpy.float32)
+				
+				del part
+				
+			if mask2 is not None:
+				## Tuning 2
+				ind = 4*(2-1) + mapper[p]
+				part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2[p].dtype)
+				mask2[p].read_direct(part, selection)
+				mask[:,ind,:] = part.astype(numpy.float32)
+				
+				del part
 		
 		self.spec = numpy.ma.array(self.spec, mask=mask)
 		
@@ -281,13 +307,24 @@ class Waterfall_GUI(object):
 		self.timeMask = numpy.median(self.spec.mask, axis=2)
 		
 		# Other data to keep around
-		self.timesNPZ = numpy.zeros(h['time'].shape, dtype=h['time'].dtype)
-		h['time'].read_direct(self.timesNPZ)
+		self.timesNPZ = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
+		obs['time'].read_direct(self.timesNPZ)
 		
 		# Deal with the potential for aggregated files
 		self.tIntActual = self.tInt
 		self.tIntOriginal = self.tInt
 		self.filenames = None
+		
+		# Gather up the target information
+		self.dataProducts = dataProducts
+		self.target = obs.attrs['TargetName']
+		self.ra = obs.attrs['RA']
+		self.raUnit = obs.attrs['RA_Units']
+		self.dec = obs.attrs['Dec']
+		self.decUnit = obs.attrs['Dec_Units']
+		self.mode = obs.attrs['TrackingMode']
+		self.rbw = obs.attrs['RBW']
+		self.rbwUnit = obs.attrs['RBW_Units']
 		
 		# Close out the file
 		h.close()
@@ -302,78 +339,55 @@ class Waterfall_GUI(object):
 		
 		# Find the mean spectra
 		print " %6.3f s - Computing mean spectra" % (time.time() - tStart)
-
-		#taskPool = Pool(processes=2)
-		#taskList = []
-		#taskList.append( (0, taskPool.apply_async(findMean, args=(self.spec,))) )
-		#taskList.append( (1, taskPool.apply_async(findMean, args=(self.specBandpass,))) )
-		#taskPool.close()
-		#taskPool.join()
-		#for i,task in taskList:
-			#if i == 0:
-				#self.mean = task.get()
-			#else:
-				#self.meanBandpass = task.get()
 		self.mean = numpy.mean(self.spec, axis=0)
 		self.meanBandpass = numpy.mean(self.specBandpass, axis=0)
 		
 		# Set default colobars
 		print " %6.3f s - Setting default colorbar ranges" % (time.time() - tStart)
-
-		#taskPool = Pool(processes=4)
-		#taskList = []
-		#for i in xrange(self.spec.shape[1]):
-			#task = taskPool.apply_async(findLimits, args=(self.spec[:,i,:],))
-			#taskList.append( (i,task) )
-		#taskPool.close()
-		#taskPool.join()
 		self.limits = [None,]*self.spec.shape[1]
-		#for i,task in taskList:
-			#self.limits[i] = task.get()
 		for i in xrange(self.spec.shape[1]):
-			self.limits[i] = findLimits(self.spec[:,i,:], usedB=True)
+			self.limits[i] = findLimits(self.spec[:,i,:], usedB=self.usedB)
 			
 		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
-		#taskPool = Pool(processes=4)
-		#taskList = []
-		#for i in xrange(self.spec.shape[1]):
-			#task = taskPool.apply_async(findLimits, args=(self.specBandpass[:,i,toUse],))
-			#taskList.append( (i,task) )
-		#taskPool.close()
-		#taskPool.join()
 		self.limitsBandpass = [None,]*self.spec.shape[1]
-		#for i,task in taskList:
-			#self.limitsBandpass[i] = task.get()
 		for i in xrange(self.spec.shape[1]):
-			self.limitsBandpass[i] = findLimits(self.specBandpass[:,i,toUse], usedB=True)
+			self.limitsBandpass[i] = findLimits(self.specBandpass[:,i,toUse], usedB=self.usedB)
 		
 		try:
 			self.disconnect()
 		except:
 			pass
-		
+			
+	def render(self):
 		# Clear the old marks
 		self.oldMarkA = None
 		self.oldMarkB = None
+		self.oldMarkC = None
+		
+		# Clear the old figures
 		self.frame.figure1a.clf()
-		self.frame.figure1a.clf()
+		self.frame.figure1b.clf()
+		self.frame.figure1c.clf()
 		self.frame.figure2.clf()
 		
 		self.connect()
 		
-		print " %6.3f s - Ready" % (time.time() - tStart)
-	
 	def computeBandpass(self):
 		"""
 		Compute the bandpass fits.
 		"""
-
+		
 		meanSpec = numpy.mean(self.spec.data, axis=0)
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
-			bpm = savitzky_golay(to_dB(meanSpec[i,:]), 41, 9, deriv=0)
-			bpm = from_dB(bpm)
-			
+			if self.usedB:
+				bpm = savitzky_golay(to_dB(meanSpec[i,:]), 41, 9, deriv=0)
+				bpm = from_dB(bpm)
+			else:
+				bpm = savitzky_golay(meanSpec[i,:], 41, 9, deriv=0)
+				
+			if bpm.mean() == 0:
+				bpm += 1
 			bpm2.append( bpm / bpm.mean() )
 			
 		# Apply the bandpass correction
@@ -381,9 +395,9 @@ class Waterfall_GUI(object):
 		for i in xrange(self.spec.shape[1]):
 			for j in xrange(self.spec.shape[2]):
 				self.specBandpass[:,i,j] = self.spec[:,i,j] / bpm2[i][j]
-
+				
 		return True
-	
+		
 	def draw(self):
 		"""
 		Draw the waterfall diagram and the total power with time.
@@ -404,37 +418,75 @@ class Waterfall_GUI(object):
 		# Plot 1(a) - Waterfall
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
-		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
-		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
-		cm.ax.set_ylabel('PSD [arb. dB]')
+		if self.usedB:
+			m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
+			cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+			cm.ax.set_ylabel('PSD [arb. dB]')
+		else:
+			m = self.ax1a.imshow(spec[:,self.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
+			cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+			cm.ax.set_ylabel('PSD [arb. lin.]')
 		self.ax1a.axis('auto')
 		self.ax1a.set_xlim((freq[0]/1e6, freq[-1]/1e6))
 		self.ax1a.set_ylim((self.time[0], self.time[-1]))
 		self.ax1a.set_xlabel('Frequency [MHz]')
 		self.ax1a.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
-		self.ax1a.set_title('Tuning %i, Pol. %s' % (self.index/2+1, 'Y' if self.index %2 else 'X'))
-		
+		if self.linear:
+			tun = self.index / 4 + 1
+			ind = self.index % 4
+			mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+			self.ax1a.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+		else:
+			tun = self.index / 4 + 1
+			ind = self.index % 4
+			mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
+			self.ax1a.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+			
 		if self.oldMarkA is not None:
 			self.ax1a.lines.extend(self.oldMarkA)
 		
+		self.frame.figure1a.tight_layout()
 		self.frame.canvas1a.draw()
 		
-		# Plot 1(b) - Drift
-		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
-		
+		# Plot 1(b) - Saturation Fraction
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
-		self.ax1b.plot(to_dB(self.drift[:,self.index]), self.time, linestyle=' ', marker='x')
+		self.ax1b.plot(self.sats[:,2*(tun-1)+0], self.time, linestyle='-', color='blue')
+		self.ax1b.plot(self.sats[:,2*(tun-1)+1], self.time, linestyle='-', color='green')
+		self.ax1b.set_xlim((-0.05, 1.05))
 		self.ax1b.set_ylim((self.time[0], self.time[-1]))
-		self.ax1b.set_xlabel('Inner 75% Total Power [arb. dB]')
+		self.ax1b.set_xlabel('Saturation Fraction')
 		self.ax1b.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
+		self.ax1b.xaxis.set_ticks([0.0, 0.25, 0.5, 0.75, 1.0])
+		self.ax1b.xaxis.set_ticklabels(['0', '', '0.5', '', '1'])
 		
 		if self.oldMarkB is not None:
 			self.ax1b.lines.extend(self.oldMarkB)
 		
+		self.frame.figure1b.tight_layout()
 		self.frame.canvas1b.draw()
-	
-	def drawSpectrum(self, clickY, Home=False):
+		
+		# Plot 1(c) - Drift
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
+		
+		self.frame.figure1c.clf()
+		self.ax1c = self.frame.figure1c.gca()
+		if self.usedB:
+			self.ax1c.plot(to_dB(self.drift[:,self.index]), self.time, linestyle=' ', marker='x')
+			self.ax1c.set_xlabel('Inner 75% Total Power [arb. dB]')
+		else:
+			self.ax1c.plot(self.drift[:,self.index], self.time, linestyle=' ', marker='x')
+			self.ax1c.set_xlabel('Inner 75% Total Power [arb. lin.]')
+		self.ax1c.set_ylim((self.time[0], self.time[-1]))
+		self.ax1c.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
+		
+		if self.oldMarkC is not None:
+			self.ax1c.lines.extend(self.oldMarkC)
+		
+		self.frame.figure1c.tight_layout()
+		self.frame.canvas1c.draw()
+		
+	def drawSpectrum(self, clickY):
 		"""Get the spectrum at a particular point in time."""
 		
 		try:
@@ -456,7 +508,7 @@ class Waterfall_GUI(object):
 			medianSpec = self.mean[self.index,:]
 			limits = self.limits
 		
-		if self.frame.toolbar.mode == 'zoom rect' and not Home:
+		if self.frame.toolbar.mode == 'zoom rect':
 			try:
 				oldXlim = self.ax2.get_xlim()
 				oldYlim = self.ax2.get_ylim()
@@ -469,13 +521,18 @@ class Waterfall_GUI(object):
 		
 		self.frame.figure2.clf()
 		self.ax2 = self.frame.figure2.gca()
-		self.ax2.plot(freq/1e6, to_dB(spec), linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
-		self.ax2.plot(freq/1e6, to_dB(medianSpec), label='Mean', alpha=0.5, color='green')
+		if self.usedB:
+			self.ax2.plot(freq/1e6, to_dB(spec), linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
+			self.ax2.plot(freq/1e6, to_dB(medianSpec), label='Mean', alpha=0.5, color='green')
+			self.ax2.set_ylabel('PSD [arb. dB]')
+		else:
+			self.ax2.plot(freq/1e6, spec, linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
+			self.ax2.plot(freq/1e6, medianSpec, label='Mean', alpha=0.5, color='green')
+			self.ax2.set_ylabel('PSD [arb. lin.]')
 		self.ax2.set_xlim(oldXlim)
 		self.ax2.set_ylim(oldYlim)
 		self.ax2.legend(loc=0)
 		self.ax2.set_xlabel('Frequency [MHz]')
-		self.ax2.set_ylabel('PSD [arb. dB]')
 		
 		if self.filenames is None:
 			if self.bandpass:
@@ -488,9 +545,10 @@ class Waterfall_GUI(object):
 			else:
 				self.ax2.set_title(self.filenames[dataY])
 		
+		self.frame.figure2.tight_layout()
 		self.frame.canvas2.draw()
 		self.spectrumClick = clickY
-	
+		
 	def makeMark(self, clickY):
 		
 		try:
@@ -509,6 +567,12 @@ class Waterfall_GUI(object):
 				del self.ax1b.lines[-1]
 			except:
 				pass
+				
+		if self.oldMarkC is not None:
+			try:
+				del self.ax1c.lines[-1]
+			except:
+				pass
 		
 		oldXSizeA = self.ax1a.get_xlim()
 		oldYSizeA = self.ax1a.get_ylim()
@@ -516,8 +580,12 @@ class Waterfall_GUI(object):
 		oldXSizeB = self.ax1b.get_xlim()
 		oldYSizeB = self.ax1b.get_ylim()
 		
-		self.oldMarkA = self.ax1a.plot([-1e6, 1e6], [self.time[dataY],]*2, color='red')
-		self.oldMarkB = self.ax1b.plot([-1e6, 1e6], [self.time[dataY],]*2, color='red')
+		oldXSizeC = self.ax1c.get_xlim()
+		oldYSizeC = self.ax1c.get_ylim()
+		
+		self.oldMarkA = self.ax1a.plot([-1e20, 1e20], [self.time[dataY],]*2, color='red')
+		self.oldMarkB = self.ax1b.plot([-1e20, 1e20], [self.time[dataY],]*2, color='red')
+		self.oldMarkC = self.ax1c.plot([-1e20, 1e20], [self.time[dataY],]*2, color='red')
 		
 		self.ax1a.set_xlim(oldXSizeA)
 		self.ax1a.set_ylim(oldYSizeA)
@@ -525,8 +593,12 @@ class Waterfall_GUI(object):
 		self.ax1b.set_xlim(oldXSizeB)
 		self.ax1b.set_ylim(oldYSizeB)
 		
+		self.ax1c.set_xlim(oldXSizeC)
+		self.ax1c.set_ylim(oldYSizeC)
+		
 		self.frame.canvas1a.draw()
 		self.frame.canvas1b.draw()
+		self.frame.canvas1c.draw()
 		
 	def suggestMask(self, index):
 		"""
@@ -606,7 +678,7 @@ class Waterfall_GUI(object):
 		self.freqMask[index,:] = False
 		
 		return True
-	
+		
 	def connect(self):
 		"""
 		Connect to all the events we need
@@ -614,17 +686,18 @@ class Waterfall_GUI(object):
 		
 		self.cidpress1a = self.frame.figure1a.canvas.mpl_connect('button_press_event', self.on_press1a)
 		self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press1b)
+		self.cidpress1c = self.frame.figure1c.canvas.mpl_connect('button_press_event', self.on_press1c)
 		self.cidpress2  = self.frame.figure2.canvas.mpl_connect('button_press_event', self.on_press2)
 		self.cidmotion  = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
-		self.frame.toolbar.home = self.on_home
+		self.frame.toolbar.update = self.on_update
 		
-	def on_home(self, *args):
+	def on_update(self, *args):
 		"""
-		Override of the toolbar 'home' operation.
+		Override the toolbar 'update' operation.
 		"""
 		
-		self.drawSpectrum(self.spectrumClick, Home=True)
-	
+		self.frame.toolbar.set_history_buttons()
+		
 	def on_press1a(self, event):
 		"""
 		On button press we will see if the mouse is over us and store some data
@@ -661,10 +734,37 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
-			scaleX = self.ax1b.get_xlim()
+			dataY = int(round(clickY / self.tInt))
+			
+			if event.button == 1:
+				self.drawSpectrum(clickY)
+				self.makeMark(clickY)
+			elif event.button == 2:
+				self.spec.mask[dataY, self.index, :] = self.freqMask[self.index,:]
+				self.specBandpass.mask[dataY, self.index, :] = self.freqMask[self.index,:]
+				self.timeMask[dataY, self.index] = False
+				self.draw()
+			elif event.button == 3:
+				self.spec.mask[dataY, self.index, :] = True
+				self.specBandpass.mask[dataY, self.index, :] = True
+				self.timeMask[dataY, self.index] = True
+				self.draw()
+			else:
+				pass
+				
+	def on_press1c(self, event):
+		"""
+		On button press we will see if the mouse is over us and store some data
+		"""
+		
+		if event.inaxes:
+			clickX = event.xdata
+			clickY = event.ydata
+			
+			scaleX = self.ax1c.get_xlim()
 			rangeX = scaleX[1] - scaleX[0]
 			
-			scaleY = self.ax1b.get_ylim()
+			scaleY = self.ax1c.get_ylim()
 			rangeY = scaleY[1] - scaleY[0]
 			
 			dataY = int(round(clickY / self.tInt))
@@ -673,14 +773,23 @@ class Waterfall_GUI(object):
 			upper = dataY + 200
 			upper = self.drift.shape[0]-1 if upper > self.drift.shape[0]-1 else upper
 			
-			d =  ((clickX - to_dB(self.drift.data[lower:upper,self.index]))/rangeX)**2
-			d += ((clickY - self.time[lower:upper])/rangeY)**2
-			d = numpy.sqrt(d)
-			best = numpy.where( d == d.min() )[0][0] + lower
-			bestD = d[best - lower]
-			
-			print "Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, to_dB(self.drift.data[best, self.index]), self.time[best])
-			
+			if self.usedB:
+				d =  ((clickX - to_dB(self.drift.data[lower:upper,self.index]))/rangeX)**2
+				d += ((clickY - self.time[lower:upper])/rangeY)**2
+				d = numpy.sqrt(d)
+				best = numpy.where( d == d.min() )[0][0] + lower
+				bestD = d[best - lower]
+				
+				print "Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, to_dB(self.drift.data[best, self.index]), self.time[best])
+			else:
+				d =  ((clickX - self.drift.data[lower:upper,self.index])/rangeX)**2
+				d += ((clickY - self.time[lower:upper])/rangeY)**2
+				d = numpy.sqrt(d)
+				best = numpy.where( d == d.min() )[0][0] + lower
+				bestD = d[best - lower]
+				
+				print "Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, self.drift.data[best, self.index], self.time[best])
+				
 			if event.button == 1:
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
@@ -698,6 +807,10 @@ class Waterfall_GUI(object):
 				pass
 			
 	def on_press2(self, event):
+		"""
+		On button press we will see if the mouse is over us and store some data
+		"""
+		
 		if event.inaxes:
 			clickX = event.xdata
 			clickY = event.ydata
@@ -724,6 +837,10 @@ class Waterfall_GUI(object):
 			self.drawSpectrum(self.spectrumClick)
 			
 	def on_motion(self, event):
+		"""
+		On mouse motion display the data value under the cursor
+		"""
+		
 		if event.inaxes:
 			clickX = event.xdata
 			clickY = event.ydata
@@ -735,18 +852,26 @@ class Waterfall_GUI(object):
 			
 			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
 			dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
-			
-			value = to_dB(self.spec[dataY, self.index, dataX])
-			self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
+			if not self.spec.mask[dataY, self.index, dataX]:
+				if self.usedB:
+					value = to_dB(self.spec[dataY, self.index, dataX])
+					self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
+				else:
+					value = self.spec[dataY, self.index, dataX]
+					self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f" % (clickX, clickY, value))
+			else:
+				self.frame.statusbar.SetStatusText("")
 		else:
 			self.frame.statusbar.SetStatusText("")
 			
-	
 	def disconnect(self):
-		'disconnect all the stored connection ids'
+		"""
+		Disconnect all the stored connection ids
+		"""
 		
 		self.frame.figure1a.canvas.mpl_disconnect(self.cidpress1a)
 		self.frame.figure1b.canvas.mpl_disconnect(self.cidpress1b)
+		self.frame.figure1c.canvas.mpl_disconnect(self.cidpress1c)
 		self.frame.figure2.canvas.mpl_disconnect(self.cidpress2)
 		self.frame.figure1a.canvas.mpl_disconnect(self.cidmotion)
 
@@ -759,11 +884,16 @@ ID_QUIT    = 13
 ID_COLOR_AUTO = 20
 ID_COLOR_ADJUST = 21
 
-ID_TUNING1_X = 30
-ID_TUNING1_Y = 31
-ID_TUNING2_X = 32
-ID_TUNING2_Y = 33
-ID_CHANGE_RANGE = 34
+ID_TUNING1_1 = 30
+ID_TUNING1_2 = 31
+ID_TUNING1_3 = 32
+ID_TUNING1_4 = 33
+ID_TUNING2_1 = 34
+ID_TUNING2_2 = 35
+ID_TUNING2_3 = 36
+ID_TUNING2_4 = 37
+ID_CHANGE_RANGE = 38
+ID_CHANGE_OBSID = 39
 
 ID_MASK_SUGGEST_CURRENT = 40
 ID_MASK_SUGGEST_ALL = 41
@@ -790,11 +920,13 @@ class MainWindow(wx.Frame):
 		
 		self.examineWindow = None
 		
-		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(600,800))
+		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(1000,600))
 		
+	def render(self):
 		self.initUI()
 		self.initEvents()
 		self.Show()
+		self.SetClientSize((1000,600))
 		
 		self.cAdjust = None
 		
@@ -815,7 +947,7 @@ class MainWindow(wx.Frame):
 		
 		## File Menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
-		fileMenu.AppendItem(open)
+		#fileMenu.AppendItem(open)
 		save = wx.MenuItem(fileMenu, ID_SAVE, "&Save")
 		fileMenu.AppendItem(save)
 		saveas = wx.MenuItem(fileMenu, ID_SAVE_AS, "Save &As")
@@ -831,15 +963,54 @@ class MainWindow(wx.Frame):
 		colorMenu.AppendItem(cadj)
 		
 		## Data Menu
-		dataMenu.AppendRadioItem(ID_TUNING1_X, 'Tuning 1, Pol. X')
-		dataMenu.AppendRadioItem(ID_TUNING1_Y, 'Tuning 1, Pol. Y')
-		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
-		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
-		dataMenu.InsertSeparator(2)
+		if self.data.linear:
+			t1p1 = dataMenu.AppendRadioItem(ID_TUNING1_1, 'Tuning 1, XX')
+			t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, XY')
+			t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, YX')
+			t1p4 = dataMenu.AppendRadioItem(ID_TUNING1_4, 'Tuning 1, YY')
+			t2p1 = dataMenu.AppendRadioItem(ID_TUNING2_1, 'Tuning 2, XX')
+			t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, XY')
+			t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, YX')
+			t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, YY')
+		else:
+			t1p1 = dataMenu.AppendRadioItem(ID_TUNING1_1, 'Tuning 1, I')
+			t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, Q')
+			t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, U')
+			t1p4 = dataMenu.AppendRadioItem(ID_TUNING1_4, 'Tuning 1, V')
+			t2p1 = dataMenu.AppendRadioItem(ID_TUNING2_1, 'Tuning 2, I')
+			t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, Q')
+			t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, U')
+			t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, V')
+			
+		dataMenu.InsertSeparator(4)
 		dataMenu.AppendSeparator()
-		self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, '&Change Time Range')
+		self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, 'Change Time &Range')
+		self.changeObservationButton = wx.MenuItem(colorMenu, ID_CHANGE_OBSID, 'Change &Observation')
 		dataMenu.AppendItem(self.changeRangeButton)
+		dataMenu.AppendItem(self.changeObservationButton)
 		
+		t1p1.Enable(False)
+		t1p2.Enable(False)
+		t1p3.Enable(False)
+		t1p4.Enable(False)
+		t2p1.Enable(False)
+		t2p2.Enable(False)
+		t2p3.Enable(False)
+		t2p4.Enable(False)
+		for p in self.data.dataProducts:
+			if p in ('I', 'XX'):
+				t1p1.Enable(True)
+				t2p1.Enable(True)
+			elif p in ('Q', 'XY'):
+				t1p2.Enable(True)
+				t2p2.Enable(True)
+			elif p in ('U', 'YX'):
+				t1p3.Enable(True)
+				t2p3.Enable(True)
+			else:
+				t1p4.Enable(True)
+				t2p4.Enable(True)
+				
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
 		maskMenu.AppendItem(suggestC)
@@ -886,14 +1057,19 @@ class MainWindow(wx.Frame):
 		# Add waterfall plot
 		panel1 = wx.Panel(self, -1)
 		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-		self.figure1a = Figure()
+		self.figure1a = Figure(figsize=(2,2))
 		self.canvas1a = FigureCanvasWxAgg(panel1, -1, self.figure1a)
-		hbox1.Add(self.canvas1a, 1, wx.EXPAND)
+		hbox1.Add(self.canvas1a, 3, wx.ALIGN_LEFT | wx.EXPAND)
 		
-		# Add a total power with time plot
+		# Add a saturation fraction plot
 		self.figure1b = Figure()
 		self.canvas1b = FigureCanvasWxAgg(panel1, -1, self.figure1b)
-		hbox1.Add(self.canvas1b, 1, wx.EXPAND)
+		hbox1.Add(self.canvas1b, 1, wx.ALIGN_CENTER | wx.EXPAND)
+		
+		# Add a total power with time plot
+		self.figure1c = Figure(figsize=(2,2))
+		self.canvas1c = FigureCanvasWxAgg(panel1, -1, self.figure1c)
+		hbox1.Add(self.canvas1c, 3, wx.ALIGN_RIGHT | wx.EXPAND)
 		panel1.SetSizer(hbox1)
 		vbox.Add(panel1, 1, wx.EXPAND)
 		
@@ -905,7 +1081,7 @@ class MainWindow(wx.Frame):
 		self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
 		self.toolbar.Realize()
 		hbox3.Add(self.canvas2, 1, wx.EXPAND)
-		hbox3.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.FIXED_MINSIZE)
 		panel3.SetSizer(hbox3)
 		vbox.Add(panel3, 1, wx.EXPAND)
 		
@@ -923,11 +1099,16 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onAutoscale, id=ID_COLOR_AUTO)
 		self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
 		
-		self.Bind(wx.EVT_MENU, self.onTuning1X, id=ID_TUNING1_X)
-		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
-		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
-		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
+		self.Bind(wx.EVT_MENU, self.onTuning1product1, id=ID_TUNING1_1)
+		self.Bind(wx.EVT_MENU, self.onTuning1product2, id=ID_TUNING1_2)
+		self.Bind(wx.EVT_MENU, self.onTuning1product3, id=ID_TUNING1_3)
+		self.Bind(wx.EVT_MENU, self.onTuning1product4, id=ID_TUNING1_4)
+		self.Bind(wx.EVT_MENU, self.onTuning2product1, id=ID_TUNING2_1)
+		self.Bind(wx.EVT_MENU, self.onTuning2product2, id=ID_TUNING2_2)
+		self.Bind(wx.EVT_MENU, self.onTuning2product3, id=ID_TUNING2_3)
+		self.Bind(wx.EVT_MENU, self.onTuning2product4, id=ID_TUNING2_4)
 		self.Bind(wx.EVT_MENU, self.onRangeChange, id=ID_CHANGE_RANGE)
+		self.Bind(wx.EVT_MENU, self.onObservationChange, id=ID_CHANGE_OBSID)
 		
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
@@ -949,8 +1130,9 @@ class MainWindow(wx.Frame):
 		self.canvas1b.Bind(wx.EVT_KEY_UP, self.onKeyPress)
 		self.canvas2.Bind(wx.EVT_KEY_UP,  self.onKeyPress)
 		
-		# Make the images resizable
+		# Make the plots resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		self.Bind(wx.EVT_SIZE, self.onSize)
 	
 	def onOpen(self, event):
 		"""
@@ -988,34 +1170,43 @@ class MainWindow(wx.Frame):
 			self.onSaveAs(event)
 		else:
 			h = h5py.File(self.data.filename, 'a')
+			obs = h.get('Observation%i' % self.data.obsID, None)
 			
-			tuning1 = h.get('Tuning1', None)
-			tuning2 = h.get('Tuning2', None)
+			tuning1 = obs.get('Tuning1', None)
+			tuning2 = obs.get('Tuning2', None)
+			
+			dataProducts = list(tuning1)
+			mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
+			for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
+				try:
+					ind = dataProducts.index(exclude)
+					del dataProducts[ind]
+				except ValueError:
+					pass
 			
 			o = self.data.iOffset
 			d = self.data.iDuration
 			
 			mask1 = tuning1.get('Mask', None)
+			mask2 = tuning2.get('Mask', None)
+			
 			if mask1 is None:
 				mask1 = tuning1.create_group('Mask')
-				mask1X = mask1.create_dataset('XX', tuning1['XX'].shape, 'bool', chunks=True)
-				mask1Y = mask1.create_dataset('YY', tuning1['YY'].shape, 'bool', chunks=True)
-			else:
-				mask1X = mask1.get('XX', None)
-				mask1Y = mask1.get('YY', None)
-			mask1X[o:o+d,:] = self.data.spec.mask[:,0,:]
-			mask1Y[o:o+d,:] = self.data.spec.mask[:,1,:]
-			
-			mask2 = tuning2.get('Mask', None)
+				for p in dataProducts:
+					mask1.create_dataset(p, tuning1[p].shape, 'bool')
+			for p in dataProducts:
+				ind = 4*(1-1) + mapper[p]
+				mask1P = mask1.get(p, None)
+				mask1P[o:o+d,:] = self.data.spec.mask[:,ind,:]
+				
 			if mask2 is None:
 				mask2 = tuning2.create_group('Mask')
-				mask2X = mask2.create_dataset('XX', tuning2['XX'].shape, 'bool', chunks=True)
-				mask2Y = mask2.create_dataset('YY', tuning2['YY'].shape, 'bool', chunks=True)
-			else:
-				mask2X = mask2.get('XX', None)
-				mask2Y = mask2.get('YY', None)
-			mask2X[o:o+d,:] = self.data.spec.mask[:,2,:]
-			mask2Y[o:o+d,:] = self.data.spec.mask[:,3,:]
+				for p in dataProducts:
+					mask2.create_dataset(p, tuning1[p].shape, 'bool')
+			for p in dataProducts:
+				ind = 4*(2-1) + mapper[p]
+				mask2P = mask2.get(p, None)
+				mask2P[o:o+d,:] = self.data.spec.mask[:,ind,:]
 			
 			h.close()
 
@@ -1036,38 +1227,48 @@ class MainWindow(wx.Frame):
 			for name in hOld.attrs.keys():
 				hNew.attrs[name] = hOld.attrs[name]
 			
-			for name in hOld.listnames():
+			for name in hOld.keys():
 				hOld.copy(name, hNew)
 				
 			hOld.close()
 			
-			tuning1 = hNew.get('Tuning1', None)
-			tuning2 = hNew.get('Tuning2', None)
+			obs = hNew.get('Observation%i' % self.data.obsID, None)
+			
+			tuning1 = obs.get('Tuning1', None)
+			tuning2 = obs.get('Tuning2', None)
+			
+			dataProducts = list(tuning1)
+			mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
+			for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
+				try:
+					ind = dataProducts.index(exclude)
+					del dataProducts[ind]
+				except ValueError:
+					pass
 			
 			o = self.data.iOffset
 			d = self.data.iDuration
 			
 			mask1 = tuning1.get('Mask', None)
+			mask2 = tuning2.get('Mask', None)
+			
 			if mask1 is None:
 				mask1 = tuning1.create_group('Mask')
-				mask1X = mask1.create_dataset('XX', tuning1['XX'].shape, 'bool', chunks=True)
-				mask1Y = mask1.create_dataset('YY', tuning1['YY'].shape, 'bool', chunks=True)
-			else:
-				mask1X = mask1.get('XX', None)
-				mask1Y = mask1.get('YY', None)
-			mask1X[o:o+d,:] = self.data.spec.mask[:,0,:]
-			mask1Y[o:o+d,:] = self.data.spec.mask[:,1,:]
-			
-			mask2 = tuning2.get('Mask', None)
+				for p in dataProducts:
+					mask1.create_dataset(p, tuning1[p].shape, 'bool')
+			for p in dataProducts:
+				ind = 4*(1-1) + mapper[p]
+				mask1P = mask1.get(p, None)
+				mask1P[o:o+d,:] = self.data.spec.mask[:,ind,:]
+				
 			if mask2 is None:
 				mask2 = tuning2.create_group('Mask')
-				mask2X = mask2.create_dataset('XX', tuning2['XX'].shape, 'bool', chunks=True)
-				mask2Y = mask2.create_dataset('YY', tuning2['YY'].shape, 'bool', chunks=True)
-			else:
-				mask2X = mask2.get('XX', None)
-				mask2Y = mask2.get('YY', None)
-			mask2X[o:o+d,:] = self.data.spec.mask[:,2,:]
-			mask2Y[o:o+d,:] = self.data.spec.mask[:,3,:]
+				for p in dataProducts:
+					mask2.create_dataset(p, tuning1[p].shape, 'bool')
+			for p in dataProducts:
+				ind = 4*(2-1) + mapper[p]
+				mask2P = mask2.get(p, None)
+				mask2P[o:o+d,:] = self.data.spec.mask[:,ind,:]
 			
 			hNew.close()
 			
@@ -1089,11 +1290,17 @@ class MainWindow(wx.Frame):
 		
 		i = self.data.index
 		toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
-		if self.data.bandpass:
-			self.data.limitsBandpass[i] = [percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 5), percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 95)] 
+		if self.data.usedB:
+			if self.data.bandpass:
+				self.data.limitsBandpass[i] = [percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 5), percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 99)] 
+			else:
+				self.data.limits[i] = [percentile(to_dB(self.data.spec[:,i,:]).ravel(), 5), percentile(to_dB(self.data.spec[:,i,:]).ravel(), 99)]
 		else:
-			self.data.limits[i] = [percentile(to_dB(self.data.spec[:,i,:]).ravel(), 5), percentile(to_dB(self.data.spec[:,i,:]).ravel(), 95)]
-			
+			if self.data.bandpass:
+				self.data.limitsBandpass[i] = [percentile(self.data.specBandpass[:,i,toUse].ravel(), 5), percentile(self.data.specBandpass[:,i,toUse].ravel(), 99)] 
+			else:
+				self.data.limits[i] = [percentile(self.data.spec[:,i,:].ravel(), 5), percentile(self.data.spec[:,i,:].ravel(), 99)]
+				
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
 		self.data.makeMark(self.data.spectrumClick)
@@ -1107,9 +1314,9 @@ class MainWindow(wx.Frame):
 		
 		ContrastAdjust(self)
 		
-	def onTuning1X(self, event):
+	def onTuning1product1(self, event):
 		"""
-		Display tuning 1, pol X.
+		Display tuning 1, data product 1 (XX or I)
 		"""
 		
 		wx.BeginBusyCursor()
@@ -1121,9 +1328,9 @@ class MainWindow(wx.Frame):
 			
 		wx.EndBusyCursor()
 		
-	def onTuning1Y(self, event):
+	def onTuning1product2(self, event):
 		"""
-		Display tuning 1, pol Y.
+		Display tuning 1, data product 1 (XY or Q)
 		"""
 		
 		wx.BeginBusyCursor()
@@ -1135,9 +1342,9 @@ class MainWindow(wx.Frame):
 			
 		wx.EndBusyCursor()
 		
-	def onTuning2X(self, event):
+	def onTuning1product3(self, event):
 		"""
-		Display tuning 2, pol X.
+		Display tuning 1, data product 3 (YX or U)
 		"""
 		
 		wx.BeginBusyCursor()
@@ -1149,14 +1356,70 @@ class MainWindow(wx.Frame):
 			
 		wx.EndBusyCursor()
 		
-	def onTuning2Y(self, event):
+	def onTuning1product4(self, event):
 		"""
-		Display tuning 2, pol Y.
+		Display tuning 1, data product 4 (YY or V)
 		"""
 		
 		wx.BeginBusyCursor()
 		
 		self.data.index = 3
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
+		
+	def onTuning2product1(self, event):
+		"""
+		Display tuning 2, data product 1 (XX or I)
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.index = 4
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
+		
+	def onTuning2product2(self, event):
+		"""
+		Display tuning 2, data product 1 (XY or Q)
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.index = 5
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
+		
+	def onTuning2product3(self, event):
+		"""
+		Display tuning 2, data product 3 (YX or U)
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.index = 6
+		self.data.draw()
+		if self.data.spectrumClick is not None:
+			self.data.drawSpectrum(self.data.spectrumClick)
+			
+		wx.EndBusyCursor()
+		
+	def onTuning2product4(self, event):
+		"""
+		Display tuning 2, data product 4 (YY or V)
+		"""
+		
+		wx.BeginBusyCursor()
+		
+		self.data.index = 7
 		self.data.draw()
 		if self.data.spectrumClick is not None:
 			self.data.drawSpectrum(self.data.spectrumClick)
@@ -1174,6 +1437,14 @@ class MainWindow(wx.Frame):
 			mode = 'Adjust'
 			
 		TimeRangeAdjust(self, mode=mode)
+		
+	def onObservationChange(self, event):
+		"""
+		Display a dialog box to change the observation currently being 
+		displayed.
+		"""
+		
+		SwitchObservation(self)
 		
 	def onMaskSuggestCurrent(self, event):
 		"""
@@ -1307,16 +1578,36 @@ class MainWindow(wx.Frame):
 		tIntOrg = self.data.tIntOriginal
 		tIntAct = self.data.tIntActual
 		
+		target = self.data.target
+		if self.data.raUnit.lower().find('h') != -1:
+			ra = ephem.hours(self.data.ra*numpy.pi/12.0)
+		else:
+			ra = ephem.hours(self.data.ra*numpy.pi/180.0)
+		if self.data.decUnit.lower().find('h') != -1:
+			dec = ephem.degrees(self.data.dec*numpy.pi/12.0)
+		else:
+			dec = ephem.degrees(self.data.dec*numpy.pi/180.0)
+		mode = self.data.mode
+		
+		rbw = self.data.rbw
+		rbwu = self.data.rbwUnit
+		
 		# Build the message string
 		outString = """Filename: %s
+
+Target Name: %s
+RA: %s
+Dec: %s
+Observing Mode: %s
 
 Beam:  %i
 Sample Rate: %.3f %s
 
 Integration Time:  %.3f seconds
+RBW: %.3f %s
 Number of Integrations:  %i
 
-Aggregate File?  %s""" % (filename, beam, srate, sunit, tInt, nInt, isAggregate)
+Aggregate File?  %s""" % (filename, target, ra, dec, mode, beam, srate, sunit, tInt, rbw, rbwu, nInt, isAggregate)
 
 		# Expound on aggregate files
 		if isAggregate:
@@ -1429,21 +1720,46 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 			pass
 			
 		event.Skip()
-	
-	def resizePlots(self, event):
-		w, h = self.GetSize()
+		
+	def onSize(self, event):
+		event.Skip()
+		wx.CallAfter(self.resizePlots)
+		
+	def resizePlots(self, event=None):
+		# Get the current size of the window and the navigation toolbar
+		w, h = self.GetClientSize()
+		wt, ht = self.toolbar.GetSize()
+		
+		# Come up with new figure sizes in inches.
+		# NOTE:  The height of the spectrum plot at the bottom needs to be
+		#        corrected for the height of the toolbar
 		dpi = self.figure1a.get_dpi()
 		newW0 = 1.0*w/dpi
-		newW1 = 1.0*(w/2-100)/dpi
-		newW2 = 1.0*(w/2-100)/dpi
-		newH0 = 1.0*(h/2-100)/dpi
-		newH1 = 1.0*(h/2-200)/dpi
+		newW1 = 1.0*(3.*w/7)/dpi
+		newW2 = 1.0*(1.*w/7)/dpi
+		newW3 = 1.0*(3.*w/7)/dpi
+		newH0 = 1.0*(h/2)/dpi
+		newH1 = 1.0*(h/2-ht)/dpi
+		
+		# Set the figure sizes and redraw
 		self.figure1a.set_size_inches((newW1, newH0))
+		self.figure1a.tight_layout()
 		self.figure1a.canvas.draw()
+		
 		self.figure1b.set_size_inches((newW2, newH0))
+		self.figure1b.tight_layout()
 		self.figure1b.canvas.draw()
+		
+		self.figure1c.set_size_inches((newW3, newH0))
+		self.figure1c.tight_layout()
+		self.figure1c.canvas.draw()
+		
 		self.figure2.set_size_inches((newW0, newH1))
+		self.figure2.tight_layout()
 		self.figure2.canvas.draw()
+		
+		# Refresh the layout
+		self.Refresh()
 		
 	def GetToolBar(self):
 		# You will need to override GetToolBar if you are using an 
@@ -1727,6 +2043,7 @@ class TimeRangeAdjust(wx.Frame):
 		try:
 			if needToUpdate or self.mode == 'New':
 				self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename))
+				self.parent.data.render()
 				self.parent.data.draw()
 		except Exception, e:
 			print "ERROR: %s" % str(e)
@@ -1735,6 +2052,103 @@ class TimeRangeAdjust(wx.Frame):
 		
 	def onCancel(self, event):
 		self.Close()
+
+
+ID_OBSID_OK = 101
+ID_OBSID_CANCEL = 102
+
+class SwitchObservation(wx.Frame):
+	def __init__ (self, parent):	
+		wx.Frame.__init__(self, parent, title='Observation to Display', size=(330, 175), style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		
+		h,w = self.GetEffectiveMinSize()
+		self.SetSize((h,w))
+		self.Fit()
+		
+		self.Show()
+		
+	def initUI(self):
+		obsList = self.getCurrentObsList()
+		
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		self.rbList = []
+		for i,obs in enumerate(obsList):
+			if i == 0:
+				rb = wx.RadioButton(panel, -1, '%s in mode %s (#%i)' % (obs[1], obs[2], obs[0]), style=wx.RB_GROUP)
+			else:
+				rb = wx.RadioButton(panel, -1, '%s in mode %s (#%i)' % (obs[1], obs[2], obs[0]))
+				
+			sizer.Add(rb, pos=(row+0, 0), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+			row += 1
+			self.rbList.append((rb,obs[0]))
+			
+		#
+		# Buttons
+		#
+		
+		ok = wx.Button(panel, ID_OBSID_OK, 'Ok', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 0), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		cancel = wx.Button(panel, ID_OBSID_CANCEL, 'Cancel', size=(56, 28))
+		sizer.Add(cancel, pos=(row+0, 1),  flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		#
+		# Fill in values
+		#
+		currObsID = self.parent.data.obsID
+		for rb,id in self.rbList:
+			if id == currObsID:
+				rb.SetValue(True)
+			else:
+				rb.SetValue(False)
+				
+		panel.SetSizerAndFit(sizer)
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_OBSID_OK)
+		self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_OBSID_CANCEL)
+		
+	def onOk(self, event):
+		# Get values
+		for rb,id in self.rbList:
+			if rb.GetValue():
+				newID = id
+				
+		try:
+			if newID != self.parent.data.obsID:
+				self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename), obsID=newID)
+				self.parent.data.render()
+				self.parent.data.draw()
+		except Exception, e:
+			print "ERROR: %s" % str(e)
+		else:
+			self.Close()
+		
+	def onCancel(self, event):
+		self.Close()
+		
+	def getCurrentObsList(self):
+		"""
+		Return a list of tuples, one for each observation in the current file.
+		"""
+		
+		obsList = []
+		
+		h = h5py.File(self.parent.data.filename)
+		for obsID in list(h):
+			id = int(obsID[11:])
+			obs = h.get(obsID, None)
+			obsList.append( (id, obs.attrs['TargetName'], obs.attrs['TrackingMode']) )
+		h.close()
+		
+		return obsList
 
 
 ID_BANDPASS_CUT_INC = 100
@@ -1996,16 +2410,30 @@ class WaterfallDisplay(wx.Frame):
 		# Plot Waterfall
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
-		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
-		cm = self.figure.colorbar(m, ax=self.ax1)
-		cm.ax.set_ylabel('PSD [arb. dB]')
+		if self.parent.data.usedB:
+			m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
+			cm = self.figure.colorbar(m, use_gridspec=True)
+			cm.ax.set_ylabel('PSD [arb. dB]')
+		else:
+			m = self.ax1.imshow(spec[:,self.parent.data.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
+			cm = self.figure.colorbar(m, use_gridspec=True)
+			cm.ax.set_ylabel('PSD [arb. lin.]')
 		self.ax1.axis('auto')
 		self.ax1.set_xlim((freq[0]/1e6, freq[-1]/1e6))
 		self.ax1.set_ylim((self.parent.data.time[0], self.parent.data.time[-1]))
 		self.ax1.set_xlabel('Frequency [MHz]')
 		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
-		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
-		
+		if self.parent.data.linear:
+			tun = self.parent.data.index / 4 + 1
+			ind = self.parent.data.index % 4
+			mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+			self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+		else:
+			tun = self.parent.data.index / 4 + 1
+			ind = self.parent.data.index % 4
+			mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
+			self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+			
 		## Draw and save the click (Why?)
 		self.canvas.draw()
 		self.connect()
@@ -2036,8 +2464,12 @@ class WaterfallDisplay(wx.Frame):
 			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
 			dataY = numpy.where(numpy.abs(clickY-self.parent.data.time) == (numpy.abs(clickY-self.parent.data.time).min()))[0][0]
 			
-			value = to_dB(self.parent.data.spec[dataY, self.parent.data.index, dataX])
-			self.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
+			if self.parent.data.usedB:
+				value = to_dB(self.parent.data.spec[dataY, self.parent.data.index, dataX])
+				self.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
+			else:
+				value = self.parent.data.spec[dataY, self.parent.data.index, dataX]
+				self.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f" % (clickX, clickY, value))
 		else:
 			self.statusbar.SetStatusText("")
 	
@@ -2137,12 +2569,25 @@ class DriftCurveDisplay(wx.Frame):
 		
 		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
-		self.ax1.plot(self.parent.data.time, to_dB(self.drift[:,self.parent.data.index]), linestyle='-', marker='x')
+		if self.parent.data.usedB:
+			self.ax1.plot(self.parent.data.time, to_dB(self.drift[:,self.parent.data.index]), linestyle='-', marker='x')
+			self.ax1.set_ylabel('Inner 75% Total Power [arb. dB]')
+		else:
+			self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
+			self.ax1.set_ylabel('Inner 75% Total Power [arb. lin.]')
 		self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
 		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
-		self.ax1.set_ylabel('Inner 75% Total Power [arb. dB]')
-		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
-		
+		if self.parent.data.linear:
+			tun = self.parent.data.index / 4 + 1
+			ind = self.parent.data.index % 4
+			mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+			self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+		else:
+			tun = self.parent.data.index / 4 + 1
+			ind = self.parent.data.index % 4
+			mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
+			self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+			
 		## Draw and save the click (Why?)
 		self.canvas.draw()
 		self.connect()
@@ -2171,8 +2616,12 @@ class DriftCurveDisplay(wx.Frame):
 			self.site.date = ts.strftime('%Y/%m/%d %H:%M:%S')
 			lst = self.site.sidereal_time()
 			
-			value = to_dB(self.drift[dataX,self.parent.data.index])
-			self.statusbar.SetStatusText("t=%s, LST=%s, p=%.2f dB" % (ts, lst, value))
+			if self.parent.data.usedB:
+				value = to_dB(self.drift[dataX,self.parent.data.index])
+				self.statusbar.SetStatusText("t=%s, LST=%s, p=%.2f dB" % (ts, lst, value))
+			else:
+				value = self.drift[dataX,self.parent.data.index]
+				self.statusbar.SetStatusText("t=%s, LST=%s, p=%.2f" % (ts, lst, value))
 		else:
 			self.statusbar.SetStatusText("")
 	
@@ -2202,8 +2651,14 @@ class DriftCurveDisplay(wx.Frame):
 
 
 def main(args):
+	# Turn off all NumPy warnings to keep stdout clean
+	errs = numpy.geterr()
+	numpy.seterr(invalid='ignore', divide='ignore')
+	
+	# Parse the command line options
 	config = parseOptions(args)
 	
+	# Go!
 	app = wx.App(0)
 	frame = MainWindow(None, -1)
 	if len(config['args']) == 1:
@@ -2211,7 +2666,9 @@ def main(args):
 		frame.offset = config['offset']
 		frame.duration = config['duration']
 		frame.data = Waterfall_GUI(frame)
-		frame.data.loadData(config['args'][0])
+		frame.data.loadData(config['args'][0], obsID=config['obsID'])
+		frame.render()
+		frame.data.render()
 		frame.data.draw()
 		
 		if frame.data.filenames is None:

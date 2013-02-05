@@ -17,8 +17,10 @@ import numpy
 import getopt
 from datetime import datetime
 
-from lsl.reader import drspec
+from lsl.reader import drx, drspec
 from lsl.common import progress
+
+import data as hdfData
 
 
 def usage(exitCode=None):
@@ -30,7 +32,7 @@ Usage: drspec2hdf.py [OPTIONS] file
 Options:
 -h, --help                  Display this help information
 -s, --skip                  Skip foward the specified number of seconds into the file
--t, --integrate-time        Resample the time resolution
+-m, --metadata              Metadata tarball for additional information
 """
 	
 	if exitCode is not None:
@@ -43,12 +45,12 @@ def parseOptions(args):
 	config = {}
 	# Command line flags - default values
 	config['offset'] = 0.0
-	config['intTime'] = None
+	config['metadata'] = None
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "ht:s:", ["help", "integrate-time=", "skip="])
+		opts, args = getopt.getopt(args, "hs:m:", ["help", "skip=", "metadata=",])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -62,11 +64,15 @@ def parseOptions(args):
 			config['verbose'] = False
 		elif opt in ('-s', '--skip'):
 			config['offset'] = float(value)
-		elif opt in ('-t', '--integrate-time'):
-			config['intTime'] = float(value)
+		elif opt in ('-m', '--metadata'):
+			config['metadata'] = value
 		else:
 			assert False
 	
+	# Make sure we aren't offsetting when we have metadata
+	if config['metadata'] is not None:
+		config['offset'] = 0.0
+		
 	# Add in arguments
 	config['args'] = args
 
@@ -127,6 +133,7 @@ def main(args):
 	# Update the offset actually used
 	config['offset'] = t1 - t0
 	nChunks = (os.path.getsize(filename) - fh.tell()) / FrameSize
+	print fh.tell()
 	
 	# Update the file contents
 	beam = junkFrame.parseID()
@@ -136,134 +143,153 @@ def main(args):
 	t0 = junkFrame.getTime()
 	tInt = junkFrame.header.nInts*LFFT/srate
 	beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
-	
-	products = junkFrame.getDataProducts()
-	nProducts = len(products)
-	
-	# Conversions
-	if config['intTime'] is None:
-		nSubInts = 1
-	else:
-		nSubInts = int(round(1.0 * config['intTime'] / tInt))
-	config['intTime'] = nSubInts * tInt
-	
-	print nFrames, tInt, 1.0*nFrames*tInt
-	
+        
 	# Report
 	print "Filename: %s" % filename
 	print "Date of First Frame: %s" % beginDate
 	print "Beam: %i" % beam
 	print "Sample Rate: %i Hz" % srate
 	print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
-	print "Data Products: %s" % (', '.join(products),)
 	print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
 	print "---"
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
 	print "Transform Length: %i" % LFFT
 	print "Integration: %.3f s" % tInt
-	if config['intTime'] != tInt:
-		print "-> Resampling to %.3f s integrations" % config['intTime']
 	
 	# Setup the output file
-	outname = os.path.splitext(filename)[0]
+	outname = os.path.split(filename)[1]
+	outname = os.path.splitext(outname)[0]
 	outname = '%s-waterfall.hdf5' % outname
-		
-	f = h5py.File(outname, 'w')
-	f.attrs['Beam'] = beam
-	f.attrs['tInt'] = config['intTime']
-	f.attrs['tInt_Units'] = 's'
-	f.attrs['sampleRate'] = srate
-	f.attrs['sampleRate_Units'] = 'samples/s'
-	freq = numpy.fft.fftshift( numpy.fft.fftfreq(LFFT, d=1.0/srate) )
-	freq = freq[1:].astype(numpy.float64)
-	f.attrs['RBW'] = freq[1]-freq[0]
-	f.attrs['RBW_Units'] = 'Hz'
-	masterTimes = f.create_dataset('time', (nChunks/nSubInts,), 'f8')
 	
-	tuning1 = f.create_group('/Tuning1')
-	tuning1['freq'] = freq + centralFreq1
-	tuning1['freq'].attrs['Units'] = 'Hz'
-	
-	tuning2 = f.create_group('/Tuning2')
-	tuning2['freq'] = freq + centralFreq2
-	tuning2['freq'].attrs['Units'] = 'Hz'
-	
-	spec = {}
-	for p in products:
-		k = "%s0" % p
-		spec[k] = tuning1.create_dataset(p, (nChunks/nSubInts, LFFT-1), 'f4')
-		tuning1[p].attrs['axis0'] = 'time'
-		tuning1[p].attrs['axis1'] = 'frequency'
+	f = hdfData.createNewFile(outname)
+	obsList = {}
+	if config['metadata'] is not None:
+		from lsl.common import mcs, metabundle
+		sdf = metabundle.getSessionDefinition(config['metadata'])
 		
-		k = "%s1" % p
-		spec[k] = tuning2.create_dataset(p, (nChunks/nSubInts, LFFT-1), 'f4')
-		tuning2[p].attrs['axis0'] = 'time'
-		tuning2[p].attrs['axis1'] = 'frequency'
+		sdfBeam  = sdf.sessions[0].drxBeam
+		spcSetup = sdf.sessions[0].spcSetup
+		if sdfBeam != beam:
+			raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
+			
+		for i,obs in enumerate(sdf.sessions[0].observations):
+			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
+			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
+			obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
+			
+			obsList[i+1] = (sdfStart, sdfStop, obsChunks)
+			
+		hdfData.fillFromMetabundle(f, config['metadata'])
+	else:
+		obsList[1] = (beginDate, datetime(2222,12,31,23,59,59), nChunks)
 		
+	dataProducts = junkFrame.getDataProducts()
+	for o in sorted(obsList.keys()):
+		for t in (1,2):
+			hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1, dtype=numpy.float32), obsList[o][2], dataProducts)
+			
+	f.attrs['FileGenerator'] = 'drspec2hdf.py'
+	f.attrs['InputData'] = os.path.basename(config['args'][0])
+	
+	# Create the various HDF group holders
+	ds = {}
+	for o in sorted(obsList.keys()):
+		obs = hdfData.getObservationSet(f, o)
+		
+		ds['obs%i' % o] = obs
+		ds['obs%i-time' % o] = obs.create_dataset('time', (obsList[o][2],), 'f8')
+		
+		for t in (1,2):
+			ds['obs%i-freq%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'freq')
+			for p in dataProducts:
+				ds["obs%i-%s%i" % (o, p, t)] = hdfData.getDataSet(f, o, t, p)
+			ds['obs%i-Saturation%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'Saturation')
+			
 	# Loop over DR spectrometer frames to fill in the HDF5 file
-	tempTimes = numpy.zeros(nChunks, dtype=numpy.float64)
-	tempArray = numpy.zeros((2*nProducts, nChunks, LFFT-1), dtype=numpy.float32)
-	
 	pbar = progress.ProgressBar(max=nChunks)
+	o = 1
+	j = 0
+	
+	firstPass = True
 	for i in xrange(nChunks):
 		frame = drspec.readFrame(fh)
+		#print i, frame.data.saturations
 		
-		tempTimes[i] = frame.getTime()
-		for j,p in enumerate(products):
-			tempArray[0*nProducts+j,i,:] = getattr(frame.data, "%s0" % p, None)[1:]
-			tempArray[1*nProducts+j,i,:] = getattr(frame.data, "%s1" % p, None)[1:]
+		cTime = datetime.utcfromtimestamp(frame.getTime())
+		if cTime < obsList[o][0]:
+			# Skip over data that occurs befor the start of the observation
+			continue
+		elif cTime > obsList[o][1]:
+			# Increment to the next observation
+			o += 1
 			
+			# If we have reached the end, exit...
+			try:
+				obsList[o]
+				
+				firstPass = True
+			except KeyError:
+				sys.stdout.write('%s\r' % (' '*pbar.span))
+				sys.stdout.flush()
+				print "End of observing block according to SDF, exiting"
+				break
+				
+		else:
+			pass
+			
+		if firstPass:
+			# Otherwise, continue on...
+			centralFreq1 = frame.getCentralFreq(1)
+			centralFreq2 = frame.getCentralFreq(2)
+			srate = frame.getSampleRate()
+			tInt  = frame.header.nInts*LFFT/srate
+			
+			freq = numpy.fft.fftshift( numpy.fft.fftfreq(LFFT, d=1.0/srate) )
+			freq = freq[1:].astype(numpy.float64)
+			
+			sys.stdout.write('%s\r' % (' '*pbar.span))
+			sys.stdout.flush()
+			print "Switching to Obs. #%i" % o
+			print "-> Tunings: %.1f Hz, %.1f Hz" % (centralFreq1, centralFreq2)
+			print "-> Sample Rate: %.1f Hz" % srate
+			print "-> Integration Time: %.3f s" % tInt
+			sys.stdout.write(pbar.show()+'\r')
+			sys.stdout.flush()
+			
+			j = 0
+			ds['obs%i-freq1' % o][:] = freq + centralFreq1
+			ds['obs%i-freq2' % o][:] = freq + centralFreq2
+			
+			obs = ds['obs%i' % o]
+			obs.attrs['tInt'] = tInt
+			obs.attrs['tInt_Units'] = 's'
+			obs.attrs['LFFT'] = LFFT
+			obs.attrs['nChan'] = LFFT-1
+			obs.attrs['RBW'] = freq[1]-freq[0]
+			obs.attrs['RBW_Units'] = 'Hz'
+			
+			firstPass = False
+			
+		# Load the data from the spectrometer frame into the HDF5 group
+		ds['obs%i-time' % o][j] = frame.getTime()
+		
+		ds['obs%i-Saturation1' % o][j,:] = frame.data.saturations[0:2]
+		ds['obs%i-Saturation2' % o][j,:] = frame.data.saturations[2:4]
+		
+		for t in (1,2):
+			for p in dataProducts:
+				ds['obs%i-%s%i' % (o, p, t)][j,:] = getattr(frame.data, "%s%i" % (p, t-1), None)[1:]
+		j += 1
+		
+		# Update the progress bar
 		pbar.inc()
 		if i % 10 == 0:
 			sys.stdout.write(pbar.show()+'\r')
 			sys.stdout.flush()
-	
-	if nSubInts is 1:
-		sys.stdout.write(pbar.show()+'\n')
-	else:
-		sys.stdout.write(pbar.show()+'\r')
+			
+	sys.stdout.write(pbar.show()+'\n')
 	sys.stdout.flush()
 	
-	# Always normalize by the FFT length
-	tempArray /= float(LFFT)
-	
-	# Save, integrating if necessary
-	if nSubInts is 1:
-		masterTimes[:] = tempTimes
-		
-		# Save the results to the HDF5 file
-		for j,p in enumerate(products):
-			spec['%s0' % p][:,:] = tempArray[0*nProducts+j,:,:]
-			spec['%s1' % p][:,:] = tempArray[1*nProducts+j,:,:]
-		
-	else:
-		# Calculate the spans to add
-		spans = range(0, (tempArray.shape[1]/nSubInts+1)*nSubInts, nSubInts)
-		
-		# Sample the time at the start of each span
-		masterTimes[:] = tempTimes[spans][:-1]
-		
-		# Create a temporary array to hold the intermediate results for the integrations and Go!
-		tempArray2 = numpy.zeros((tempArray.shape[0], len(spans), LFFT-1), dtype=numpy.float32)
-		
-		pbar = progress.ProgressBar(max=tempArray.shape[0]*tempArray.shape[2])
-		for j in xrange(tempArray.shape[0]):
-			for i in xrange(tempArray.shape[2]):
-				tempArray2[j,:,i] = numpy.add.reduceat(tempArray[j,:,i], spans, dtype=numpy.float64)
-				
-				pbar.inc()
-				if (j*tempArray.shape[2] + i) % 10 == 0:
-					sys.stdout.write(pbar.show()+'\r')
-					sys.stdout.flush()
-					
-		sys.stdout.write(pbar.show()+'\n')
-		sys.stdout.flush()
-		
-		# Save the results to the HDF5 file
-		for j,p in enumerate(products):
-			spec['%s0' % p][:,:] = tempArray2[0*nProducts+j,:-1,:]
-			spec['%s1' % p][:,:] = tempArray2[1*nProducts+j,:-1,:]
-			
 	# Done
 	fh.close()
 
