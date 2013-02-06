@@ -350,42 +350,41 @@ def main(args):
 					fRate[k] = getFringeRate(antennas[j], antennas[refX], observer, refSrc, fq)
 				else:
 					fRate[k] = getFringeRate(antennas[j], antennas[refY], observer, refSrc, fq)
-		
+					
 			# Create the basis rate and the residual rates
 			baseRate = fRate[0]
 			residRate = numpy.array(fRate) - baseRate
-		
-			#import pylab
-			#f = numpy.fft.fft(data[i,:,j])
-			#pylab.plot(numpy.abs(f))
 		
 			# Fringe stop to more the source of interest to the DC component
 			data[i,:,j] *= numpy.exp(-2j*numpy.pi* baseRate*(times - times[0]))
 			data[i,:,j] *= numpy.exp(-2j*numpy.pi*residRate*(times - times[0]))
 			
-			#f = numpy.fft.fft(data[i,:,j])
-			#pylab.plot(numpy.abs(f))
-			#pylab.show()
+			# Calculate the geometric delay term across all time
+			gDelay = [None,]*data.shape[1]
+			for k in xrange(data.shape[1]):
+				jd = time[i,k]
+				
+				try:
+					currDate = datetime.utcfromtimestamp(utcjd_to_unix(jd))
+				except ValueError:
+					pass
+				observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
+				refSrc.compute(observer)
 			
-			# Calculate the geometric delay term at the start of the data
-			jd = time[i,0]
-			
-			try:
-				currDate = datetime.utcfromtimestamp(utcjd_to_unix(jd))
-			except ValueError:
-				pass
-			observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
-			refSrc.compute(observer)
-			
-			az = refSrc.az
-			el = refSrc.alt
-			if j % 2 == 0:
-				gd = getGeoDelay(antennas[j], antennas[refX], az, el, Degrees=False)
-			else:
-				gd = getGeoDelay(antennas[j], antennas[refY], az, el, Degrees=False)
+				az = refSrc.az
+				el = refSrc.alt
+				if j % 2 == 0:
+					gDelay[k] = getGeoDelay(antennas[j], antennas[refX], az, el, Degrees=False)
+				else:
+					gDelay[k] = getGeoDelay(antennas[j], antennas[refY], az, el, Degrees=False)
+					
+			# Create the basis delay and the residual delays
+			baseDelay = gDelay[0]
+			residDelay = numpy.array(gDelay) - baseDelay
 			
 			# Remove the array geometry
-			data[i,:,j] *= numpy.exp(-2j*numpy.pi*fq*gd)
+			data[i,:,j] *= numpy.exp(-2j*numpy.pi*fq*baseDelay)
+			data[i,:,j] *= numpy.exp(-2j*numpy.pi*fq*residDelay)
 			
 			pbar.inc()
 			sys.stdout.write("%s\r" % pbar.show())
