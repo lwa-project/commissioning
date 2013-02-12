@@ -17,7 +17,7 @@ import numpy
 import getopt
 from datetime import datetime
 
-from lsl.reader import drx, drspec
+from lsl.reader import drx, drspec, errors
 from lsl.common import progress
 
 import data as hdfData
@@ -83,8 +83,17 @@ def parseOptions(args):
 def main(args):
 	config = parseOptions(args)
 
+	# Open the file and file good data (not raw DRX data)
 	filename = config['args'][0]
 	fh = open(filename, 'rb')
+
+	try:
+		for i in xrange(5):
+			junkFrame = drx.readFrame(fh)
+		raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % filename)
+	except errors.syncError:
+		fh.seek(0)
+		
 
 	# Interogate the file to figure out what frames sizes to expect, now many 
 	# frames there are, and what the transform length is
@@ -189,7 +198,7 @@ def main(args):
 			hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1, dtype=numpy.float32), obsList[o][2], dataProducts)
 			
 	f.attrs['FileGenerator'] = 'drspec2hdf.py'
-	f.attrs['InputData'] = os.path.basename(config['args'][0])
+	f.attrs['InputData'] = os.path.basename(filename)
 	
 	# Create the various HDF group holders
 	ds = {}

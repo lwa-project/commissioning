@@ -20,6 +20,7 @@ import getopt
 from datetime import datetime
 
 import lsl.reader.drx as drx
+import lsl.reader.drspec as drspec
 import lsl.reader.errors as errors
 import lsl.statistics.robust as robust
 import lsl.correlator.fx as fxc
@@ -558,10 +559,18 @@ def main(args):
 	# Length of the FFT
 	LFFT = config['LFFT']
 
-	# Open the file and find good data
-	fh = open(config['args'][0], "rb")
-	nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
+	# Open the file and find good data (not spectreomter data)
+	filename = config['args'][0]
+	fh = open(filename, "rb")
+	nFramesFile = os.path.getsize(filename) / drx.FrameSize
 	
+	try:
+		for i in xrange(5):
+			junkFrame = drspec.readFrame(fh)
+		raise RuntimeError("ERROR: '%s' appears to be a DR spectrometer file, not a raw DRX file" % filename)
+	except errors.syncError:
+		fh.seek(0)
+		
 	while True:
 		try:
 			junkFrame = drx.readFrame(fh)
@@ -669,7 +678,7 @@ def main(args):
 	config['freq2'] = centralFreq2
 
 	# File summary
-	print "Filename: %s" % config['args'][0]
+	print "Filename: %s" % filename
 	print "Date of First Frame: %s" % str(beginDate)
 	print "Beams: %i" % beams
 	print "Tune/Pols: %i %i %i %i" % tunepols
@@ -706,7 +715,7 @@ def main(args):
 		antennas.append(newAnt)
 		
 	# Setup the output file
-	outname = os.path.splitext(config['args'][0])[0]
+	outname = os.path.splitext(filename)[0]
 	outname = '%s-waterfall.hdf5' % outname
 	f = hdfData.createNewFile(outname)
 	
@@ -749,8 +758,8 @@ def main(args):
 		for t in (1,2):
 			hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1, dtype=numpy.float32), int(round(obsList[o][2]/config['average'])), dataProducts)
 			
-	f.attrs['FileGenerator'] = 'drspec2hdf.py'
-	f.attrs['InputData'] = os.path.basename(config['args'][0])
+	f.attrs['FileGenerator'] = 'hdfWaterfall.py'
+	f.attrs['InputData'] = os.path.basename(filename)
 	
 	# Create the various HDF group holders
 	ds = {}
