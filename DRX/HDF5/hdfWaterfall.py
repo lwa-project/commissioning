@@ -715,7 +715,8 @@ def main(args):
 		antennas.append(newAnt)
 		
 	# Setup the output file
-	outname = os.path.splitext(filename)[0]
+	outname = os.path.split(filename)[1]
+	outname = os.path.splitext(outname)[0]
 	outname = '%s-waterfall.hdf5' % outname
 	f = hdfData.createNewFile(outname)
 	
