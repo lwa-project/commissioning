@@ -420,11 +420,17 @@ class Waterfall_GUI(object):
 		self.ax1a = self.frame.figure1a.gca()
 		if self.usedB:
 			m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
-			cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+			try:
+				cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+			except:
+				cm = self.frame.figure1a.colorbar(m)
 			cm.ax.set_ylabel('PSD [arb. dB]')
 		else:
 			m = self.ax1a.imshow(spec[:,self.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
-			cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+			try:
+				cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+			except:
+				cm = self.frame.figure1a.colorbar(m)
 			cm.ax.set_ylabel('PSD [arb. lin.]')
 		self.ax1a.axis('auto')
 		self.ax1a.set_xlim((freq[0]/1e6, freq[-1]/1e6))
@@ -2412,11 +2418,17 @@ class WaterfallDisplay(wx.Frame):
 		self.ax1 = self.figure.gca()
 		if self.parent.data.usedB:
 			m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
-			cm = self.figure.colorbar(m, use_gridspec=True)
+			try:
+				cm = self.figure.colorbar(m, use_gridspec=True)
+			except:
+				cm = self.figure.colorbar(m)
 			cm.ax.set_ylabel('PSD [arb. dB]')
 		else:
 			m = self.ax1.imshow(spec[:,self.parent.data.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
-			cm = self.figure.colorbar(m, use_gridspec=True)
+			try:
+				cm = self.figure.colorbar(m, use_gridspec=True)
+			except:
+				cm = self.figure.colorbar(m)
 			cm.ax.set_ylabel('PSD [arb. lin.]')
 		self.ax1.axis('auto')
 		self.ax1.set_xlim((freq[0]/1e6, freq[-1]/1e6))
