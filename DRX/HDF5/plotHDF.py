@@ -451,7 +451,10 @@ class Waterfall_GUI(object):
 		if self.oldMarkA is not None:
 			self.ax1a.lines.extend(self.oldMarkA)
 		
-		self.frame.figure1a.tight_layout()
+		try:
+			self.frame.figure1a.tight_layout()
+		except:
+			pass
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Saturation Fraction
@@ -468,8 +471,10 @@ class Waterfall_GUI(object):
 		
 		if self.oldMarkB is not None:
 			self.ax1b.lines.extend(self.oldMarkB)
-		
-		self.frame.figure1b.tight_layout()
+		try:
+			self.frame.figure1b.tight_layout()
+		except:
+			pass
 		self.frame.canvas1b.draw()
 		
 		# Plot 1(c) - Drift
@@ -489,7 +494,10 @@ class Waterfall_GUI(object):
 		if self.oldMarkC is not None:
 			self.ax1c.lines.extend(self.oldMarkC)
 		
-		self.frame.figure1c.tight_layout()
+		try:
+			self.frame.figure1c.tight_layout()
+		except:
+			pass
 		self.frame.canvas1c.draw()
 		
 	def drawSpectrum(self, clickY):
@@ -551,7 +559,10 @@ class Waterfall_GUI(object):
 			else:
 				self.ax2.set_title(self.filenames[dataY])
 		
-		self.frame.figure2.tight_layout()
+		try:
+			self.frame.figure2.tight_layout()
+		except:
+			pass
 		self.frame.canvas2.draw()
 		self.spectrumClick = clickY
 		
@@ -1749,19 +1760,31 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 		
 		# Set the figure sizes and redraw
 		self.figure1a.set_size_inches((newW1, newH0))
-		self.figure1a.tight_layout()
+		try:
+			self.figure1a.tight_layout()
+		except:
+			pass
 		self.figure1a.canvas.draw()
 		
 		self.figure1b.set_size_inches((newW2, newH0))
-		self.figure1b.tight_layout()
+		try:
+			self.figure1b.tight_layout()
+		except:
+			pass
 		self.figure1b.canvas.draw()
 		
 		self.figure1c.set_size_inches((newW3, newH0))
-		self.figure1c.tight_layout()
+		try:
+			self.figure1c.tight_layout()
+		except:
+			pass
 		self.figure1c.canvas.draw()
 		
 		self.figure2.set_size_inches((newW0, newH1))
-		self.figure2.tight_layout()
+		try:
+			self.figure2.tight_layout()
+		except:
+			pass
 		self.figure2.canvas.draw()
 		
 		# Refresh the layout
