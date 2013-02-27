@@ -73,6 +73,7 @@ def fillFromMetabundle(f, tarball):
 			grp = f.create_group('/Observation%i' % (i+1))
 
 		# Target info.
+		grp.attrs['ObservationName'] = obsS.name
 		grp.attrs['TargetName'] = obsS.target
 		grp.attrs['RA'] = obsD['RA']
 		grp.attrs['RA_Units'] = 'hours'
@@ -119,7 +120,7 @@ def fillFromMetabundle(f, tarball):
 			stps['Steps'] = data
 				
 			# Deal with specified delays and gains if needed
-			if obsD['steps'][0].delays is not None:
+			if obsD['steps'][0].OBS_STP_B == 3:
 				dlys = grp.create_group('CustomDelays')
 				dlys.attrs['col0'] = 'StartTime'
 				dlys.attrs['col0_Unit'] = 's'
@@ -133,7 +134,7 @@ def fillFromMetabundle(f, tarball):
 				for i,s in enumerate(obsD['steps']):
 					dataD[i,0] = t
 					for j in xrange(520):
-						dataD[i,j+1] = dp.DPDtodelay(s.delays[j])
+						dataD[i,j+1] = dp.DPDtodelay(s.OBS_BEAM_DELAY[j])
 						
 				# Save the delays
 				dlys['Delays'] = dataD
@@ -154,10 +155,10 @@ def fillFromMetabundle(f, tarball):
 				for i,s in enumerate(obsD['steps']):
 					dataG[i,0] = t
 					for j in xrange(260):
-						dataG[i,4*j+0] = dp.DPGtogain(s.gains[j][0][0])
-						dataG[i,4*j+1] = dp.DPGtogain(s.gains[j][0][1])
-						dataG[i,4*j+2] = dp.DPGtogain(s.gains[j][1][0])
-						dataG[i,4*j+3] = dp.DPGtogain(s.gains[j][1][1])
+						dataG[i,4*j+0] = dp.DPGtogain(s.BEAM_GAIN[j][0][0])
+						dataG[i,4*j+1] = dp.DPGtogain(s.BEAM_GAIN[j][0][1])
+						dataG[i,4*j+2] = dp.DPGtogain(s.BEAM_GAIN[j][1][0])
+						dataG[i,4*j+3] = dp.DPGtogain(s.BEAM_GAIN[j][1][1])
 						
 				# Save the gains
 				dlys['Gains'] = dataG
