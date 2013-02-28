@@ -271,7 +271,8 @@ def main(args):
 		
 	# Really save the data to a NPZ file
 	if config['writeNPZ']:
-		outfile = os.path.splitext(config['args'][0])[0]
+		outfile = os.path.split(config['args'][0])[1]
+		outfile = os.path.splitext(outfile)[0]
 		outfile = '%s-power.npz' % outfile
 		numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, times=masterTimes, trimLevel=config['trimLevel'])
 

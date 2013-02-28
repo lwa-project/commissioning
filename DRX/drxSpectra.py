@@ -346,8 +346,9 @@ def main(args):
 	print "RBW 2: %.4f %s" % ((freq2[1]-freq2[0]), units2)
 	plt.subplots_adjust(hspace=0.35, wspace=0.30)
 	plt.show()
-
-	outfile = os.path.splitext(config['args'][0])[0]
+	
+	outfile = os.path.split(config['args'][0])[1]
+	outfile = os.path.splitext(outfile)[0]
 	outfile = '%s.npz' % outfile
 	numpy.savez(outfile, freq1=freq1, freq2=freq2, units1=units1, units2=units2, spec=spec, standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 

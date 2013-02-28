@@ -403,7 +403,8 @@ def main(args):
 
 	# Now that we have read through all of the chunks, perform the final averaging by
 	# dividing by all of the chunks
-	outname = os.path.splitext(config['args'][0])[0]
+	outname = os.path.split(config['args'][0])[1]
+	outname = os.path.splitext(outname)[0]
 	outname = '%s-waterfall.npz' % outname
 	numpy.savez(outname, freq=freq, freq1=freq+config['freq1'], freq2=freq+config['freq2'], times=masterTimes, spec=masterSpectra, tInt=(maxFrames*4096/beampols/srate), srate=srate,  standMapper=[4*(beam-1) + i for i in xrange(masterSpectra.shape[1])])
 	spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
