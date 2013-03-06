@@ -1787,9 +1787,6 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 			pass
 		self.figure2.canvas.draw()
 		
-		# Refresh the layout
-		self.Refresh()
-		
 	def GetToolBar(self):
 		# You will need to override GetToolBar if you are using an 
 		# unmanaged toolbar in your frame
@@ -2006,7 +2003,7 @@ class TimeRangeAdjust(wx.Frame):
 		sizer.Add(durU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
 		row += 1
 		
-		self.wholeFileButton = wx.CheckBox(panel, ID_RANGE_WHOLE, 'Display whole file')
+		self.wholeFileButton = wx.CheckBox(panel, ID_RANGE_WHOLE, 'Display whole observation')
 		sizer.Add(self.wholeFileButton, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
 		row += 1
 		

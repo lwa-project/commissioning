@@ -17,6 +17,12 @@ from lsl.common import dp, mcs, metabundle
 from lsl.reader.drx import filterCodes
 
 
+__version__ = "0.2"
+__revision__ = "$Rev"
+__all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'getObservationSet', 'createDataSets', 'getDataSet', 
+		 '__version__', '__revision__', '__all__']
+
+
 def createNewFile(filename):
 	"""
 	Create a new HDF5 and return the handle for it.  This sets up all of 
@@ -43,6 +49,40 @@ def createNewFile(filename):
 	f.attrs['InputMetadata'] = ''
 	
 	return f
+
+
+def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s'):
+	"""
+	Minimum metadata filling for a particular observation.
+	"""
+	
+	# Get the group or create it if it doesn't exist
+	obs = f.get('/Observation%i' % obsID, None)
+	if obs is None:
+		obs = f.create_group('/Observation%i' % obsID)
+		
+	# Target info.
+	obs.attrs['TargetName'] = ''
+	obs.attrs['RA'] = -99.0
+	obs.attrs['RA_Units'] = 'hours'
+	obs.attrs['Dec'] = -99.0
+	obs.attrs['Dec_Units'] = 'degrees'
+	obs.attrs['Epoch'] = 2000.0
+	obs.attrs['TrackingMode'] = 'Unknown'
+	
+	# Observation info
+	obs.attrs['Beam'] = beam
+	obs.attrs['DRX_Gain'] = -1.0
+	obs.attrs['sampleRate'] = srate
+	obs.attrs['sampleRate_Units'] = srateUnits
+	obs.attrs['tInt'] = -1.0
+	obs.attrs['tInt_Units'] = 's'
+	obs.attrs['LFFT'] = -1
+	obs.attrs['nChan'] = -1
+	obs.attrs['RBW'] = -1.0
+	obs.attrs['RBW_Units'] = 'Hz'
+	
+	return True
 
 
 def fillFromMetabundle(f, tarball):

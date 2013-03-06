@@ -49,7 +49,7 @@ Options:
 -a, --average               Number of seconds of data to average for spectra 
                             (default = 1)
 -d, --duration              Number of seconds to calculate the waterfall for 
-                            (default = 10)
+                            (default = 0; run the entire file)
 -q, --quiet                 Run drxSpectra in silent mode and do not show the plots
 -l, --fft-length            Set FFT length (default = 4096)
 -c, --clip-level            FFT blanking clipping level in counts (default = 0, 
@@ -59,6 +59,9 @@ Options:
 -m, --metadata              Metadata tarball for additional information
 -k, --stokes                Generate Stokes parameters instead of XX and YY
 -w, --without-sats          Do not generate saturation counts
+
+Note:  Specifying the -m/--metadata option overrides the -d/--duration setting 
+       and the entire file is reduced.
 """
 
 	if exitCode is not None:
@@ -77,7 +80,7 @@ def parseOptions(args):
 	config['freq2'] = 0
 	config['maxFrames'] = 28000
 	config['window'] = fxc.noWindow
-	config['duration'] = 10.0
+	config['duration'] = 0.0
 	config['verbose'] = True
 	config['clip'] = 0
 	config['estimate'] = False
@@ -314,6 +317,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 	obs.attrs['RBW_Units'] = 'Hz'
 	
 	dataProducts = ['XX', 'YY']
+	done = False
 	for i in xrange(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -339,6 +343,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 			try:
 				cFrame = drx.readFrame(fh, Verbose=False)
 			except errors.eofError:
+				done = True
 				break
 			except errors.syncError:
 				continue
@@ -353,7 +358,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 				count[aStand] +=  1
 			except ValueError:
 				raise RuntimeError("Invalid Shape")
-
+				
 		# Save out some easy stuff
 		dataSets['obs%i-time' % obsID][i] = cTime
 		
@@ -387,6 +392,10 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 		# We don't really need the data array anymore, so delete it
 		del(data)
 		
+		# Are we done yet?
+		if done:
+			break
+			
 	return True
 
 
@@ -478,6 +487,7 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 	obs.attrs['RBW_Units'] = 'Hz'
 	
 	dataProducts = ['I', 'Q', 'U', 'V']
+	done = False
 	for i in xrange(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -503,6 +513,7 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 			try:
 				cFrame = drx.readFrame(fh, Verbose=False)
 			except errors.eofError:
+				done = True
 				break
 			except errors.syncError:
 				continue
@@ -549,6 +560,10 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 		# We don't really need the data array anymore, so delete it
 		del(data)
 		
+		# Are we done yet?
+		if done:
+			break
+			
 	return True
 
 
@@ -644,7 +659,12 @@ def main(args):
 
 	# Number of remaining chunks (and the correction to the number of
 	# frames to read in).
-	config['duration'] = 1.0 * nFramesFile / beampols * 4096 / srate
+	if config['metadata'] is not None:
+		config['duration'] = 0
+	if config['duration'] == 0:
+		config['duration'] = 1.0 * nFramesFile / beampols * 4096 / srate
+	else:
+		config['duration'] = int(round(config['duration'] * srate * beampols / 4096) / beampols * 4096 / srate)
 	nChunks = int(round(config['duration'] / config['average']))
 	if nChunks == 0:
 		nChunks = 1
@@ -748,7 +768,9 @@ def main(args):
 			
 		hdfData.fillFromMetabundle(f, config['metadata'])
 	else:
-		obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), 1.0 * nFramesFile / beampols * 4096 / srate, srate)
+		obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), config['duration'], srate)
+		
+		hdfData.fillMinimum(f, 1, beam, srate)
 		
 	if config['linear']:
 		dataProducts = ['XX', 'YY']
