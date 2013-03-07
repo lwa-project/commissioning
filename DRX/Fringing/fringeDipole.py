@@ -196,10 +196,12 @@ def main(args):
 			blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, Overlap=1, IncludeAuto=True, verbose=False, SampleRate=srate, CentralFreq=cFreq2, Pol='XX', ReturnBaselines=True, GainCorrect=False, ClipLevel=0)
 	
 			if nChunks != 1:
-				outfile = os.path.splitext(filename)[0]
+				outfile = os.path.split(filename)[1]
+				outfile = os.path.splitext(outfile)[0]
 				outfile = "%s-vis-%04i.npz" % (outfile, i+1)
 			else:
-				outfile = os.path.splitext(filename)[0]
+				outfile = os.path.split(filename)[1]
+				outfile = os.path.splitext(outfile)[0]
 				outfile = "%s-vis.npz" % outfile
 			numpy.savez(outfile, srate=srate, freq1=freq1, vis1=vis1, freq2=freq2, vis2=vis2, tStart=tStart, tInt=tInt, stands=numpy.array([stand1, stand2]))
 
