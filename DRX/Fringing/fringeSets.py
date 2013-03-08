@@ -122,7 +122,7 @@ def main(args):
 		print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6)
 		delays = beamformer.calcDelay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
 		delays *= 1e9
-		delays[bad] = 0
+		delays = delays.max() - delays
 		junk = delay.list2delayfile('.', dftBase, delays)
 		
 		print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
