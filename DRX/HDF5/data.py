@@ -17,10 +17,26 @@ from lsl.common import dp, mcs, metabundle
 from lsl.reader.drx import filterCodes
 
 
-__version__ = "0.2"
-__revision__ = "$Rev"
+__version__ = "0.3"
+__revision__ = "$Rev$"
 __all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'getObservationSet', 'createDataSets', 'getDataSet', 
 		 '__version__', '__revision__', '__all__']
+
+
+def _valuetoDelay(value):
+	try:
+		return mcs.MCSDtodelay(value)
+	except:
+		value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
+		return dp.DPDtodelay(value)
+
+
+def _valuetoGain(value):
+	try:
+		return mcs.MCSGtogain(value)
+	except:
+		value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
+		return dp.DPGtogain(value)
 
 
 def createNewFile(filename):
@@ -161,11 +177,12 @@ def fillFromMetabundle(f, tarball):
 				
 			# Deal with specified delays and gains if needed
 			if obsD['steps'][0].OBS_STP_B == 3:
-				dlys = grp.create_group('CustomDelays')
+				cbfg = grp.create_group('CustomBeamforming')
+				dlys = cbfg.create_dataset('Delays', (len(obsD['steps']), 520+1), 'f4')
 				dlys.attrs['col0'] = 'StartTime'
 				dlys.attrs['col0_Unit'] = 's'
 				for j in xrange(520):
-					dlys.attrs['col%i' % (j+1)] = 'Digitizer %i' % (j+1)
+					dlys.attrs['col%i' % (j+1)] = 'DP Digitizer %i' % (j+1)
 					dlys.attrs['col%i_Unit' % (j+1)] = 'ns'
 					
 				# Extract the delays
@@ -174,19 +191,19 @@ def fillFromMetabundle(f, tarball):
 				for i,s in enumerate(obsD['steps']):
 					dataD[i,0] = t
 					for j in xrange(520):
-						dataD[i,j+1] = dp.DPDtodelay(s.OBS_BEAM_DELAY[j])
+						dataD[i,1+j] = _valuetoDelay(s.delay[j])
 						
 				# Save the delays
-				dlys['Delays'] = dataD
+				dlys[:,:] = dataD
 				
-				gais = grp.create_group('CustomGains')
+				gais = cbfg.create_dataset('Gains', (len(obsD['steps']), 260*2*2+1), 'f4')
 				gais.attrs['col0'] = 'StartTime'
 				gais.attrs['col0_Unit'] = 's'
 				m = 1
 				for j in xrange(260):
 					for k in xrange(2):
 						for l in xrange(2):
-							gais.attrs['col%i' % m] = 'Stand %i %s contribution to beam %s' % (j+1, 'X' if k == 0 else 'Y', 'X' if l == 0 else 'Y')
+							gais.attrs['col%i' % m] = 'DP Stand %i %s contribution to beam %s' % (j+1, 'X' if k == 0 else 'Y', 'X' if l == 0 else 'Y')
 							gais.attrs['col%i_Unit' % m] = 'None'
 							m += 1
 							
@@ -195,13 +212,13 @@ def fillFromMetabundle(f, tarball):
 				for i,s in enumerate(obsD['steps']):
 					dataG[i,0] = t
 					for j in xrange(260):
-						dataG[i,4*j+0] = dp.DPGtogain(s.BEAM_GAIN[j][0][0])
-						dataG[i,4*j+1] = dp.DPGtogain(s.BEAM_GAIN[j][0][1])
-						dataG[i,4*j+2] = dp.DPGtogain(s.BEAM_GAIN[j][1][0])
-						dataG[i,4*j+3] = dp.DPGtogain(s.BEAM_GAIN[j][1][1])
+						dataG[i,1+4*j+0] = _valuetoGain(s.gain[j][0][0])
+						dataG[i,1+4*j+1] = _valuetoGain(s.gain[j][0][1])
+						dataG[i,1+4*j+2] = _valuetoGain(s.gain[j][1][0])
+						dataG[i,1+4*j+3] = _valuetoGain(s.gain[j][1][1])
 						
 				# Save the gains
-				dlys['Gains'] = dataG
+				gais[:,:] = dataG
 				
 	return True
 
