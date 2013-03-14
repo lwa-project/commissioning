@@ -70,6 +70,8 @@ def main(args):
 		vis2.append( dataDict['vis2'][1,:] )
 
 		times.append( tStart)
+		
+		dataDict.close()
 
 	N = srate*tInt/(len(freq1)+1)
 

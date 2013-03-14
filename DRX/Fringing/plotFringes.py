@@ -25,6 +25,8 @@ def main(args):
 	amp2 = []
 	amp3 = []
 	amp4 = []
+	amp5 = []
+	amp6 = []
 	phs1 = []
 	phs2 = []
 
@@ -36,24 +38,32 @@ def main(args):
 		
 		freq1 = dataDict['freq1']
 		vis1 = dataDict['vis1'][1,freq1.size/4:freq1.size*3/4]
-		auto1 = dataDict['vis1'][0,freq1.size/4:freq1.size*3/4]
+		auto11 = dataDict['vis1'][0,freq1.size/4:freq1.size*3/4]
+		auto12 = dataDict['vis1'][2,freq1.size/4:freq1.size*3/4]
 		
 		freq2 = dataDict['freq2']
 		vis2 = dataDict['vis2'][1,freq1.size/4:freq1.size*3/4]
-		auto2 = dataDict['vis2'][0,freq1.size/4:freq1.size*3/4]
+		auto21 = dataDict['vis2'][0,freq1.size/4:freq1.size*3/4]
+		auto22 = dataDict['vis2'][1,freq1.size/4:freq1.size*3/4]
 
 		times.append( tStart)
 		amp1.append( numpy.abs(vis1).mean() )
 		amp2.append( numpy.abs(vis2).mean() )
-		amp3.append( numpy.abs(auto1).mean() )
-		amp4.append( numpy.abs(auto2).mean() )
+		amp3.append( numpy.abs(auto11).mean() )
+		amp4.append( numpy.abs(auto21).mean() )
+		amp5.append( numpy.abs(auto12).mean() )
+		amp6.append( numpy.abs(auto22).mean() )
 		phs1.append( numpy.angle(vis1).mean() )
 		phs2.append( numpy.angle(vis2).mean() )
+		
+		dataDict.close()
 
 	amp1 = numpy.array(amp1)
 	amp2 = numpy.array(amp2)
 	amp3 = numpy.array(amp3)
 	amp4 = numpy.array(amp4)
+	amp5 = numpy.array(amp5)
+	amp6 = numpy.array(amp6)
 	phs1 = numpy.array(phs1)
 	phs2 = numpy.array(phs2)
 
@@ -68,10 +78,10 @@ def main(args):
 	ax1b = ax1.twinx()
 	ax2b = ax2.twinx()
 
-	l1 = ax1.plot_date(times, amp1, linestyle='-', label='Beam-Outlier')
-	l3 = ax1b.plot_date(times, amp3, linestyle='--', color='green', alpha=0.40, label='Beam-Beam')
-	l2 = ax2.plot_date(times, amp2, linestyle='-', label='Beam-Outlier')
-	l4 = ax2b.plot_date(times, amp4, linestyle='--', color='green', alpha=0.40, label='Beam-Beam')
+	l1, = ax1.plot_date(times, amp1, linestyle='-', label='Beam-Dipole')
+	l2, = ax1b.plot_date(times, amp3, linestyle='--', color='green', alpha=0.40, label='Beam-Beam')
+	l3, = ax2.plot_date(times, amp2, linestyle='-', label='Beam-Dipole')
+	l4, = ax2b.plot_date(times, amp4, linestyle='--', color='green', alpha=0.40, label='Beam-Beam')
 
 	fig.suptitle("%s to %s UTC" % (times[0].strftime("%Y/%m/%d %H:%M"), times[-1].strftime("%Y/%m/%d %H:%M")))
 	ax1.set_xlabel('Time')
@@ -80,8 +90,8 @@ def main(args):
 	ax2.set_ylabel('Vis. Amp. [arb.]')
 	ax1.set_title('%.1f MHz @ %.2f MHz BW' % (freq1.mean()/1e6, 0.75*srate/1e6))
 	ax2.set_title('%.1f MHz @ %.2f MHz BW' % (freq2.mean()/1e6, 0.75*srate/1e6))
-	ax1.legend([l1, l3], ['Beam-Outlier', 'Beam-Beam'], loc=0)
-	ax2.legend([l2, l4], ['Beam-Outlier', 'Beam-Beam'], loc=0)
+	ax1.legend([l1, l2], ['Beam-Outlier', 'Beam-Beam'], loc=0)
+	ax2.legend([l3, l4], ['Beam-Outlier', 'Beam-Beam'], loc=0)
 
 	r1 = amp1.max() - amp2.min()
 	r2 = amp2.max() - amp2.min()
