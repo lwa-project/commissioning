@@ -192,6 +192,8 @@ def main(args):
 	else:
 		obsList[1] = (beginDate, datetime(2222,12,31,23,59,59), nChunks)
 		
+		hdfData.fillMinimum(f, 1, beam, srate)
+		
 	dataProducts = junkFrame.getDataProducts()
 	for o in sorted(obsList.keys()):
 		for t in (1,2):
