@@ -7,6 +7,10 @@ Read in SSMIF file and create a set of DRX gain files (zero-delay for dipoles-on
 that puts a single dipole or beam on the X pol and the outlier on the other.  The 
 gain files are constructed such that all data is from X pol.
 
+fringeSDF.py
+------------
+SDF-generating version of fringeSets.py.
+
 fringeDipole.py
 ---------------
 Script to fringe DRX files that have one dipole on X pol. and another dipole (the
