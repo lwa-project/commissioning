@@ -20,6 +20,7 @@ import getopt
 from lsl.misc import beamformer
 from lsl.common.stations import parseSSMIF
 from lsl.common import sdf
+from lsl.common.mcs import applyPointingCorrection
 from lsl.common.dp import delaytoDPD, gaintoDPG
 
 def usage(exitCode=None):
@@ -137,6 +138,36 @@ def twoByteSwap(i):
 	return ((i & 0xFF) << 8) | ((i >> 8) & 0xFF)
 
 
+def getPointingTerms(filename):
+	"""
+	Return a three-element tuple of the pointing correction terms (theta, 
+	phi, psi) stored in the SSMIF.
+	"""
+	
+	theta = 0.0
+	phi = 0.0
+	psi = 0.0
+	
+	fh = open(filename)
+	for line in fh:
+		line = line.replace('\n', '')
+		if len(line) < 3:
+			continue
+		
+		fields = line.split()
+		if fields[0] == 'PC_AXIS_TH':
+			theta = float(fields[1])
+		elif fields[0] == 'PC_AXIS_PH':
+			phi = float(fields[1])
+		elif fields[0] == 'PC_ROT':
+			psi = float(fields[1])
+		else:
+			pass
+	fh.close()
+	
+	return (theta, phi, psi)
+
+
 def main(args):
 	config = parseOptions(args)
 	filename = config['args'][0]
@@ -167,8 +198,15 @@ def main(args):
 	if config['beam']:
 		freq = max([config['freq1'], config['freq2']])
 		
-		print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], freq/1e6)
-		delays = beamformer.calcDelay(antennas, freq=freq, azimuth=config['az'], elevation=config['el'])
+		# Load in the pointing correction
+		pcTerms = getPointingTerms(filename)
+		print "Applying Pointing Correction Terms: theta=%.2f, phi=%.2f, psi=%.2f" % pcTerms
+		az, el = applyPointingCorrection(config['az'], config['el'], *pcTerms)
+		print "-> az %.2f, el %.2f to az %.2f, el %.2f" % (config['az'], config['el'], az, el)
+		print " "
+		
+		print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (az, el, freq/1e6)
+		delays = beamformer.calcDelay(antennas, freq=freq, azimuth=az, elevation=el)
 		delays *= 1e9
 		delays = delays.max() - delays
 		delays = [twoByteSwap(delaytoDPD(d)) for d in delays]
