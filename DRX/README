@@ -82,8 +82,12 @@ average) and displayed for the duration that it is computed.
 
 drxFileCheck.py
 ---------------
-Script for inspecting one second of DRX data every 15 minutes to check the gains
-setting.
+Script for inspecting one second of DRX data every 15 minutes to check the gain
+settings.
+
+specFileCheck.py
+---------------
+Script for inspecting DR spectrometer files to check the gain settings.
 
 drxSpectra.py
 -------------
