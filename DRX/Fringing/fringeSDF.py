@@ -36,6 +36,7 @@ Options:
 -e, --elevation             Beam only, elevation above the horizon in degrees for 
                             the pointing center (Default = 90 degrees)
 -d, --dipole                Using a dipole instead of the beam (Default = use beam)
+-y, --y-pol                 Generate an SDF for the Y polarization (Default = X)
 -r, --reference             Reference for the fringing (Default = stand #258)
 -b, --drx-beam              DP beam to run the observation on (Default = 2)
 -l, --obs-length            Duration of the observation in seconds (Default = 3600.0)
@@ -59,6 +60,7 @@ def parseOptions(args):
 	config['az'] = 90.0
 	config['el'] = 90.0
 	config['dipole'] = 1
+	config['xPol'] = True
 	config['ref'] = 258
 	config['drxBeam'] = 2
 	config['duration'] = 3600.0
@@ -75,7 +77,7 @@ def parseOptions(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "ha:e:d:r:b:l:1:2:f:s:o:", ["help", "azimuth=", "elevation=", "dipole=", "reference=", "drx-beam=", "obs-length=", "frequency1=", "frequency2=", "filter=", "spec-setup=", "output="])
+		opts, args = getopt.getopt(args, "ha:e:d:yr:b:l:1:2:f:s:o:", ["help", "azimuth=", "elevation=", "dipole=", "y-pol", "reference=", "drx-beam=", "obs-length=", "frequency1=", "frequency2=", "filter=", "spec-setup=", "output="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -92,6 +94,8 @@ def parseOptions(args):
 		elif opt in ('-d', '--dipole'):
 			config['beam'] = False
 			config['dipole'] = int(value)
+		elif opt in ('-y', '--y-pol'):
+			config['xPol'] = False
 		elif opt in ('-r', '--reference'):
 			config['ref'] = int(value)
 		elif opt in ('-b', '--dp-beam'):
@@ -192,9 +196,21 @@ def main(args):
 	print "Number of bad stands:   %3i" % len(badStands)
 	print "Number of bad FEEs:     %3i" % len(badFees)
 	print "---------------------------"
-	print "Total number bad inuts: %3i" % len(bad)
+	print "Total number bad inputs: %3i" % len(bad)
 	print " "
 	
+	# Adjust the gain so that it matches the outlier better
+	bgain = 20.0 / (520 - len(bad))
+	
+	# Setup the base gain lists for the different scenarios
+	baseEmptyGain = [0.0000, 0.0000, 0.0000, 0.0000]
+	if config['xPol']:
+		baseBeamGain    = [bgain,  0.0000, 0.0000, 0.0000]
+		baseDipoleGain  = [0.0000, 1.0000, 0.0000, 0.0000]
+	else:
+		baseBeamGain    = [0.0000, 0.0000, bgain,  0.0000]
+		baseDipoleGain  = [0.0000, 0.0000, 0.0000, 1.0000]
+		
 	if config['beam']:
 		freq = max([config['freq1'], config['freq2']])
 		
@@ -212,20 +228,18 @@ def main(args):
 		delays = [twoByteSwap(delaytoDPD(d)) for d in delays]
 		
 		print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
-		# Adjust the gain so that it matches the outlier better
-		bgain = 20.0 / (520 - len(bad))
 		print "-> Using gain setting of %.4f for the beam" % bgain
 		
-		gains = [[twoByteSwap(gaintoDPG(g)) for g in [bgain, 0.0000, 0.0000, 0.0000]] for i in xrange(260)] # initialize gain list
+		gains = [[twoByteSwap(gaintoDPG(g)) for g in baseBeamGain] for i in xrange(260)] # initialize gain list
 		for d in digs[bad]:
 			# Digitizers start at 1, list indicies at 0
 			i = d - 1
-			gains[i/2] = [twoByteSwap(gaintoDPG(g)) for g in [0.0000, 0.0000, 0.0000, 0.0000]]
+			gains[i/2] = [twoByteSwap(gaintoDPG(g)) for g in baseEmptyGain]
 			
 		for i in xrange(len(stands)/2):
 			# Put the reference stand in there all by itself
 			if stands[2*i] == config['ref']:
-				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in [0.0000, 1.000, 0.0000, 0.0000]]
+				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseDipoleGain]
 	else:
 		print "Setting all delays to zero"
 		delays = [0 for i in antennas]
@@ -233,15 +247,15 @@ def main(args):
 		
 		print "Setting gains for dipoles %i and %i" % (config['dipole'], config['ref'])
 		
-		gains = [[twoByteSwap(gaintoDPG(g)) for g in [0.0000, 0.0000, 0.0000, 0.0000]] for i in xrange(260)] # initialize gain list
+		gains = [[twoByteSwap(gaintoDPG(g)) for g in baseEmptyGain] for i in xrange(260)] # initialize gain list
 		for i in xrange(len(stands)/2):
 			# Put the fringing stand in there all by itself
 			if stands[2*i] == config['dipole']:
-				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in [1.0000, 0.0000, 0.0000, 0.0000]]
+				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseDipoleGain]
 			
 			# Put the reference stand in there all by itself
 			if stands[2*i] == config['ref']:
-				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in [0.0000, 1.0000, 0.0000, 0.0000]]
+				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseDipoleGain]
 	
 	# Resort the gains into a list of 260 2x2 matrices
 	newGains = []
@@ -250,8 +264,9 @@ def main(args):
 	gains = newGains
 	
 	# Create the SDF
+	sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if config['xPol'] else 'Y',)
 	observer = sdf.Observer("fringeSDF.py Observer", 99)
-	session = sdf.Session("fringeSDF.py Session", 1)
+	session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
 	project = sdf.Project(observer, "fringeSDF.py Project", 1, [session,])
 	obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, config['filter'], RADec=False)
 	stp = sdf.BeamStep(config['az'], config['el'], str(config['duration']), config['freq1'], config['freq2'], RADec=False, SpecDelays=delays, SpecGains=gains)
