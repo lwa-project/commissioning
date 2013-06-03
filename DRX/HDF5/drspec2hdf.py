@@ -222,6 +222,7 @@ def main(args):
 	j = 0
 	
 	firstPass = True
+	oTime = 0
 	for i in xrange(nChunks):
 		frame = drspec.readFrame(fh)
 		#print i, frame.data.saturations
@@ -247,7 +248,10 @@ def main(args):
 				
 		else:
 			pass
-			
+		if frame.getTime() > oTime + tInt:
+			print 'Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, frame.getTime(), oTime, tInt)
+		oTime = frame.getTime()
+		
 		if firstPass:
 			# Otherwise, continue on...
 			centralFreq1 = frame.getCentralFreq(1)
