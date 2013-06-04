@@ -94,8 +94,7 @@ def main(args):
 	except errors.syncError:
 		fh.seek(0)
 		
-
-	# Interogate the file to figure out what frames sizes to expect, now many 
+	# Interrogate the file to figure out what frames sizes to expect, now many 
 	# frames there are, and what the transform length is
 	FrameSize = drspec.getFrameSize(fh)
 	nFrames = os.path.getsize(filename) / FrameSize
@@ -142,7 +141,6 @@ def main(args):
 	# Update the offset actually used
 	config['offset'] = t1 - t0
 	nChunks = (os.path.getsize(filename) - fh.tell()) / FrameSize
-	print fh.tell()
 	
 	# Update the file contents
 	beam = junkFrame.parseID()
@@ -230,7 +228,7 @@ def main(args):
 		
 		cTime = datetime.utcfromtimestamp(frame.getTime())
 		if cTime < obsList[o][0]:
-			# Skip over data that occurs befor the start of the observation
+			# Skip over data that occurs before the start of the observation
 			continue
 		elif cTime > obsList[o][1]:
 			# Increment to the next observation
