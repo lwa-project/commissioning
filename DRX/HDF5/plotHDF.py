@@ -107,20 +107,18 @@ def findLimits(data, usedB=True):
 	Returns a two-element list of the lowest and highest values.
 	"""
 	
+	dMin = data.min()
 	if usedB:
-		dMin = to_dB(data).min()
-	else:
-		dMin = data.min()
+		dMin = to_dB(dMin)
 	if not numpy.isfinite(dMin):
 		dMin = 0
-	
+		
+	dMax = data.max()
 	if usedB:
-		dMax = to_dB(data).max()
-	else:
-		dMax = data.max()
+		dMax = to_dB(dMax)
 	if not numpy.isfinite(dMax):
 		dMax = dMin + 1
-	
+		
 	return [dMin, dMax]
 
 
@@ -339,25 +337,42 @@ class Waterfall_GUI(object):
 		
 		# Find the mean spectra
 		print " %6.3f s - Computing mean spectra" % (time.time() - tStart)
-		self.mean = numpy.mean(self.spec, axis=0)
-		self.meanBandpass = numpy.mean(self.specBandpass, axis=0)
+		try:
+			from _helper import FastAxis0Mean
+			self.mean = FastAxis0Mean(self.spec)
+			self.meanBandpass = FastAxis0Mean(self.specBandpass)
+		except ImportError:
+			self.mean = numpy.mean(self.spec, axis=0)
+			self.meanBandpass = numpy.mean(self.specBandpass, axis=0)
 		
 		# Set default colobars
 		print " %6.3f s - Setting default colorbar ranges" % (time.time() - tStart)
 		self.limits = [None,]*self.spec.shape[1]
-		for i in xrange(self.spec.shape[1]):
-			self.limits[i] = findLimits(self.spec[:,i,:], usedB=self.usedB)
-			
-		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
 		self.limitsBandpass = [None,]*self.spec.shape[1]
-		for i in xrange(self.spec.shape[1]):
-			self.limitsBandpass[i] = findLimits(self.specBandpass[:,i,toUse], usedB=self.usedB)
 		
+		try:
+			from _helper import FastAxis1MinMax
+			limits0 = FastAxis1MinMax(self.spec)
+			limits1 = FastAxis1MinMax(self.specBandpass, chanMin=self.spec.shape[2]/10, chanMax=9*self.spec.shape[2]/10)
+			if self.usedB:
+				limits0 = to_dB(limits0)
+				limits1 = to_dB(limits1)
+			for i in xrange(self.spec.shape[1]):
+				self.limits[i] = list(limits0[i,:])
+				self.limitsBandpass[i] = list(limits1[i,:])
+		except ImportError:
+			for i in xrange(self.spec.shape[1]):
+				self.limits[i] = findLimits(self.spec[:,i,:], usedB=self.usedB)
+			for i in xrange(self.spec.shape[1]):
+				self.limitsBandpass[i] = findLimits(self.specBandpass[:,i,toUse], usedB=self.usedB)
+				
 		try:
 			self.disconnect()
 		except:
 			pass
 			
+		print " %6.3f s - Finished preparing data" % (time.time() - tStart)
+		
 	def render(self):
 		# Clear the old marks
 		self.oldMarkA = None
@@ -377,24 +392,29 @@ class Waterfall_GUI(object):
 		Compute the bandpass fits.
 		"""
 		
-		meanSpec = numpy.mean(self.spec.data, axis=0)
+		try:
+			from _helper import FastAxis0Median
+			meanSpec = FastAxis0Median(self.spec.data)
+		except ImportError:
+			meanSpec = numpy.median(self.spec.data, axis=0)
+			
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
-			if self.usedB:
-				bpm = savitzky_golay(to_dB(meanSpec[i,:]), 41, 9, deriv=0)
-				bpm = from_dB(bpm)
-			else:
-				bpm = savitzky_golay(meanSpec[i,:], 41, 9, deriv=0)
-				
+			bpm = savitzky_golay(meanSpec[i,:], 41, 9, deriv=0)
+			
 			if bpm.mean() == 0:
 				bpm += 1
 			bpm2.append( bpm / bpm.mean() )
 			
 		# Apply the bandpass correction
+		bpm2 = numpy.array(bpm2)
 		self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
-		for i in xrange(self.spec.shape[1]):
-			for j in xrange(self.spec.shape[2]):
-				self.specBandpass[:,i,j] = self.spec[:,i,j] / bpm2[i][j]
+		try:
+			from _helper import FastAxis0Bandpass
+			FastAxis0Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
+		except ImportError:
+			for i in xrange(self.spec.shape[1]):
+				self.specBandpass[:,i,:] = self.spec[:,i,j] / bpm2[i][j]
 				
 		return True
 		
@@ -1304,19 +1324,28 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		i = self.data.index
 		toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
-		if self.data.usedB:
+		
+		try:
+			from _helper import FastAxis1Percentiles5And99
 			if self.data.bandpass:
-				self.data.limitsBandpass[i] = [percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 5), percentile(to_dB(self.data.specBandpass[:,i,toUse]).ravel(), 99)] 
+				self.data.limitsBandpass[i] = FastAxis1Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]/10, chanMax=9*self.data.spec.shape[2]/10)
 			else:
-				self.data.limits[i] = [percentile(to_dB(self.data.spec[:,i,:]).ravel(), 5), percentile(to_dB(self.data.spec[:,i,:]).ravel(), 99)]
-		else:
+				self.data.limits[i] = FastAxis1Percentiles5And99(self.data.spec.data, i)
+		except ImportError:
 			if self.data.bandpass:
 				self.data.limitsBandpass[i] = [percentile(self.data.specBandpass[:,i,toUse].ravel(), 5), percentile(self.data.specBandpass[:,i,toUse].ravel(), 99)] 
 			else:
 				self.data.limits[i] = [percentile(self.data.spec[:,i,:].ravel(), 5), percentile(self.data.spec[:,i,:].ravel(), 99)]
+			
+		if self.data.usedB:
+			if self.data.bandpass:
+				self.data.limitsBandpass[i] = [to_dB(v) for v in self.data.limitsBandpass[i]]
+			else:
+				self.data.limits[i] = [to_dB(v) for v in self.data.limits[i]]
 				
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -1337,6 +1366,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 0
 		self.data.draw()
@@ -1351,6 +1381,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 1
 		self.data.draw()
@@ -1365,6 +1396,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 2
 		self.data.draw()
@@ -1379,6 +1411,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 3
 		self.data.draw()
@@ -1393,6 +1426,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 4
 		self.data.draw()
@@ -1407,6 +1441,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 5
 		self.data.draw()
@@ -1421,6 +1456,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 6
 		self.data.draw()
@@ -1435,6 +1471,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 7
 		self.data.draw()
@@ -1470,6 +1507,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.suggestMask(self.data.index)
 			
@@ -1486,6 +1524,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		for i in xrange(self.data.spec.shape[1]):
 			self.data.suggestMask(i)
@@ -1502,6 +1541,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.resetMask(self.data.index)
 		
@@ -1517,6 +1557,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		for i in xrange(self.data.spec.shape[1]):
 			self.data.resetMask(i)
@@ -1540,6 +1581,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.bandpass = True
 		
@@ -1555,6 +1597,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.bandpass = False
 		
@@ -1570,6 +1613,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.computeBandpass()
 		
