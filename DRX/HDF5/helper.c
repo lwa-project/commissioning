@@ -507,6 +507,6 @@ PyMODINIT_FUNC init_helper(void) {
 	
 	// Version and revision information
 	PyModule_AddObject(m, "__version__", PyString_FromString("0.1"));
-	PyModule_AddObject(m, "__revision__", PyString_FromString("$Rev: 1281 $"));
+	PyModule_AddObject(m, "__revision__", PyString_FromString("$Rev$"));
 	
 }
