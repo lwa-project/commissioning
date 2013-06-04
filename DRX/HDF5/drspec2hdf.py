@@ -149,6 +149,7 @@ def main(args):
 	centralFreq1 = junkFrame.getCentralFreq(1)
 	centralFreq2 = junkFrame.getCentralFreq(2)
 	srate = junkFrame.getSampleRate()
+	dataProducts = junkFrame.getDataProducts()
 	t0 = junkFrame.getTime()
 	tInt = junkFrame.header.nInts*LFFT/srate
 	beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
@@ -159,6 +160,7 @@ def main(args):
 	print "Beam: %i" % beam
 	print "Sample Rate: %i Hz" % srate
 	print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
+	print "Data Products: %s" % ','.join(dataProducts)
 	print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
 	print "---"
 	print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
@@ -249,7 +251,7 @@ def main(args):
 			pass
 			
 		try:
-			if frame.getTime() > oTime + tInt:
+			if frame.getTime() > oTime + 1.001*tInt:
 				print 'Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, frame.getTime(), oTime, tInt)
 		except NameError:
 			pass
