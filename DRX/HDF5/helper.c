@@ -27,8 +27,7 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	long i, j, k, nStand, nSamps, nChans;
 	
-	static char *kwlist[] = {"spectra", NULL};
-	if(!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &spectra)) {
+	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
 		return NULL;
 	}
@@ -209,8 +208,7 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 	
 	long i, j, k, nStand, nSamps, nChans;
 	
-	static char *kwlist[] = {"spectra", "bandpass", NULL};
-	if(!PyArg_ParseTupleAndKeywords(args, kwds, "OO", kwlist, &spectra, &bandpass)) {
+	if(!PyArg_ParseTuple(args, "OO", &spectra, &bandpass)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
 		return NULL;
 	}
@@ -288,8 +286,7 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 	
 	long i, j, k, nStand, nSamps, nChans;
 	
-	static char *kwlist[] = {"spectra", NULL};
-	if(!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &spectra)) {
+	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
 		return NULL;
 	}
