@@ -532,7 +532,7 @@ class Waterfall_GUI(object):
 			freq = self.freq1
 		else:
 			freq = self.freq2
-		
+			
 		if self.bandpass:
 			spec = self.specBandpass[dataY,self.index,:]
 			medianSpec = self.meanBandpass[self.index,:]
@@ -2652,7 +2652,7 @@ class DriftCurveDisplay(wx.Frame):
 			self.ax1.plot(self.parent.data.time, self.drift[:,self.parent.data.index], linestyle='-', marker='x')
 			self.ax1.set_ylabel('Inner 75% Total Power [arb. lin.]')
 		self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
-		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
+		self.ax1.set_xlabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		if self.parent.data.linear:
 			tun = self.parent.data.index / 4 + 1
 			ind = self.parent.data.index % 4
