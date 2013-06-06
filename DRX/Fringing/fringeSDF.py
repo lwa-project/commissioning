@@ -271,6 +271,7 @@ def main(args):
 	obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, config['filter'], RADec=False)
 	stp = sdf.BeamStep(config['az'], config['el'], str(config['duration']), config['freq1'], config['freq2'], RADec=False, SpecDelays=delays, SpecGains=gains)
 	obs.append(stp)
+	obs.gain = 1
 	project.sessions[0].observations.append(obs)
 	project.sessions[0].drxBeam = config['drxBeam']
 	project.sessions[0].spcSetup = config['spcSetup']
