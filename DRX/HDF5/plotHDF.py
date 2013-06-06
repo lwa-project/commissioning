@@ -443,14 +443,18 @@ class Waterfall_GUI(object):
 			try:
 				cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
 			except:
-				cm = self.frame.figure1a.colorbar(m)
+				if len(self.frame.figure1a.get_axes()) > 1:
+					self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
+				cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 			cm.ax.set_ylabel('PSD [arb. dB]')
 		else:
 			m = self.ax1a.imshow(spec[:,self.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
 			try:
 				cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
-			except:
-				cm = self.frame.figure1a.colorbar(m)
+			except TypeError:
+				if len(self.frame.figure1a.get_axes()) > 1:
+					self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
+				cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 			cm.ax.set_ylabel('PSD [arb. lin.]')
 		self.ax1a.axis('auto')
 		self.ax1a.set_xlim((freq[0]/1e6, freq[-1]/1e6))
@@ -2485,6 +2489,8 @@ class WaterfallDisplay(wx.Frame):
 			try:
 				cm = self.figure.colorbar(m, use_gridspec=True)
 			except:
+				if len(self.frame.figure1a.get_axes()) > 1:
+					self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
 				cm = self.figure.colorbar(m)
 			cm.ax.set_ylabel('PSD [arb. dB]')
 		else:
@@ -2492,6 +2498,8 @@ class WaterfallDisplay(wx.Frame):
 			try:
 				cm = self.figure.colorbar(m, use_gridspec=True)
 			except:
+				if len(self.frame.figure1a.get_axes()) > 1:
+					self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
 				cm = self.figure.colorbar(m)
 			cm.ax.set_ylabel('PSD [arb. lin.]')
 		self.ax1.axis('auto')
