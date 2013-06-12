@@ -1,21 +1,11 @@
 #include "Python.h"
 #include <math.h>
 #include <stdio.h>
-#ifdef _MKL
-	#include "mkl_cblas.h"
-	#include "fftw3.h"
-#else
-	#include <cblas.h>
-	#include <fftw3.h>
-#endif
 #include <stdlib.h>
 #include <complex.h>
 
 #ifdef _OPENMP
 	#include <omp.h>
-	#ifdef _MKL
-		#include "fftw3_mkl.h"
-	#endif
 #endif
 
 #include "numpy/arrayobject.h"
@@ -58,9 +48,6 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	b = (float *) dataF->data;
 	
 	#ifdef _OPENMP
-		#ifdef _MKL
-			fftw3_mkl.number_of_user_threads = omp_get_num_threads();
-		#endif
 		#pragma omp parallel default(shared) private(i, j, k, tempV)
 	#endif
 	{
@@ -147,9 +134,6 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 	b = (float *) dataF->data;
 	
 	#ifdef _OPENMP
-		#ifdef _MKL
-			fftw3_mkl.number_of_user_threads = omp_get_num_threads();
-		#endif
 		#pragma omp parallel default(shared) private(i, j, k, tempMin, tempMax)
 	#endif
 	{
@@ -227,9 +211,6 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 	b = (float *) dataB->data;
 	
 	#ifdef _OPENMP
-		#ifdef _MKL
-			fftw3_mkl.number_of_user_threads = omp_get_num_threads();
-		#endif
 		#pragma omp parallel default(shared) private(i, j, k)
 	#endif
 	{
@@ -318,9 +299,6 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 	float *tempV;
 	
 	#ifdef _OPENMP
-		#ifdef _MKL
-			fftw3_mkl.number_of_user_threads = omp_get_num_threads();
-		#endif
 		#pragma omp parallel default(shared) private(i, j, k, tempV)
 	#endif
 	{
@@ -409,9 +387,6 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	temp99 = (float *) malloc((chanMax-chanMin)*sizeof(float));
 	
 	#ifdef _OPENMP
-		#ifdef _MKL
-			fftw3_mkl.number_of_user_threads = omp_get_num_threads();
-		#endif
 		#pragma omp parallel default(shared) private(i, j, k, tempV)
 	#endif
 	{
