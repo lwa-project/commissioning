@@ -19,7 +19,7 @@ import getopt
 
 from lsl.common import stations
 from lsl.common.dp import fS
-from lsl.reader import tbw
+from lsl.reader import tbw, tbn
 from lsl.reader import errors
 from lsl.correlator import fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
@@ -32,12 +32,14 @@ def usage(exitCode=None):
 	print """burstMovie.py - Read in TBW files and create a NPZ file of raw time 
 data centered around saturation events.
 
-Usage: burstSpectra.py [OPTIONS] file
+Usage: burstMovie.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
 -m, --metadata              Name of SSMIF file to use for mappings
--q, --quiet                 Run tbwSpectra in silent mode
+-q, --quiet                 Run burstMovie.py in silent mode
+-t, --threshold             Minimum digitizer value to consider a burst 
+                            (default = 2000)
 -n, --no-movie              Do not create moive frames (burst-*.png)
 """
 
@@ -53,12 +55,13 @@ def parseOptions(args):
 	config['SSMIF'] = ''
 	config['maxFrames'] = 30000*260
 	config['verbose'] = True
+	config['threshold'] = 2000
 	config['movie'] = True
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hm:qn", ["help", "metadata=", "quiet", "no-movie"])
+		opts, args = getopt.getopt(args, "hm:qt:n", ["help", "metadata=", "quiet", "threshold=", "no-movie"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -72,6 +75,8 @@ def parseOptions(args):
 			config['SSMIF'] = value
 		elif opt in ('-q', '--quiet'):
 			config['verbose'] = False
+		elif opt in ('-t', '--threshold'):
+			config['threshold'] = int(value)
 		elif opt in ('-n', '--no-movie'):
 			config['movie'] = False
 		else:
@@ -137,7 +142,18 @@ def main(args):
 	i = 0
 	junkFrame = tbw.readFrame(fh)
 	while not junkFrame.header.isTBW():
-		junkFrame = tbw.readFrame(fh)
+		try:
+			junkFrame = tbw.readFrame(fh)
+		except errors.syncError:
+			fh.seek(0)
+			while True:
+				try:
+					junkFrame = tbn.readFrame(fh)
+					i += 1
+				except errors.syncError:
+					break
+			fh.seek(-2*tbn.FrameSize, 1)
+			junkFrame = tbw.readFrame(fh)
 		i += 1
 	fh.seek(-tbw.FrameSize, 1)
 	print "Skipped %i non-TBW frames at the beginning of the file" % i
@@ -157,10 +173,10 @@ def main(args):
 		#
 		# NOTE
 		# Major change here from tbwSpectra.py/stationMaster.py.  We are only keeping
-		# the first 10,000 frames of the TBW file since we don't really need to read
+		# the first 30,000 frames of the TBW file since we don't really need to read
 		# in all of it to find bursts
 		#
-		data = numpy.zeros((antpols, 10000*nSamples), dtype=numpy.int16)
+		data = numpy.zeros((antpols, 30000*nSamples), dtype=numpy.int16)
 		
 		# Inner loop that actually reads the frames into the data array
 		for j in range(framesWork):
@@ -172,9 +188,11 @@ def main(args):
 			except errors.syncError:
 				print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
 				continue
-
-			# Skip frames over 10,000 on all stands
-			if cFrame.header.frameCount > 10000:
+			if not cFrame.header.isTBW():
+					continue
+					
+			# Skip frames over 30,000 on all stands
+			if cFrame.header.frameCount > 30000:
 				continue
 			
 			stand = cFrame.header.parseID()
@@ -222,7 +240,7 @@ def main(args):
 		good = numpy.where( status == 33 )[0]
 		while first < alignedData.shape[1]:
 			mv = alignedData[good,first].max()
-			if mv >= 1000:
+			if mv >= config['threshold']:
 				if not inOne:
 					first += 5000
 					inOne = True
@@ -232,11 +250,11 @@ def main(args):
 				first += 1
 		print "Second burst at %i" % first
 		
-		# Keep only what would be intested (200 samples before and 1,400 samples
+		# Keep only what would be intested (200 samples before and 2,800 samples
 		# aftrward) around the burst.  This corresponds to a time range from 1 
-		# microsecond before the start of the pulse to 7 microseconds later.  Save
+		# microsecond before the start of the pulse to 14 microseconds later.  Save
 		# the aligned data snippet to a NPZ file.
-		alignedData = alignedData[:,first-200:first+1400]
+		alignedData = alignedData[:,first-200:first+2800]
 		standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in antennas])
 		junk, basename = os.path.split(config['args'][0])
 		shortname, ext = os.path.splitext(basename)
@@ -249,6 +267,7 @@ def main(args):
 				pb = ProgressBar(max=alignedData.shape[1]/2)
 			else:
 				pb = None
+				
 			fig = plt.figure(figsize=(12,6))
 			for i in xrange(0,alignedData.shape[1],2):
 				fig.clf()
@@ -258,8 +277,8 @@ def main(args):
 				colorsX = 1.0*(alignedData[0::2,i] + alignedData[0::2,i+1]) / 2
 				colorsY = 1.0*(alignedData[1::2,i] + alignedData[1::2,i+1]) / 2
 
-				axX.scatter(standPos[0::2,0], standPos[0::2,1], c=colorsX, s=40.0, vmin=0, vmax=2047)
-				axY.scatter(standPos[1::2,0], standPos[1::2,1], c=colorsY, s=40.0, vmin=0, vmax=2047)
+				axX.scatter(standPos[0::2,0], standPos[0::2,1], c=colorsX, s=40.0, vmin=0, vmax=config['threshold'])
+				axY.scatter(standPos[1::2,0], standPos[1::2,1], c=colorsY, s=40.0, vmin=0, vmax=config['threshold'])
 				
 				## Add the fence as a dashed line
 				axX.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 

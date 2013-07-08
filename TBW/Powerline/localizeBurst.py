@@ -52,28 +52,62 @@ def main(args):
 
 	# Find the time of arrival for all of the various pulses relative
 	# to ccPoint
-	ccPoint = 108
+	p = []
+	for ccPoint in xrange(260):
+		delays = numpy.zeros(data.shape[0]) - 100
+		g = []
+		for i in xrange(delays.size/2):
+			lagX, ccX = crossCorrelate(data[2*ccPoint+0,:], data[2*i+0,:])
+			lagY, ccY = crossCorrelate(data[2*ccPoint+1,:], data[2*i+1,:])
+		
+			lX = lagX[numpy.where( ccX == ccX.max() )[0][0]]
+			lY = lagY[numpy.where( ccY == ccY.max() )[0][0]]
+		
+			mX = numpy.log10(ccX.max())
+			mY = numpy.log10(ccY.max())
+			#print lX, mX
+		
+			if i == 9:
+				continue
+			#if antennas[2*i+0].stand.id > 256:
+				#continue
+			
+			if mX > 5.7:
+				delays[2*i+0] = lagX[numpy.where( ccX == ccX.max() )[0][0]] / fS
+			if mY > 5.7:
+				delays[2*i+1] = lagY[numpy.where( ccY == ccY.max() )[0][0]] / fS
+			
+			#print 2*i+0, antennas[2*i+0].stand.id, delays[2*i+0]*1e9, mX
+			#print 2*i+1, antennas[2*i+1].stand.id, delays[2*i+1]*1e9, mY
+
+			g.append(mY)
+		g = numpy.array(g)
+		p.append(g.mean())
+	p = numpy.array(p)
+	print p.argmax()
+		
+	ccPoint = p.argmax()
 	delays = numpy.zeros(data.shape[0]) - 100
 	for i in xrange(delays.size/2):
-		lagX, ccX = crossCorrelate(data[ccPoint+0,:], data[2*i+0,:])
-		lagY, ccY = crossCorrelate(data[ccPoint+1,:], data[2*i+1,:])
-		
+		lagX, ccX = crossCorrelate(data[2*ccPoint+0,:], data[2*i+0,:])
+		lagY, ccY = crossCorrelate(data[2*ccPoint+1,:], data[2*i+1,:])
+	
 		lX = lagX[numpy.where( ccX == ccX.max() )[0][0]]
 		lY = lagY[numpy.where( ccY == ccY.max() )[0][0]]
-		
+	
 		mX = numpy.log10(ccX.max())
 		mY = numpy.log10(ccY.max())
-		
+		print lX, mX
+	
 		if i == 9:
 			continue
 		#if antennas[2*i+0].stand.id > 256:
 			#continue
 		
-		if numpy.abs(lX - lY) < 9:
-			if mX > 8:
-				delays[2*i+0] = lagX[numpy.where( ccX == ccX.max() )[0][0]] / fS
-			if mY > 8:
-				delays[2*i+1] = lagY[numpy.where( ccY == ccY.max() )[0][0]] / fS
+		if mX > 5.7:
+			delays[2*i+0] = lagX[numpy.where( ccX == ccX.max() )[0][0]] / fS
+		if mY > 5.7:
+			delays[2*i+1] = lagY[numpy.where( ccY == ccY.max() )[0][0]] / fS
 		
 		print 2*i+0, antennas[2*i+0].stand.id, delays[2*i+0]*1e9, mX
 		print 2*i+1, antennas[2*i+1].stand.id, delays[2*i+1]*1e9, mY
@@ -92,11 +126,11 @@ def main(args):
 	ax3 = fig.add_subplot(2, 3, 4)
 	ax4 = fig.add_subplot(2, 3, 5)
 	ax5 = fig.add_subplot(2, 3, 6)
-	good = numpy.where( (delays > -1) & (pols == 0) )[0]
+	good = numpy.where( (delays > -1) & (pols == 0) & numpy.isfinite(delays) )[0]
 	CB = ax1.scatter(standPos[good,0], standPos[good,1], c=delays[good]*1e9)
 	c = fig.colorbar(CB, ax=ax1)
 	c.ax.set_ylabel('Time of Arrival [ns]')
-	good = numpy.where( (delays > -1) & (pols == 1) )[0]
+	good = numpy.where( (delays > -1) & (pols == 1) & numpy.isfinite(delays) )[0]
 	CB = ax2.scatter(standPos[good,0], standPos[good,1], c=delays[good]*1e9)
 	c = fig.colorbar(CB, ax=ax2)
 	c.ax.set_ylabel('Time of Arrival [ns]')

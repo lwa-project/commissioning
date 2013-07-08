@@ -210,7 +210,7 @@ def main(args):
 	print "Skipped %i non-TBW frames at the beginning of the file" % i
 
 	# Master loop over all of the file chunks
-	masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1))
+	masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
 	for i in range(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
@@ -272,7 +272,7 @@ def main(args):
 	
 		# Frequency domain analysis - spectra
 		freq = numpy.fft.fftfreq(2*config['LFFT'], d=1.0/196e6)
-		freq = freq[1:config['LFFT']]
+		freq = freq[:config['LFFT']]
 		
 		delays = numpy.zeros((data.shape[0], freq.size))
 		signalsF, validF = FEngineR2(data, freq, delays, LFFT=config['LFFT'], Overlap=1, SampleRate=196e6, ClipLevel=0)

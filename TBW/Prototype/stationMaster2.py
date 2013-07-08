@@ -174,7 +174,7 @@ def main(args):
 	base, ext = os.path.splitext(config['args'][0])
 	if (not os.path.exists("%s.npz" % base)) or config['force']:
 		# Master loop over all of the file chunks
-		masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1))
+		masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
 		for i in range(nChunks):
 			# Find out how many frames remain in the file.  If this number is larger
 			# than the maximum of frames we can work with at a time (maxFrames),
