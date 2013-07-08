@@ -213,8 +213,8 @@ def main(args):
 	buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
 
 	# Master loop over all of the file chunks
-	masterWeight = numpy.zeros((nChunks, antpols, LFFT-1))
-	masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1))
+	masterWeight = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
+	masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
 
 	k = 0
 	for i in xrange(nChunks):
