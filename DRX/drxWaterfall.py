@@ -339,8 +339,8 @@ def main(args):
 		clip2 = config['clip']
 
 	# Master loop over all of the file chunks
-	masterWeight = numpy.zeros((nChunks, 4, LFFT-1))
-	masterSpectra = numpy.zeros((nChunks, 4, LFFT-1))
+	masterWeight = numpy.zeros((nChunks, 4, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
+	masterSpectra = numpy.zeros((nChunks, 4, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
 	masterTimes = numpy.zeros(nChunks)
 	for i in xrange(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger

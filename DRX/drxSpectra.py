@@ -257,8 +257,8 @@ def main(args):
 		raise RuntimeError("Requestion integration time+offset is greater than file length")
 
 	# Master loop over all of the file chuncks
-	masterWeight = numpy.zeros((nChunks, 4, LFFT-1))
-	masterSpectra = numpy.zeros((nChunks, 4, LFFT-1))
+	masterWeight = numpy.zeros((nChunks, 4, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
+	masterSpectra = numpy.zeros((nChunks, 4, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
 	for i in range(nChunks):
 		# Find out how many frames remain in the file.  If this number is larger
 		# than the maximum of frames we can work with at a time (maxFrames),
