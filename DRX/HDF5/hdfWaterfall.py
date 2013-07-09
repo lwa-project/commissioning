@@ -312,7 +312,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 	obs.attrs['tInt'] = config['average']
 	obs.attrs['tInt_Unit'] = 's'
 	obs.attrs['LFFT'] = LFFT
-	obs.attrs['nChan'] = LFFT-1
+	obs.attrs['nChan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
 	obs.attrs['RBW'] = freq[1]-freq[0]
 	obs.attrs['RBW_Units'] = 'Hz'
 	
@@ -482,7 +482,7 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 	obs.attrs['tInt'] = config['average']
 	obs.attrs['tInt_Unit'] = 's'
 	obs.attrs['LFFT'] = LFFT
-	obs.attrs['nChan'] = LFFT-1
+	obs.attrs['nChan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
 	obs.attrs['RBW'] = freq[1]-freq[0]
 	obs.attrs['RBW_Units'] = 'Hz'
 	
@@ -779,7 +779,7 @@ def main(args):
 		
 	for o in sorted(obsList.keys()):
 		for t in (1,2):
-			hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1, dtype=numpy.float32), int(round(obsList[o][2]/config['average'])), dataProducts)
+			hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=numpy.float32), int(round(obsList[o][2]/config['average'])), dataProducts)
 			
 	f.attrs['FileGenerator'] = 'hdfWaterfall.py'
 	f.attrs['InputData'] = os.path.basename(filename)

@@ -197,7 +197,7 @@ def main(args):
 	dataProducts = junkFrame.getDataProducts()
 	for o in sorted(obsList.keys()):
 		for t in (1,2):
-			hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1, dtype=numpy.float32), obsList[o][2], dataProducts)
+			hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float32), obsList[o][2], dataProducts)
 			
 	f.attrs['FileGenerator'] = 'drspec2hdf.py'
 	f.attrs['InputData'] = os.path.basename(filename)
@@ -263,7 +263,7 @@ def main(args):
 			tInt  = frame.header.nInts*LFFT/srate
 			
 			freq = numpy.fft.fftshift( numpy.fft.fftfreq(LFFT, d=1.0/srate) )
-			freq = freq[1:].astype(numpy.float64)
+			freq = freq.astype(numpy.float64)
 			
 			sys.stdout.write('%s\r' % (' '*pbar.span))
 			sys.stdout.flush()
@@ -282,7 +282,7 @@ def main(args):
 			obs.attrs['tInt'] = tInt
 			obs.attrs['tInt_Units'] = 's'
 			obs.attrs['LFFT'] = LFFT
-			obs.attrs['nChan'] = LFFT-1
+			obs.attrs['nChan'] = LFFT
 			obs.attrs['RBW'] = freq[1]-freq[0]
 			obs.attrs['RBW_Units'] = 'Hz'
 			
