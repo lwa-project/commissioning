@@ -303,8 +303,10 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 		else:
 			pass
 	fh.seek(-4*drx.FrameSize, 1)
-	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))[1:]
-	
+	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
+	if float(fxc.__version__) < 0.8:
+		freq = freq[1:]
+		
 	dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
 	dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
 	
@@ -473,8 +475,10 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 		else:
 			pass
 	fh.seek(-4*drx.FrameSize, 1)
-	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))[1:]
-	
+	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
+	if float(fxc.__version__) < 0.8:
+		freq = freq[1:]
+		
 	dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
 	dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
 	

@@ -296,7 +296,7 @@ def main(args):
 		
 		for t in (1,2):
 			for p in dataProducts:
-				ds['obs%i-%s%i' % (o, p, t)][j,:] = getattr(frame.data, "%s%i" % (p, t-1), None)[1:]
+				ds['obs%i-%s%i' % (o, p, t)][j,:] = getattr(frame.data, "%s%i" % (p, t-1), None)
 		j += 1
 		
 		# Update the progress bar
