@@ -2,18 +2,21 @@
 # -*- coding: utf-8 -*-
 
 """
-Script to fringe special DRX files that have one dipole on X pol. and another
-dipole on Y pol.  The visibilites are written to a NPZ file.
+Frank Schinzel's script to fringe special DRX files that have a beam X pol. 
+and a dipole on Y pol.  The visibilites are written to am HDF file.
 
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+$Rev: 1238 $
+$LastChangedBy: jayce $
+$LastChangedDate: 2013-03-07 11:35:44 -0700 (Thu, 07 Mar 2013) $
 """
 
 import os
 import sys
 import numpy
 import getopt
+from datetime import datetime
+
+from lsl.statistics import robust
 
 from lsl.reader import drx
 from lsl.common.dp import fS
@@ -24,18 +27,23 @@ from lsl.common.progress import ProgressBar
 
 from matplotlib import pyplot as plt
 
+import h5py
+
 
 def usage(exitCode=None):
-	print """fringeDipole.py - Take a DRX file with a dipole on X pol. and a dipole
-on the Y pol. and cross correlate it.
+	print """fringeBeamHDF.py - Take a DRX file with the beam on X pol. and a dipole
+on the Y pol. and cross correlate it.  The results are written out to an 
+HDF5 file rather than a collection of .npz files.
 
-Usage: fringeDipole.py [OPTION] <dipole_ID_X> <dipole_ID_Y> <DRX_file>
+Usage: fringeBeamHDF.py [OPTION] <dipole_ID_Y> <DRX_file>
 
 Options:
 -h, --help                  Display this help information
 -l, --fft-length            Set FFT length (default = 512)
 -t, --avg-time              Window to average visibilities in time (seconds; 
                             default = 4 s)
+-d, --duration              Number of seconds to calculate the waterfall for 
+                            (default = 10)
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
 """
@@ -51,10 +59,11 @@ def parseOptions(args):
 	config['avgTime'] = 4.0
 	config['LFFT'] = 512
 	config['offset'] = 0.0
+	config['duration'] = 0.0
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hl:t:s:", ["help", "fft-length=", "avg-time=", "skip="])
+		opts, args = getopt.getopt(args, "hl:t:s:d:", ["help", "fft-length=", "avg-time=", "skip=", "duration="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -70,6 +79,8 @@ def parseOptions(args):
 			config['avgTime'] = float(value)
 		elif opt in ('-s', '--skip'):
 			config['offset'] = float(value)
+		elif opt in ('-d', '--duration'):
+			config['duration'] = float(value)
 		else:
 			assert False
 			
@@ -85,23 +96,44 @@ def main(args):
 	
 	LFFT = config['LFFT']
 	
-	stand1 = int(config['args'][0])
-	stand2 = int(config['args'][1])
-	filenames = config['args'][2:]
+	stand1 = 0
+	stand2 = int(config['args'][0])
+	filenames = config['args'][1:]
 	
 	# Build up the station
 	site = stations.lwa1
 	
-	# Figure out which antennas we need
-	antennas = []
-	for ant in site.getAntennas():
-		if ant.stand.id == stand1 and ant.pol == 0:
-			antennas.append(ant)
-	for ant in site.getAntennas():
+	# Get the antennas we need (and a fake one for the beam)
+	rawAntennas = site.getAntennas()
+	
+	dipole = None
+	for ant in rawAntennas:
 		if ant.stand.id == stand2 and ant.pol == 0:
-			antennas.append(ant)
+			dipole = ant
 			
-	# Loop through the input files...
+	antennas = []
+	
+	## Fake one down here...
+	beamStand   = stations.Stand(0, dipole.x, dipole.y, dipole.z)
+	beamFEE     = stations.FEE('Beam', 0, gain1=0, gain2=0, status=3)
+	beamCable   = stations.Cable('Beam', 0, vf=1.0)
+	beamAntenna = stations.Antenna(0, stand=beamStand, pol=0, theta=0, phi=0, status=3)
+	beamAntenna.fee = beamFEE
+	beamAntenna.feePort = 1
+	beamAntenna.cable = beamCable
+	
+	antennas.append(beamAntenna)
+	
+	## Dipole down here...
+	### NOTE
+	### Here we zero out the cable length for the dipole since the delay 
+	### setup that is used for these observations already takes the 
+	### cable/geometric delays into account.  We shouldn't need anything 
+	### else to get good fringes.
+	dipole.cable.length = 0
+	antennas.append(dipole)
+	
+	# Loop over the input files...
 	for filename in filenames:
 		fh = open(filename, "rb")
 		nFramesFile = os.path.getsize(filename) / drx.FrameSize
@@ -214,9 +246,36 @@ def main(args):
 		print "  ==="
 		print "  Integration Time: %.3f s" % tInt
 		print "  Integrations in File: %i" % int(tFile/tInt)
+		print "  Duration of File: %f" % tFile
+		print "  Offset: %f s" % offset
 		
-		nChunks = int(tFile/tInt)
+		if config['duration']!=0:
+			nChunks = int(round(config['duration'] / tInt))
+		else:
+			nChunks = int(tFile/tInt)
+			
+		print "Processing: %i integrations" % nChunks
+		
+		# Here we start the HDF5 file
+		outname = os.path.split(filename)[1]
+		outname = os.path.splitext(outname)[0]
+		outname = "%s.hdf5" % outname
+		outfile = h5py.File(outname)
+		group1 = outfile.create_group("Time")
+		group2 = outfile.create_group("Frequencies")
+		group3 = outfile.create_group("Visibilities")
+		out = raw_input("Target Name: ")
+		outfile.attrs["OBJECT"] = out
+		out = raw_input("Polarization (X/Y): ")
+		outfile.attrs["POLARIZATION"] = out
+		dset1 = group1.create_dataset("Timesteps", (nChunks,3), numpy.float64, maxshape=(nChunks,3))
+		dset2 = group2.create_dataset("Tuning1",(LFFT-1, ), '<f8', maxshape=(LFFT-1, ) )
+		dset3 = group2.create_dataset("Tuning2",(LFFT-1, ), '<f8', maxshape=(LFFT-1, ) )
+		dset4 = group3.create_dataset("Tuning1", (nChunks, 3, LFFT-1), numpy.complex64,maxshape=(nChunks, 3, LFFT-1))
+		dset5 = group3.create_dataset("Tuning2", (nChunks, 3, LFFT-1), numpy.complex64,maxshape=(nChunks, 3, LFFT-1))
+		
 		pb = ProgressBar(max=nChunks)
+		tsec = numpy.zeros(1, dtype=numpy.float64)
 		for i in xrange(nChunks):
 			junkFrame = drx.readFrame(fh)
 			tStart = junkFrame.getTime()
@@ -244,16 +303,24 @@ def main(args):
 			
 			blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, Overlap=1, IncludeAuto=True, verbose=False, SampleRate=srate, CentralFreq=cFreq2, Pol='XX', ReturnBaselines=True, GainCorrect=False, ClipLevel=0)
 			
-			if nChunks != 1:
-				outfile = os.path.split(filename)[1]
-				outfile = os.path.splitext(outfile)[0]
-				outfile = "%s-vis-%04i.npz" % (outfile, i+1)
+			if i == 0:
+				tsec = tInt/2
+				outfile.attrs["STANDS"] = numpy.array([stand1, stand2])
+				outfile.attrs["SRATE"] = srate
+				date = datetime.fromtimestamp(tStart).date()
+				outfile.attrs["DATE"] = str(date)
+				dset2.write_direct(freq1)
+				dset3.write_direct(freq2)
 			else:
-				outfile = os.path.split(filename)[1]
-				outfile = os.path.splitext(outfile)[0]
-				outfile = "%s-vis.npz" % outfile
-			numpy.savez(outfile, srate=srate, freq1=freq1, vis1=vis1, freq2=freq2, vis2=vis2, tStart=tStart, tInt=tInt, stands=numpy.array([stand1, stand2]))
-			
+				tsec += tInt
+				
+			temp = numpy.zeros(3, dtype=numpy.float64)
+			temp[0] = tStart
+			temp[1] = tInt
+			temp[2] = tsec
+			dset1.write_direct(temp, dest_sel=numpy.s_[i])
+			dset4.write_direct(vis1, dest_sel=numpy.s_[i])
+			dset5.write_direct(vis2, dest_sel=numpy.s_[i])
 			del data1
 			del data2
 			
@@ -264,6 +331,7 @@ def main(args):
 		sys.stdout.write(pb.show()+'\r')
 		sys.stdout.write('\n')
 		sys.stdout.flush()
+		outfile.close()
 		
 		# Plot
 		fig = plt.figure()
