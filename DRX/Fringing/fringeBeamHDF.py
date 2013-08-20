@@ -5,9 +5,9 @@
 Frank Schinzel's script to fringe special DRX files that have a beam X pol. 
 and a dipole on Y pol.  The visibilites are written to am HDF file.
 
-$Rev: 1238 $
-$LastChangedBy: jayce $
-$LastChangedDate: 2013-03-07 11:35:44 -0700 (Thu, 07 Mar 2013) $
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os
