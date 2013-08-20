@@ -82,6 +82,9 @@ def main(args):
 		except errors.eofError:
 			break
 		except errors.syncError:
+			currNumb = 1 + k / 4
+			
+			print "ERROR: invalid frame (sync. word error) @ frame %8i" % currNumb
 			continue
 		
 		beam, tune, pol = currFrame.parseID()
@@ -97,13 +100,15 @@ def main(args):
 		if currTime < prevTime[rID]:
 			print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
 			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+			print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
 		elif currTime > (prevTime[rID] + tagSkip):
 			print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
 			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+			print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
 		elif currTime < (prevTime[rID] + tagSkip):
 			print "ERROR: t.t %i @ frame %i < t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
 			print "       -> difference: %i (%.5f seconds; %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
-			print "       -> beam %i tune %i pol %i" % (beam, tune, pol)
+			print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
 		else:
 			pass
 		
