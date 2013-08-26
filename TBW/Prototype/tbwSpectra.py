@@ -104,7 +104,10 @@ def main(args):
 	if config['SSMIF'] != '':
 		station = stations.parseSSMIF(config['SSMIF'])
 	else:
-		station = stations.lwa2
+		try:
+			station = stations.lwana
+		except AttributeError:
+			station = stations.lwa2
 	antennas = []
 	for a in station.getAntennas():
 		if a.digitizer != 0:

@@ -149,7 +149,10 @@ class TBW_GUI(object):
 		try:
 			ssmifContents = dataDict['ssmifContents']
 			if ssmifContents.shape == ():
-				station = stations.lwa2
+				try:
+					station = stations.lwana
+				except AttributeError:
+					station = stations.lwa2
 				antennas = station.getAntennas()
 			else:
 				fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
@@ -163,7 +166,10 @@ class TBW_GUI(object):
 				os.unlink(tempSSMIF)
 			
 		except KeyError:
-			station = stations.lwa2
+			try:
+				station = stations.lwana
+			except AttributeError:
+				station = stations.lwa2
 			antennas = station.getAntennas()
 		self.antennas = []
 		for a in antennas:

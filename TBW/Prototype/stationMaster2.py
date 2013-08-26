@@ -114,8 +114,12 @@ def main(args):
 		station = stations.parseSSMIF(config['SSMIF'])
 		ssmifContents = open(config['SSMIF']).readlines()
 	else:
-		station = stations.lwa2
-		ssmifContents = open(os.path.join(dataPath, 'lwa2-ssmif.txt')).readlines()
+		try:
+			station = stations.lwana
+			ssmifContents = open(os.path.join(dataPath, 'lwana-ssmif.txt')).readlines()
+		except AttributeError:
+			station = stations.lwa2
+			ssmifContents = open(os.path.join(dataPath, 'lwa2-ssmif.txt')).readlines()
 	antennas = []
 	for a in station.getAntennas():
 		if a.digitizer != 0:
