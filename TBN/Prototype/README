@@ -1,7 +1,8 @@
 TBN Scripts for the Prototype DP
 ================================
 These scripts are intended to be use with data taken with the DP prototype
-system that is currently located at the north arm site.
+system that is currently located at the north arm site.   All scripts 
+mentioned here uses the lwana-ssmif.txt file for mappings. 
 
 checkTimetags.py
 ----------------

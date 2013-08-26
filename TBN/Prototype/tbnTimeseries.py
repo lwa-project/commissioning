@@ -106,7 +106,10 @@ def main(args):
 	config = parseOptions(args)
 	
 	# Set the station
-	station = stations.lwa2
+	try:
+		station = stations.lwana
+	except AttributeError:
+		station = stations.lwa2
 	antennas = []
 	for a in station.getAntennas():
 		if a.digitizer != 0:
