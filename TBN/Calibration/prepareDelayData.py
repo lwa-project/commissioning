@@ -383,7 +383,7 @@ def main(args):
 			residDelay = numpy.array(gDelay) - baseDelay
 			
 			# Remove the array geometry
-			data[i,:,j] *= numpy.exp(-2j*numpy.pi*fq*baseDelay)
+			data[i,:,j] *= numpy.exp(-2j*numpy.pi*fq* baseDelay)
 			data[i,:,j] *= numpy.exp(-2j*numpy.pi*fq*residDelay)
 			
 			pbar.inc()
