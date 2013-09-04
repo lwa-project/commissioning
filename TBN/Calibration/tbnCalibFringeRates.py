@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import os
 import sys
@@ -39,7 +40,7 @@ Options:
 -f, --frequency       Frequency in MHz (default = 74)
 -e, --elevation-cut   Source elevation cut (default = 10 degrees)
 """
-
+	
 	if exitCode is not None:
 		sys.exit(exitCode)
 	else:
@@ -60,7 +61,7 @@ def parseOptions(args):
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
-	
+		
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -73,13 +74,13 @@ def parseOptions(args):
 			config['elevCut'] = float(value)
 		else:
 			assert False
-	
+			
 	# Convert the elevation cut to radians
 	config['elevCut'] *= numpy.pi/180.0	
-
+	
 	# Add in arguments
 	config['args'] = args
-
+	
 	# Return configuration
 	return config
 
@@ -116,7 +117,7 @@ def main(args):
 	observer = site.getObserver()
 	antennas = site.getAntennas()
 	nAnts = len(antennas)
-
+	
 	#
 	# Grab the time
 	#
@@ -147,7 +148,7 @@ def main(args):
 	srcs = [ephem.Sun(),]
 	for line in _srcs:
 		srcs.append( ephem.readdb(line) )
-
+		
 	#
 	# Find the outriggers
 	#
@@ -172,7 +173,7 @@ def main(args):
 	print "Array Antenna:"
 	print " %s" % str(inside.stand)
 	print " "
-
+	
 	#
 	# Calculate the source positions to find what is up
 	#
@@ -182,8 +183,7 @@ def main(args):
 		if src.alt > config['elevCut']:
 			print "  %s at %s degrees elevation" % (src.name, src.alt)
 	print " "
-				
-
+	
 	#
 	# Calculate the fringe rates - At the specified time
 	#
@@ -197,7 +197,7 @@ def main(args):
 					allRates[src.name][outrigger.stand.id] = fRate
 				except KeyError:
 					allRates[src.name] = {outrigger.stand.id: fRate}
-
+					
 	#
 	# Calculate the fringe rates - Two hours centered on the specified time
 	#
@@ -209,7 +209,7 @@ def main(args):
 		for tRel in numpy.linspace(-1.0, 1.0, 61):
 			observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
 			observer.date = observer.date + tRel/24.0
-
+			
 			for src in srcs:
 				src.compute(observer)
 				if src.alt > config['elevCut']:
@@ -222,7 +222,7 @@ def main(args):
 						except KeyError:
 							allRates2[src.name] = {}
 							allRates2[src.name][outrigger.stand.id] = [fRate,]
-	
+							
 	#
 	# Report
 	#
@@ -235,7 +235,7 @@ def main(args):
 		for stand in stands:
 			line = "%s%-+7.3f mHz  " % (line, allRates[src][stand]*1000.0)
 		print line
-
+		
 	#
 	# Plot
 	#
@@ -244,14 +244,14 @@ def main(args):
 	for i,stand in enumerate(stands):
 		axs.append( fig.add_subplot(2, 3, i+1) )
 		axs[-1].set_title('Stand #%i - Stand #%i' % (stand, inside.stand.id))
-			
+		
 	for src in srcNames:
 		if src not in ('CygA', 'CasA', 'Sun', 'VirA', 'TauA'):
 			continue
 		for i,stand in enumerate(stands):
 			data = numpy.array(allRates2[src][stand])
 			axs[i].hist(data*1000.0, bins=5, label=src)
-		
+			
 	for i,stand in enumerate(stands):
 		fRate = 0.0
 		ylim = axs[i].get_ylim()
