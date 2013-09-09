@@ -26,7 +26,7 @@ def usage(exitCode=None):
 for a given frequency and topocentric pointing center.  The estimate is based 
 off a simple delay-and-sum beam former so it won't be an exact match.
 
-Usage: generateDelays.py [OPTIONS] file
+Usage: estimateBeam.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
@@ -52,7 +52,7 @@ def parseOptions(args):
 	config['el'] = 90.0
 	config['plots'] = True
 	config['args'] = []
-
+	
 	# Read in and process the command line flags
 	try:
 		opts, args = getopt.getopt(args, "hf:a:e:n", ["help", "frequency=", "azimuth=", "elevation=", "no-plots"])
@@ -102,7 +102,7 @@ def main(args):
 	print "Number of bad stands:   %3i" % len(badStands)
 	print "Number of bad FEEs:     %3i" % len(badFees)
 	print "---------------------------"
-	print "Total number bad inuts: %3i" % len(bad)
+	print "Total number bad inputs: %3i" % len(bad)
 	print " "
 	
 	beams = []

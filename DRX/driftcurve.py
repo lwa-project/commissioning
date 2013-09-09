@@ -33,7 +33,7 @@ Options:
 -x, --do-plot          Plot the driftcurve data
 -v, --verbose          Run driftcurve in vebose mode
 """
-
+	
 	if exitCode is not None:
 		sys.exit(exitCode)
 	else:
@@ -48,7 +48,7 @@ def parseOptions(args):
 	config['enableDisplay'] = False
 	config['verbose'] = False
 	config['args'] = []
-
+	
 	# Read in and process the command line flags
 	try:
 		opts, arg = getopt.getopt(args, "hvlt:x", ["help", "verbose", "lf-map", "time-step=", "do-plot",])
@@ -56,7 +56,7 @@ def parseOptions(args):
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
-	
+		
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -71,10 +71,10 @@ def parseOptions(args):
 			config['enableDisplay'] = True
 		else:
 			assert False
-	
+			
 	# Add in arguments
 	config['args'] = arg
-
+	
 	# Return configuration
 	return config
 
@@ -105,15 +105,15 @@ def main(args):
 		smap = skymap.SkyMap(freqMHz=freq/1e6)
 		if config['verbose']:
 			print "Read in LF map at %.2f MHz of %d x %d pixels; min=%f, max=%f" % (freq/1e6, smap.numPixelsX, smap.numPixelsY, smap._power.min(), smap._power.max())
-	
+			
 	def BeamPattern(az, alt, beam=beam):
-		iAz  = numpy.round( az).astype(numpy.int32)
+		iAz  = numpy.round(az).astype(numpy.int32)
 		iAz %= 360
 		iAlt = numpy.round(alt).astype(numpy.int32)
 		iAlt = numpy.where( iAlt < 90, iAlt, 89 )
 		
 		return beam[iAz,iAlt]
-
+		
 	if config['enableDisplay']:
 		az = numpy.zeros((90,360))
 		alt = numpy.zeros((90,360))
@@ -128,7 +128,7 @@ def main(args):
 		pylab.ylabel("Altitude [deg]")
 		pylab.grid(1)
 		pylab.draw()
-	
+		
 	# Calculate times in both site LST and UTC
 	t0 = astro.get_julian_from_sys()
 	lst = astro.get_local_sidereal_time(sta.long*180.0/math.pi, t0) / 24.0
@@ -139,18 +139,19 @@ def main(args):
 	powListAnt = [] 
 	
 	for t in times:
-		# Project skymap to site location and observation time
-		pmap = skymap.ProjectedSkyMap(smap, sta.lat*180.0/math.pi, sta.long*180.0/math.pi, t)
 		lst = astro.get_local_sidereal_time(sta.long*180.0/math.pi, t)
 		lstList.append(lst)
+		
+		# Project skymap to site location and observation time
+		pmap = skymap.ProjectedSkyMap(smap, sta.lat*180.0/math.pi, sta.long*180.0/math.pi, t)
 		
 		if config['GSM']:
 			cdec = numpy.ones_like(pmap.visibleDec)
 		else:
 			cdec = numpy.cos(pmap.visibleDec * smap.degToRad)
-		
+			
 		# Convolution of user antenna pattern with visible skymap
-		gain = BeamPattern((pmap.visibleAz+180)%360, pmap.visibleAlt)
+		gain = BeamPattern(pmap.visibleAz, pmap.visibleAlt)
 		powerAnt = (pmap.visiblePower * gain * cdec).sum() / (gain * cdec).sum()
 		powListAnt.append(powerAnt)
 
@@ -161,7 +162,7 @@ def main(args):
 			sys.stdout.write("LST: %02i:%02i:%04.1f, Power_ant: %.1f K \r" % (lstH, lstM, lstS, powerAnt))
 			sys.stdout.flush()
 	sys.stdout.write("\n")
-			
+	
 	# Plot results
 	if config['enableDisplay']:
 		pylab.figure(2)
@@ -173,7 +174,7 @@ def main(args):
 		pylab.grid(2)
 		pylab.draw()
 		pylab.show()
-	
+		
 	outputFile = "driftcurve_%s_%s_%.2f.txt" % ('lwa1', pol, freq/1e6)
 	print "Writing driftcurve to file '%s'" % outputFile
 	mf = file(outputFile, "w")
