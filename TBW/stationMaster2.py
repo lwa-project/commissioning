@@ -179,8 +179,10 @@ def main(args):
 	fh.seek(-tbw.FrameSize, 1)
 	print "Skipped %i non-TBW frames at the beginning of the file" % i
 
-	base, ext = os.path.splitext(config['args'][0])
-	if (not os.path.exists("%s.npz" % base)) or config['force']:
+	outfile = os.path.split(config['args'][0])[1]
+	outfile = os.path.splitext(outfile)[0]
+	outfile = "%s.npz" % outfile	
+	if (not os.path.exists(outfile)) or config['force']:
 		# Master loop over all of the file chunks
 		masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
 		for i in range(nChunks):
@@ -309,7 +311,7 @@ def main(args):
 		sys.stdout.write('\n')
 		sys.stdout.flush()
 		
-		numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
+		numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
 					avgPower=avgPower, dataRange=dataRange, ssmifContents=ssmifContents)
 	else:
 		dataDict = numpy.load("%s.npz" % base)
