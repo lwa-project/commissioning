@@ -144,7 +144,11 @@ class TBW_GUI(object):
 			self.dataRange = dataDict['dataRange']
 		except KeyError:
 			self.dataRange = None
-
+			
+		try:
+			self.adcHistogram = dataDict['adcHistogram']
+		except KeyError:
+			self.adcHistogram = None
 		# Set the station
 		try:
 			ssmifContents = dataDict['ssmifContents']
@@ -480,9 +484,10 @@ ID_DETAIL_FEE = 32
 ID_DETAIL_CABLE = 33
 ID_DETAIL_RFI = 34
 ID_DETAIL_CHANGE_STATUS = 35
-ID_AVG_POWER = 40
-ID_AVG_RANGE = 41
-ID_AVG_SUMMARY = 42
+ID_AVG_HIST = 40
+ID_AVG_POWER = 41
+ID_AVG_RANGE = 42
+ID_AVG_SUMMARY = 43
 ID_SELECT_DIGITIZER = 50
 ID_SELECT_ANTENNA = 51
 ID_SELECT_STAND = 52
@@ -554,6 +559,8 @@ class MainWindow(wx.Frame):
 		detailMenu.AppendItem(dcst)
 		
 		# Power
+		ahst = wx.MenuItem(powerMenu, ID_AVG_HIST, '&Plot ADC Histogram')
+		powerMenu.AppendItem(ahst)
 		apwr = wx.MenuItem(powerMenu, ID_AVG_POWER, '&Plot Power')
 		powerMenu.AppendItem(apwr)
 		drng = wx.MenuItem(powerMenu, ID_AVG_RANGE, '&Plot Data Range')
@@ -634,6 +641,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onStatus, id=ID_DETAIL_CHANGE_STATUS)
 		
 		# Power menu events
+		self.Bind(wx.EVT_MENU, self.onHistogram, id=ID_AVG_HIST)
 		self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
 		self.Bind(wx.EVT_MENU, self.onDataRange, id=ID_AVG_RANGE)
 		self.Bind(wx.EVT_MENU, self.onAvgPowerSummary, id=ID_AVG_SUMMARY)
@@ -1061,7 +1069,16 @@ corrected = %.3f
 		
 		if self.data.bestX > 0:
 			StatusChangeDialog(self)
+			
 		
+	def onHistogram(self, event):
+		""""
+		Display the ADC histogram plots.
+		"""
+		
+		if self.data.adcHistogram is not None and self.data.bestX > 0:
+			ADCHistogramDisplay(self)
+			
 	def onAvgPower(self, event):
 		"""
 		Display the average power plots.
@@ -1671,6 +1688,167 @@ class DataRangeDisplay(wx.Frame):
 		self.figure.set_size_inches((newW, newH1))
 		self.figure.canvas.draw()
 
+	def GetToolBar(self):
+		# You will need to override GetToolBar if you are using an 
+		# unmanaged toolbar in your frame
+		return self.toolbar
+
+
+class ADCHistogramDisplay(wx.Frame):
+	"""
+	Window for displaying the average power with time for the selected stand.
+	"""
+	
+	def __init__(self, parent):
+		wx.Frame.__init__(self, parent, title='ADC Histogram', size=(400, 375))
+		
+		self.parent = parent
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+		self.initPlot()
+		
+	def __nextThousand(self, value):
+		"""
+		Round a positive value to the next highest multiple of a thousand.
+		"""
+		
+		return 1000*numpy.ceil(value/1000.0)
+		
+	def initUI(self):
+		"""
+		Start the user interface.
+		"""
+		
+		self.statusbar = self.CreateStatusBar()
+		
+		hbox = wx.BoxSizer(wx.HORIZONTAL)
+		
+		# Add plots to panel 1
+		panel1 = wx.Panel(self, -1)
+		vbox1 = wx.BoxSizer(wx.VERTICAL)
+		self.figure = Figure()
+		self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
+		self.toolbar = NavigationToolbar2WxAgg(self.canvas)
+		self.toolbar.Realize()
+		vbox1.Add(self.canvas,  1, wx.EXPAND)
+		vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		panel1.SetSizer(vbox1)
+		hbox.Add(panel1, 1, wx.EXPAND)
+		
+		# Use some sizers to see layout options
+		self.SetSizer(hbox)
+		self.SetAutoLayout(1)
+		hbox.Fit(self)
+		
+	def initEvents(self):
+		"""
+		Set all of the various events in the average power window.
+		"""
+		
+		# Make the images resizable
+		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		
+	def initPlot(self):
+		"""
+		Populate the figure/canvas areas with a plot.  We only need to do this
+		once for this type of window.
+		"""
+		
+		adcHistogram = self.parent.data.adcHistogram
+		bestX = self.parent.data.bestX
+		bestY = self.parent.data.bestY
+		
+		if adcHistogram is None:
+			return False
+		if bestX < 1:
+			return False
+		
+		self.figure.clf()
+		self.ax1 = self.figure.gca()
+		
+		ant1 = self.parent.data.antennas[bestX-1]
+		ant2 = self.parent.data.antennas[bestY-1]
+		
+		# Histogram plot
+		histBins = range(-2048, 2049)
+		left, right = histBins[:-1], histBins[1:]
+		X = numpy.array([left,right]).T.flatten()
+		Y1 = numpy.array([adcHistogram[bestX-1,:], adcHistogram[bestX-1,:]]).T.flatten()
+		Y2 = numpy.array([adcHistogram[bestY-1,:], adcHistogram[bestY-1,:]]).T.flatten()
+		
+		self.ax1.plot(X, Y1, label='Pol. %i' % ant1.pol)
+		self.ax1.plot(X, Y2, label='Pol. %i' % ant2.pol)
+		
+		# Set ranges
+		self.ax1.set_xlim([-2048, 2047])
+		hMax = max([self.__nextThousand(adcHistogram[bestX-1,:].max()), self.__nextThousand(adcHistogram[bestY-1,:].max())])
+		hMax += 5000
+		self.ax1.set_ylim([0, hMax])
+		
+		# Labels
+		self.ax1.set_title('Stand #%i' % ant1.stand.id)
+		self.ax1.set_xlabel('ADC Value')
+		self.ax1.set_ylabel('Number')
+		
+		# Legend
+		self.ax1.legend(loc=0)
+		self.histBins = histBins
+		
+		## Draw and save the click (Why?)
+		self.canvas.draw()
+		self.connect()
+		
+	def connect(self):
+		"""
+		Connect to all the events we need to interact with the plots.
+		"""
+		
+		self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+	
+	def on_motion(self, event):
+		"""
+		Deal with motion events in the stand field window.  This involves 
+		setting the status bar with the current x and y coordinates as well
+		as the stand number of the selected stand (if any).
+		"""
+		
+		if event.inaxes:
+			clickX = int(event.xdata)
+			clickY = event.ydata
+			
+			try:
+				idx = self.histBins.index(clickX)
+				
+				ap1 = self.parent.data.adcHistogram[self.parent.data.bestX-1,idx]
+				ap2 = self.parent.data.adcHistogram[self.parent.data.bestY-1,idx]
+				self.statusbar.SetStatusText("v=%i, X pol. Count=%i counts, Y pol. Count=%i" % (clickX, ap1, ap2))
+			except IndexError:
+				self.statusbar.SetStatusText("")
+		else:
+			self.statusbar.SetStatusText("")
+			
+	def disconnect(self):
+		"""
+		Disconnect all the stored connection ids.
+		"""
+		
+		self.figure.canvas.mpl_disconnect(self.cidmotion)
+		
+	def onCancel(self, event):
+		self.Close()
+		
+	def resizePlots(self, event):
+		w, h = self.GetSize()
+		dpi = self.figure.get_dpi()
+		newW = 1.0*w/dpi
+		newH1 = 1.0*(h/2-100)/dpi
+		newH2 = 1.0*(h/2-75)/dpi
+		self.figure.set_size_inches((newW, newH1))
+		self.figure.canvas.draw()
+		
 	def GetToolBar(self):
 		# You will need to override GetToolBar if you are using an 
 		# unmanaged toolbar in your frame

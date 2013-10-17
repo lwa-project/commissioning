@@ -234,18 +234,23 @@ def main(args):
 			subSize = 1960
 			nSegments = data.shape[1] / subSize
 			
-			print "Computing average power and data range in %i-sample intervals" % subSize
+			print "Computing average power and data range in %i-sample intervals, ADC histogram" % subSize
 			pb = ProgressBar(max=data.shape[0])
 			avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
 			dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
+			adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
+			histBins = range(-2048, 2049)
 			for s in xrange(data.shape[0]):
+				hs, be = numpy.histogram(data[s,:], bins=histBins)
+				adcHistogram[s,:] += hs
+				
 				for p in xrange(nSegments):
 					subData = data[s,(p*subSize):((p+1)*subSize)]
 					avgPower[s,p] = numpy.mean( numpy.abs(subData) )
 					dataRange[s,p,0] = subData.min()
 					dataRange[s,p,1] = subData.mean()
 					dataRange[s,p,2] = subData.max()
-
+					
 					### This little block here looks for likely saturation events and save
 					### the raw time series around them into individual NPZ files for stand
 					### number 14.
@@ -309,7 +314,7 @@ def main(args):
 		sys.stdout.flush()
 		
 		numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
-					avgPower=avgPower, dataRange=dataRange, ssmifContents=ssmifContents)
+					avgPower=avgPower, dataRange=dataRange, adcHistogram=adcHistogram, ssmifContents=ssmifContents)
 	else:
 		dataDict = numpy.load("%s.npz" % base)
 		freq = dataDict['freq']
