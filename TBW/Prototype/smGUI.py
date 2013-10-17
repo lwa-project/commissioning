@@ -1784,12 +1784,18 @@ class ADCHistogramDisplay(wx.Frame):
 		# Histogram plot
 		histBins = range(-2048, 2049)
 		left, right = histBins[:-1], histBins[1:]
-		X = numpy.array([left,right]).T.flatten()
-		Y1 = numpy.array([adcHistogram[bestX-1,:], adcHistogram[bestX-1,:]]).T.flatten()
-		Y2 = numpy.array([adcHistogram[bestY-1,:], adcHistogram[bestY-1,:]]).T.flatten()
+		v = numpy.array([left,right]).T.flatten()
+		hX = numpy.array([adcHistogram[bestX-1,:], adcHistogram[bestX-1,:]]).T.flatten()
+		hY = numpy.array([adcHistogram[bestY-1,:], adcHistogram[bestY-1,:]]).T.flatten()
 		
-		self.ax1.plot(X, Y1, label='Pol. %i' % ant1.pol)
-		self.ax1.plot(X, Y2, label='Pol. %i' % ant2.pol)
+		self.ax1.plot(v, hX, label='Pol. %i' % ant1.pol)
+		self.ax1.plot(v, hY, label='Pol. %i' % ant2.pol)
+		
+		# Calculate and display the RMS
+		rmsX = numpy.sqrt( (numpy.array(histBins[:-1])**2 * adcHistogram[bestX-1,:]).sum() / adcHistogram[bestX-1,:].sum() )
+		rmsY = numpy.sqrt( (numpy.array(histBins[:-1])**2 * adcHistogram[bestY-1,:]).sum() / adcHistogram[bestY-1,:].sum() )
+		self.ax1.text(0.08, 0.90, 'RMS$_%i$=%.1f' % (ant1.pol, rmsX), transform=self.ax1.transAxes)
+		self.ax1.text(0.08, 0.85, 'RMS$_%i$=%.1f' % (ant2.pol, rmsY), transform=self.ax1.transAxes)
 		
 		# Set ranges
 		self.ax1.set_xlim([-2048, 2047])
