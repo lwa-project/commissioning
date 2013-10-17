@@ -239,7 +239,7 @@ bandpass shapes, apply a bandpass correction to the spectra.\n\
 \n\
 Input arguments are:\n\
  * spectra: 3-D numpy.float32 (time by stands by channels) array of data\n\
- * bandpass: 2-D numpy.float32 (stands by channels) array of bandpass shapes\m\
+ * bandpass: 2-D numpy.float32 (stands by channels) array of bandpass shapes\n\
 \n\
 Input keywords are:\n\
  None\n\
