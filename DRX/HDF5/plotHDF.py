@@ -361,6 +361,7 @@ class Waterfall_GUI(object):
 				self.limits[i] = list(limits0[i,:])
 				self.limitsBandpass[i] = list(limits1[i,:])
 		except ImportError:
+			toUse = range(self.spec.shape[2]/10, 9*self.spec.shape[2]/10+1)
 			for i in xrange(self.spec.shape[1]):
 				self.limits[i] = findLimits(self.spec[:,i,:], usedB=self.usedB)
 			for i in xrange(self.spec.shape[1]):
@@ -414,7 +415,7 @@ class Waterfall_GUI(object):
 			FastAxis0Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
 		except ImportError:
 			for i in xrange(self.spec.shape[1]):
-				self.specBandpass[:,i,:] = self.spec[:,i,j] / bpm2[i][j]
+				self.specBandpass[:,i,:] = self.spec[:,i,:] / bpm2[i]
 				
 		return True
 		
@@ -1336,9 +1337,9 @@ class MainWindow(wx.Frame):
 		try:
 			from _helper import FastAxis1Percentiles5And99
 			if self.data.bandpass:
-				self.data.limitsBandpass[i] = FastAxis1Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]/10, chanMax=9*self.data.spec.shape[2]/10)
+				self.data.limitsBandpass[i] = list(FastAxis1Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]/10, chanMax=9*self.data.spec.shape[2]/10))
 			else:
-				self.data.limits[i] = FastAxis1Percentiles5And99(self.data.spec.data, i)
+				self.data.limits[i] = list(FastAxis1Percentiles5And99(self.data.spec.data, i))
 		except ImportError:
 			if self.data.bandpass:
 				self.data.limitsBandpass[i] = [percentile(self.data.specBandpass[:,i,toUse].ravel(), 5), percentile(self.data.specBandpass[:,i,toUse].ravel(), 99)] 
