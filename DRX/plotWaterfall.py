@@ -976,9 +976,11 @@ class MainWindow(wx.Frame):
 		i = self.data.index
 		toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
 		if self.data.bandpass:
-			self.data.limitsBandpass[i] = [percentile(self.data.specBandpass[:,i,toUse].ravel(), 5), 		percentile(self.data.specBandpass[:,i,toUse].ravel(), 99)] 
+			self.data.limitsBandpass[i] = [to_dB(percentile(self.data.specBandpass[:,i,toUse].ravel(), 5)),
+										to_dB(percentile(self.data.specBandpass[:,i,toUse].ravel(), 99))]
 		else:
-			self.data.limits[i] = [percentile(self.data.spec[:,i,:].ravel(), 5), percentile(self.data.spec[:,i,:].ravel(), 99)]
+			self.data.limits[i] = [to_dB(percentile(self.data.spec[:,i,:].ravel(), 5)), 
+								to_dB(percentile(self.data.spec[:,i,:].ravel(), 99))]
 			
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
