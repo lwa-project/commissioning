@@ -224,7 +224,6 @@ def main(args):
 	firstPass = True
 	for i in xrange(nChunks):
 		frame = drspec.readFrame(fh)
-		#print i, frame.data.saturations
 		
 		cTime = datetime.utcfromtimestamp(frame.getTime())
 		if cTime < obsList[o][0]:

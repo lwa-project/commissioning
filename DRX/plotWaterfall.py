@@ -14,9 +14,11 @@ import sys
 import math
 import time
 import numpy
+import getopt
 import subprocess
 from datetime import datetime
 from multiprocessing import Pool
+from scipy.stats import scoreatpercentile as percentile
 
 from lsl.common.dp import fS
 from lsl.common import stations
@@ -31,6 +33,58 @@ matplotlib.interactive(True)
 
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
 from matplotlib.figure import Figure
+
+
+def usage(exitCode=None):
+	print """plotWaterfall.py - Read in a NPZ waterfall file and plot it interactively.
+
+Usage: plotWaterfall.py [OPTIONS] file
+
+Options:
+-h, --help                  Display this help information
+-s, --skip                  Skip the specified number of seconds at the beginning
+                            of the file (default = 0)
+-d, --duration              Number of seconds to display
+                            (default = -1 to display all of the file)
+"""
+	
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseOptions(args):
+	config = {}
+	# Command line flags - default values
+	config['offset'] = 0.0
+	config['duration'] = -1.0
+	config['args'] = []
+	
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "hs:d:", ["help", "skip=", "duration="])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+		
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-s', '--skip'):
+			config['offset'] = float(value)
+		elif opt in ('-d', '--duration'):
+			config['duration'] = float(value)
+		else:
+			assert False
+			
+	# Add in arguments
+	config['args'] = args
+	
+	# Return configuration
+	return config
 
 
 def findMean(data):
@@ -132,7 +186,24 @@ class Waterfall_GUI(object):
 			self.srate = dataDictionary['srate']
 		except KeyError:
 			self.srate = 19.6e6
+		self.tInt = dataDictionary['tInt']
+		self.time = dataDictionary['times']
+		self.time -= self.time[0]
+		
+		# Figure out the selection process
+		self.iOffset = int(round(self.frame.offset / self.tInt))
+		if self.frame.duration < 0:
+			self.iDuration = self.time.size - self.iOffset
+		else:
+			self.iDuration = int(round(self.frame.duration / self.tInt))
+		## Make sure we don't fall off the end of the file
+		if self.iOffset + self.iDuration > dataDictionary['spec'].shape[0]:
+			self.iDuration = dataDictionary['spec'].shape[0] - self.iOffset
 			
+		if self.iOffset != 0:
+			print "            -> Offsetting %i integrations (%.3f s)" % (self.iOffset, self.iOffset*self.tInt)
+		print "            -> Displaying %i integrations (%.3f s)" % (self.iDuration, self.iDuration*self.tInt)
+		
 		try:
 			self.freq1 = dataDictionary['freq1']
 		except KeyError:
@@ -143,13 +214,11 @@ class Waterfall_GUI(object):
 			self.freq2 = dataDictionary['freq']
 			
 		try:
-			mask = dataDictionary['mask'].astype(numpy.bool)
+			mask = dataDictionary['mask'][self.iOffset:self.iOffset+self.iDuration, :, :].astype(numpy.bool)
 		except KeyError:
-			mask = numpy.zeros(dataDictionary['spec'].shape, dtype=numpy.bool)
-		self.spec = numpy.ma.array(dataDictionary['spec'], mask=mask)
-		self.tInt = dataDictionary['tInt']
-		self.time = dataDictionary['times']
-		self.time -= self.time.min()
+			mask = numpy.zeros(dataDictionary['spec'][self.iOffset:self.iOffset+self.iDuration, :, :].shape, dtype=numpy.bool)
+		self.spec = numpy.ma.array(dataDictionary['spec'][self.iOffset:self.iOffset+self.iDuration, :, :], mask=mask)
+		self.time = self.time[:self.iDuration]
 		
 		# Construct frequency and time master masks to prevent some masked things from getting unmasked
 		self.freqMask = numpy.median(self.spec.mask, axis=0)
@@ -158,6 +227,7 @@ class Waterfall_GUI(object):
 		# Other data to keep around in case we save
 		self.freqNPZ = dataDictionary['freq']
 		self.timesNPZ = dataDictionary['times']
+		self.timesNPZRestricted = dataDictionary['times'][self.iOffset:self.iOffset+self.iDuration]
 		self.standMapperNPZ = dataDictionary['standMapper']
 		
 		# Deal with the potential for aggregated files
@@ -181,50 +251,28 @@ class Waterfall_GUI(object):
 		
 		# Find the mean spectra
 		print " %6.3f s - Computing mean spectra" % (time.time() - tStart)
-
-		taskPool = Pool(processes=2)
-		taskList = []
-		taskList.append( (0, taskPool.apply_async(findMean, args=(self.spec,))) )
-		taskList.append( (1, taskPool.apply_async(findMean, args=(self.specBandpass,))) )
-		taskPool.close()
-		taskPool.join()
-		for i,task in taskList:
-			if i == 0:
-				self.mean = task.get()
-			else:
-				self.meanBandpass = task.get()
+		self.mean = numpy.mean(self.spec, axis=0)
+		self.meanBandpass = numpy.mean(self.specBandpass, axis=0)
 		
 		# Set default colobars
 		print " %6.3f s - Setting default colorbar ranges" % (time.time() - tStart)
-
-		taskPool = Pool(processes=4)
-		taskList = []
-		for i in xrange(self.spec.shape[1]):
-			task = taskPool.apply_async(findLimits, args=(self.spec[:,i,:],))
-			taskList.append( (i,task) )
-		taskPool.close()
-		taskPool.join()
 		self.limits = [None,]*self.spec.shape[1]
-		for i,task in taskList:
-			self.limits[i] = task.get()
-			
-		toUse = numpy.arange(self.spec.shape[2]/10, 9*self.spec.shape[2]/10)
-		taskPool = Pool(processes=4)
-		taskList = []
-		for i in xrange(self.spec.shape[1]):
-			task = taskPool.apply_async(findLimits, args=(self.specBandpass[:,i,toUse],))
-			taskList.append( (i,task) )
-		taskPool.close()
-		taskPool.join()
 		self.limitsBandpass = [None,]*self.spec.shape[1]
-		for i,task in taskList:
-			self.limitsBandpass[i] = task.get()
 		
+		toUse = range(self.spec.shape[2]/10, 9*self.spec.shape[2]/10+1)
+		for i in xrange(self.spec.shape[1]):
+			self.limits[i] = findLimits(self.spec[:,i,:])
+		for i in xrange(self.spec.shape[1]):
+			self.limitsBandpass[i] = findLimits(self.specBandpass[:,i,toUse])
+			
 		try:
 			self.disconnect()
 		except:
 			pass
+			
+		print " %6.3f s - Finished preparing data" % (time.time() - tStart)
 		
+	def render(self):
 		# Clear the old marks
 		self.oldMarkA = None
 		self.oldMarkB = None
@@ -234,30 +282,27 @@ class Waterfall_GUI(object):
 		
 		self.connect()
 		
-		print " %6.3f s - Ready" % (time.time() - tStart)
-	
 	def computeBandpass(self):
 		"""
 		Compute the bandpass fits.
 		"""
-
-		meanSpec = numpy.mean(self.spec.data, axis=0)
+		
+		meanSpec = numpy.median(self.spec.data, axis=0)
+		
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
-			from scipy.interpolate import splrep, splev
-			#t = splrep(freq2, numpy.log10(meanSpec[i,:])*10, s=1e-5, k=3)
-			#noiseSlope = 10.0**(splev(freq2, t, der=0)/10.0)
-			noiseSlope = savitzky_golay(to_dB(meanSpec[i,:]), 41, 9, deriv=0)
-			noiseSlope = from_dB(noiseSlope)
+			bpm = savitzky_golay(meanSpec[i,:], 41, 9, deriv=0)
 			
-			bpm2.append( noiseSlope/noiseSlope.mean() )
+			if bpm.mean() == 0:
+				bpm += 1
+			bpm2.append( bpm / bpm.mean() )
 			
 		# Apply the bandpass correction
+		bpm2 = numpy.array(bpm2)
 		self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
 		for i in xrange(self.spec.shape[1]):
-			for j in xrange(self.spec.shape[0]):
-				self.specBandpass[j,i,:] = self.spec[j,i,:] / bpm2[i]
-
+			self.specBandpass[:,i,:] = self.spec[:,i,:] / bpm2[i]
+			
 		return True
 	
 	def draw(self):
@@ -281,18 +326,27 @@ class Waterfall_GUI(object):
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
 		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
-		cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
+		try:
+			cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+		except:
+			if len(self.frame.figure1a.get_axes()) > 1:
+				self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
+			cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1a.axis('auto')
 		self.ax1a.set_xlim((freq[0]/1e6, freq[-1]/1e6))
 		self.ax1a.set_ylim((self.time[0], self.time[-1]))
 		self.ax1a.set_xlabel('Frequency [MHz]')
-		self.ax1a.set_ylabel('Elapsed Time [s]')
+		self.ax1a.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
 		self.ax1a.set_title('Tuning %i, Pol. %s' % (self.index/2+1, 'Y' if self.index %2 else 'X'))
 		
 		if self.oldMarkA is not None:
 			self.ax1a.lines.extend(self.oldMarkA)
-		
+			
+		try:
+			self.frame.figure1a.tight_layout()
+		except:
+			pass
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
@@ -307,10 +361,14 @@ class Waterfall_GUI(object):
 		
 		if self.oldMarkB is not None:
 			self.ax1b.lines.extend(self.oldMarkB)
-		
+			
+		try:
+			self.frame.figure1b.tight_layout()
+		except:
+			pass
 		self.frame.canvas1b.draw()
 	
-	def drawSpectrum(self, clickY, Home=False):
+	def drawSpectrum(self, clickY):
 		"""Get the spectrum at a particular point in time."""
 		
 		try:
@@ -332,7 +390,7 @@ class Waterfall_GUI(object):
 			medianSpec = self.mean[self.index,:]
 			limits = self.limits
 		
-		if self.frame.toolbar.mode == 'zoom rect' and not Home:
+		if self.frame.toolbar.mode == 'zoom rect':
 			try:
 				oldXlim = self.ax2.get_xlim()
 				oldYlim = self.ax2.get_ylim()
@@ -355,15 +413,19 @@ class Waterfall_GUI(object):
 		
 		if self.filenames is None:
 			if self.bandpass:
-				self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+				self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
 			else:
-				self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+				self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
 		else:
 			if self.bandpass:
 				self.ax2.set_title("%s + bandpass" % self.filenames[dataY])
 			else:
 				self.ax2.set_title(self.filenames[dataY])
-		
+				
+		try:
+			self.frame.figure2.tight_layout()
+		except:
+			pass
 		self.frame.canvas2.draw()
 		self.spectrumClick = clickY
 	
@@ -492,15 +554,15 @@ class Waterfall_GUI(object):
 		self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press1b)
 		self.cidpress2  = self.frame.figure2.canvas.mpl_connect('button_press_event', self.on_press2)
 		self.cidmotion  = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
-		self.frame.toolbar.home = self.on_home
+		self.frame.toolbar.update = self.on_update
 		
-	def on_home(self, *args):
+	def on_update(self, *args):
 		"""
-		Override of the toolbar 'home' operation.
+		Override the toolbar 'update' operation.
 		"""
 		
-		self.drawSpectrum(self.spectrumClick, Home=True)
-	
+		self.frame.toolbar.set_history_buttons()
+		
 	def on_press1a(self, event):
 		"""
 		On button press we will see if the mouse is over us and store some data
@@ -574,6 +636,10 @@ class Waterfall_GUI(object):
 				pass
 			
 	def on_press2(self, event):
+		"""
+		On button press we will see if the mouse is over us and store some data
+		"""
+		
 		if event.inaxes:
 			clickX = event.xdata
 			clickY = event.ydata
@@ -600,6 +666,10 @@ class Waterfall_GUI(object):
 			self.drawSpectrum(self.spectrumClick)
 			
 	def on_motion(self, event):
+		"""
+		On mouse motion display the data value under the cursor
+		"""
+		
 		if event.inaxes:
 			clickX = event.xdata
 			clickY = event.ydata
@@ -619,7 +689,9 @@ class Waterfall_GUI(object):
 			
 	
 	def disconnect(self):
-		'disconnect all the stored connection ids'
+		"""
+		Disconnect all the stored connection ids
+		"""
 		
 		self.frame.figure1a.canvas.mpl_disconnect(self.cidpress1a)
 		self.frame.figure1b.canvas.mpl_disconnect(self.cidpress1b)
@@ -639,6 +711,7 @@ ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
 ID_TUNING2_X = 32
 ID_TUNING2_Y = 33
+ID_CHANGE_RANGE = 34
 
 ID_MASK_SUGGEST_CURRENT = 40
 ID_MASK_SUGGEST_ALL = 41
@@ -659,15 +732,19 @@ class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
 		self.dirname = ''
 		self.filename = ''
+		self.offset = 0.0
+		self.duration = -1
 		self.data = None
 		
 		self.examineWindow = None
 		
-		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(600,800))
+		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(1000,600))
 		
+	def render(self):
 		self.initUI()
 		self.initEvents()
 		self.Show()
+		self.SetClientSize((1000,600))
 		
 		self.cAdjust = None
 		
@@ -709,6 +786,9 @@ class MainWindow(wx.Frame):
 		dataMenu.AppendRadioItem(ID_TUNING2_X, 'Tuning 2, Pol. X')
 		dataMenu.AppendRadioItem(ID_TUNING2_Y, 'Tuning 2, Pol. Y')
 		dataMenu.InsertSeparator(2)
+		dataMenu.AppendSeparator()
+		self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, 'Change Time &Range')
+		dataMenu.AppendItem(self.changeRangeButton)
 		
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
@@ -756,12 +836,12 @@ class MainWindow(wx.Frame):
 		# Add waterfall plot
 		panel1 = wx.Panel(self, -1)
 		hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-		self.figure1a = Figure()
+		self.figure1a = Figure(figsize=(2,2))
 		self.canvas1a = FigureCanvasWxAgg(panel1, -1, self.figure1a)
 		hbox1.Add(self.canvas1a, 1, wx.EXPAND)
 		
 		# Add a total power with time plot
-		self.figure1b = Figure()
+		self.figure1b = Figure(figsize=(2,2))
 		self.canvas1b = FigureCanvasWxAgg(panel1, -1, self.figure1b)
 		hbox1.Add(self.canvas1b, 1, wx.EXPAND)
 		panel1.SetSizer(hbox1)
@@ -775,7 +855,7 @@ class MainWindow(wx.Frame):
 		self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
 		self.toolbar.Realize()
 		hbox3.Add(self.canvas2, 1, wx.EXPAND)
-		hbox3.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+		hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.FIXED_MINSIZE)
 		panel3.SetSizer(hbox3)
 		vbox.Add(panel3, 1, wx.EXPAND)
 		
@@ -797,6 +877,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
 		self.Bind(wx.EVT_MENU, self.onTuning2X, id=ID_TUNING2_X)
 		self.Bind(wx.EVT_MENU, self.onTuning2Y, id=ID_TUNING2_Y)
+		self.Bind(wx.EVT_MENU, self.onRangeChange, id=ID_CHANGE_RANGE)
 		
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
@@ -820,17 +901,22 @@ class MainWindow(wx.Frame):
 		
 		# Make the images resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
+		self.Bind(wx.EVT_SIZE, self.onSize)
 	
 	def onOpen(self, event):
 		"""
 		Open a file.
 		"""
 		
-		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.OPEN)
+		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "NPZ Files (*.npz)|*.npz|All Files|*.*", wx.OPEN)
 		if dlg.ShowModal() == wx.ID_OK:
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
 			self.data = Waterfall_GUI(self)
+			
+			# Display the time range dialog box and update the image
+			self.onRangeChange(None)
+			
 			self.data.loadData(os.path.join(self.dirname, self.filename))
 			self.data.draw()
 			
@@ -885,13 +971,14 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		i = self.data.index
 		toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
 		if self.data.bandpass:
-			self.data.limitsBandpass[i] = [to_dB(self.data.specBandpass[:,i,toUse]).min(), to_dB(self.data.specBandpass[:,i,toUse]).max()] 
+			self.data.limitsBandpass[i] = [percentile(self.data.specBandpass[:,i,toUse].ravel(), 5), 		percentile(self.data.specBandpass[:,i,toUse].ravel(), 99)] 
 		else:
-			self.data.limits[i] = [to_dB(self.data.spec[:,i,:]).min(), to_dB(self.data.spec[:,i,:]).max()]
+			self.data.limits[i] = [percentile(self.data.spec[:,i,:].ravel(), 5), percentile(self.data.spec[:,i,:].ravel(), 99)]
 			
 		self.data.draw()
 		self.data.drawSpectrum(self.data.spectrumClick)
@@ -912,6 +999,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 0
 		self.data.draw()
@@ -926,6 +1014,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 1
 		self.data.draw()
@@ -940,6 +1029,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 2
 		self.data.draw()
@@ -954,6 +1044,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.index = 3
 		self.data.draw()
@@ -962,6 +1053,18 @@ class MainWindow(wx.Frame):
 			
 		wx.EndBusyCursor()
 		
+	def onRangeChange(self, event):
+		"""
+		Display a dialog box to change the time range displayed.
+		"""
+		
+		if event is None:
+			mode = 'New'
+		else:
+			mode = 'Adjust'
+			
+		TimeRangeAdjust(self, mode=mode)
+		
 	def onMaskSuggestCurrent(self, event):
 		"""
 		Suggest a series of frequency and time-based masks to apply to 
@@ -969,6 +1072,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.suggestMask(self.data.index)
 			
@@ -985,6 +1089,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		for i in xrange(self.data.spec.shape[1]):
 			self.data.suggestMask(i)
@@ -1001,6 +1106,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.resetMask(self.data.index)
 		
@@ -1016,6 +1122,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		for i in xrange(self.data.spec.shape[1]):
 			self.data.resetMask(i)
@@ -1039,6 +1146,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.bandpass = True
 		
@@ -1054,6 +1162,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.bandpass = False
 		
@@ -1069,6 +1178,7 @@ class MainWindow(wx.Frame):
 		"""
 		
 		wx.BeginBusyCursor()
+		wx.Yield()
 		
 		self.data.computeBandpass()
 		
@@ -1216,20 +1326,46 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 			pass
 			
 		event.Skip()
-	
-	def resizePlots(self, event):
-		w, h = self.GetSize()
+		
+	def onSize(self, event):
+		event.Skip()
+		wx.CallAfter(self.resizePlots)
+		
+	def resizePlots(self, event=None):
+		# Get the current size of the window and the navigation toolbar
+		w, h = self.GetClientSize()
+		wt, ht = self.toolbar.GetSize()
+		
+		# Come up with new figure sizes in inches.
+		# NOTE:  The height of the spectrum plot at the bottom needs to be
+		#        corrected for the height of the toolbar
 		dpi = self.figure1a.get_dpi()
 		newW0 = 1.0*w/dpi
-		newW1 = 1.0*(w/2-100)/dpi
-		newW2 = 1.0*(w/2-100)/dpi
-		newH0 = 1.0*(h/2-100)/dpi
-		newH1 = 1.0*(h/2-200)/dpi
+		newW1 = 1.0*(1.*w/2)/dpi
+		newW2 = 1.0*(1.*w/2)/dpi
+		newH0 = 1.0*(h/2)/dpi
+		newH1 = 1.0*(h/2-ht)/dpi
+		
+		# Set the figure sizes and redraw
 		self.figure1a.set_size_inches((newW1, newH0))
+		try:
+			self.figure1a.tight_layout()
+		except:
+			pass
 		self.figure1a.canvas.draw()
+		
 		self.figure1b.set_size_inches((newW2, newH0))
+		try:
+			self.figure1b.tight_layout()
+		except:
+			pass
 		self.figure1b.canvas.draw()
+		
 		self.figure2.set_size_inches((newW0, newH1))
+		try:
+			self.figure2.tight_layout()
+		except:
+			pass
 		self.figure2.canvas.draw()
 		
 	def GetToolBar(self):
@@ -1270,12 +1406,12 @@ class ContrastAdjust(wx.Frame):
 		row += 1
 		
 		upr = wx.StaticText(panel, label='Upper Limit:')
-		uprText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		uprText = wx.TextCtrl(panel)
 		uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
 		uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
 		
 		lwr = wx.StaticText(panel, label='Lower Limit:')
-		lwrText = wx.TextCtrl(panel, style=wx.TE_READONLY)
+		lwrText = wx.TextCtrl(panel)
 		lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
 		lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
 		
@@ -1332,6 +1468,24 @@ class ContrastAdjust(wx.Frame):
 		
 		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
 		
+		self.Bind(wx.EVT_KEY_UP, self.onKeyPress)
+		
+	def onKeyPress(self, event):
+		keycode = event.GetKeyCode()
+		
+		if keycode == wx.WXK_RETURN:
+			index = self.parent.data.index
+			if self.parent.data.bandpass:
+				self.parent.data.limitsBandpass[index][0] = float(self.lText.GetValue())
+				self.parent.data.limitsBandpass[index][1] = float(self.uText.GetValue())
+			else:
+				self.parent.data.limits[index][0] = float(self.lText.GetValue())
+				self.parent.data.limits[index][1] = float(self.uText.GetValue())
+			self.rText.SetValue('%.1f' % self.__getRange(index))
+			self.parent.data.draw()
+		else:
+			pass
+			
 	def onUpperDecrease(self, event):
 		index = self.parent.data.index
 		if self.parent.data.bandpass:
@@ -1388,6 +1542,123 @@ class ContrastAdjust(wx.Frame):
 		
 	def __getIncrement(self, index):
 		return 0.1*self.__getRange(index)
+
+
+ID_RANGE_WHOLE = 100
+ID_RANGE_OK = 101
+ID_RANGE_CANCEL = 102
+
+class TimeRangeAdjust(wx.Frame):
+	def __init__ (self, parent, mode='Adjust'):	
+		wx.Frame.__init__(self, parent, title='Time Range to Display', size=(330, 175), style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
+		
+		self.parent = parent
+		self.mode = mode
+		
+		self.initUI()
+		self.initEvents()
+		self.Show()
+		
+	def initUI(self):
+		row = 0
+		panel = wx.Panel(self)
+		sizer = wx.GridBagSizer(5, 5)
+		
+		offL = wx.StaticText(panel, label='Offset from file start:')
+		sizer.Add(offL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.offsetText = wx.TextCtrl(panel)
+		offU = wx.StaticText(panel, label='seconds')
+		sizer.Add(self.offsetText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(offU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		durL = wx.StaticText(panel, label='Duration after offset:')
+		sizer.Add(durL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.durationText = wx.TextCtrl(panel)
+		durU = wx.StaticText(panel, label='seconds')
+		sizer.Add(self.durationText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		sizer.Add(durU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		self.wholeFileButton = wx.CheckBox(panel, ID_RANGE_WHOLE, 'Display whole observation')
+		sizer.Add(self.wholeFileButton, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+		row += 1
+		
+		#
+		# Buttons
+		#
+		
+		ok = wx.Button(panel, ID_RANGE_OK, 'Ok', size=(56, 28))
+		sizer.Add(ok, pos=(row+0, 0), flag=wx.RIGHT|wx.BOTTOM, border=5)
+		cancel = wx.Button(panel, ID_RANGE_CANCEL, 'Cancel', size=(56, 28))
+		sizer.Add(cancel, pos=(row+0, 1),  flag=wx.RIGHT|wx.BOTTOM, border=5)
+		
+		#
+		# Fill in values
+		#
+		self.offsetText.SetValue("%.3f" % self.parent.offset)
+		self.durationText.SetValue("%.3f" % self.parent.duration)
+		if self.parent.offset == 0 and self.parent.duration < 0:
+			self.wholeFileButton.SetValue(True)
+			self.offsetText.Disable()
+			self.durationText.Disable()
+			
+		#
+		# Set the operational mode
+		#
+		if self.mode != 'Adjust':
+			cancel.Disable()
+		
+		panel.SetSizerAndFit(sizer)
+		
+	def initEvents(self):
+		self.Bind(wx.EVT_CHECKBOX, self.onWholeFileToggle, id=ID_RANGE_WHOLE)
+		
+		self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_RANGE_OK)
+		self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_RANGE_CANCEL)
+		
+	def onWholeFileToggle(self, event):
+		if self.wholeFileButton.GetValue():
+			self.offsetText.Disable()
+			self.durationText.Disable()
+		else:
+			self.offsetText.Enable()
+			self.durationText.Enable()
+		
+	def onOk(self, event):
+		# Get values
+		if self.wholeFileButton.GetValue():
+			newOffset = 0.0
+			newDuration = -1.0
+		else:
+			newOffset = float(self.offsetText.GetValue())
+			newDuration = float(self.durationText.GetValue())
+		
+		# Figure out if we need to update
+		needToUpdate = False
+		if self.parent.offset != newOffset:
+			needToUpdate = True
+			self.parent.offset = newOffset
+		if self.parent.duration != newDuration:
+			needToUpdate = True
+			self.parent.duration = newDuration
+		
+		try:
+			if needToUpdate or self.mode == 'New':
+				self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename))
+				self.parent.data.render()
+				self.parent.data.draw()
+		except Exception, e:
+			print "ERROR: %s" % str(e)
+		else:
+			self.Close()
+		
+	def onCancel(self, event):
+		self.Close()
 
 
 ID_BANDPASS_CUT_INC = 100
@@ -1650,13 +1921,18 @@ class WaterfallDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
-		cm = self.figure.colorbar(m, ax=self.ax1)
+		try:
+			cm = self.figure.colorbar(m, use_gridspec=True)
+		except:
+			if len(self.frame.figure1a.get_axes()) > 1:
+				self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
+			cm = self.figure.colorbar(m)
 		cm.ax.set_ylabel('PSD [arb. dB]')
 		self.ax1.axis('auto')
 		self.ax1.set_xlim((freq[0]/1e6, freq[-1]/1e6))
 		self.ax1.set_ylim((self.parent.data.time[0], self.parent.data.time[-1]))
 		self.ax1.set_xlabel('Frequency [MHz]')
-		self.ax1.set_ylabel('Elapsed Time [s]')
+		self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
 		
 		## Draw and save the click (Why?)
@@ -1791,9 +2067,9 @@ class DriftCurveDisplay(wx.Frame):
 		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
 		
 		self.ax1.plot(self.parent.data.time, to_dB(self.drift[:,self.parent.data.index]), linestyle='-', marker='x')
-		self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
-		self.ax1.set_xlabel('Elapsed Time [s]')
 		self.ax1.set_ylabel('Inner 75% Total Power [arb. dB]')
+		self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
+		self.ax1.set_xlabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
 		
 		## Draw and save the click (Why?)
@@ -1820,7 +2096,7 @@ class DriftCurveDisplay(wx.Frame):
 			
 			dataX = numpy.where(numpy.abs(clickX-self.parent.data.time) == (numpy.abs(clickX-self.parent.data.time).min()))[0][0]
 			
-			ts = datetime.utcfromtimestamp(self.parent.data.timesNPZ[dataX])
+			ts = datetime.utcfromtimestamp(self.parent.data.timesNPZRestricted[dataX])
 			self.site.date = ts.strftime('%Y/%m/%d %H:%M:%S')
 			lst = self.site.sidereal_time()
 			
@@ -1855,12 +2131,24 @@ class DriftCurveDisplay(wx.Frame):
 
 
 def main(args):
+	# Turn off all NumPy warnings to keep stdout clean
+	errs = numpy.geterr()
+	numpy.seterr(invalid='ignore', divide='ignore')
+	
+	# Parse the command line options
+	config = parseOptions(args)
+	
+	# Go!
 	app = wx.App(0)
 	frame = MainWindow(None, -1)
-	if len(args) == 1:
-		frame.filename = args[0]
+	if len(config['args']) == 1:
+		frame.filename = config['args'][0]
+		frame.offset = config['offset']
+		frame.duration = config['duration']
 		frame.data = Waterfall_GUI(frame)
-		frame.data.loadData(args[0])
+		frame.data.loadData(config['args'][0])
+		frame.render()
+		frame.data.render()
 		frame.data.draw()
 		
 		if frame.data.filenames is None:

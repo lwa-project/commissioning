@@ -307,6 +307,8 @@ class Waterfall_GUI(object):
 		# Other data to keep around
 		self.timesNPZ = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
 		obs['time'].read_direct(self.timesNPZ)
+		self.timesNPZRestricted = numpy.zeros(self.spec.shape[0], dtype=obs['time'].dtype)
+		obs['time'].read_direct(self.timesNPZRestricted, numpy.s_[self.iOffset:self.iOffset+self.iDuration])
 		
 		# Deal with the potential for aggregated files
 		self.tIntActual = self.tInt
@@ -575,9 +577,9 @@ class Waterfall_GUI(object):
 		
 		if self.filenames is None:
 			if self.bandpass:
-				self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+				self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
 			else:
-				self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZ[dataY]))
+				self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
 		else:
 			if self.bandpass:
 				self.ax2.set_title("%s + bandpass" % self.filenames[dataY])
@@ -2697,7 +2699,7 @@ class DriftCurveDisplay(wx.Frame):
 			
 			dataX = numpy.where(numpy.abs(clickX-self.parent.data.time) == (numpy.abs(clickX-self.parent.data.time).min()))[0][0]
 			
-			ts = datetime.utcfromtimestamp(self.parent.data.timesNPZ[dataX])
+			ts = datetime.utcfromtimestamp(self.parent.data.timesNPZRestricted[dataX])
 			self.site.date = ts.strftime('%Y/%m/%d %H:%M:%S')
 			lst = self.site.sidereal_time()
 			
