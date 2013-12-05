@@ -269,10 +269,10 @@ def main(args):
 		out = raw_input("Polarization (X/Y): ")
 		outfile.attrs["POLARIZATION"] = out
 		dset1 = group1.create_dataset("Timesteps", (nChunks,3), numpy.float64, maxshape=(nChunks,3))
-		dset2 = group2.create_dataset("Tuning1",(LFFT-1, ), '<f8', maxshape=(LFFT-1, ) )
-		dset3 = group2.create_dataset("Tuning2",(LFFT-1, ), '<f8', maxshape=(LFFT-1, ) )
-		dset4 = group3.create_dataset("Tuning1", (nChunks, 3, LFFT-1), numpy.complex64,maxshape=(nChunks, 3, LFFT-1))
-		dset5 = group3.create_dataset("Tuning2", (nChunks, 3, LFFT-1), numpy.complex64,maxshape=(nChunks, 3, LFFT-1))
+		dset2 = group2.create_dataset("Tuning1",(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, ), '<f8', maxshape=(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, ) )
+		dset3 = group2.create_dataset("Tuning2",(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, ), '<f8', maxshape=(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, ) )
+		dset4 = group3.create_dataset("Tuning1", (nChunks, 3, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT), numpy.complex64,maxshape=(nChunks, 3, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
+		dset5 = group3.create_dataset("Tuning2", (nChunks, 3, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT), numpy.complex64,maxshape=(nChunks, 3, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
 		
 		pb = ProgressBar(max=nChunks)
 		tsec = numpy.zeros(1, dtype=numpy.float64)
