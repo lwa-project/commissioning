@@ -8,6 +8,7 @@ import copy
 import pytz
 import ephem
 import numpy
+import getopt
 import pyfits
 from calendar import timegm
 from datetime import datetime
@@ -18,7 +19,7 @@ from lsl.statistics.robust import *
 from lsl.correlator import uvUtils
 from lsl.writer.fitsidi import NumericStokes
 
-from lsl.imaging import utils
+from lsl.imaging import utils, selfCal
 from lsl.sim import vis as simVis
 
 from matplotlib.mlab import griddata
@@ -30,21 +31,79 @@ MST = pytz.timezone('US/Mountain')
 UTC = pytz.UTC
 
 
+def usage(exitCode=None):
+	print """applySelfCalTBW2.py - Self-calibrate a TBW FITS IDI file
+
+Usage: applySelfCalTBW2.py [OPTIONS] file
+
+Options:
+-h, --help             Display this help information
+-r, --reference        Reference stand to use (default = 173)
+-l, --lower            Lowest frequency to consider in MHz 
+                       (default = 35 MHz)
+-u, --upper            Highest frequency to consider in MHz
+                       (default = 85 MHz)
+-p, --plot             Plot the results at the end (default = no)
+"""
+
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseConfig(args):
+	config = {}
+	# Command line flags - default values
+	config['refAnt'] = 173
+	config['freqLimits'] = [35e6, 85e6]
+	config['plot'] = False
+
+	# Read in and process the command line flags
+	try:
+		opts, arg = getopt.getopt(args, "hr:l:u:p", ["help", "reference=", "lower=", "upper=", "plot"])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+	
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-r', '--reference'):
+			config['refAnt'] = int(value)
+		elif opt in ('-l', '--lower'):
+			config['freqLimits'][0] = float(value)
+		elif opt in ('-u', '--upper'):
+			config['freqLimits'][1] = float(value)
+		elif opt in ('-p', '--plot'):
+			config['plot'] = True
+		else:
+			assert False
+			
+	# Add in arguments
+	config['args'] = arg
+
+	# Return configuration
+	return config
+
+
 def graticle(ax, lst, lat, label=True):
 	"""
 	For a matplotlib axis instance showing an image of the sky, plot lines of
 	constant declinate and RA.  Declinations are spaced at 20 degree intervals
 	and RAs are spaced at 2 hour intervals.
-
+	
 	.. note::
 		LST and latitude values should be passed as radians.  This is the default
 		for lwa1.getObserver.sidereal_time() and lwa1.getObserver().lat.
 	"""
-
+	
 	# Lines of constant declination first
 	decs = range(-80, 90, 20)
 	ras = numpy.linspace(0, 360, 800)
-
+	
 	x = numpy.zeros(ras.size)
 	x = numpy.ma.array(x, mask=numpy.zeros(ras.size))
 	y = numpy.zeros(ras.size)
@@ -53,7 +112,7 @@ def graticle(ax, lst, lat, label=True):
 	for dec in decs:
 		x *= 0
 		y *= 0
-
+		
 		# Loop over RA to compute the topocentric coordinates (used by the image) for
 		# the lines.  Also, figure out the elevation for each point on the line so
 		# we can mask those below the horizon
@@ -61,7 +120,7 @@ def graticle(ax, lst, lat, label=True):
 			eq = aipy.coord.radec2eq((-lst + ra*numpy.pi/180,dec*numpy.pi/180))
 			xyz = numpy.dot(aipy.coord.eq2top_m(0, lat), eq)
 			az,alt = aipy.coord.top2azalt(xyz)
-					
+			
 			x[i] = xyz[0]
 			y[i] = xyz[1]
 			if alt <= 0:
@@ -70,25 +129,25 @@ def graticle(ax, lst, lat, label=True):
 			else:
 				x.mask[i] = 0
 				y.mask[i] = 0
-	
+				
 		ax.plot(x, y, color='white', alpha=0.75)
-			
+		
 		eq = aipy.coord.radec2eq((-lst + lst,(dec+5)*numpy.pi/180))
 		xyz = numpy.dot(aipy.coord.eq2top_m(0, lat), eq)
 		az,alt = aipy.coord.top2azalt(xyz)
-			
+		
 		if alt > 15*numpy.pi/180 and label:
 			ax.text(xyz[0], xyz[1], '%+i$^\circ$' % dec, color='white')
-
-	# Lines of constant RA			
+			
+	# Lines of constant RA
 	decs = numpy.linspace(-80, 80, 400)
 	ras = range(0,360,30)
-
+	
 	x = numpy.zeros(decs.size)
 	x = numpy.ma.array(x, mask=numpy.zeros(decs.size))
 	y = numpy.zeros(decs.size)
 	y = numpy.ma.array(y, mask=numpy.zeros(decs.size))
-
+	
 	for ra in ras:
 		x *= 0
 		y *= 0
@@ -109,20 +168,20 @@ def graticle(ax, lst, lat, label=True):
 			else:
 				x.mask[i] = 0
 				y.mask[i] = 0
-		
+				
 		ax.plot(x, y, color='white', alpha=0.75)
-
+		
 		eq = aipy.coord.radec2eq((-lst + ra*numpy.pi/180,0))
 		xyz = numpy.dot(aipy.coord.eq2top_m(0, lat), eq)
 		az,alt = aipy.coord.top2azalt(xyz)
-
+		
 		if alt > 20*numpy.pi/180 and label:
 			ax.text(xyz[0], xyz[1], '%i$^h$' % (ra/15,), color='white')
 
 
-
 def main(args):
-	filename = args[0]
+	config = parseConfig(args)
+	filename = config['args'][0]
 	
 	idi = utils.CorrelatedData(filename)
 	aa = idi.getAntennaArray()
@@ -141,9 +200,8 @@ def main(args):
 	print "Polarization Products: %i starting with %i" % (len(idi.pols), idi.pols[0])
 	print "JD: %.3f" % jd
 	
-	# Pull out the middle channels (inner 1/2 of the band)
-	toWork = numpy.where((freq>=35e6) & (freq<=80e6))[0]
-	#toWork = [toWork[0], freq.size/2, toWork[-1]]
+	# Pull out something reasonable
+	toWork = numpy.where((freq>=config['freqLimits'][0]) & (freq<=config['freqLimits'][1]))[0]
 	
 	print "Reading in FITS IDI data"
 	nSets = idi.totalBaselineCount / (nStand*(nStand+1)/2)
@@ -156,7 +214,7 @@ def main(args):
 		# Gather up the polarizations and baselines
 		pols = dataDict['jd'].keys()
 		bls = dataDict['bls'][pols[0]]
-		print "The reduced list has %i baselines" % len(bls)
+		print "The reduced list has %i baselines and %i channels" % (len(bls), len(toWork))
 		
 		# Build a list of unique JDs for the data
 		jdList = []
@@ -168,42 +226,14 @@ def main(args):
 		print "Building Model"
 		simDict = simVis.buildSimData(aa, simVis.srcs, jd=[jdList[0],], pols=pols, baselines=bls)
 		
-		scMode = 4
-		refAnt = 173
-		print "    Running self cal. %i" % scMode
-		if scMode == 1:
-			import selfCal
-			simDict  = utils.sortDataDict(simDict)
-			dataDict = utils.sortDataDict(dataDict)
-			fixedDataXX, gainsXX, delaysXX = selfCal.selfCal(aa, dataDict, simDict, toWork, 'xx', refAnt=refAnt, returnDelays=True)
-			fixedDataYY, gainsYY, delaysYY = selfCal.selfCal(aa, dataDict, simDict, toWork, 'yy', refAnt=refAnt, returnDelays=True)
-			fixedFullXX = simVis.scaleData(fullDict, gainsXX*0+1, delaysXX)
-			fixedFullYY = simVis.scaleData(fullDict, gainsYY*0+1, delaysYY)
-		elif scMode == 2:
-			import selfCal2 as selfCal
-			simDict  = utils.sortDataDict(simDict)
-			dataDict = utils.sortDataDict(dataDict)
-			fixedDataXX, gainsXX, delaysXX = selfCal.selfCal(aa, dataDict, simDict, toWork, 'xx', refAnt=refAnt, returnDelays=True)
-			fixedDataYY, gainsYY, delaysYY = selfCal.selfCal(aa, dataDict, simDict, toWork, 'yy', refAnt=refAnt, returnDelays=True)
-			fixedFullXX = simVis.scaleData(fullDict, gainsXX*0+1, delaysXX)
-			fixedFullYY = simVis.scaleData(fullDict, gainsYY*0+1, delaysYY)
-		elif scMode == 3:
-			import selfCal3 as selfCal
-			simDict  = utils.sortDataDict(simDict)
-			dataDict = utils.sortDataDict(dataDict)
-			fixedDataXX, gainsXX, delaysXX, phasesXX = selfCal.selfCal(aa, dataDict, simDict, toWork, 'xx', refAnt=refAnt, returnDelays=True)
-			fixedDataYY, gainsYY, delaysYY, phasesYY = selfCal.selfCal(aa, dataDict, simDict, toWork, 'yy', refAnt=refAnt, returnDelays=True)
-			fixedFullXX = selfCal.scaleData(fullDict, gainsXX*0+1, delaysXX, phasesXX)
-			fixedFullYY = selfCal.scaleData(fullDict, gainsYY*0+1, delaysYY, phasesYY)
-		else:
-			import selfCal4 as selfCal
-			simDict  = utils.sortDataDict(simDict)
-			dataDict = utils.sortDataDict(dataDict)
-			fixedDataXX, gainsXX, delaysXX = selfCal.selfCal(aa, dataDict, simDict, toWork, 'xx', refAnt=refAnt, returnDelays=True)
-			fixedDataYY, gainsYY, delaysYY = selfCal.selfCal(aa, dataDict, simDict, toWork, 'yy', refAnt=refAnt, returnDelays=True)
-			fixedFullXX = simVis.scaleData(fullDict, gainsXX*0+1, delaysXX)
-			fixedFullYY = simVis.scaleData(fullDict, gainsYY*0+1, delaysYY)
-			
+		print "Running self cal."
+		simDict  = utils.sortDataDict(simDict)
+		dataDict = utils.sortDataDict(dataDict)
+		fixedDataXX, delaysXX = selfCal.delayOnly(aa, dataDict, simDict, toWork, 'xx', refAnt=config['refAnt'], nIter=60)
+		fixedDataYY, delaysYY = selfCal.delayOnly(aa, dataDict, simDict, toWork, 'yy', refAnt=config['refAnt'], nIter=60)
+		fixedFullXX = simVis.scaleData(fullDict, delaysXX*0+1, delaysXX)
+		fixedFullYY = simVis.scaleData(fullDict, delaysYY*0+1, delaysYY)
+		
 		print "    Saving results"
 		outname = os.path.split(filename)[1]
 		outname = os.path.splitext(outname)[0]
@@ -219,95 +249,96 @@ def main(args):
 		fh.write("# 5) Y pol. delay (ns)         #\n")
 		fh.write("#                              #\n")
 		fh.write("################################\n")
-		for i in xrange(gainsXX.size):
-			fh.write("%3i  %.6g  %.6g  %.6g  %.6g\n" % (idi.stands[i], gainsXX[i], delaysXX[i], gainsYY[i], delaysYY[i]))
+		for i in xrange(delaysXX.size):
+			fh.write("%3i  %.6g  %.6g  %.6g  %.6g\n" % (idi.stands[i], 1.0, delaysXX[i], 1.0, delaysYY[i]))
 		fh.close()
 
 		# Build up the images for each polarization
-		print "    Gridding"
-		toWork = numpy.where((freq>=80e6) & (freq<=82e6))[0]
-		try:
-			imgXX = utils.buildGriddedImage(fullDict, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
-		except:
-			imgXX = None
-			
-		try:
-			imgYY = utils.buildGriddedImage(fullDict, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
-		except:
-			imgYY = None
-			
-		try:
-			simgXX = utils.buildGriddedImage(simDict, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
-		except:
-			simgXX = None
-		try:
-			simgYY = utils.buildGriddedImage(simDict, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
-		except:
-			simgYY = None
-			
-		try:
-			fimgXX = utils.buildGriddedImage(fixedFullXX, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
-		except:
-			fimgXX = None
-		try:
-			fimgYY = utils.buildGriddedImage(fixedFullYY, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
-		except:
-			fimgYY = None
-			
-		# Plots
-		print "    Plotting"
-		fig = plt.figure()
-		ax1 = fig.add_subplot(3, 2, 1)
-		ax2 = fig.add_subplot(3, 2, 2)
-		ax3 = fig.add_subplot(3, 2, 3)
-		ax4 = fig.add_subplot(3, 2, 4)
-		ax5 = fig.add_subplot(3, 2, 5)
-		ax6 = fig.add_subplot(3, 2, 6)
-		for ax, img, pol in zip([ax1, ax2, ax3, ax4, ax5, ax6], [imgXX, imgYY, simgXX, simgYY, fimgXX, fimgYY], ['XX', 'YY', 'simXX', 'simYY', 'scalXX', 'scalYY']):
-			# Skip missing images
-			if img is None:	
-				ax.text(0.5, 0.5, 'Not found in file', color='black', size=12, horizontalalignment='center')
+		if config['plot']:
+			print "    Gridding"
+			toWork = numpy.where((freq>=80e6) & (freq<=82e6))[0]
+			try:
+				imgXX = utils.buildGriddedImage(fullDict, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
+			except:
+				imgXX = None
 				
+			try:
+				imgYY = utils.buildGriddedImage(fullDict, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
+			except:
+				imgYY = None
+				
+			try:
+				simgXX = utils.buildGriddedImage(simDict, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
+			except:
+				simgXX = None
+			try:
+				simgYY = utils.buildGriddedImage(simDict, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
+			except:
+				simgYY = None
+				
+			try:
+				fimgXX = utils.buildGriddedImage(fixedFullXX, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
+			except:
+				fimgXX = None
+			try:
+				fimgYY = utils.buildGriddedImage(fixedFullYY, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
+			except:
+				fimgYY = None
+				
+			# Plots
+			print "    Plotting"
+			fig = plt.figure()
+			ax1 = fig.add_subplot(3, 2, 1)
+			ax2 = fig.add_subplot(3, 2, 2)
+			ax3 = fig.add_subplot(3, 2, 3)
+			ax4 = fig.add_subplot(3, 2, 4)
+			ax5 = fig.add_subplot(3, 2, 5)
+			ax6 = fig.add_subplot(3, 2, 6)
+			for ax, img, pol in zip([ax1, ax2, ax3, ax4, ax5, ax6], [imgXX, imgYY, simgXX, simgYY, fimgXX, fimgYY], ['XX', 'YY', 'simXX', 'simYY', 'scalXX', 'scalYY']):
+				# Skip missing images
+				if img is None:	
+					ax.text(0.5, 0.5, 'Not found in file', color='black', size=12, horizontalalignment='center')
+					
+					ax.xaxis.set_major_formatter( NullFormatter() )
+					ax.yaxis.set_major_formatter( NullFormatter() )
+					
+					ax.set_title("%s @ %s LST" % (pol, lst))
+					continue
+				
+				# Display the image and label with the polarization/LST
+				out = img.image(center=(80,80))
+				print pol, out.min(), out.max()
+				#if pol == 'scalXX':
+					#out = numpy.rot90(out)
+					#out = numpy.rot90(out)
+				cb = ax.imshow(out, extent=(1,-1,-1,1), origin='lower', 
+						vmin=img.image().min(), vmax=img.image().max())
+				fig.colorbar(cb, ax=ax)
+				ax.set_title("%s @ %s LST" % (pol, lst))
+				
+				# Turn off tick marks
 				ax.xaxis.set_major_formatter( NullFormatter() )
 				ax.yaxis.set_major_formatter( NullFormatter() )
 				
-				ax.set_title("%s @ %s LST" % (pol, lst))
-				continue
-			
-			# Display the image and label with the polarization/LST
-			out = img.image(center=(80,80))
-			print pol, out.min(), out.max()
-			#if pol == 'scalXX':
-				#out = numpy.rot90(out)
-				#out = numpy.rot90(out)
-			cb = ax.imshow(out, extent=(1,-1,-1,1), origin='lower', 
-					vmin=img.image().min(), vmax=img.image().max())
-			fig.colorbar(cb, ax=ax)
-			ax.set_title("%s @ %s LST" % (pol, lst))
-			
-			# Turn off tick marks
-			ax.xaxis.set_major_formatter( NullFormatter() )
-			ax.yaxis.set_major_formatter( NullFormatter() )
-
-			# Compute the positions of major sources and label the images
-			compSrc = {}
-			ax.plot(0, 0, marker='+', markersize=10, markeredgecolor='w')
-			for name,src in simVis.srcs.iteritems():
-				src.compute(aa)
-				top = src.get_crds(crdsys='top', ncrd=3)
-				az, alt = aipy.coord.top2azalt(top)
-				compSrc[name] = [az, alt]
-				if alt <= 0:
-					continue
-				ax.plot(top[0], top[1], marker='x', markerfacecolor='None', markeredgecolor='w', 
-						linewidth=10.0, markersize=10)
-				ax.text(top[0], top[1], name, color='white', size=12)
+				# Compute the positions of major sources and label the images
+				compSrc = {}
+				ax.plot(0, 0, marker='+', markersize=10, markeredgecolor='w')
+				for name,src in simVis.srcs.iteritems():
+					src.compute(aa)
+					top = src.get_crds(crdsys='top', ncrd=3)
+					az, alt = aipy.coord.top2azalt(top)
+					compSrc[name] = [az, alt]
+					if alt <= 0:
+						continue
+					ax.plot(top[0], top[1], marker='x', markerfacecolor='None', markeredgecolor='w', 
+							linewidth=10.0, markersize=10)
+					ax.text(top[0], top[1], name, color='white', size=12)
+					
+				# Add lines of constant RA and dec.
+				graticle(ax, lo.sidereal_time(), lo.lat)
 				
-			# Add lines of constant RA and dec.
-			graticle(ax, lo.sidereal_time(), lo.lat)
+			plt.show()
 			
-		#plt.show()
-
 	print "...Done"
 
 
