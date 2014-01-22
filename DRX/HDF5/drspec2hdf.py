@@ -154,6 +154,8 @@ def main(args):
         
 	# Report
 	print "Filename: %s" % filename
+        if config['metadata'] is not None:
+		print "Metadata: %s" % config['metadata']
 	print "Date of First Frame: %s" % beginDate
 	print "Beam: %i" % beam
 	print "Sample Rate: %i Hz" % srate
