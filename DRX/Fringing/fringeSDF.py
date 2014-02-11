@@ -200,8 +200,11 @@ def main(args):
 	print " "
 	
 	# Adjust the gain so that it matches the outlier better
-	bgain = 20.0 / (520 - len(bad))
-	
+	if config['beam']:
+		bgain = 20.0 / (520 - len(bad))
+	else:
+		bgain = 1.0
+		
 	# Setup the base gain lists for the different scenarios
 	baseEmptyGain = [0.0000, 0.0000, 0.0000, 0.0000]
 	if config['xPol']:
@@ -251,7 +254,7 @@ def main(args):
 		for i in xrange(len(stands)/2):
 			# Put the fringing stand in there all by itself
 			if stands[2*i] == config['dipole']:
-				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseDipoleGain]
+				gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseBeamGain]
 			
 			# Put the reference stand in there all by itself
 			if stands[2*i] == config['ref']:
@@ -267,7 +270,7 @@ def main(args):
 	sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if config['xPol'] else 'Y',)
 	observer = sdf.Observer("fringeSDF.py Observer", 99)
 	session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
-	project = sdf.Project(observer, "fringeSDF.py Project", 1, [session,])
+	project = sdf.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
 	obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, config['filter'], RADec=False)
 	stp = sdf.BeamStep(config['az'], config['el'], str(config['duration']), config['freq1'], config['freq2'], RADec=False, SpecDelays=delays, SpecGains=gains)
 	obs.append(stp)
