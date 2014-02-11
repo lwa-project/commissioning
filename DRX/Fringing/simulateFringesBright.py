@@ -90,7 +90,7 @@ def main(args):
 		jdList.append(jdNow)
 		dTimes.append( (times[i]-times[0]).seconds )
 		
-	# Acutally run the simulations
+	# Actually run the simulations
 	simDict1 = simVis.buildSimData(aa1, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
 	simDict2 = simVis.buildSimData(aa2, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
 

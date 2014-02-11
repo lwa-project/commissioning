@@ -24,7 +24,7 @@ from matplotlib import pyplot as plt
 
 def spectralKurtosis(x, N=1):
 	"""
-	Compute the spectral kurtosis for a set of power measurments averaged
+	Compute the spectral kurtosis for a set of power measurements averaged
 	over N FFTs.  For a distribution consistent with Gaussian noise, this
 	value should be ~1.
 	"""

@@ -3,7 +3,7 @@
 
 """
 Frank Schinzel's script to fringe special DRX files that have a beam X pol. 
-and a dipole on Y pol.  The visibilites are written to am HDF file.
+and a dipole on Y pol.  The visibilities are written to an HDF file.
 
 $Rev$
 $LastChangedBy$
