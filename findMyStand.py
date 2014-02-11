@@ -24,7 +24,7 @@ Usage: findMyStand.py [OPTIONS] stand1 [stand2 [...]]]
 
 Options:
 -h, --help             Display this help information
--v, --verbose          Run plotStands in vebose mode
+-v, --verbose          Run plotStands in verbose mode
 """
 
 	if exitCode is not None:

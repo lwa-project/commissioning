@@ -41,14 +41,14 @@ def main(args):
 				# What's this for?  There are two types of shelter logs:  Ones
 				# from polling MCS and writing to a file and ones produced by
 				# SHL MCS as part of its operation.  The first kind is space
-				# seperated and the second is comma seperated.  The second kind
+				# separated and the second is comma separated.  The second kind
 				# is also degrees C, rather than degrees F.
 				inF = False
 				fields = line.split(',')
 			fields = [float(f) for f in fields]
 			data.append( fields )
 
-	# Split out the time and interperate it
+	# Split out the time and interpret it
 	data = numpy.array(data)
 	order = numpy.argsort(data[:,0])
 	data = data[order,:]

@@ -71,7 +71,7 @@ def main(args):
 			# Convert all values to floats
 			data.append( [float(f) for f in fields] )
 
-	# Split out the time and interperate it
+	# Split out the time and interpret it
 	data = numpy.array(data)
 	order = numpy.argsort(data[:,0])
 	data = data[order,:]

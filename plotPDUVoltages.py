@@ -3,7 +3,7 @@
 
 """
 Given a /data/rack##.txt file (or one of the rotated backups) plot the PDU input
-voltage over time.  This script is designed to accept muliple files from multiple
+voltage over time.  This script is designed to accept multiple files from multiple
 rack if needed.
 
 $Rev$
@@ -53,7 +53,7 @@ def main(args):
 				data[rack] = []
 				data[rack].append( [float(f) for f in fields] )
 
-	# Split out the time and interperate it
+	# Split out the time and interpret it
 	dates = {}
 	for i,k in enumerate(data.keys()):
 		data[k] = numpy.array(data[k])
