@@ -54,7 +54,7 @@ Options:
 -l, --fft-length            Set FFT length (default = 4096)
 -c, --clip-level            FFT blanking clipping level in counts (default = 0, 
                             0 disables)
--e, --estimate-clip         Use robust statistics to estimate an approprite clip 
+-e, --estimate-clip         Use robust statistics to estimate an appropriate clip 
                             level (overrides the `-c` option)
 -m, --metadata              Metadata tarball for additional information
 -k, --stokes                Generate Stokes parameters instead of XX and YY
@@ -281,7 +281,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 		nChunks = 1
 	nFrames = nFramesAvg*nChunks
 	
-	# Date & Central Frequnecy
+	# Date & Central Frequency
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	centralFreq1 = 0.0
 	centralFreq2 = 0.0
@@ -453,7 +453,7 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 		nChunks = 1
 	nFrames = nFramesAvg*nChunks
 	
-	# Date & Central Frequnecy
+	# Date & Central Frequency
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	centralFreq1 = 0.0
 	centralFreq2 = 0.0
@@ -578,7 +578,7 @@ def main(args):
 	# Length of the FFT
 	LFFT = config['LFFT']
 
-	# Open the file and find good data (not spectreomter data)
+	# Open the file and find good data (not spectrometer data)
 	filename = config['args'][0]
 	fh = open(filename, "rb")
 	nFramesFile = os.path.getsize(filename) / drx.FrameSize
@@ -674,7 +674,7 @@ def main(args):
 		nChunks = 1
 	nFrames = nFramesAvg*nChunks
 	
-	# Date & Central Frequnecy
+	# Date & Central Frequency
 	t1  = junkFrame.getTime()
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	centralFreq1 = 0.0
@@ -813,7 +813,7 @@ def main(args):
 		try:
 			processDataBatch(fh, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
 		except RuntimeError, e:
-			print "Observation #%i: %s, abondonding this observation" % (o, str(e))
+			print "Observation #%i: %s, abandoning this observation" % (o, str(e))
 
 	# Save the output to a HDF5 file
 	f.close()

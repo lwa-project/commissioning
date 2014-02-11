@@ -33,7 +33,7 @@ Usage: splitObservations.py [OPTIONS] file
 Options:
 -h, --help                Display this help information
 -l, --list                List source names
--s, --source              Split by source name insted of observation 
+-s, --source              Split by source name instead of observation 
                           ID
 """
 
@@ -127,7 +127,7 @@ def main(args):
 				hOut.close()
 				
 		else:
-			# Loop over all of the observatons and create a new HDF5 file for each one
+			# Loop over all of the observations and create a new HDF5 file for each one
 			for obsName in h.keys():
 				obsID = int(obsName.replace('Observation', ''))
 				

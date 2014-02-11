@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Given a DRX HDF5 waterfall file, plot it in an interative way.
+Given a DRX HDF5 waterfall file, plot it in an interactive way.
 
 $Rev$
 $LastChangedBy$
@@ -271,7 +271,7 @@ class Waterfall_GUI(object):
 		self.sats[:,2:4] = part / (self.tInt * self.srate)
 		del part
 		# Mask out negative saturation values since that indicates the data is
-		# not avaliable
+		# not available
 		self.sats = numpy.ma.array(self.sats, mask=(self.sats < 0))
 		
 		mask1 = tuning1.get('Mask', None)
@@ -690,7 +690,7 @@ class Waterfall_GUI(object):
 		
 		kMean = 1.0
 		kStd  = skStd(secSize, N)
-		# Correction for some averaged data sets - probably not all that vaid
+		# Correction for some averaged data sets - probably not all that valid
 		# for more robust things.  However, this only hits the aggregated files
 		# since `self.filenames` is None for stand-alone files.
 		if self.filenames is not None:
