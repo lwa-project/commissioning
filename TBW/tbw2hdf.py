@@ -100,7 +100,7 @@ def main(args):
 	f.attrs['sampleRate'] = 196e6
 	f.attrs['sampleRate_units'] = 'Hz'
 	
-	## Create the digitzer to dataset lookup table and the 
+	## Create the digitizer to dataset lookup table and the 
 	standLookup = {}
 	standData = []
 	i = 0

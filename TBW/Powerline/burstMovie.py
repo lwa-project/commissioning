@@ -40,7 +40,7 @@ Options:
 -q, --quiet                 Run burstMovie.py in silent mode
 -t, --threshold             Minimum digitizer value to consider a burst 
                             (default = 2000)
--n, --no-movie              Do not create moive frames (burst-*.png)
+-n, --no-movie              Do not create movie frames (burst-*.png)
 """
 
 	if exitCode is not None:
@@ -250,8 +250,8 @@ def main(args):
 				first += 1
 		print "Second burst at %i" % first
 		
-		# Keep only what would be intested (200 samples before and 2,800 samples
-		# aftrward) around the burst.  This corresponds to a time range from 1 
+		# Keep only what would be interesting (200 samples before and 2,800 samples
+		# afterward) around the burst.  This corresponds to a time range from 1 
 		# microsecond before the start of the pulse to 14 microseconds later.  Save
 		# the aligned data snippet to a NPZ file.
 		alignedData = alignedData[:,first-200:first+2800]

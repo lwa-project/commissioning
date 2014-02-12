@@ -224,7 +224,7 @@ class TBW_GUI(object):
 		elif self.color == 1:
 			# Color by the value of the RFI-46 index.  This index is the maximum 
 			# ratio of the spectrum and the master template between 45 and 47 MHz.
-			# The value of RFI-46 is also corrected for any systimatic offset 
+			# The value of RFI-46 is also corrected for any systematic offset 
 			# between the spectrum and the template by looking at the 75 to 77 MHz
 			# region.
 			specDiff = numpy.zeros(self.spec.shape[0])
@@ -239,7 +239,7 @@ class TBW_GUI(object):
 		elif self.color == 2:
 			# Color by the value of the RFI-64 index.  This index is the maximum 
 			# ratio of the spectrum and the master template between 63 and 65 MHz.
-			# The value of RFI-64 is also corrected for any systimatic offset 
+			# The value of RFI-64 is also corrected for any systematic offset 
 			# between the spectrum and the template by looking at the 75 to 77 MHz
 			# region.
 			specDiff = numpy.zeros(self.spec.shape[0])
@@ -259,7 +259,7 @@ class TBW_GUI(object):
 				
 			cbTitle = 'Antenna Status'
 		else:
-			# Color by the estimated resonsonce point frequency.  This is done 
+			# Color by the estimated resonance point frequency.  This is done 
 			# by finding the best-fit polynomial in between orders 3 and 12 
 			# for the 31 to 70 MHz spectral region.  The best-fit polynomial is
 			# then evaluated to find its maximum value and that is used as the 
@@ -334,7 +334,7 @@ class TBW_GUI(object):
 		"""
 		
 		if preferStand is None:
-			## Figure out who is who and which antennas are cloests to the 
+			## Figure out who is who and which antennas are closest to the 
 			## clicked point.  This can be a little slow so the results are
 			## saved to the bestX and bestX attributes (depending on pol.)
 			dist = 1e9
@@ -379,7 +379,7 @@ class TBW_GUI(object):
 
 	def makeMark(self, clickX, clickY):
 		"""
-		Mark the cloests stand to the clicked point.  This needs to be called
+		Mark the closest stand to the clicked point.  This needs to be called
 		after drawSpectrum() since that function figures out which stand is
 		closest.
 		"""
@@ -976,7 +976,7 @@ Gain @ 10 MHz: %.1f dB
 		
 	def onFEE(self, event):
 		"""
-		Display meta-data about the FEE installed in the selecte stand.  
+		Display meta-data about the FEE installed in the selected stand.  
 		This includes:
 		  * ID name
 		  * which antennas are connected to which ports
@@ -1266,7 +1266,7 @@ class ContrastAdjust(wx.Frame):
 		sizer = wx.GridBagSizer(5, 5)
 		
 		if self.parent.data.color == 0:
-			mode = 'Median Comparision'
+			mode = 'Median Comparison'
 		elif self.parent.data.color == 1:
 			mode = 'RFI-46 Index'
 		elif self.parent.data.color == 2:
@@ -1906,7 +1906,7 @@ STATUS_CHANGE_CANCEL = 202
 
 class StatusChangeDialog(wx.Frame):
 	"""
-	Window for chaning the status of an antenna or FEE.
+	Window for changing the status of an antenna or FEE.
 	"""
 	
 	def __init__ (self, parent):	

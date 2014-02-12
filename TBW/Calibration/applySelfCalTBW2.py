@@ -92,7 +92,7 @@ def parseConfig(args):
 def graticle(ax, lst, lat, label=True):
 	"""
 	For a matplotlib axis instance showing an image of the sky, plot lines of
-	constant declinate and RA.  Declinations are spaced at 20 degree intervals
+	constant declination and RA.  Declinations are spaced at 20 degree intervals
 	and RAs are spaced at 2 hour intervals.
 	
 	.. note::
@@ -152,7 +152,7 @@ def graticle(ax, lst, lat, label=True):
 		x *= 0
 		y *= 0
 		
-		# Loop over dec to compute the topocentric coordinates (used by the image) for
+		# Loop over dec. to compute the topocentric coordinates (used by the image) for
 		# the lines.  Also, figure out the elevation for each point on the line so
 		# we can mask those below the horizon
 		for i,dec in enumerate(decs):

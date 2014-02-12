@@ -1,7 +1,7 @@
 Prototype DP System - TBW Scipts
 ================================
 This directory provides a variety of scripts to work with the 20 output DP
-Prototype system.  This system was orignally installed at LWA1 before the 
+Prototype system.  This system was originally installed at LWA1 before the 
 delivery of the full DP and not resides at the North Arm site.  All scripts
 mentioned here uses the lwana-ssmif.txt file for mappings.
 
