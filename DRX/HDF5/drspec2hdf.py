@@ -33,6 +33,7 @@ Options:
 -h, --help                  Display this help information
 -s, --skip                  Skip foward the specified number of seconds into the file
 -m, --metadata              Metadata tarball for additional information
+-d, --sdf                   SDF for additional information
 """
 	
 	if exitCode is not None:
@@ -46,11 +47,12 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['offset'] = 0.0
 	config['metadata'] = None
+	config['sdf'] = None
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:m:", ["help", "skip=", "metadata=",])
+		opts, args = getopt.getopt(args, "hs:m:d:", ["help", "skip=", "metadata=", "sdf="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -66,11 +68,13 @@ def parseOptions(args):
 			config['offset'] = float(value)
 		elif opt in ('-m', '--metadata'):
 			config['metadata'] = value
+		elif opt in ('-d', '--sdf'):
+			config['sdf'] = value
 		else:
 			assert False
 	
 	# Make sure we aren't offsetting when we have metadata
-	if config['metadata'] is not None:
+	if config['metadata'] is not None or config['sdf'] is not None:
 		config['offset'] = 0.0
 		
 	# Add in arguments
@@ -154,8 +158,10 @@ def main(args):
         
 	# Report
 	print "Filename: %s" % filename
-        if config['metadata'] is not None:
+	if config['metadata'] is not None:
 		print "Metadata: %s" % config['metadata']
+	elif config['sdf'] is not None:
+		print "SDF: %s" % config['sdf']
 	print "Date of First Frame: %s" % beginDate
 	print "Beam: %i" % beam
 	print "Sample Rate: %i Hz" % srate
@@ -191,6 +197,25 @@ def main(args):
 			obsList[i+1] = (sdfStart, sdfStop, obsChunks)
 			
 		hdfData.fillFromMetabundle(f, config['metadata'])
+		
+	elif config['sdf'] is not None:
+		from lsl.common.sdf import parseSDF
+		sdf = parseSDF(config['sdf'])
+		
+		sdfBeam  = sdf.sessions[0].drxBeam
+		spcSetup = sdf.sessions[0].spcSetup
+		if sdfBeam != beam:
+			raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
+			
+		for i,obs in enumerate(sdf.sessions[0].observations):
+			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
+			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
+			obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
+			
+			obsList[i+1] = (sdfStart, sdfStop, obsChunks)
+			
+		hdfData.fillFromSDF(f, config['sdf'])
+		
 	else:
 		obsList[1] = (beginDate, datetime(2222,12,31,23,59,59), nChunks)
 		

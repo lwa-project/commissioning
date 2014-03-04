@@ -13,13 +13,14 @@ import h5py
 import numpy
 from datetime import datetime
 
+from lsl.common.sdf import parseSDF
 from lsl.common import dp, mcs, metabundle
 from lsl.reader.drx import filterCodes
 
 
-__version__ = "0.3"
+__version__ = "0.4"
 __revision__ = "$Rev$"
-__all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'getObservationSet', 'createDataSets', 'getDataSet', 
+__all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF', 'getObservationSet', 'createDataSets', 'getDataSet', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -216,6 +217,127 @@ def fillFromMetabundle(f, tarball):
 						dataG[i,1+4*j+1] = _valuetoGain(s.gain[j][0][1])
 						dataG[i,1+4*j+2] = _valuetoGain(s.gain[j][1][0])
 						dataG[i,1+4*j+3] = _valuetoGain(s.gain[j][1][1])
+						
+				# Save the gains
+				gais[:,:] = dataG
+				
+	return True
+
+
+def fillFromSDF(f, sdfFilename):
+	"""
+	Fill in a HDF5 file based off an input session definition file.
+	"""
+	
+	# Pull out what we need from the tarball
+	sdf = parseSDF(sdfFilename)
+	
+	# Observer and Project Info.
+	f.attrs['ObserverID'] = sdf.observer.id
+	f.attrs['ObserverName'] = sdf.observer.name
+	f.attrs['ProjectID'] = sdf.id
+	f.attrs['SessionsID'] = sdf.sessions[0].id
+	
+	# Input file info.
+	f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
+	
+	for i,obsS in enumerate(sdf.sessions[0].observations):
+		# Detailed observation information
+		obsD = metabundle.getObservationSpec(tarball, selectObs=i+1)
+
+		# Get the group or create it if it doesn't exist
+		grp = f.get('/Observation%i' % (i+1,), None)
+		if grp is None:
+			grp = f.create_group('/Observation%i' % (i+1))
+
+		# Target info.
+		grp.attrs['ObservationName'] = obsS.name
+		grp.attrs['TargetName'] = obsS.target
+		grp.attrs['RA'] = obsS.ra
+		grp.attrs['RA_Units'] = 'hours'
+		grp.attrs['Dec'] = obsS.dec
+		grp.attrs['Dec_Units'] = 'degrees'
+		grp.attrs['Epoch'] = 2000.0
+		grp.attrs['TrackingMode'] = obsS.mode
+	
+		# Observation info
+		grp.attrs['Beam'] = sdf.sessions[0].drxBeam
+		grp.attrs['DRX_Gain'] = obsS.drxGain
+		grp.attrs['sampleRate'] = float(filterCodes[obsS.filter])
+		grp.attrs['sampleRate_Units'] = 'samples/s'
+	
+		# Deal with stepped mode
+		if obsS.mode == 'STEPPED':
+			stps = grp.create_group('Pointing')
+			stps.attrs['StepType'] = 'RA/Dec' if obsD['StepRADec'] else 'Az/Alt'
+			stps.attrs['col0'] = 'StartTime'
+			stps.attrs['col0_Unit'] = 's'
+			stps.attrs['col1'] = 'RA' if obsS.RADec else 'Azimuth'
+			stps.attrs['col1_Unit'] = 'h' if obsS.RADec else 'd'
+			stps.attrs['col2'] = 'Dec' if obsS.RADec else 'Elevation'
+			stps.attrs['col2_Unit'] = 'd'
+			stps.attrs['col3'] = 'Tuning1'
+			stps.attrs['col3_Unit'] = 'Hz'
+			stps.attrs['col4'] = 'Tuning2'
+			stps.attrs['col4_Unit'] = 'Hz'
+		
+			# Extract the data for the steps
+			data = numpy.zeros((len(obsS.steps), 5))
+			t = obsD.mjd*86400.0 + obsS.mpm/1000.0 - 3506716800.0
+			for i,s in enumerate(obsS.steps):
+				data[i,0] = t
+				data[i,1] = s.c1
+				data[i,2] = s.c2
+				data[i,3] = dp.word2freq(s.freq1)
+				data[i,4] = dp.word2freq(s.freq2)
+			
+				## Update the start time for the next step
+				t += s.dur / 1000.0
+				
+			# Save it
+			stps['Steps'] = data
+				
+			# Deal with specified delays and gains if needed
+			if obsS.steps[0].delays is not None and obsS.steps[0].gains is not None:
+				cbfg = grp.create_group('CustomBeamforming')
+				dlys = cbfg.create_dataset('Delays', (len(obsS.steps), 520+1), 'f4')
+				dlys.attrs['col0'] = 'StartTime'
+				dlys.attrs['col0_Unit'] = 's'
+				for j in xrange(520):
+					dlys.attrs['col%i' % (j+1)] = 'DP Digitizer %i' % (j+1)
+					dlys.attrs['col%i_Unit' % (j+1)] = 'ns'
+					
+				# Extract the delays
+				dataD = numpy.zeros((len(obsS.steps), 520+1))
+				t = obsS.mjd*86400.0 + obsS.mpm/1000.0 - 3506716800.0
+				for i,s in enumerate(obsS.steps):
+					dataD[i,0] = t
+					for j in xrange(520):
+						dataD[i,1+j] = _valuetoDelay(s.delays[j])
+						
+				# Save the delays
+				dlys[:,:] = dataD
+				
+				gais = cbfg.create_dataset('Gains', (len(obsS.steps), 260*2*2+1), 'f4')
+				gais.attrs['col0'] = 'StartTime'
+				gais.attrs['col0_Unit'] = 's'
+				m = 1
+				for j in xrange(260):
+					for k in xrange(2):
+						for l in xrange(2):
+							gais.attrs['col%i' % m] = 'DP Stand %i %s contribution to beam %s' % (j+1, 'X' if k == 0 else 'Y', 'X' if l == 0 else 'Y')
+							gais.attrs['col%i_Unit' % m] = 'None'
+							m += 1
+							
+				# Extract the gains
+				dataG = numpy.zeros((len(obsS.steps), 260*2*2+1))
+				for i,s in enumerate(obsS.steps):
+					dataG[i,0] = t
+					for j in xrange(260):
+						dataG[i,1+4*j+0] = _valuetoGain(s.gains[j][0][0])
+						dataG[i,1+4*j+1] = _valuetoGain(s.gains[j][0][1])
+						dataG[i,1+4*j+2] = _valuetoGain(s.gains[j][1][0])
+						dataG[i,1+4*j+3] = _valuetoGain(s.gains[j][1][1])
 						
 				# Save the gains
 				gais[:,:] = dataG
