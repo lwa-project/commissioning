@@ -242,9 +242,6 @@ def fillFromSDF(f, sdfFilename):
 	f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
 	
 	for i,obsS in enumerate(sdf.sessions[0].observations):
-		# Detailed observation information
-		obsD = metabundle.getObservationSpec(tarball, selectObs=i+1)
-
 		# Get the group or create it if it doesn't exist
 		grp = f.get('/Observation%i' % (i+1,), None)
 		if grp is None:
@@ -262,7 +259,7 @@ def fillFromSDF(f, sdfFilename):
 	
 		# Observation info
 		grp.attrs['Beam'] = sdf.sessions[0].drxBeam
-		grp.attrs['DRX_Gain'] = obsS.drxGain
+		grp.attrs['DRX_Gain'] = obsS.gain
 		grp.attrs['sampleRate'] = float(filterCodes[obsS.filter])
 		grp.attrs['sampleRate_Units'] = 'samples/s'
 	

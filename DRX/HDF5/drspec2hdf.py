@@ -199,6 +199,7 @@ def main(args):
 		hdfData.fillFromMetabundle(f, config['metadata'])
 		
 	elif config['sdf'] is not None:
+		from lsl.common import mcs
 		from lsl.common.sdf import parseSDF
 		sdf = parseSDF(config['sdf'])
 		
