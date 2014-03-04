@@ -266,7 +266,7 @@ def fillFromSDF(f, sdfFilename):
 		# Deal with stepped mode
 		if obsS.mode == 'STEPPED':
 			stps = grp.create_group('Pointing')
-			stps.attrs['StepType'] = 'RA/Dec' if obsD['StepRADec'] else 'Az/Alt'
+			stps.attrs['StepType'] = 'RA/Dec' if obsS.RADec else 'Az/Alt'
 			stps.attrs['col0'] = 'StartTime'
 			stps.attrs['col0_Unit'] = 's'
 			stps.attrs['col1'] = 'RA' if obsS.RADec else 'Azimuth'
@@ -280,7 +280,7 @@ def fillFromSDF(f, sdfFilename):
 		
 			# Extract the data for the steps
 			data = numpy.zeros((len(obsS.steps), 5))
-			t = obsD.mjd*86400.0 + obsS.mpm/1000.0 - 3506716800.0
+			t = obsS.mjd*86400.0 + obsS.mpm/1000.0 - 3506716800.0
 			for i,s in enumerate(obsS.steps):
 				data[i,0] = t
 				data[i,1] = s.c1
