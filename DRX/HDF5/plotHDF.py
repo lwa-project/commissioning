@@ -201,9 +201,6 @@ class Waterfall_GUI(object):
 		self.tInt  = obs.attrs['tInt']
 		self.time  = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
 		obs['time'].read_direct(self.time)
-		self.time -= self.time[0]
-		valid = numpy.where( self.time >= 0 )
-		self.time = self.time[valid]
 		
 		tuning1 = obs.get('Tuning1', None)
 		tuning2 = obs.get('Tuning2', None)
@@ -232,13 +229,19 @@ class Waterfall_GUI(object):
 		## Make sure we don't fall off the end of the file
 		if self.iOffset + self.iDuration > tuning1[dataProducts[0]].shape[0]:
 			self.iDuration = tuning1[dataProducts[0]].shape[0] - self.iOffset
+		## Make sure all samples have a valid time
+		while self.time[self.iOffset] <= 0:
+			self.iOffset += 1
+		while self.time[self.iOffset+self.iDuration-1] <= 0:
+			self.iDuration -= 1
 		selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
 		
 		if self.iOffset != 0:
 			print "            -> Offsetting %i integrations (%.3f s)" % (self.iOffset, self.iOffset*self.tInt)
 		print "            -> Displaying %i integrations (%.3f s)" % (self.iDuration, self.iDuration*self.tInt)
 		
-		self.time = self.time[:self.iDuration]
+		self.time = self.time[self.iOffset:self.iOffset+self.iDuration]
+		self.time -= self.time[0]
 		
 		self.freq1 = numpy.zeros(tuning1['freq'].shape, dtype=tuning1['freq'].dtype)
 		tuning1['freq'].read_direct(self.freq1)
