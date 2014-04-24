@@ -34,6 +34,7 @@ matplotlib.use('WXAgg')
 matplotlib.interactive(True)
 
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
+from matplotlib import cm
 from matplotlib.figure import Figure
 
 
@@ -169,6 +170,7 @@ class Waterfall_GUI(object):
 		self.ax1b = None
 		self.ax1c = None
 		self.ax2 = None
+		self.cmap = cm.get_cmap('jet')
 		
 		self.spectrumClick = None
 		
@@ -445,7 +447,7 @@ class Waterfall_GUI(object):
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
 		if self.usedB:
-			m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
+			m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1], cmap=self.cmap)
 			try:
 				cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
 			except:
@@ -454,7 +456,7 @@ class Waterfall_GUI(object):
 				cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
 			cm.ax.set_ylabel('PSD [arb. dB]')
 		else:
-			m = self.ax1a.imshow(spec[:,self.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1])
+			m = self.ax1a.imshow(spec[:,self.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1], cmap=self.cmap)
 			try:
 				cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
 			except TypeError:
@@ -930,6 +932,13 @@ ID_QUIT    = 13
 
 ID_COLOR_AUTO = 20
 ID_COLOR_ADJUST = 21
+ID_COLOR_MAP_JET = 22
+ID_COLOR_MAP_EARTH = 23
+ID_COLOR_MAP_HEAT = 24
+ID_COLOR_MAP_NCAR = 25
+ID_COLOR_MAP_STERN = 26
+ID_COLOR_MAP_GRAY = 27
+ID_COLOR_MAP_INV_GRAY = 28
 
 ID_TUNING1_1 = 30
 ID_TUNING1_2 = 31
@@ -1006,8 +1015,17 @@ class MainWindow(wx.Frame):
 		## Color Menu
 		auto = wx.MenuItem(colorMenu, ID_COLOR_AUTO, '&Auto-scale Colorbar')
 		colorMenu.AppendItem(auto)
-		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
+		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, 'Adjust &Contrast')
 		colorMenu.AppendItem(cadj)
+		cmap = wx.Menu()
+		cmap.AppendRadioItem(ID_COLOR_MAP_JET, '&Jet')
+		cmap.AppendRadioItem(ID_COLOR_MAP_EARTH, '&Earth')
+		cmap.AppendRadioItem(ID_COLOR_MAP_HEAT, '&Heat')
+		cmap.AppendRadioItem(ID_COLOR_MAP_NCAR, '&NCAR')
+		cmap.AppendRadioItem(ID_COLOR_MAP_STERN, '&Stern')
+		cmap.AppendRadioItem(ID_COLOR_MAP_GRAY, '&Gray')
+		cmap.AppendRadioItem(ID_COLOR_MAP_INV_GRAY, 'Gray - &Inverted')
+		colorMenu.AppendMenu(-1, 'Color &Map', cmap)
 		
 		## Data Menu
 		if self.data.linear:
@@ -1156,6 +1174,13 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onTuning2product4, id=ID_TUNING2_4)
 		self.Bind(wx.EVT_MENU, self.onRangeChange, id=ID_CHANGE_RANGE)
 		self.Bind(wx.EVT_MENU, self.onObservationChange, id=ID_CHANGE_OBSID)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_JET)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_EARTH)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_HEAT)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_NCAR)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_STERN)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_GRAY)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_INV_GRAY)
 		
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
 		self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
@@ -1370,6 +1395,36 @@ class MainWindow(wx.Frame):
 		
 		ContrastAdjust(self)
 		
+	def onColorMap(self, event):
+		"""
+		Set the colormap to the specified value and refresh the plots.
+		"""
+		
+		eid = event.GetId()
+		if eid == ID_COLOR_MAP_EARTH:
+			name = 'gist_earth'
+		elif eid == ID_COLOR_MAP_HEAT:
+			name = 'gist_heat'
+		elif eid == ID_COLOR_MAP_NCAR:
+			name = 'gist_ncar'
+		elif eid == ID_COLOR_MAP_STERN:
+			name = 'gist_stern'
+		elif eid == ID_COLOR_MAP_GRAY:
+			name = 'gist_gray'
+		elif eid == ID_COLOR_MAP_INV_GRAY:
+			name = 'gist_yarg'
+		else:
+			name = 'jet'
+			
+		newCM = cm.get_cmap(name)
+		if self.data.cmap != newCM:
+			self.data.cmap = newCM
+			self.data.draw()
+			
+	def setColorJet(self, event):
+		"""
+		Set the colormap to 'jet' and refresh the plots.
+		"""
 	def onTuning1product1(self, event):
 		"""
 		Display tuning 1, data product 1 (XX or I)
@@ -2491,7 +2546,7 @@ class WaterfallDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		if self.parent.data.usedB:
-			m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
+			m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1], cmap=self.parent.data.cmap)
 			try:
 				cm = self.figure.colorbar(m, use_gridspec=True)
 			except:
@@ -2500,7 +2555,7 @@ class WaterfallDisplay(wx.Frame):
 				cm = self.figure.colorbar(m)
 			cm.ax.set_ylabel('PSD [arb. dB]')
 		else:
-			m = self.ax1.imshow(spec[:,self.parent.data.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1])
+			m = self.ax1.imshow(spec[:,self.parent.data.index,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1], cmap=self.parent.data.cmap)
 			try:
 				cm = self.figure.colorbar(m, use_gridspec=True)
 			except:

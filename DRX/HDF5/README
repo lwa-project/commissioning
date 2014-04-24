@@ -31,6 +31,11 @@ spectra.
 Note:  Although the pSK method works reasonable well for short integration times
 (<~0.3 s) the method may break down for much longer integration times.
 
+decimateHDF.py
+--------------
+Given an HDF5 file, decimate the data contained in it in both time and frequency, 
+and save the results to a new file.
+
 plotHDF.py
 ----------
 Version of plotWaterfall.py for viewing HDF5 files created by hdfWaterfall.py and
