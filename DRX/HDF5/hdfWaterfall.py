@@ -543,7 +543,7 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 		else:
 			dataSets['obs%i-Saturation1' % obsID][i,:] = -1
 			dataSets['obs%i-Saturation2' % obsID][i,:] = -1
-		
+			
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
 		if clip1 == clip2:
@@ -725,7 +725,7 @@ def main(args):
 		
 	# Make the pseudo-antennas for Stokes calculation
 	antennas = []
-	for i in xrange(beampols):
+	for i in xrange(4):
 		if i / 2 == 0:
 			newAnt = stations.Antenna(1)
 		else:
