@@ -269,7 +269,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 	maxFrames = int(1.0*config['maxFrames']/beampols*4096/float(LFFT))*LFFT/4096*beampols
 	
 	# Number of frames to integrate over
-	nFramesAvg = int(config['average'] * srate / 4096 * beampols)
+	nFramesAvg = int(round(config['average'] * srate / 4096 * beampols))
 	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
 	config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
 	maxFrames = nFramesAvg
@@ -441,7 +441,7 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 	maxFrames = int(1.0*config['maxFrames']/beampols*4096/float(LFFT))*LFFT/4096*beampols
 	
 	# Number of frames to integrate over
-	nFramesAvg = int(config['average'] * srate / 4096 * beampols)
+	nFramesAvg = int(round(config['average'] * srate / 4096 * beampols))
 	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
 	config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
 	maxFrames = nFramesAvg
@@ -660,7 +660,7 @@ def main(args):
 	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
 	config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
 	maxFrames = nFramesAvg
-
+	
 	# Number of remaining chunks (and the correction to the number of
 	# frames to read in).
 	if config['metadata'] is not None:
