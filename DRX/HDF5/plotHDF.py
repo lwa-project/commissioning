@@ -1419,6 +1419,9 @@ class MainWindow(wx.Frame):
 		Set the colormap to the specified value and refresh the plots.
 		"""
 		
+		wx.BeginBusyCursor()
+		wx.Yield()
+		
 		if self.cmapMenu.IsChecked(ID_COLOR_MAP_PAIRED):
 			name = 'Paired'
 		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_SPECTRAL):
@@ -1452,6 +1455,8 @@ class MainWindow(wx.Frame):
 			self.data.cmap = newCM
 			self.data.draw()
 			
+		wx.EndBusyCursor()
+		
 	def setColorJet(self, event):
 		"""
 		Set the colormap to 'jet' and refresh the plots.
