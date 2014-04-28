@@ -32,6 +32,8 @@ matplotlib.use('WXAgg')
 matplotlib.interactive(True)
 
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
+from matplotlib.colors import Normalize
+from matplotlib.collections import LineCollection
 from matplotlib import cm
 from matplotlib.figure import Figure
 
@@ -356,7 +358,8 @@ class Waterfall_GUI(object):
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
-		self.ax1b.plot(to_dB(self.drift[:,self.index]), self.time, linestyle=' ', marker='x')
+		z = to_dB(self.drift[:,self.index])
+		self.ax1b.scatter(z, self.time, c=z, marker='x', cmap=self.cmap)
 		self.ax1b.set_ylim((self.time[0], self.time[-1]))
 		self.ax1b.set_xlabel('Inner 75% Total Power [arb. dB]')
 		self.ax1b.set_ylabel('Elapsed Time [s]')
@@ -708,13 +711,17 @@ ID_QUIT    = 13
 
 ID_COLOR_AUTO = 20
 ID_COLOR_ADJUST = 21
-ID_COLOR_MAP_JET = 22
-ID_COLOR_MAP_EARTH = 23
-ID_COLOR_MAP_HEAT = 24
-ID_COLOR_MAP_NCAR = 25
-ID_COLOR_MAP_STERN = 26
-ID_COLOR_MAP_GRAY = 27
-ID_COLOR_MAP_INV_GRAY = 28
+ID_COLOR_MAP_PAIRED = 2200
+ID_COLOR_MAP_SPECTRAL = 2201
+ID_COLOR_MAP_BONE = 2202
+ID_COLOR_MAP_JET = 2203
+ID_COLOR_MAP_EARTH = 2204
+ID_COLOR_MAP_HEAT = 2205
+ID_COLOR_MAP_NCAR = 2206
+ID_COLOR_MAP_RAINBOW = 2207
+ID_COLOR_MAP_STERN = 2208
+ID_COLOR_MAP_GRAY = 2209
+ID_COLOR_INVERT = 23
 
 ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
@@ -789,14 +796,21 @@ class MainWindow(wx.Frame):
 		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
 		colorMenu.AppendItem(cadj)
 		cmap = wx.Menu()
+		cmap.AppendRadioItem(ID_COLOR_MAP_PAIRED, '&Paired')
+		cmap.AppendRadioItem(ID_COLOR_MAP_SPECTRAL, "&Spectral")
+		cmap.AppendRadioItem(ID_COLOR_MAP_BONE, '&Bone')
 		cmap.AppendRadioItem(ID_COLOR_MAP_JET, '&Jet')
 		cmap.AppendRadioItem(ID_COLOR_MAP_EARTH, '&Earth')
 		cmap.AppendRadioItem(ID_COLOR_MAP_HEAT, '&Heat')
 		cmap.AppendRadioItem(ID_COLOR_MAP_NCAR, '&NCAR')
-		cmap.AppendRadioItem(ID_COLOR_MAP_STERN, '&Stern')
+		cmap.AppendRadioItem(ID_COLOR_MAP_RAINBOW, '&Rainbow')
+		cmap.AppendRadioItem(ID_COLOR_MAP_STERN, 'S&tern')
 		cmap.AppendRadioItem(ID_COLOR_MAP_GRAY, '&Gray')
-		cmap.AppendRadioItem(ID_COLOR_MAP_INV_GRAY, 'Gray - &Inverted')
+		cmap.AppendSeparator()
+		cmap.AppendCheckItem(ID_COLOR_INVERT, 'In&vert')
 		colorMenu.AppendMenu(-1, 'Color &Map', cmap)
+		cmap.Check(ID_COLOR_MAP_JET, True)
+		self.cmapMenu = cmap
 		
 		## Data Menu
 		dataMenu.AppendRadioItem(ID_TUNING1_X, 'Tuning 1, Pol. X')
@@ -890,13 +904,17 @@ class MainWindow(wx.Frame):
 		
 		self.Bind(wx.EVT_MENU, self.onAutoscale, id=ID_COLOR_AUTO)
 		self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_PAIRED)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_SPECTRAL)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_BONE)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_JET)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_EARTH)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_HEAT)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_NCAR)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_RAINBOW)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_STERN)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_GRAY)
-		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_INV_GRAY)
+		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_INVERT)
 		
 		self.Bind(wx.EVT_MENU, self.onTuning1X, id=ID_TUNING1_X)
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
@@ -1025,22 +1043,34 @@ class MainWindow(wx.Frame):
 		Set the colormap to the specified value and refresh the plots.
 		"""
 		
-		eid = event.GetId()
-		if eid == ID_COLOR_MAP_EARTH:
+		if self.cmapMenu.IsChecked(ID_COLOR_MAP_PAIRED):
+			name = 'Paired'
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_SPECTRAL):
+			name = 'Spectral'
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_BONE):
+			name = 'bone'
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_EARTH):
 			name = 'gist_earth'
-		elif eid == ID_COLOR_MAP_HEAT:
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_HEAT):
 			name = 'gist_heat'
-		elif eid == ID_COLOR_MAP_NCAR:
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_NCAR):
 			name = 'gist_ncar'
-		elif eid == ID_COLOR_MAP_STERN:
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_RAINBOW):
+			name = 'gist_rainbow'
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_STERN):
 			name = 'gist_stern'
-		elif eid == ID_COLOR_MAP_GRAY:
+		elif self.cmapMenu.IsChecked(ID_COLOR_MAP_GRAY):
 			name = 'gist_gray'
-		elif eid == ID_COLOR_MAP_INV_GRAY:
-			name = 'gist_yarg'
 		else:
 			name = 'jet'
 			
+		# Check for inversion
+		if self.cmapMenu.IsChecked(ID_COLOR_INVERT):
+			if name == 'gist_gray':
+				name = 'gist_yarg'
+			else:
+				name = '%s_r' % name
+				
 		newCM = cm.get_cmap(name)
 		if self.data.cmap != newCM:
 			self.data.cmap = newCM
@@ -2118,9 +2148,21 @@ class DriftCurveDisplay(wx.Frame):
 		self.ax1 = self.figure.gca()
 		
 		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
-		
-		self.ax1.plot(self.parent.data.time, to_dB(self.drift[:,self.parent.data.index]), linestyle='-', marker='x')
+		z = to_dB(self.drift[:,self.parent.data.index])
+		self.ax1.scatter(self.parent.data.time, z, c=z, marker='x', cmap=self.parent.data.cmap)
 		self.ax1.set_ylabel('Inner 75% Total Power [arb. dB]')
+		
+		levels = []
+		segments = []
+		for i in xrange(1, z.size):
+				levels.append( 0.5*(z[i-1]+z[i]) )
+				segments.append( [(self.parent.data.time[i-1],z[i-1]), (self.parent.data.time[i],z[i])] )
+		segments = LineCollection(segments)
+		segments.set_array(numpy.array(levels))
+		segments.set_norm(Normalize(vmin=z.min(), vmax=z.max()))
+		segments.set_cmap(self.parent.data.cmap)
+		self.ax1.add_collection(segments)
+		
 		self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
 		self.ax1.set_xlabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
 		self.ax1.set_title('Tuning %i, Pol. %s' % (self.parent.data.index/2+1, 'Y' if self.parent.data.index %2 else 'X'))
