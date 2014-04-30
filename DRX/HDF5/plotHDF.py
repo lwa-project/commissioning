@@ -685,7 +685,7 @@ class Waterfall_GUI(object):
 			self.specBandpass.mask[b,index,:] = True
 			self.timeMask[b,index] = True
 		
-		N = self.srate/(freq.size+1)*self.tIntActual
+		N = self.srate/freq.size*self.tIntActual
 		kurtosis = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
 		
 		secSize = self.spec.shape[0]/self.kurtosisSec
@@ -2481,7 +2481,7 @@ class MaskingAdjust(wx.Frame):
 			self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
 		
 	def onDCCIncrease(self, event):
-		if self.parent.data.driftOrder < numpy.ceil(self.parent.data.data.spec.shape[0]/300):
+		if self.parent.data.driftOrder < numpy.ceil(self.parent.data.spec.shape[0]/300):
 			self.parent.data.driftCut += 1
 			self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
 			
