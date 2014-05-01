@@ -94,7 +94,7 @@ def findMean(data):
 	"""
 	Tiny function to return the mean along the first axis.
 	"""
-
+	
 	return numpy.mean(data, axis=0)
 
 
@@ -103,15 +103,15 @@ def findLimits(data):
 	Tiny function to speed up the computing of the data range for the colorbar.
 	Returns a two-element list of the lowest and highest values.
 	"""
-
+	
 	dMin = to_dB(data).min()
 	if not numpy.isfinite(dMin):
 		dMin = 0
-	
+		
 	dMax = to_dB(data).max()
 	if not numpy.isfinite(dMax):
 		dMax = dMin + 1
-	
+		
 	return [dMin, dMax]
 
 
@@ -136,12 +136,119 @@ def bestFreqUnits(freq):
 	else:
 		divis = 1
 		units = 'Hz'
-
+		
 	# Convert the frequency
 	newFreq = freq / divis
-
+	
 	# Return units and freq
 	return (newFreq, units)
+
+
+class LogNorm(Normalize):
+	"""
+	Normalize a given value to the 0-1 range on a log scale
+	"""
+	
+	def __call__(self, value, clip=None):
+		value = numpy.ma.asarray(value)
+		mask = numpy.ma.getmaskarray(value)
+		value = value.filled(self.vmax+1)
+		if clip:
+			numpy.clip(value, self.vmin, self.vmax)
+			
+		output = (value - self.vmin) / (self.vmax - self.vmin)
+		output *= 9
+		output += 1
+		output = numpy.log10(output)
+		
+		output = numpy.ma.array(output, mask=mask)
+		if output.shape == () and not mask:
+			output = int(output)  # assume python scalar
+		return output
+
+
+class SqrtNorm(Normalize):
+	"""
+	Normalize a given value to the 0-1 range on a square root scale
+	"""
+	
+	def __call__(self, value, clip=None):
+		value = numpy.ma.asarray(value)
+		mask = numpy.ma.getmaskarray(value)
+		value = value.filled(self.vmax+1)
+		if clip:
+			numpy.clip(value, self.vmin, self.vmax)
+			
+		output = (value - self.vmin) / (self.vmax - self.vmin)
+		output = numpy.sqrt(output)
+		
+		output = numpy.ma.array(output, mask=mask)
+		if output.shape == () and not mask:
+			output = int(output)  # assume python scalar
+		return output
+
+
+class SqrdNorm(Normalize):
+	"""
+	Normalize a given value to the 0-1 range on a squared scale
+	"""
+	
+	def __call__(self, value, clip=None):
+		value = numpy.ma.asarray(value)
+		mask = numpy.ma.getmaskarray(value)
+		value = value.filled(self.vmax+1)
+		if clip:
+			numpy.clip(value, self.vmin, self.vmax)
+			
+		output = (value - self.vmin) / (self.vmax - self.vmin)
+		output = output**2
+		
+		output = numpy.ma.array(output, mask=mask)
+		if output.shape == () and not mask:
+			output = int(output)  # assume python scalar
+		return output
+
+
+class AsinhNorm(Normalize):
+	"""
+	Normalize a given value to the 0-1 range on an inverse hyperbolic sine scale
+	"""
+	
+	def __call__(self, value, clip=None):
+		value = numpy.ma.asarray(value)
+		mask = numpy.ma.getmaskarray(value)
+		value = value.filled(self.vmax+1)
+		if clip:
+			numpy.clip(value, self.vmin, self.vmax)
+			
+		output = (value - self.vmin) / (self.vmax - self.vmin)
+		output = numpy.arcsinh(output*10.0/3.0) / numpy.arcsinh(10.0/3.0)
+		
+		output = numpy.ma.array(output, mask=mask)
+		if output.shape == () and not mask:
+			output = int(output)  # assume python scalar
+		return output
+
+
+class SinhNorm(Normalize):
+	"""
+	Normalize a given value to the 0-1 range on an hyperbolic sine scale
+	"""
+	
+	def __call__(self, value, clip=None):
+		value = numpy.ma.asarray(value)
+		mask = numpy.ma.getmaskarray(value)
+		value = value.filled(self.vmax+1)
+		if clip:
+			numpy.clip(value, self.vmin, self.vmax)
+			
+		output = (value - self.vmin) / (self.vmax - self.vmin)
+		output = numpy.sinh(output*10.0/3.0) / numpy.sinh(10.0/3.0)
+		
+		output = numpy.ma.array(output, mask=mask)
+		if output.shape == () and not mask:
+			output = int(output)  # assume python scalar
+		return output
 
 
 class Waterfall_GUI(object):
@@ -162,6 +269,7 @@ class Waterfall_GUI(object):
 		self.ax1b = None
 		self.ax2 = None
 		self.cmap = cm.get_cmap('jet')
+		self.norm = Normalize
 		
 		self.spectrumClick = None
 		
@@ -329,7 +437,7 @@ class Waterfall_GUI(object):
 		# Plot 1(a) - Waterfall
 		self.frame.figure1a.clf()
 		self.ax1a = self.frame.figure1a.gca()
-		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', vmin=limits[self.index][0], vmax=limits[self.index][1], cmap=self.cmap)
+		m = self.ax1a.imshow(to_dB(spec[:,self.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
 		try:
 			cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
 		except:
@@ -354,14 +462,14 @@ class Waterfall_GUI(object):
 		self.frame.canvas1a.draw()
 		
 		# Plot 1(b) - Drift
-		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].mean(axis=2)
 		
 		self.frame.figure1b.clf()
 		self.ax1b = self.frame.figure1b.gca()
 		z = to_dB(self.drift[:,self.index])
 		self.ax1b.scatter(z, self.time, c=z, marker='x', cmap=self.cmap)
 		self.ax1b.set_ylim((self.time[0], self.time[-1]))
-		self.ax1b.set_xlabel('Inner 75% Total Power [arb. dB]')
+		self.ax1b.set_xlabel('Inner 75% Mean Power [arb. dB]')
 		self.ax1b.set_ylabel('Elapsed Time [s]')
 		
 		if self.oldMarkB is not None:
@@ -722,6 +830,12 @@ ID_COLOR_MAP_RAINBOW = 2207
 ID_COLOR_MAP_STERN = 2208
 ID_COLOR_MAP_GRAY = 2209
 ID_COLOR_INVERT = 23
+ID_COLOR_STRETCH_LINEAR = 2400
+ID_COLOR_STRETCH_LOG = 2401
+ID_COLOR_STRETCH_SQRT = 2402
+ID_COLOR_STRETCH_SQRD = 2403
+ID_COLOR_STRETCH_ASINH = 2404
+ID_COLOR_STRETCH_SINH = 2405
 
 ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
@@ -811,6 +925,16 @@ class MainWindow(wx.Frame):
 		colorMenu.AppendMenu(-1, 'Color &Map', cmap)
 		cmap.Check(ID_COLOR_MAP_JET, True)
 		self.cmapMenu = cmap
+		smap = wx.Menu()
+		smap.AppendRadioItem(ID_COLOR_STRETCH_LINEAR, '&Linear')
+		smap.AppendRadioItem(ID_COLOR_STRETCH_LOG, 'Lo&g')
+		smap.AppendRadioItem(ID_COLOR_STRETCH_SQRT, 'Square &Root')
+		smap.AppendRadioItem(ID_COLOR_STRETCH_SQRD, '&Squared')
+		smap.AppendRadioItem(ID_COLOR_STRETCH_ASINH, '&ASinh')
+		smap.AppendRadioItem(ID_COLOR_STRETCH_SINH, '&Sinh')
+		colorMenu.AppendMenu(-1, 'Color &Stretch', smap)
+		smap.Check(ID_COLOR_STRETCH_LINEAR, True)
+		self.smapMenu = smap
 		
 		## Data Menu
 		dataMenu.AppendRadioItem(ID_TUNING1_X, 'Tuning 1, Pol. X')
@@ -915,6 +1039,12 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_STERN)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_GRAY)
 		self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_INVERT)
+		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_LINEAR)
+		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_LOG)
+		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SQRT)
+		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SQRD)
+		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_ASINH)
+		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SINH)
 		
 		self.Bind(wx.EVT_MENU, self.onTuning1X, id=ID_TUNING1_X)
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
@@ -1077,6 +1207,33 @@ class MainWindow(wx.Frame):
 		newCM = cm.get_cmap(name)
 		if self.data.cmap != newCM:
 			self.data.cmap = newCM
+			self.data.draw()
+			
+		wx.EndBusyCursor()
+		
+	def onColorStretch(self, event):
+		"""
+		Set the color stretch to the specified scheme and refresh the plots.
+		"""
+		
+		wx.BeginBusyCursor()
+		wx.Yield()
+		
+		if self.smapMenu.IsChecked(ID_COLOR_STRETCH_LOG):
+			newN = LogNorm
+		elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_SQRT):
+			newN = SqrtNorm
+		elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_SQRD):
+			newN = SqrdNorm
+		elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_ASINH):
+			newN = AsinhNorm
+		elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_SINH):
+			newN = SinhNorm
+		else:
+			newN = Normalize
+			
+		if self.data.norm != newN:
+			self.data.norm = newN
 			self.data.draw()
 			
 		wx.EndBusyCursor()
@@ -2008,7 +2165,7 @@ class WaterfallDisplay(wx.Frame):
 		# Plot Waterfall
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
-		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', vmin=limits[self.parent.data.index][0], vmax=limits[self.parent.data.index][1], cmap=self.parent.data.cmap)
+		m = self.ax1.imshow(to_dB(spec[:,self.parent.data.index,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', cmap=self.parent.data.cmap, norm=self.parent.data.norm(limits[self.parent.data.index][0], limits[self.parent.data.index][1]))
 		try:
 			cm = self.figure.colorbar(m, use_gridspec=True)
 		except:
@@ -2152,10 +2309,10 @@ class DriftCurveDisplay(wx.Frame):
 		self.figure.clf()
 		self.ax1 = self.figure.gca()
 		
-		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].sum(axis=2)
+		self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].mean(axis=2)
 		z = to_dB(self.drift[:,self.parent.data.index])
 		self.ax1.scatter(self.parent.data.time, z, c=z, marker='x', cmap=self.parent.data.cmap)
-		self.ax1.set_ylabel('Inner 75% Total Power [arb. dB]')
+		self.ax1.set_ylabel('Inner 75% Mean Power [arb. dB]')
 		
 		levels = []
 		segments = []
