@@ -63,7 +63,7 @@ Options:
 Note:  Specifying the -m/--metadata option overrides the -d/--duration setting 
        and the entire file is reduced.
 """
-
+	
 	if exitCode is not None:
 		sys.exit(exitCode)
 	else:
@@ -88,7 +88,7 @@ def parseOptions(args):
 	config['linear'] = True
 	config['countSats'] = True
 	config['args'] = []
-
+	
 	# Read in and process the command line flags
 	try:
 		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:kw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "stokes", "without-sats"])
@@ -96,7 +96,7 @@ def parseOptions(args):
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
-	
+		
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -129,10 +129,10 @@ def parseOptions(args):
 			config['countSats'] = False
 		else:
 			assert False
-	
+			
 	# Add in arguments
 	config['args'] = args
-
+	
 	# Return configuration
 	return config
 
@@ -742,6 +742,14 @@ def main(args):
 	outname = os.path.split(filename)[1]
 	outname = os.path.splitext(outname)[0]
 	outname = '%s-waterfall.hdf5' % outname
+	
+	if os.path.exists(outname):
+		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n]" % outname)
+		if yn not in ('n', 'N'):
+			os.unlink(outname)
+		else:
+			raise RuntimeError("Output file '%s' already exists" % outname)
+			
 	f = hdfData.createNewFile(outname)
 	
 	# Look at the metadata and come up with a list of observations.  If 

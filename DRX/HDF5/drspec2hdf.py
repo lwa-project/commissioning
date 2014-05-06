@@ -49,7 +49,7 @@ def parseOptions(args):
 	config['metadata'] = None
 	config['sdf'] = None
 	config['args'] = []
-
+	
 	# Read in and process the command line flags
 	try:
 		opts, args = getopt.getopt(args, "hs:m:d:", ["help", "skip=", "metadata=", "sdf="])
@@ -57,7 +57,7 @@ def parseOptions(args):
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
-	
+		
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -72,14 +72,14 @@ def parseOptions(args):
 			config['sdf'] = value
 		else:
 			assert False
-	
+			
 	# Make sure we aren't offsetting when we have metadata
 	if config['metadata'] is not None or config['sdf'] is not None:
 		config['offset'] = 0.0
 		
 	# Add in arguments
 	config['args'] = args
-
+	
 	# Return configuration
 	return config
 
@@ -178,6 +178,13 @@ def main(args):
 	outname = os.path.splitext(outname)[0]
 	outname = '%s-waterfall.hdf5' % outname
 	
+	if os.path.exists(outname):
+		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n]" % outname)
+		if yn not in ('n', 'N'):
+			os.unlink(outname)
+		else:
+			raise RuntimeError("Output file '%s' already exists" % outname)
+			
 	f = hdfData.createNewFile(outname)
 	obsList = {}
 	if config['metadata'] is not None:

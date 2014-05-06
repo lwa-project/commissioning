@@ -118,7 +118,15 @@ def main(args):
 				outname = os.path.splitext(outname)[0]
 				outname = "%s-%s.hdf5" % (outname, source.replace(' ', ''))
 				
-				hOut = h5py.File(outname, 'a')
+				if os.path.exists(outname):
+					yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n]" % outname)
+					if yn not in ('n', 'N'):
+						os.unlink(outname)
+					else:
+						print "WARNING: output file '%s' already exists, skipping" % outname
+						continue
+						
+				hOut = h5py.File(outname, mode='a')
 				for name in h.attrs.keys():
 					hOut.attrs[name] = h.attrs[name]
 				for i,obsID in enumerate(obsIDs):

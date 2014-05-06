@@ -164,7 +164,15 @@ def main(args):
 		outname = os.path.splitext(outname)[0]
 		outname = '%s-decim.hdf5' % outname
 		
-		hIn  = h5py.File(filename)
+		if os.path.exists(outname):
+			yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n]" % outname)
+			if yn not in ('n', 'N'):
+				os.unlink(outname)
+			else:
+				print "WARNING: output file '%s' already exists, skipping" % outname
+				continue
+				
+		hIn  = h5py.File(filename, mode='r')
 		hOut = h5py.File(outname, mode='w')
 		
 		_fillHDF(hIn, hOut, tDecimation=tDecimation, sDecimation=sDecimation)

@@ -85,7 +85,7 @@ def main(args):
 	filename = config['args'][0]
 	
 	# Open the file and loop over the observation sections
-	h = h5py.File(filename, 'a' if config['update'] else 'r')
+	h = h5py.File(filename, mode='a' if config['update'] else 'r')
 	for obsName in h.keys():
 		obs = h.get(obsName, None)
 		
