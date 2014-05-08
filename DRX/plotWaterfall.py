@@ -401,9 +401,16 @@ class Waterfall_GUI(object):
 		
 		meanSpec = numpy.median(self.spec.data, axis=0)
 		
+		# Come up with an appropriate smoothing window (wd) and order (od)
+		ws = int(round(self.spec.shape[2]/10.0))
+		ws = min([41, ws])
+		if ws % 2 == 0:
+			ws += 1
+		od = min([9, ws-2])
+		
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
-			bpm = savitzky_golay(meanSpec[i,:], 41, 9, deriv=0)
+			bpm = savitzky_golay(meanSpec[i,:], ws, od, deriv=0)
 			
 			if bpm.mean() == 0:
 				bpm += 1

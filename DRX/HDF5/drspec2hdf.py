@@ -179,7 +179,7 @@ def main(args):
 	outname = '%s-waterfall.hdf5' % outname
 	
 	if os.path.exists(outname):
-		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n]" % outname)
+		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
 		if yn not in ('n', 'N'):
 			os.unlink(outname)
 		else:
