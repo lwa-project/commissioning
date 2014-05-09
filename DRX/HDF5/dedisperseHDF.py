@@ -114,11 +114,18 @@ def main(args):
 		freq2 = tuning2.get('freq', None)
 		
 		# Loop over data products
+		baseMask1 = tuning1.get('Mask', None)
+		baseMask2 = tuning2.get('Mask', None)
+		
 		for dp in ('XX', 'YY', 'XY', 'YX', 'I', 'Q', 'U', 'V'):
 			data1 = tuning1.get(dp, None)
 			data2 = tuning2.get(dp, None)
 			if data1 is None:
 				continue
+				
+			if baseMask1 is not None:
+				mask1 = baseMask1.get(dp, None)
+				mask2 = baseMask2.get(dp, None)
 				
 			## Combine the frequency segments so that the dedispersion is applied relative 
 			## to the same frequency for both tunings
@@ -130,13 +137,24 @@ def main(args):
 			dataC[:,:freq1.shape[0]] = data1[:,:]
 			dataC[:,freq1.shape[0]:] = data2[:,:]
 			
+			if mask1 is not None:
+				maskC = numpy.zeros((mask1.shape[0], freqC.size), dtype=mask1.dtype)
+				maskC[:,:freq1.shape[0]] = mask1[:,:]
+				maskC[:,freq1.shape[0]:] = mask2[:,:]
+				
 			## Dedisperse
 			dataCD = incoherent(freqC, dataC, tInt, dm)
-			
+			if mask1 is not None:
+				maskCD = incoherent(freqC, maskC, tInt, dm)
+				maskCD = maskCD.astype(mask1.dtype)
+				
 			## Update
 			data1[:,:] = dataCD[:,:freq1.shape[0]]
 			data2[:,:] = dataCD[:,freq1.shape[0]:]
-			
+			if mask1 is not None:
+				mask1[:,:] = maskCD[:,:freq1.shape[0]]
+				mask2[:,:] = maskCD[:,freq1.shape[0]:]
+				
 	# Done!
 	h.close()
 

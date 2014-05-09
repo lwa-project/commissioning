@@ -141,7 +141,10 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
 					data = entity[tDecimation*i:tDecimation*(i+1),:newShape[1]*sDecimation]
 					data = data.mean(axis=0)
 					data.shape = (data.size/sDecimation, sDecimation)
-					entityO[i,:] = data.mean(axis=1)
+					data = data.mean(axis=1)
+					if data.dtype != entity.dtype:
+						data = data.astype(entity.dtype)
+					entityO[i,:] = data
 					
 			### Update the dataset attributes
 			for key in entity.attrs:
