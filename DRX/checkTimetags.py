@@ -99,15 +99,15 @@ def main(args):
 
 		if currTime < prevTime[rID]:
 			print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
-			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+			print "       -> difference: %i (%.3f frames; %.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate))
 			print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
 		elif currTime > (prevTime[rID] + tagSkip):
 			print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
-			print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+			print "       -> difference: %i (%.3f frames; %.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate))
 			print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
 		elif currTime < (prevTime[rID] + tagSkip):
 			print "ERROR: t.t %i @ frame %i < t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
-			print "       -> difference: %i (%.5f seconds; %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/fS, str(currDate))
+			print "       -> difference: %i (%.3f frames; %.5f seconds; %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate))
 			print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
 		else:
 			pass

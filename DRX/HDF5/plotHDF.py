@@ -791,9 +791,13 @@ class Waterfall_GUI(object):
 		fit = numpy.polyval(coeff, numpy.arange(drift.size))
 		rDrift = drift / fit
 		
-		mean = robust.mean(rDrift)
-		std  = robust.std(rDrift)
-		
+		try:
+			mean = robust.mean(rDrift)
+			std  = robust.std(rDrift)
+		except ValueError:
+			mean = rDrift.mean()
+			std  = rDrift.std()
+			
 		bad = numpy.where( numpy.abs(rDrift - mean) >= self.driftCut*std )[0]
 		for b in bad:
 			self.spec.mask[b,index,:] = True
