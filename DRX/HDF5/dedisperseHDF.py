@@ -126,6 +126,9 @@ def main(args):
 			if baseMask1 is not None:
 				mask1 = baseMask1.get(dp, None)
 				mask2 = baseMask2.get(dp, None)
+			else:
+				mask1 = None
+				mask2 = None
 				
 			## Combine the frequency segments so that the dedispersion is applied relative 
 			## to the same frequency for both tunings

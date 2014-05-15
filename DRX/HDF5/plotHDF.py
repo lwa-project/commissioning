@@ -773,6 +773,9 @@ class Waterfall_GUI(object):
 		Suggest a mask for the current index.
 		"""
 		
+		nAdjust = {'XX': 1, 'YY': 1, 'XY': 2, 'YX': 2, 
+			      'I': 2, 'Q': 2, 'U': 2, 'V': 2}
+
 		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
@@ -803,8 +806,12 @@ class Waterfall_GUI(object):
 			self.spec.mask[b,index,:] = True
 			self.specBandpass.mask[b,index,:] = True
 			self.timeMask[b,index] = True
-		
-		N = self.srate/freq.size*self.tIntActual
+			
+		if self.linear:
+			mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+		else:
+			mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
+		N = self.srate/freq.size*self.tIntActual*nAdjust[mapper[index % 4]]
 		kurtosis = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
 		
 		secSize = self.spec.shape[0]/self.kurtosisSec
@@ -1408,6 +1415,14 @@ class MainWindow(wx.Frame):
 			tuning2 = obs.get('Tuning2', None)
 			
 			dataProducts = list(tuning1)
+			try:
+				del dataProducts[dataProducts.index('Mask')]
+			except ValueError:
+				pass
+			try:
+				del dataProducts[dataProducts.index('SpectralKurtosis')]
+			except ValueError:
+				pass
 			mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
 			for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
 				try:
@@ -1470,6 +1485,14 @@ class MainWindow(wx.Frame):
 			tuning2 = obs.get('Tuning2', None)
 			
 			dataProducts = list(tuning1)
+			try:
+				del dataProducts[dataProducts.index('Mask')]
+			except ValueError:
+				pass
+			try:
+				del dataProducts[dataProducts.index('SpectralKurtosis')]
+			except ValueError:
+				pass
 			mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
 			for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
 				try:
