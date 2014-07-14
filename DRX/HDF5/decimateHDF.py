@@ -113,7 +113,11 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
 		## Is it a dataset?
 		if type(entity).__name__ == 'Dataset':
 			### If so, add it and fill it in
-			if ent == 'time':
+			if ent in ('Steps', 'Delays', 'Gains'):
+				entity0 = output.create_dataset(ent, entity.shape, entity.dtype.descr[0][1])
+				entity0[:] = entity[:]
+				
+			elif ent == 'time':
 				newShape = (entity.shape[0]/tDecimation,)
 				entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
 				for i in xrange(newShape[0]):
