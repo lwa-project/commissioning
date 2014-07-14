@@ -18,6 +18,7 @@ import getopt
 import subprocess
 from datetime import datetime
 from multiprocessing import Pool
+from scipy.interpolate import interp1d
 from scipy.stats import scoreatpercentile as percentile
 
 from lsl.common.dp import fS
@@ -244,6 +245,30 @@ class SinhNorm(Normalize):
 			
 		output = (value - self.vmin) / (self.vmax - self.vmin)
 		output = numpy.sinh(output*10.0/3.0) / numpy.sinh(10.0/3.0)
+		
+		output = numpy.ma.array(output, mask=mask)
+		if output.shape == () and not mask:
+			output = int(output)  # assume python scalar
+		return output
+
+
+class HistEqNorm(Normalize):
+	"""
+	Normalize a given value to the 0-1 range using histrogram equalization
+	"""
+	
+	def __call__(self, value, clip=None):
+		value = numpy.ma.asarray(value)
+		mask = numpy.ma.getmaskarray(value)
+		value = value.filled(self.vmax+1)
+		if clip:
+			numpy.clip(value, self.vmin, self.vmax)
+			
+		hist, bins = numpy.histogram(value, bins=256)
+		hist = numpy.insert(hist, 0, 0)
+		hist = hist.cumsum() / float(hist.sum())
+		histeq = interp1d(bins, hist, bounds_error=False, fill_value=0.0)
+		output = histeq(value)
 		
 		output = numpy.ma.array(output, mask=mask)
 		if output.shape == () and not mask:
@@ -847,6 +872,7 @@ ID_COLOR_STRETCH_SQRT = 2402
 ID_COLOR_STRETCH_SQRD = 2403
 ID_COLOR_STRETCH_ASINH = 2404
 ID_COLOR_STRETCH_SINH = 2405
+ID_COLOR_STRETCH_HIST = 2406
 
 ID_TUNING1_X = 30
 ID_TUNING1_Y = 31
@@ -943,6 +969,7 @@ class MainWindow(wx.Frame):
 		smap.AppendRadioItem(ID_COLOR_STRETCH_SQRD, '&Squared')
 		smap.AppendRadioItem(ID_COLOR_STRETCH_ASINH, '&ASinh')
 		smap.AppendRadioItem(ID_COLOR_STRETCH_SINH, '&Sinh')
+		smap.AppendRadioItem(ID_COLOR_STRETCH_HIST, '&Histogram Equalization')
 		colorMenu.AppendMenu(-1, 'Color &Stretch', smap)
 		smap.Check(ID_COLOR_STRETCH_LINEAR, True)
 		self.smapMenu = smap
@@ -1056,6 +1083,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SQRD)
 		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_ASINH)
 		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SINH)
+		self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_HIST)
 		
 		self.Bind(wx.EVT_MENU, self.onTuning1X, id=ID_TUNING1_X)
 		self.Bind(wx.EVT_MENU, self.onTuning1Y, id=ID_TUNING1_Y)
@@ -1240,6 +1268,8 @@ class MainWindow(wx.Frame):
 			newN = AsinhNorm
 		elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_SINH):
 			newN = SinhNorm
+		elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_HIST):
+			newN = HistEqNorm
 		else:
 			newN = Normalize
 			
