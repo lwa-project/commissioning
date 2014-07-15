@@ -113,10 +113,13 @@ def main(args):
 		freq1 = tuning1.get('freq', None)
 		freq2 = tuning2.get('freq', None)
 		
-		# Loop over data products
+		# Get the supplemental information
 		baseMask1 = tuning1.get('Mask', None)
 		baseMask2 = tuning2.get('Mask', None)
+		baseSK1 = tuning1.get('SpectralKurtosis', None)
+		baseSK2 = tuning2.get('SpectralKurtosis', None)
 		
+		# Loop over data products
 		for dp in ('XX', 'YY', 'XY', 'YX', 'I', 'Q', 'U', 'V'):
 			data1 = tuning1.get(dp, None)
 			data2 = tuning2.get(dp, None)
@@ -129,6 +132,12 @@ def main(args):
 			else:
 				mask1 = None
 				mask2 = None
+			if baseSK1 is not None:
+				sk1 = baseSK1.get(dp, None)
+				sk2 = baseSK2.get(dp, None)
+			else:
+				sk1 = None
+				sk2 = None
 				
 			## Combine the frequency segments so that the dedispersion is applied relative 
 			## to the same frequency for both tunings
@@ -144,12 +153,19 @@ def main(args):
 				maskC = numpy.zeros((mask1.shape[0], freqC.size), dtype=mask1.dtype)
 				maskC[:,:freq1.shape[0]] = mask1[:,:]
 				maskC[:,freq1.shape[0]:] = mask2[:,:]
+			if sk1 is not None:
+				skC = numpy.zeros((sk1.shape[0], freqC.size), dtype=sk1.dtype)
+				skC[:,:freq1.shape[0]] = sk1[:,:]
+				skC[:,freq1.shape[0]:] = sk2[:,:]
 				
 			## Dedisperse
 			dataCD = incoherent(freqC, dataC, tInt, dm)
 			if mask1 is not None:
 				maskCD = incoherent(freqC, maskC, tInt, dm)
 				maskCD = maskCD.astype(mask1.dtype)
+			if sk1 is not None:
+				skCD = incoherent(freqC, skC, tInt, dm)
+				skCD = skCD.astype(sk1.dtype)
 				
 			## Update
 			data1[:,:] = dataCD[:,:freq1.shape[0]]
@@ -157,6 +173,9 @@ def main(args):
 			if mask1 is not None:
 				mask1[:,:] = maskCD[:,:freq1.shape[0]]
 				mask2[:,:] = maskCD[:,freq1.shape[0]:]
+			if sk1 is not None:
+				sk1[:,:] = skCD[:,:freq1.shape[0]]
+				sk2[:,:] = skCD[:,freq1.shape[0]:]
 				
 	# Done!
 	h.close()

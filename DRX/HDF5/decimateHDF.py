@@ -81,7 +81,7 @@ def parseOptions(args):
 def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
 	"""
 	Function to recursively copy the structure of a HDF5 file created by 
-	usrpHDFWaterfall.py.
+	hdfWaterfall.py or drspec2hdf.py.
 	"""
 	
 	# Copy the attributes

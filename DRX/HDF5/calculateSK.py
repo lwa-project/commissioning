@@ -40,7 +40,7 @@ Options:
 -d, --duration            pSK update interval (default = 10s)
 -n, --no-update           Do not add the pSK information to the HDF5 file
 """
-
+	
 	if exitCode is not None:
 		sys.exit(exitCode)
 	else:
@@ -53,7 +53,7 @@ def parseOptions(args):
 	config['duration'] = 10.0
 	config['update'] = True
 	config['args'] = []
-
+	
 	# Read in and process the command line flags
 	try:
 		opts, args = getopt.getopt(args, "hd:n", ["help", "duration=", "no-update"])
@@ -61,7 +61,7 @@ def parseOptions(args):
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
-	
+		
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -72,12 +72,13 @@ def parseOptions(args):
 			config['update'] = False
 		else:
 			assert False
-	
+			
 	# Add in arguments
 	config['args'] = args
-
+	
 	# Return configuration
 	return config
+
 
 def main(args):
 	config = parseOptions(args)

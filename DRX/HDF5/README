@@ -41,6 +41,14 @@ decimateHDF.py
 Given an HDF5 file, decimate the data contained in it in both time and frequency, 
 and save the results to a new file.
 
+linear2stokes.py
+----------------
+Given an HDF5 file containing linear polarization products, compute the related 
+Stokes parameters and save the results to a new file.  The combinations supported
+are:
+  * XX and YY -> I and Q
+  * XY and YX -> U and V
+
 plotHDF.py
 ----------
 Version of plotWaterfall.py for viewing HDF5 files created by hdfWaterfall.py and
