@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Given an HDF5 file with linear polarization products, calculate the Stokes 
-parameters and save the results to a new file.
+Given an HDF5 file with Stokes parameterss, calculate the linear polarization
+products and save the results to a new file.
 
 $Rev$
 $LastChangedBy$
@@ -21,10 +21,10 @@ from datetime import datetime
 
 
 def usage(exitCode=None):
-	print """linear2stokes.py - Read in DRX/HDF5 waterfall file and convert the linear
-polarization products to Stokes parameters.
+	print """stokes2linear.py - Read in DRX/HDF5 waterfall file and convert the Stokes
+parameters into linear polarization products
 
-Usage: linear2stokes.py [OPTIONS] file
+Usage: stokes2linear.py [OPTIONS] file
 
 Options:
 -h, --help                Display this help information
@@ -126,23 +126,23 @@ def main(args):
 			except ValueError:
 				pass
 				
-		## Stokes
-		if 'I' in dataProducts or 'Q' in dataProducts or 'U' in dataProducts or 'V' in dataProducts:
+		## Linear
+		if 'XX' in dataProducts or 'YY' in dataProducts or 'XY' in dataProducts or 'YX' in dataProducts:
 			raise RuntimeError("Input file '%s' contains data products %s" % (filename, ', '.join(dataProducts)))
 			
 		## Minimum information
 		pairs = 0
-		if 'XX' in dataProducts and 'YY' in dataProducts:
+		if 'I' in dataProducts and 'Q' in dataProducts:
 			pairs += 1
-		if 'XY' in dataProducts and 'YX' in dataProducts:
+		if 'U' in dataProducts and 'V' in dataProducts:
 			pairs += 1
 		if pairs == 0:
-			raise RuntimeError("Input file '%s' contains too few data products to form Stokes parameters" % filename)
+			raise RuntimeError("Input file '%s' contains too few data products to form linear products" % filename)
 			
 	# Ready the output filename
 	outname = os.path.basename(filename)
 	outname = os.path.splitext(outname)[0]
-	outname = "%s-stokes.hdf5" % outname
+	outname = "%s-linear.hdf5" % outname
 	
 	if os.path.exists(outname):
 		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
@@ -190,95 +190,95 @@ def main(args):
 				except ValueError:
 					pass
 					
-			if 'XX' in dataProducts and 'YY' in dataProducts:
-				## I
-				print "      Computing 'I'"
-				tuningOut.create_dataset('I', tuningIn['XX'].shape, dtype=tuningIn['XX'].dtype.descr[0][1])
-				tuningOut['I'][:] = tuningIn['XX'][:] + tuningIn['YY']
+			if 'I' in dataProducts and 'Q' in dataProducts:
+				## XX
+				print "      Computing 'XX'"
+				tuningOut.create_dataset('XX', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
+				tuningOut['XX'][:] = (tuningIn['I'][:] + tuningIn['Q'])/2.0
 				
-				for key in tuningIn['XX'].attrs:
-					tuningOut['I'].attrs[key] = tuningIn['XX'].attrs[key]
+				for key in tuningIn['I'].attrs:
+					tuningOut['XX'].attrs[key] = tuningIn['I'].attrs[key]
 					
 				if baseMaskIn is not None:
-					baseMaskOut.create_dataset('I', baseMaskIn['XX'].shape, dtype=baseMaskIn['XX'].dtype.descr[0][1])
-					baseMaskOut['I'][:] = baseMaskIn['XX'][:] & baseMaskIn['YY'][:]
+					baseMaskOut.create_dataset('XX', baseMaskIn['I'].shape, dtype=baseMaskIn['I'].dtype.descr[0][1])
+					baseMaskOut['XX'][:] = baseMaskIn['I'][:] & baseMaskIn['Q'][:]
 					
-					for key in baseMaskIn['XX'].attrs:
-						baseMaskOut['I'].attrs[key] = baseMaskIn['XX'].attrs[key]
+					for key in baseMaskIn['I'].attrs:
+						baseMaskOut['XX'].attrs[key] = baseMaskIn['I'].attrs[key]
 						
 				if baseSKIn is not None:
-					baseSKOut.create_dataset('I', baseSKIn['XX'].shape, dtype=baseSKIn['XX'].dtype.descr[0][1])
-					baseSKOut['I'][:] = (baseSKIn['XX'][:] + baseSKIn['YY'][:]) / 2.0
+					baseSKOut.create_dataset('XX', baseSKIn['I'].shape, dtype=baseSKIn['I'].dtype.descr[0][1])
+					baseSKOut['XX'][:] = (baseSKIn['I'][:] + baseSKIn['Q'][:]) / 2.0
 					
-					for key in baseSKIn['XX'].attrs:
-						baseSKOut['I'].attrs[key] = baseSKIn['XX'].attrs[key]
+					for key in baseSKIn['I'].attrs:
+						baseSKOut['XX'].attrs[key] = baseSKIn['I'].attrs[key]
 						
-				## Q
-				print "      Computing 'Q'"
-				tuningOut.create_dataset('Q', tuningIn['XX'].shape, dtype=tuningIn['XX'].dtype.descr[0][1])
-				tuningOut['Q'][:] = tuningIn['XX'][:] - tuningIn['YY']
+				## YY
+				print "      Computing 'YY'"
+				tuningOut.create_dataset('YY', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
+				tuningOut['YY'][:] = (tuningIn['I'][:] - tuningIn['Q'])/2.0
 				
-				for key in tuningIn['XX'].attrs:
-					tuningOut['Q'].attrs[key] = tuningIn['XX'].attrs[key]
+				for key in tuningIn['I'].attrs:
+					tuningOut['YY'].attrs[key] = tuningIn['I'].attrs[key]
 					
 				if baseMaskIn is not None:
-					baseMaskOut.create_dataset('Q', baseMaskIn['XX'].shape, dtype=baseMaskIn['XX'].dtype.descr[0][1])
-					baseMaskOut['Q'][:] = baseMaskIn['XX'][:] & baseMaskIn['YY'][:]
+					baseMaskOut.create_dataset('YY', baseMaskIn['I'].shape, dtype=baseMaskIn['I'].dtype.descr[0][1])
+					baseMaskOut['YY'][:] = baseMaskIn['I'][:] & baseMaskIn['Q'][:]
 					
-					for key in baseMaskIn['XX'].attrs:
-						baseMaskOut['Q'].attrs[key] = baseMaskIn['XX'].attrs[key]
+					for key in baseMaskIn['I'].attrs:
+						baseMaskOut['YY'].attrs[key] = baseMaskIn['I'].attrs[key]
 						
 				if baseSKIn is not None:
-					baseSKOut.create_dataset('Q', baseSKIn['XX'].shape, dtype=baseSKIn['XX'].dtype.descr[0][1])
-					baseSKOut['Q'][:] = (baseSKIn['XX'][:] + baseSKIn['YY'][:]) / 2.0
+					baseSKOut.create_dataset('YY', baseSKIn['I'].shape, dtype=baseSKIn['I'].dtype.descr[0][1])
+					baseSKOut['YY'][:] = (baseSKIn['I'][:] + baseSKIn['Q'][:]) / 2.0
 					
-					for key in baseSKIn['XX'].attrs:
-						baseSKOut['Q'].attrs[key] = baseSKIn['XX'].attrs[key]
+					for key in baseSKIn['I'].attrs:
+						baseSKOut['YY'].attrs[key] = baseSKIn['I'].attrs[key]
 						
-			if 'XY' in dataProducts and 'YX' in dataProducts:
-				## U
-				print "      Computing 'U'"
-				tuningOut.create_dataset('U', tuningIn['XY'].shape, dtype=tuningIn['XY'].dtype.descr[0][1])
-				tuningOut['U'][:] = tuningIn['XY'][:] + tuningIn['YX']
+			if 'U' in dataProducts and 'V' in dataProducts:
+				## XY
+				print "      Computing 'XY'"
+				tuningOut.create_dataset('XY', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
+				tuningOut['XY'][:] = (tuningIn['U'][:] + tuningIn['V'])/2.0
 				
-				for key in tuningIn['XY'].attrs:
-					tuningOut['U'].attrs[key] = tuningIn['XY'].attrs[key]
+				for key in tuningIn['U'].attrs:
+					tuningOut['XY'].attrs[key] = tuningIn['U'].attrs[key]
 					
 				if baseMaskIn is not None:
-					baseMaskOut.create_dataset('U', baseMaskIn['XY'].shape, dtype=baseMaskIn['XY'].dtype.descr[0][1])
-					baseMaskOut['U'][:] = baseMaskIn['XY'][:] & baseMaskIn['YX'][:]
+					baseMaskOut.create_dataset('XY', baseMaskIn['U'].shape, dtype=baseMaskIn['U'].dtype.descr[0][1])
+					baseMaskOut['XY'][:] = baseMaskIn['U'][:] & baseMaskIn['V'][:]
 					
-					for key in baseMaskIn['XY'].attrs:
-						baseMaskOut['U'].attrs[key] = baseMaskIn['XY'].attrs[key]
+					for key in baseMaskIn['U'].attrs:
+						baseMaskOut['XY'].attrs[key] = baseMaskIn['U'].attrs[key]
 						
 				if baseSKIn is not None:
-					baseSKOut.create_dataset('U', baseSKIn['XY'].shape, dtype=baseSKIn['XY'].dtype.descr[0][1])
-					baseSKOut['U'][:] = (baseSKIn['XY'][:] + baseSKIn['YX'][:]) / 2.0
+					baseSKOut.create_dataset('XY', baseSKIn['U'].shape, dtype=baseSKIn['U'].dtype.descr[0][1])
+					baseSKOut['XY'][:] = (baseSKIn['U'][:] + baseSKIn['V'][:]) / 2.0
 					
-					for key in baseSKIn['XY'].attrs:
-						baseSKOut['U'].attrs[key] = baseSKIn['XY'].attrs[key]
+					for key in baseSKIn['U'].attrs:
+						baseSKOut['XY'].attrs[key] = baseSKIn['U'].attrs[key]
 						
-				## V
-				print "      Computing 'V'"
-				tuningOut.create_dataset('V', tuningIn['XY'].shape, dtype=tuningIn['XY'].dtype.descr[0][1])
-				tuningOut['V'][:] = tuningIn['XY'][:] - tuningIn['YX']
+				## YX
+				print "      Computing 'YX'"
+				tuningOut.create_dataset('YX', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
+				tuningOut['YX'][:] = (tuningIn['U'][:] - tuningIn['V'])/2.0
 				
-				for key in tuningIn['XY'].attrs:
-					tuningOut['V'].attrs[key] = tuningIn['XY'].attrs[key]
+				for key in tuningIn['U'].attrs:
+					tuningOut['YX'].attrs[key] = tuningIn['U'].attrs[key]
 					
 				if baseMaskIn is not None:
-					baseMaskOut.create_dataset('V', baseMaskIn['XY'].shape, dtype=baseMaskIn['XY'].dtype.descr[0][1])
-					baseMaskOut['V'][:] = baseMaskIn['XY'][:] & baseMaskIn['YX'][:]
+					baseMaskOut.create_dataset('YX', baseMaskIn['U'].shape, dtype=baseMaskIn['U'].dtype.descr[0][1])
+					baseMaskOut['YX'][:] = baseMaskIn['U'][:] & baseMaskIn['V'][:]
 					
-					for key in baseMaskIn['XY'].attrs:
-						baseMaskOut['V'].attrs[key] = baseMaskIn['XY'].attrs[key]
+					for key in baseMaskIn['U'].attrs:
+						baseMaskOut['YX'].attrs[key] = baseMaskIn['U'].attrs[key]
 						
 				if baseSKIn is not None:
-					baseSKOut.create_dataset('V', baseSKIn['XY'].shape, dtype=baseSKIn['XY'].dtype.descr[0][1])
-					baseSKOut['V'][:] = (baseSKIn['XY'][:] + baseSKIn['YX'][:]) / 2.0
+					baseSKOut.create_dataset('YX', baseSKIn['U'].shape, dtype=baseSKIn['U'].dtype.descr[0][1])
+					baseSKOut['YX'][:] = (baseSKIn['U'][:] + baseSKIn['V'][:]) / 2.0
 					
-					for key in baseSKIn['XY'].attrs:
-						baseSKOut['V'].attrs[key] = baseSKIn['XY'].attrs[key]
+					for key in baseSKIn['U'].attrs:
+						baseSKOut['YX'].attrs[key] = baseSKIn['U'].attrs[key]
 	# Done!
 	hIn.close()
 	hOut.close()

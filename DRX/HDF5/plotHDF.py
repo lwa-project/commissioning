@@ -352,7 +352,10 @@ class Waterfall_GUI(object):
 				pass
 		if dataProducts[0][0] in ('X', 'Y'):
 			self.linear = True
-			self.usedB = True
+			if 'XY' in dataProducts or 'XY' in dataProducts:
+				self.usedB = False
+			else:
+				self.usedB = True
 		else:
 			self.linear = False
 			self.usedB = False
