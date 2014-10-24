@@ -18,7 +18,7 @@ from lsl.common import dp, mcs, metabundle
 from lsl.reader.drx import filterCodes
 
 
-__version__ = "0.4"
+__version__ = "0.5"
 __revision__ = "$Rev$"
 __all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF', 'getObservationSet', 'createDataSets', 'getDataSet', 
 		 '__version__', '__revision__', '__all__']
@@ -88,6 +88,10 @@ def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s'):
 	obs.attrs['TrackingMode'] = 'Unknown'
 	
 	# Observation info
+	obs.attrs['ARX_Filter'] = -1.0
+	obs.attrs['ARX_Gain1'] = -1.0
+	obs.attrs['ARX_Gain2'] = -1.0
+	obs.attrs['ARX_GainS'] = -1.0
 	obs.attrs['Beam'] = beam
 	obs.attrs['DRX_Gain'] = -1.0
 	obs.attrs['sampleRate'] = srate
@@ -120,15 +124,21 @@ def fillFromMetabundle(f, tarball):
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(tarball)
 	
+	# ARX configuration summary
+	try:
+		arx = metabundle.getASPConfigurationSummary(tarball)
+	except:
+		arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
+		
 	for i,obsS in enumerate(sdf.sessions[0].observations):
 		# Detailed observation information
 		obsD = metabundle.getObservationSpec(tarball, selectObs=i+1)
-
+		
 		# Get the group or create it if it doesn't exist
 		grp = f.get('/Observation%i' % (i+1,), None)
 		if grp is None:
 			grp = f.create_group('/Observation%i' % (i+1))
-
+			
 		# Target info.
 		grp.attrs['ObservationName'] = obsS.name
 		grp.attrs['TargetName'] = obsS.target
@@ -138,13 +148,17 @@ def fillFromMetabundle(f, tarball):
 		grp.attrs['Dec_Units'] = 'degrees'
 		grp.attrs['Epoch'] = 2000.0
 		grp.attrs['TrackingMode'] = mcs.mode2string(obsD['Mode'])
-	
+		
 		# Observation info
+		grp.attrs['ARX_Filter'] = arx['filter']
+		grp.attrs['ARX_Gain1'] = arx['at1']
+		grp.attrs['ARX_Gain2'] = arx['at2']
+		grp.attrs['ARX_GainS'] = arx['atsplit']
 		grp.attrs['Beam'] = obsD['drxBeam']
 		grp.attrs['DRX_Gain'] = obsD['drxGain']
 		grp.attrs['sampleRate'] = float(filterCodes[obsD['BW']])
 		grp.attrs['sampleRate_Units'] = 'samples/s'
-	
+		
 		# Deal with stepped mode
 		if mcs.mode2string(obsD['Mode']) == 'STEPPED':
 			stps = grp.create_group('Pointing')
@@ -241,12 +255,19 @@ def fillFromSDF(f, sdfFilename):
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
 	
+	# ARX configuration summary
+	arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
+	arx['filter'] = numpy.median( sdf.sessions[0].observations[0].aspFlt )
+	arx['at1'] = numpy.median( sdf.sessions[0].observations[0].aspAT1 )
+	arx['at2'] = numpy.median( sdf.sessions[0].observations[0].aspAT2 )
+	arx['atsplit'] = numpy.median( sdf.sessions[0].observations[0].aspATS )
+	
 	for i,obsS in enumerate(sdf.sessions[0].observations):
 		# Get the group or create it if it doesn't exist
 		grp = f.get('/Observation%i' % (i+1,), None)
 		if grp is None:
 			grp = f.create_group('/Observation%i' % (i+1))
-
+			
 		# Target info.
 		grp.attrs['ObservationName'] = obsS.name
 		grp.attrs['TargetName'] = obsS.target
@@ -256,13 +277,17 @@ def fillFromSDF(f, sdfFilename):
 		grp.attrs['Dec_Units'] = 'degrees'
 		grp.attrs['Epoch'] = 2000.0
 		grp.attrs['TrackingMode'] = obsS.mode
-	
+		
 		# Observation info
+		grp.attrs['ARX_Filter'] = arx['filter']
+		grp.attrs['ARX_Gain1'] = arx['at1']
+		grp.attrs['ARX_Gain2'] = arx['at2']
+		grp.attrs['ARX_GainS'] = arx['atsplit']
 		grp.attrs['Beam'] = sdf.sessions[0].drxBeam
 		grp.attrs['DRX_Gain'] = obsS.gain
 		grp.attrs['sampleRate'] = float(filterCodes[obsS.filter])
 		grp.attrs['sampleRate_Units'] = 'samples/s'
-	
+		
 		# Deal with stepped mode
 		if obsS.mode == 'STEPPED':
 			stps = grp.create_group('Pointing')
@@ -277,7 +302,7 @@ def fillFromSDF(f, sdfFilename):
 			stps.attrs['col3_Unit'] = 'Hz'
 			stps.attrs['col4'] = 'Tuning2'
 			stps.attrs['col4_Unit'] = 'Hz'
-		
+			
 			# Extract the data for the steps
 			data = numpy.zeros((len(obsS.steps), 5))
 			t = obsS.mjd*86400.0 + obsS.mpm/1000.0 - 3506716800.0
@@ -287,13 +312,13 @@ def fillFromSDF(f, sdfFilename):
 				data[i,2] = s.c2
 				data[i,3] = dp.word2freq(s.freq1)
 				data[i,4] = dp.word2freq(s.freq2)
-			
+				
 				## Update the start time for the next step
 				t += s.dur / 1000.0
 				
 			# Save it
 			stps['Steps'] = data
-				
+			
 			# Deal with specified delays and gains if needed
 			if obsS.steps[0].delays is not None and obsS.steps[0].gains is not None:
 				cbfg = grp.create_group('CustomBeamforming')
@@ -351,7 +376,7 @@ def getObservationSet(f, observation):
 	obs = f.get('/Observation%i' % observation, None)
 	if obs is None:
 		raise RuntimeError('No such observation: %i' % observation)
-
+		
 	return obs
 
 
@@ -360,12 +385,12 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
 	Fill in a tuning group with the right set of dummy data sets and 
 	attributes.
 	"""
-
+	
 	# Get the observation
 	obs = f.get('/Observation%i' % observation, None)
 	if obs is None:
 		obs = f.create_group('/Observation%i' % observation)
-
+		
 		# Target info.
 		obs.attrs['TargetName'] = ''
 		obs.attrs['RA'] = -99.0
@@ -374,8 +399,12 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
 		obs.attrs['Dec_Units'] = 'degrees'
 		obs.attrs['Epoch'] = 2000.0
 		obs.attrs['TrackingMode'] = 'Unknown'
-	
+		
 		# Observation info
+		obs.attrs['ARX_Filter'] = -1.0
+		obs.attrs['ARX_Gain1'] = -1.0
+		obs.attrs['ARX_Gain2'] = -1.0
+		obs.attrs['ARX_GainS'] = -1.0
 		obs.attrs['Beam'] = -1.0
 		obs.attrs['DRX_Gain'] = -1.0
 		obs.attrs['sampleRate'] = -1.0
@@ -386,7 +415,7 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
 		obs.attrs['nChan'] = -1
 		obs.attrs['RBW'] = -1.0
 		obs.attrs['RBW_Units'] = 'Hz'
-	
+		
 	# Get the group or create it if it doesn't exist
 	grp = obs.get('Tuning%i' % tuning, None)
 	if grp is None:
@@ -401,7 +430,7 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
 	d = grp.create_dataset('Saturation', (chunks, 2), 'i8')
 	d.attrs['axis0'] = 'time'
 	d.attrs['axis1'] = 'polarization'
-		
+	
 	return True
 
 
@@ -414,16 +443,16 @@ def getDataSet(f, observation, tuning, dataProduct):
 	obs = f.get('/Observation%i' % observation, None)
 	if obs is None:
 		raise RuntimeError('No such observation: %i' % observation)
-
+		
 	# Get the groups
 	grp = obs.get('Tuning%i' % tuning, None)
 	if grp is None:
 		raise RuntimeError("Unknown tuning: %i" % tuning)
-	
+		
 	# Get the data set
 	try:
 		d = grp[dataProduct]
 	except:
 		raise RuntimeError("Unknown data product for Observation %i, Tuning %i: %s" % (observation, tuning, dataProduct))
-	
+		
 	return d
