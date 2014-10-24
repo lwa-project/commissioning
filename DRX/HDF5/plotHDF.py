@@ -21,10 +21,11 @@ import subprocess
 from datetime import datetime
 from multiprocessing import Pool
 from scipy.interpolate import interp1d
-from scipy.stats import scoreatpercentile as percentile
+from scipy.stats import scoreatpercentile as percentile, skew, kurtosis
 
-from lsl.common.dp import fS
+from lsl.common import dp
 from lsl.common import stations
+from lsl.reader.drx import filterCodes
 from lsl.misc.mathutil import to_dB, from_dB, savitzky_golay
 from lsl.statistics import robust
 from lsl.statistics.kurtosis import spectralPower, std as skStd
@@ -48,11 +49,28 @@ Usage: plotHDF.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
+-s, --skip                  Skip the specified number of seconds at the 
+                            beginning of the file (default = 0)
 -d, --duration              Number of seconds to display
                             (default = -1 to display all of the file)
 -o, --observation           Plot the specified observation (default = 1)
+-i, --instrumental          Use an instrument-based bandpass composed of the
+                            antenna impedance mis-match, the ARX response, 
+                            and the DRX filter coefficients (default = use a 
+                            data-based bandpass)
+-f, --full                  Take ARX to be in the full bandwidth setting for 
+                            the instrument-based bandpass (default = assume 
+                            split)
+-r, --reduced               Take ARX to be in the reduced bandwidth setting 
+                            for the instrument-based bandpass (default = 
+                            assume split)
+                            
+Note:  The bandpass provides by the -i/--instrumental flag is based on the
+       current "best knowledge" of LWA1 but may not remove all bandpass-
+       related features in the data.
+       
+Note:  The "ASP_Filter" attribute of the HDF5 file will override the 
+       -f/--full and -r/--reduced flags if it is set to a valid value.
 """
 	
 	if exitCode is not None:
@@ -67,11 +85,13 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['duration'] = -1.0
 	config['obsID'] = 1
+	config['bandpassType'] = 'data'
+	config['arxFilter'] = 'split'
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:d:o:", ["help", "skip=", "duration=", "observation="])
+		opts, args = getopt.getopt(args, "hs:d:o:ifr", ["help", "skip=", "duration=", "observation=", "instrumental", "full", "reduced"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -87,6 +107,12 @@ def parseOptions(args):
 			config['duration'] = float(value)
 		elif opt in ('-o', '--observation'):
 			config['obsID'] = int(value)
+		elif opt in ('-i', '--instrumental'):
+			config['bandpassType'] = 'instrumental'
+		elif opt in ('-f', '--full'):
+			config['arxFilter'] = 'full'
+		elif opt in ('-r', '--reduced'):
+			config['arxFilter'] = 'reduced'
 		else:
 			assert False
 			
@@ -287,7 +313,7 @@ class HistEqNorm(Normalize):
 
 
 class Waterfall_GUI(object):
-	def __init__(self, frame, freq=None, spec=None, tInt=None):
+	def __init__(self, frame, freq=None, spec=None, tInt=None, bandpassType='data', arxFilter='split'):
 		self.frame = frame
 		self.press = None
 		
@@ -298,7 +324,9 @@ class Waterfall_GUI(object):
 		self.freq1 = freq
 		self.freq2 = freq
 		self.spec = spec
-		self.tInt = None
+		self.tInt = tInt
+		self.bandpassType = bandpassType
+		self.arxFilter = arxFilter
 		
 		self.ax1a = None
 		self.ax1b = None
@@ -308,6 +336,7 @@ class Waterfall_GUI(object):
 		self.norm = Normalize
 		
 		self.spectrumClick = None
+		self._keyPressCache = []
 		
 		self.bandpassCut = 0.85
 		self.driftOrder  = 5
@@ -333,6 +362,19 @@ class Waterfall_GUI(object):
 		
 		# Load the Data
 		print " %6.3f s - Extracting data for observation #%i" % (time.time() - tStart, obsID)
+		self._bpCache = {}
+		try:
+			arxFilterCode = obs.attrs['ARX_Filter']
+			
+			if arxFilterCode == 0:
+				self.arxFilter = 'split'
+			elif arxFilterCode == 1:
+				self.arxFilter = 'full'
+			elif arxFilterCode == 2:
+				self.arxFilter = 'reduced'
+				
+		except KeyError:
+			pass
 		self.beam  = obs.attrs['Beam']
 		self.srate = obs.attrs['sampleRate']
 		self.tInt  = obs.attrs['tInt']
@@ -538,6 +580,16 @@ class Waterfall_GUI(object):
 		Compute the bandpass fits.
 		"""
 		
+		if self.bandpassType == 'data':
+			self.computeBandpassData()
+		else:
+			self.computeBandpassInstrumental()
+			
+	def computeBandpassData(self):
+		"""
+		Compute data-based bandpass fits.
+		"""
+		
 		try:
 			from _helper import FastAxis0Median
 			meanSpec = FastAxis0Median(self.spec.data)
@@ -554,6 +606,111 @@ class Waterfall_GUI(object):
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
 			bpm = savitzky_golay(meanSpec[i,:], ws, od, deriv=0)
+			
+			if bpm.mean() == 0:
+				bpm += 1
+			bpm2.append( bpm / bpm.mean() )
+			
+		# Apply the bandpass correction
+		bpm2 = numpy.array(bpm2)
+		self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
+		try:
+			from _helper import FastAxis0Bandpass
+			FastAxis0Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
+		except ImportError:
+			for i in xrange(self.spec.shape[1]):
+				self.specBandpass[:,i,:] = self.spec[:,i,:] / bpm2[i]
+				
+		return True
+		
+	def computeBandpassInstrumental(self):
+		"""
+		Compute instrument-based bandpass fits.
+		"""
+		
+		def getImpedanceMisMatch(freq):
+			freq4, imm4 = stations.lwa1.antennas[0].response(dB=False)
+			
+			immIntp = interp1d(freq4, imm4, kind='cubic', bounds_error=False)
+			
+			imm = immIntp(freq)
+			return imm
+			
+		def getARXResponse(freq, filter='full', site=stations.lwa1):
+			antennas = site.getAntennas()
+			f,r = antennas[0].arx.response(filter='split')
+			freq2 = f
+			respX2 = numpy.zeros_like(r)
+			respY2 = numpy.zeros_like(r)
+			for i in xrange(len(antennas)):
+				if antennas[i].getStatus() != 33:
+					continue
+				f,r = antennas[i].arx.response(filter=filter, dB=False)
+				
+				if antennas[i].pol == 0:
+					respX2 += r
+				else:
+					respY2 += r
+			respX2 /= respX2.max()
+			respY2 /= respY2.max()
+			
+			respXIntp = interp1d(freq2, respX2, kind='cubic', bounds_error=False)
+			respYIntp = interp1d(freq2, respY2, kind='cubic', bounds_error=False)
+			
+			respX = respXIntp(freq)
+			respY = respYIntp(freq)
+			respX = numpy.where(numpy.isfinite(respX), respX, 0)
+			respY = numpy.where(numpy.isfinite(respY), respY, 0)
+			return respX, respY
+			
+		def getDRXResponse(freq, filterCode=7):
+			srate = filterCodes[filterCode]
+			dpf = dp.drxFilter(sampleRate=srate)
+			
+			rDRX = dpf(freq-freq.mean())
+			
+			return rDRX
+			
+		bpm2 = []
+		for i in xrange(self.spec.shape[1]):
+			if i / (self.spec.shape[1]/2) == 0:
+				freq = self.freq1
+			else:
+				freq = self.freq2
+				
+			BW = freq.max() - freq.min()
+			metric = 1e20
+			best = 1
+			for fc,fb in filterCodes.iteritems():
+				if numpy.abs(BW-fb) < metric:
+					metric = numpy.abs(BW-fb)
+					best = fc
+					
+			try:
+				rIMM = self._bpCache[('IMM', freq[0], freq[-1], freq.size)]
+			except KeyError:
+				self._bpCache[('IMM', freq[0], freq[-1], freq.size)] = getImpedanceMisMatch(freq)
+				rIMM = self._bpCache[('IMM', freq[0], freq[-1], freq.size)]
+				
+			try:
+				rARXX, rARXY = self._bpCache[('ARX', freq[0], freq[-1], freq.size)]
+			except KeyError:
+				self._bpCache[('ARX', freq[0], freq[-1], freq.size)] = getARXResponse(freq, filter=self.arxFilter)
+				rARXX, rARXY = self._bpCache[('ARX', freq[0], freq[-1], freq.size)]
+			if self.linear and i % (self.spec.shape[1]/2) == 0:
+				rARX = rARXX
+			elif self.linear and i % (self.spec.shape[1]/2) == 3:
+				rARX = rARXY
+			else:
+				rARX = 0.5*rARXX + 0.5*rARXY
+				
+			try:
+				rDRX = self._bpCache[('DRX', freq[0], freq[-1], freq.size)]
+			except KeyError:
+				self._bpCache[('DRX', freq[0], freq[-1], freq.size)] = getDRXResponse(freq, filterCode=best)
+				rDRX = self._bpCache[('DRX', freq[0], freq[-1], freq.size)]
+				
+			bpm = rIMM/rIMM.max() * rARX/rARX.max() * rDRX/rDRX.max()
 			
 			if bpm.mean() == 0:
 				bpm += 1
@@ -679,7 +836,7 @@ class Waterfall_GUI(object):
 			pass
 		self.frame.canvas1c.draw()
 		
-	def drawSpectrum(self, clickY):
+	def drawSpectrum(self, clickY, fit=None, fitLabel=None):
 		"""Get the spectrum at a particular point in time."""
 		
 		try:
@@ -722,10 +879,21 @@ class Waterfall_GUI(object):
 			self.ax2.plot(freq/1e6, spec, linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
 			self.ax2.plot(freq/1e6, medianSpec, label='Mean', alpha=0.5, color='green')
 			self.ax2.set_ylabel('PSD [arb. lin.]')
+			
+		if fit is not None:
+			if fitLabel is None:
+				fitLabel = 'Fit'
+				
+			if self.usedB:
+				self.ax2.plot(freq/1e6, to_dB(fit), linestyle='--', label=fitLabel, color='orange')
+			else:
+				self.ax2.plot(freq/1e6, fit, linestyle='--', label=fitLabel, color='orange')
+				
 		self.ax2.set_xlim(oldXlim)
 		self.ax2.set_ylim(oldYlim)
 		self.ax2.legend(loc=0)
 		self.ax2.set_xlabel('Frequency [MHz]')
+		
 		
 		if self.filenames is None:
 			if self.bandpass:
@@ -746,7 +914,6 @@ class Waterfall_GUI(object):
 		self.spectrumClick = clickY
 		
 	def makeMark(self, clickY):
-		
 		try:
 			dataY = int(round(clickY / self.tInt))
 		except TypeError:
@@ -895,6 +1062,7 @@ class Waterfall_GUI(object):
 		self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press1b)
 		self.cidpress1c = self.frame.figure1c.canvas.mpl_connect('button_press_event', self.on_press1c)
 		self.cidpress2  = self.frame.figure2.canvas.mpl_connect('button_press_event', self.on_press2)
+		self.cidkey2    = self.frame.figure2.canvas.mpl_connect('key_press_event', self.on_key2)
 		self.cidmotion  = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
 		self.frame.toolbar.update = self.on_update
 		
@@ -1043,6 +1211,124 @@ class Waterfall_GUI(object):
 			self.draw()
 			self.drawSpectrum(self.spectrumClick)
 			
+	def on_key2(self, event):
+		"""
+		On key press we will see if the mouse is over us and store some data
+		"""
+		
+		if event.inaxes:
+			clickX = event.xdata
+			clickY = event.ydata
+			
+			if self.index / (self.spec.shape[1]/2) == 0:
+				freq = self.freq1
+			else:
+				freq = self.freq2
+				
+			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
+			dataY = int(round(self.spectrumClick / self.tInt))
+			
+			if self.bandpass:
+				spec = self.specBandpass
+			else:
+				spec = self.spec
+				
+			if event.key == 'h':
+				## Help
+				print "Spectrum Window Keys:"
+				print "  p - print the information about the underlying point"
+				print "  s - print statistics about the current frequency"
+				print "  m - mask the frequency under the cursor"
+				print "  u - unmask the frequency under the cursor"
+				print "  f - pick a boundary for a power law fit"
+				print "  c - clear the current power law fit"
+				print "  h - print this help message"
+				
+			elif event.key == 'p':
+				## Print
+				print "Frequency: %.3f MHz" % (freq[dataX]/1e6,)
+				if self.usedB:
+					print "Power: %.3f dB" % to_dB(spec.data[dataY, self.index, dataX])
+				else:
+					print "Power: %.3f" % spec.data[dataY, self.index, dataX]
+				print "Flagged? %s" % spec.mask[dataY, self.index, dataX]
+				print "==="
+				
+			elif event.key == 's':
+				## Statistics
+				print "Frequency: %.3f MHz" % (freq[dataX]/1e6,)
+				print "Masked Power:"
+				print "  Mean: %.3f" % spec[:, self.index, dataX].mean()
+				print "  Median: %.3f" % numpy.median(spec[:, self.index, dataX])
+				print "  Std. Dev.: %.3f" % spec[:, self.index, dataX].std()
+				print "  Skew: %.3f" % skew(spec[:, self.index, dataX])
+				print "  Kurtosis: %.3f" % kurtosis(spec[:, self.index, dataX])
+				print "==="
+				
+			elif event.key == 'm':
+				## Mask
+				print "Masking %.3f MHz" % (freq[dataX]/1e6,)
+				
+				self.spec.mask[:, self.index, dataX] = True
+				self.specBandpass.mask[:, self.index, dataX] = True
+				self.freqMask[self.index, dataX] = True
+				
+				self.draw()
+				self.drawSpectrum(self.spectrumClick)
+				
+			elif event.key == 'u':
+				## Unmask
+				print "Unmasking %.3f MHz" % (freq[dataX]/1e6,)
+				
+				self.spec.mask[:, self.index, dataX] = self.timeMask[:,self.index]
+				self.specBandpass.mask[:, self.index, dataX] = self.timeMask[:,self.index]
+				self.freqMask[self.index, dataX] = False
+				
+				self.draw()
+				self.drawSpectrum(self.spectrumClick)
+				
+			elif event.key == 'f':
+				## Power law fit
+				self._keyPressCache.append( (self.index*1, dataX, dataY) )
+				
+				if len(self._keyPressCache) == 2:
+					(i0,f0,t0), (i1,f1,t1) = self._keyPressCache
+					if i0 != i1 or t0 != t1:
+						del self._keyPressCache[0]
+					else:
+						if f1 < f0:
+							temp = f0
+							f0 = f1
+							f1 = temp
+						print "Fitting from %.3f to %.3f MHz" % (freq[f0]/1e6, freq[f1]/1e6)
+						try:
+							x = freq[f0:f1] / freq[f0]
+							y = spec[t0, i0, f0:f1] / spec[t0, i0, f0]
+							
+							coeff = numpy.polyfit(numpy.log10(x), numpy.log10(y), 1)
+							print "Alpha: %.3f" % coeff[0]
+							fit = 10**(numpy.polyval(coeff, numpy.log10(freq / freq[f0]))) * spec[t0, i0, f0]
+							
+							self.draw()
+							self.drawSpectrum(self.spectrumClick, fit=fit, fitLabel='Alpha: %.3f' % coeff[0])
+						except Exception, e:
+							pass
+							
+						self._keyPressCache = []
+				elif len(self._keyPressCache) == 1:
+					print "Move the cursor to the other side of the region to fit push 'f'"
+					
+			elif event.key == 'c':
+				## Clear power law fit
+				fit = None
+				self._keyPressCache = []
+				
+				self.draw()
+				self.drawSpectrum(self.spectrumClick, fit=fit, fitLabel=None)
+				
+			else:
+				pass
+				
 	def on_motion(self, event):
 		"""
 		On mouse motion display the data value under the cursor
@@ -1056,15 +1342,20 @@ class Waterfall_GUI(object):
 				freq = self.freq1
 			else:
 				freq = self.freq2
-			
+				
+			if self.bandpass:
+				spec = self.specBandpass
+			else:
+				spec = self.spec
+				
 			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
 			dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
 			if not self.spec.mask[dataY, self.index, dataX]:
 				if self.usedB:
-					value = to_dB(self.spec[dataY, self.index, dataX])
+					value = to_dB(spec[dataY, self.index, dataX])
 					self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
 				else:
-					value = self.spec[dataY, self.index, dataX]
+					value = spec[dataY, self.index, dataX]
 					self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f" % (clickX, clickY, value))
 			else:
 				self.frame.statusbar.SetStatusText("")
@@ -1080,6 +1371,7 @@ class Waterfall_GUI(object):
 		self.frame.figure1b.canvas.mpl_disconnect(self.cidpress1b)
 		self.frame.figure1c.canvas.mpl_disconnect(self.cidpress1c)
 		self.frame.figure2.canvas.mpl_disconnect(self.cidpress2)
+		self.frame.figure2.canvas.mpl_disconnect(self.cidkey2)
 		self.frame.figure1a.canvas.mpl_disconnect(self.cidmotion)
 
 
@@ -2715,7 +3007,7 @@ class MaskingAdjust(wx.Frame):
 			self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
 		
 	def onSKSIncrease(self, event):
-		if self.parent.data.kurtosisSec < 30:
+		if self.parent.data.kurtosisSec < 45:
 			self.parent.data.kurtosisSec += 1
 			self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
 	
@@ -3062,7 +3354,7 @@ class DriftCurveDisplay(wx.Frame):
 		newH2 = 1.0*(h/2-75)/dpi
 		self.figure.set_size_inches((newW, newH1))
 		self.figure.canvas.draw()
-
+		
 	def GetToolBar(self):
 		# You will need to override GetToolBar if you are using an 
 		# unmanaged toolbar in your frame
@@ -3084,7 +3376,7 @@ def main(args):
 		frame.filename = config['args'][0]
 		frame.offset = config['offset']
 		frame.duration = config['duration']
-		frame.data = Waterfall_GUI(frame)
+		frame.data = Waterfall_GUI(frame, bandpassType=config['bandpassType'], arxFilter=config['arxFilter'])
 		frame.data.loadData(config['args'][0], obsID=config['obsID'])
 		frame.render()
 		frame.data.render()
