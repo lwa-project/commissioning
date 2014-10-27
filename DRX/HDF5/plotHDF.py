@@ -326,6 +326,7 @@ class Waterfall_GUI(object):
 		
 		self.filename = ''
 		self.index = 0
+		self.filenames = None
 		
 		self.bandpass = False
 		self.freq1 = freq
@@ -908,7 +909,6 @@ class Waterfall_GUI(object):
 		self.ax2.legend(loc=0)
 		self.ax2.set_xlabel('Frequency [MHz]')
 		
-		
 		if self.filenames is None:
 			if self.bandpass:
 				self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
@@ -984,7 +984,7 @@ class Waterfall_GUI(object):
 		
 		nAdjust = {'XX': 1, 'YY': 1, 'XY': 2, 'YX': 2, 
 			      'I': 2, 'Q': 2, 'U': 2, 'V': 2}
-
+			      
 		if self.index / (self.spec.shape[1]/2) == 0:
 			freq = self.freq1
 		else:
@@ -996,7 +996,7 @@ class Waterfall_GUI(object):
 			self.spec.mask[:,index,b] = True
 			self.specBandpass.mask[:,index,b] = True
 			self.freqMask[index,b] = True
-		
+			
 		spec = self.spec.data[:,index,:]
 		drift = spec.sum(axis=1)
 		coeff = robust.polyfit(numpy.arange(drift.size), drift, self.driftOrder)
@@ -1031,7 +1031,7 @@ class Waterfall_GUI(object):
 			for j in xrange(self.spec.shape[2]):
 				channel = self.spec.data[tStart:tStop,index,j]
 				kurtosis[k,j] = spectralPower(channel, N=N)
-		
+				
 		kMean = 1.0
 		kStd  = skStd(secSize, N)
 		# Correction for some averaged data sets - probably not all that valid
@@ -1039,7 +1039,7 @@ class Waterfall_GUI(object):
 		# since `self.filenames` is None for stand-alone files.
 		if self.filenames is not None:
 			kurtosis /= kurtosis.mean()
-		
+			
 		bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
 		for k,b in zip(bad[0], bad[1]):
 			tStart = k*secSize
@@ -1560,6 +1560,7 @@ class MainWindow(wx.Frame):
 		self.offset = 0.0
 		self.duration = -1
 		self.data = None
+		self.examineFileButton = None
 		self.examineWindow = None
 		
 		self.edited = False
@@ -1708,8 +1709,8 @@ class MainWindow(wx.Frame):
 		## Details Menu
 		cf = wx.MenuItem(detailsMenu, ID_DETAIL_SUMMARY, 'Current File Info.')
 		detailsMenu.AppendItem(cf)
-		examineFileButton = wx.MenuItem(detailsMenu, ID_DETAIL_SUBFILE, 'Examine File')
-		detailsMenu.AppendItem(examineFileButton)
+		self.examineFileButton = wx.MenuItem(detailsMenu, ID_DETAIL_SUBFILE, 'Examine File')
+		detailsMenu.AppendItem(self.examineFileButton)
 		detailsMenu.AppendSeparator()
 		zm = wx.MenuItem(detailsMenu, ID_DETAIL_WATERFALL, 'Zoomable Waterfall')
 		detailsMenu.AppendItem(zm)
@@ -1910,6 +1911,11 @@ class MainWindow(wx.Frame):
 				for menuItem in menu.GetMenuItems():
 					menuItem.Enable(True)
 					
+			if self.data.filenames is None: 
+				self.examineFileButton.Enable(False) 
+			else: 
+				self.examineFileButton.Enable(True)
+				
 			self.edited = False
 			self.setSaveButton()
 			
@@ -3777,6 +3783,11 @@ def main(args):
 			for menuItem in menu.GetMenuItems():
 				menuItem.Enable(True)
 				
+		if frame.data.filenames is None: 
+			frame.examineFileButton.Enable(False) 
+		else: 
+			frame.examineFileButton.Enable(True) 
+			
 		frame.setSaveButton()
 	else:
 		## Otherwise, disable the various menus that only do something if there is 
