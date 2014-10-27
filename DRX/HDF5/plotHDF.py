@@ -23,6 +23,7 @@ from multiprocessing import Pool
 from scipy.interpolate import interp1d
 from scipy.stats import scoreatpercentile as percentile, skew, kurtosis
 
+import lsl
 from lsl.common import dp
 from lsl.common import stations
 from lsl.reader.drx import filterCodes
@@ -31,6 +32,7 @@ from lsl.statistics import robust
 from lsl.statistics.kurtosis import spectralPower, std as skStd
 
 import wx
+import wx.html
 import matplotlib
 matplotlib.use('WXAgg')
 matplotlib.interactive(True)
@@ -40,6 +42,11 @@ from matplotlib.colors import Normalize
 from matplotlib.collections import LineCollection
 from matplotlib import cm
 from matplotlib.figure import Figure
+
+
+__version__ = "0.2"
+__revision__ = "$Rev$"
+__author__ = "Jayce Dowell"
 
 
 def usage(exitCode=None):
@@ -325,6 +332,8 @@ class Waterfall_GUI(object):
 		self.freq2 = freq
 		self.spec = spec
 		self.tInt = tInt
+		self.linear = False
+		self.dataProducts = ['XX', 'YY']
 		self.bandpassType = bandpassType
 		self.arxFilter = arxFilter
 		
@@ -343,6 +352,8 @@ class Waterfall_GUI(object):
 		self.driftCut    = 4
 		self.kurtosisSec = 1
 		self.kurtosisCut = 4
+		
+		self.frame.edited = False
 		
 	def loadData(self, filename, obsID=1):
 		"""
@@ -559,6 +570,9 @@ class Waterfall_GUI(object):
 		except:
 			pass
 			
+		self.frame.edited = False
+		self.frame.setSaveButton()
+		
 		print " %6.3f s - Finished preparing data" % (time.time() - tStart)
 		
 	def render(self):
@@ -1038,7 +1052,10 @@ class Waterfall_GUI(object):
 					self.freqMask[index,j] = True
 			except IndexError:
 				pass
-			
+				
+				
+		self.frame.edited = True
+		
 		return True
 		
 	def resetMask(self, index):
@@ -1050,6 +1067,8 @@ class Waterfall_GUI(object):
 		self.specBandpass.mask[:,index,:]= False
 		self.timeMask[:,index] = False
 		self.freqMask[index,:] = False
+		
+		self.frame.edited = True
 		
 		return True
 		
@@ -1092,11 +1111,17 @@ class Waterfall_GUI(object):
 				self.specBandpass.mask[dataY, self.index, :] = self.freqMask[self.index,:]
 				self.timeMask[dataY, self.index] = False
 				self.draw()
+				self.drawSpectrum(clickY)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			elif event.button == 3:
 				self.spec.mask[dataY, self.index, :] = True
 				self.specBandpass.mask[dataY, self.index, :] = True
 				self.timeMask[dataY, self.index] = True
 				self.draw()
+				self.drawSpectrum(clickY)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			else:
 				pass
 				
@@ -1119,11 +1144,17 @@ class Waterfall_GUI(object):
 				self.specBandpass.mask[dataY, self.index, :] = self.freqMask[self.index,:]
 				self.timeMask[dataY, self.index] = False
 				self.draw()
+				self.drawSpectrum(clickY)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			elif event.button == 3:
 				self.spec.mask[dataY, self.index, :] = True
 				self.specBandpass.mask[dataY, self.index, :] = True
 				self.timeMask[dataY, self.index] = True
 				self.draw()
+				self.drawSpectrum(clickY)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			else:
 				pass
 				
@@ -1173,11 +1204,17 @@ class Waterfall_GUI(object):
 				self.specBandpass.mask[best, self.index, :] = self.freqMask[self.index,:]
 				self.timeMask[best, self.index] = False
 				self.draw()
+				self.drawSpectrum(clickY)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			elif event.button == 3:
 				self.spec.mask[best, self.index, :] = True
 				self.specBandpass.mask[best, self.index, :] = True
 				self.timeMask[best, self.index] = True
 				self.draw()
+				self.drawSpectrum(clickY)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			else:
 				pass
 			
@@ -1201,16 +1238,21 @@ class Waterfall_GUI(object):
 				self.spec.mask[:, self.index, dataX] = self.timeMask[:,self.index]
 				self.specBandpass.mask[:, self.index, dataX] = self.timeMask[:,self.index]
 				self.freqMask[self.index, dataX] = False
+				self.draw()
+				self.drawSpectrum(self.spectrumClick)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			elif event.button == 3:
 				self.spec.mask[:, self.index, dataX] = True
 				self.specBandpass.mask[:, self.index, dataX] = True
 				self.freqMask[self.index, dataX] = True
+				self.draw()
+				self.drawSpectrum(self.spectrumClick)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 			else:
 				pass
-			
-			self.draw()
-			self.drawSpectrum(self.spectrumClick)
-			
+				
 	def on_key2(self, event):
 		"""
 		On key press we will see if the mouse is over us and store some data
@@ -1275,6 +1317,8 @@ class Waterfall_GUI(object):
 				
 				self.draw()
 				self.drawSpectrum(self.spectrumClick)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 				
 			elif event.key == 'u':
 				## Unmask
@@ -1286,6 +1330,8 @@ class Waterfall_GUI(object):
 				
 				self.draw()
 				self.drawSpectrum(self.spectrumClick)
+				self.frame.edited = True
+				self.frame.setSaveButton()
 				
 			elif event.key == 'f':
 				## Power law fit
@@ -1427,6 +1473,9 @@ ID_DETAIL_SUBFILE = 61
 ID_DETAIL_WATERFALL = 62
 ID_DETAIL_DRIFTCURVE = 63
 
+ID_HELP = 70
+ID_ABOUT = 71
+
 class MainWindow(wx.Frame):
 	def __init__(self, parent, id):
 		self.dirname = ''
@@ -1435,7 +1484,7 @@ class MainWindow(wx.Frame):
 		self.duration = -1
 		self.data = None
 		
-		self.examineWindow = None
+		self.edited = False
 		
 		wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(1000,600))
 		
@@ -1461,11 +1510,13 @@ class MainWindow(wx.Frame):
 		maskMenu = wx.Menu()
 		bandpassMenu = wx.Menu()
 		detailsMenu = wx.Menu()
+		helpMenu = wx.Menu()
 		
 		## File Menu
 		open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
-		#fileMenu.AppendItem(open)
+		fileMenu.AppendItem(open)
 		save = wx.MenuItem(fileMenu, ID_SAVE, "&Save")
+		self.savemenu = save
 		fileMenu.AppendItem(save)
 		saveas = wx.MenuItem(fileMenu, ID_SAVE_AS, "Save &As")
 		fileMenu.AppendItem(saveas)
@@ -1579,14 +1630,21 @@ class MainWindow(wx.Frame):
 		## Details Menu
 		cf = wx.MenuItem(detailsMenu, ID_DETAIL_SUMMARY, 'Current File Info.')
 		detailsMenu.AppendItem(cf)
-		self.examineFileButton = wx.MenuItem(detailsMenu, ID_DETAIL_SUBFILE, 'Examine File')
-		detailsMenu.AppendItem(self.examineFileButton)
+		examineFileButton = wx.MenuItem(detailsMenu, ID_DETAIL_SUBFILE, 'Examine File')
+		detailsMenu.AppendItem(examineFileButton)
 		detailsMenu.AppendSeparator()
 		zm = wx.MenuItem(detailsMenu, ID_DETAIL_WATERFALL, 'Zoomable Waterfall')
 		detailsMenu.AppendItem(zm)
 		zd = wx.MenuItem(detailsMenu, ID_DETAIL_DRIFTCURVE, 'Zoomable Drift Curve')
 		detailsMenu.AppendItem(zd)
-
+		
+		# Help menu items
+		help = wx.MenuItem(helpMenu, ID_HELP, 'plotHDF Handbook\tF1')
+		helpMenu.AppendItem(help)
+		helpMenu.AppendSeparator()
+		about = wx.MenuItem(helpMenu, ID_ABOUT, '&About')
+		helpMenu.AppendItem(about)
+		
 		# Creating the menubar.
 		menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
 		menuBar.Append(colorMenu, "&Color")
@@ -1594,7 +1652,17 @@ class MainWindow(wx.Frame):
 		menuBar.Append(maskMenu, "&Mask")
 		menuBar.Append(bandpassMenu, "&Bandpass")
 		menuBar.Append(detailsMenu, "D&etails")
+		menuBar.Append(helpMenu, "&Help")
 		self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
+		
+		# Save the various menus so that we can disable them if need be
+		self.fileMenu = fileMenu
+		self.colorMenu = colorMenu
+		self.dataMenu = dataMenu
+		self.maskMenu = maskMenu
+		self.bandpassMenu = bandpassMenu
+		self.detailsMenu = detailsMenu
+		self.helpMenu = helpMenu
 		
 		vbox = wx.BoxSizer(wx.VERTICAL)
 		
@@ -1687,6 +1755,9 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onZoomWaterfall, id=ID_DETAIL_WATERFALL)
 		self.Bind(wx.EVT_MENU, self.onZoomDrift, id=ID_DETAIL_DRIFTCURVE)
 		
+		self.Bind(wx.EVT_MENU, self.onHelp, id=ID_HELP)
+		self.Bind(wx.EVT_MENU, self.onAbout, id=ID_ABOUT)
+		
 		# Key events
 		self.canvas1a.Bind(wx.EVT_KEY_UP, self.onKeyPress)
 		self.canvas1b.Bind(wx.EVT_KEY_UP, self.onKeyPress)
@@ -1695,14 +1766,39 @@ class MainWindow(wx.Frame):
 		# Make the plots resizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
 		self.Bind(wx.EVT_SIZE, self.onSize)
-	
+		
+		# Window manager close
+		self.Bind(wx.EVT_CLOSE, self.onExit)
+		
+	def setSaveButton(self):
+		"""
+		Control that data of the various 'save' options based on the value of
+		self.edited.
+		"""
+		
+		if self.edited:
+			self.savemenu.Enable(True)
+		else:
+			self.savemenu.Enable(False)
+			
 	def onOpen(self, event):
 		"""
 		Open a file.
 		"""
 		
+		if self.edited:
+			dialog = wx.MessageDialog(self, 'The current RFI mask has changes that have not been saved.\n\nOpen a new file anyways?', 'Confirm Open', style=wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
+			
+			if dialog.ShowModal() == wx.ID_YES:
+				pass
+			else:
+				return False
+				
 		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "HDF5 (*.hdf5;*.h5)|*.hdf5;*.h5|All Files|*.*", wx.OPEN)
 		if dlg.ShowModal() == wx.ID_OK:
+			wx.BeginBusyCursor()
+			wx.Yield()
+			
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
 			self.data = Waterfall_GUI(self)
@@ -1716,13 +1812,29 @@ class MainWindow(wx.Frame):
 				except:
 					pass
 				self.cAdjust = None
+				
+			wx.EndBusyCursor()
+			
 		dlg.Destroy()
 		
 		if self.data.filename is None:
-			self.examineFileButton.Enable(False)
+			for menuItem in self.fileMenu.GetMenuItems():
+				if menuItem.GetLabel().find('Save') != -1:
+					menuItem.Enable(False)
+			for menu in (self.colorMenu, self.dataMenu, self.maskMenu, self.bandpassMenu, self.detailsMenu):
+				for menuItem in menu.GetMenuItems():
+					menuItem.Enable(False)
 		else:
-			self.examineFileButton.Enable(True)
-		
+			for menuItem in self.fileMenu.GetMenuItems():
+				if menuItem.GetLabel().find('Save') != -1:
+					menuItem.Enable(True)
+			for menu in (self.colorMenu, self.dataMenu, self.maskMenu, self.bandpassMenu, self.detailsMenu):
+				for menuItem in menu.GetMenuItems():
+					menuItem.Enable(True)
+					
+			self.edited = False
+			self.setSaveButton()
+			
 	def onSave(self, event):
 		"""
 		Save the data mask to a new NPZ file.
@@ -1730,7 +1842,11 @@ class MainWindow(wx.Frame):
 		
 		if self.data.filename == '':
 			self.onSaveAs(event)
+			
 		else:
+			wx.BeginBusyCursor()
+			wx.Yield()
+			
 			h = h5py.File(self.data.filename, 'a')
 			obs = h.get('Observation%i' % self.data.obsID, None)
 			
@@ -1777,9 +1893,14 @@ class MainWindow(wx.Frame):
 				ind = 4*(2-1) + mapper[p]
 				mask2P = mask2.get(p, None)
 				mask2P[o:o+d,:] = self.data.spec.mask[:,ind,:]
-			
+				
 			h.close()
-
+			
+			self.EndBusyCursor()
+			
+			self.edited = False
+			self.setSaveButton()
+			
 	def onSaveAs(self, event):
 		"""
 		Save the current observation to a new SD file.
@@ -1788,6 +1909,9 @@ class MainWindow(wx.Frame):
 		dialog = wx.FileDialog(self, "Select Output File", self.dirname, '', 'HDF5 Files (*.hdf5)|*.hdf5|All Files (*.*)|*.*', wx.SAVE|wx.FD_OVERWRITE_PROMPT)
 			
 		if dialog.ShowModal() == wx.ID_OK:
+			wx.BeginBusyCursor()
+			wx.Yield()
+			
 			self.dirname = dialog.GetDirectory()
 			self.filename = dialog.GetPath()
 			
@@ -1850,14 +1974,51 @@ class MainWindow(wx.Frame):
 			
 			hNew.close()
 			
+			self.EndBusyCursor()
+			
+			self.edited = False
+			self.setSaveButton()
+			
 		dialog.Destroy()
+		
+	def onHelp(self, event):
+		"""
+		Display the help window.
+		"""
+		
+		HelpWindow(self)
+		
+	def onAbout(self, event):
+		"""
+		Display a very very very brief 'about' window.
+		"""
+		
+		dialog = wx.AboutDialogInfo()
+		
+		#dialog.SetIcon(wx.Icon(os.path.join(self.scriptPath, 'icons', 'lwa.png'), wx.BITMAP_TYPE_PNG))
+		dialog.SetName('plotHDF')
+		dialog.SetVersion(__version__)
+		dialog.SetDescription("""GUI for plotting HDF5 data from the Long Wavelength Array.\n\nLSL Version: %s""" % lsl.version.version)
+		dialog.SetWebSite('http://lwa.unm.edu')
+		dialog.AddDeveloper(__author__)
+		
+		wx.AboutBox(dialog)
 		
 	def onExit(self, event):
 		"""
 		Quit plotWaterfall.
 		"""
 		
-		self.Close(True)
+		
+		if self.edited:
+			dialog = wx.MessageDialog(self, 'The current RFI mask has changes that have not been saved.\n\nExit anyways?', 'Confirm Exit', style=wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
+			
+			if dialog.ShowModal() == wx.ID_YES:
+				pass
+			else:
+				return False
+				
+		self.Destroy()
 		
 	def onAutoscale(self, event):
 		"""
@@ -2363,18 +2524,22 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 		"""
 		
 		keycode = event.GetKeyCode()
-		
-		if keycode == wx.WXK_UP:
+		if keycode < 256:
+			keycode = chr(keycode)
+			
+		if keycode == wx.WXK_UP or keycode == wx.WXK_RIGHT:
 			## Move forward one integration time
 			if self.data.spectrumClick is not None:
 				self.data.drawSpectrum(self.data.spectrumClick + self.data.tInt)
 				self.data.makeMark(self.data.spectrumClick + self.data.tInt)
-		elif keycode == wx.WXK_DOWN:
+				self.data.spectrumClick += self.data.tInt
+		elif keycode == wx.WXK_DOWN or keycode == wx.WXK_LEFT:
 			## Move backward one integration time
 			if self.data.spectrumClick is not None:
 				self.data.drawSpectrum(self.data.spectrumClick - self.data.tInt)
 				self.data.makeMark(self.data.spectrumClick - self.data.tInt)
-		elif keycode == wx.WXK_SPACE:
+				self.data.spectrumClick -= self.data.tInt
+		elif keycode == 'M':
 			## Mask the current integration
 			if self.data.spectrumClick is not None:
 				dataY = int(round(self.data.spectrumClick / self.data.tInt ))
@@ -2384,7 +2549,11 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 				self.data.timeMask[dataY, self.data.index] = True
 				
 				self.data.draw()
-		elif keycode == 85:
+				self.data.drawSpectrum(self.data.spectrumClick)
+				
+				self.edited = True
+				self.setSaveButton()
+		elif keycode == 'U':
 			## Unmask the current integration
 			if self.data.spectrumClick is not None:
 				dataY = int(round(self.data.spectrumClick / self.data.tInt ))
@@ -2394,6 +2563,10 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 				self.data.timeMask[dataY, self.data.index] = False
 				
 				self.data.draw()
+				self.data.drawSpectrum(self.data.spectrumClick)
+				
+				self.edited = True
+				self.setSaveButton()
 		else:
 			pass
 			
@@ -3361,6 +3534,142 @@ class DriftCurveDisplay(wx.Frame):
 		return self.toolbar
 
 
+class HtmlWindow(wx.html.HtmlWindow): 
+	def __init__(self, parent): 
+		wx.html.HtmlWindow.__init__(self, parent, style=wx.NO_FULL_REPAINT_ON_RESIZE|wx.SUNKEN_BORDER) 
+		
+		if "gtk2" in wx.PlatformInfo: 
+			self.SetStandardFonts()
+			
+	def OnLinkClicked(self, link): 
+		a = link.GetHref()
+		if a.startswith('#'): 
+			wx.html.HtmlWindow.OnLinkClicked(self, link) 
+		else: 
+			wx.LaunchDefaultBrowser(link.GetHref())
+
+
+class HelpWindow(wx.Frame):
+	def __init__(self, parent):
+		wx.Frame.__init__(self, parent, -1, 'plotHDF Handbook', size=(570, 400))
+		
+		self.initUI()
+		self.Show()
+		
+	def initUI(self):
+		panel = wx.Panel(self, -1, style=wx.BORDER_SUNKEN)
+		vbox = wx.BoxSizer(wx.VERTICAL)
+		
+		help = HtmlWindow(panel)
+		#help.LoadPage(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'docs/help.html'))
+		help.SetPage("""<html>
+
+<body>
+<a name="top"><h4>Table of Contents</h4></a>
+<ul>
+<li><a href="#intro">Introduction</a></li>
+<li><a href="#layout">Window Layout</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#mouse">Mouse Interaction</a></li>
+<li><a href="#keyboard">Keyboard Interaction</a></li>
+</ul>
+
+<p>
+<a name="intro">
+<h6>Introduction</h6>
+plotHDF is a graphical interface for working with HDF5 files created by the hdfWaterfall or drspec2hdf 
+scripts.  This script allows the user to look at dynamic waterfalls, examine the power as a function 
+of time, mask RFI, and fit power laws to the data.
+<br /><a href="#top">Top</a>
+</a>
+</p>
+
+<p>
+<a name="layout">
+<h6>Window Layout</h6>
+The plotHDF window is broken into two vertical sections.  The top section shows, from left to right, the 
+dynamic waterfall, the X and Y polarization data saturation fraction, and the frequency-integrated power 
+as a function of time.  Any of these three panels can be clicked with the mouse to select a particular
+time section to be detailed in the lower section.<br /><br />
+The lower section also allows the users to interact with the spectrum, e.g., shifted, zoomed, etc., using the 
+standard matplotlib toolbar.
+<br /><a href="#top">Top</a>
+</a>
+</p>
+
+<p>
+<a name="usage">
+<h6>Usage</h6>
+After the HDF5 file has been loaded there are a variety of menu, <a href="#mouse">mouse</a>, and 
+<a href="#keyboard">keyboard commands</a> that can be used to interact with the data.  The menus are:
+<ul>
+	<li>Color - Adjust the color stretch, map, and transfer function used in the dynamic waterfall</li>
+	<li>Data - Change which tuning and data product is currently displayed</li>
+	<li>Mask - Use (psuedo) spectral kurtosis to generate a radio frequency interference (RFI) mask and 
+	apply it to the data.  The masking parameters can also be tweaked in this menu.</li>
+	<li>Bandpass - Apply a data or instrumental spectral bandpass to the data.</li>
+	<li>Details - Get metadata about the current HDF5 file and how the data were reduced and display 
+	zoom-able dynamic waterfall and drift curve plots.</li>
+	<li>Help - Show this help message.</li>
+</ul>
+<br /><br />
+<b>Note:</b> The RFI masks generated either through the "Mask" menu or the mouse/keyboard can be saved 
+to the HDF5 file at any time using the "File" menu.
+<br /><a href="#top">Top</a>
+</a>
+</p>
+
+<p>
+<a name="mouse">
+<h6>Mouse Interaction</h6>
+The mouse can be used in any of the plotting panels.  In the upper section:
+<ul>
+	<li>Left Click - Select a particular time to be displayed in the lower spectrum window</li>
+	<li>Middle Click - Unmask the timestamp currently under the cursor</li>
+	<li>Right Clock - Mask the timestamp currently under the cursor</li>
+</ul>
+<br /><br />
+In the lower section:
+<ul>
+	<li>Left Click - Select the lower panel for interaction/interact with the matplotlib toolbar</li>
+	<li>Middle Click - Unmask the frequency bin currently under the cursor</li>
+	<li>Right Click - Mask the frequency bin currently under the cursor</li>
+</ul>
+<br /><a href="#top">Top</a>
+</a>
+</p>
+
+<p>
+<a name="keyboard">
+<h6>Keyboard Interaction</h6>
+The keyboard can also be used to interact with any of the plotting panels.  The keyboard commands 
+are:
+<ul>
+	<li>Up or Right Arrow - Move the spectrum display forward by one time step <it>(upper section only)</it></li>
+	<li>Down or Left Arrow - Move the spectrum display backward by one time step <it>(upper section only)</it></li>
+	<li>m - Mask the current timestamp (upper section) or frequency bin (lower section)</li>
+	<li>u - Unmask the current timestamp (upper section) or frequency bin (lower section)</li>
+	<li>p - Print the power for the current frequency bin <it>(lower section only)</it></li>
+	<li>s - Print statistics about the current frequency bin <it>(lower section only)</it></li>
+	<li>f - Pick a frequency boundary for a power law fit <it>(lower section only)</it>  <b>Note:</b> This needs to be be done twice to perform the fit</li>
+	<li>c - Clear the current power law fit <it>(lower section only)</it></li>
+</ul>
+<br /><br />
+<b>Note:</b> In order to interact wit the lower section you will need to click in the axes with the left mouse button.
+<br /><a href="#top">Top</a>
+</a>
+</p>
+
+</body>
+
+</html>""")
+		vbox.Add(help, 1, wx.EXPAND)
+		
+		self.CreateStatusBar()
+		
+		panel.SetSizer(vbox)
+
+
 def main(args):
 	# Turn off all NumPy warnings to keep stdout clean
 	errs = numpy.geterr()
@@ -3372,20 +3681,35 @@ def main(args):
 	# Go!
 	app = wx.App(0)
 	frame = MainWindow(None, -1)
+	frame.offset = config['offset']
+	frame.duration = config['duration']
+	frame.data = Waterfall_GUI(frame, bandpassType=config['bandpassType'], arxFilter=config['arxFilter'])
+	frame.render()
 	if len(config['args']) == 1:
+		## If there is a filename on the command line, load it
 		frame.filename = config['args'][0]
-		frame.offset = config['offset']
-		frame.duration = config['duration']
-		frame.data = Waterfall_GUI(frame, bandpassType=config['bandpassType'], arxFilter=config['arxFilter'])
 		frame.data.loadData(config['args'][0], obsID=config['obsID'])
-		frame.render()
 		frame.data.render()
 		frame.data.draw()
 		
-		if frame.data.filenames is None:
-			frame.examineFileButton.Enable(False)
-		else:
-			frame.examineFileButton.Enable(True)
+		for menuItem in frame.fileMenu.GetMenuItems():
+			if menuItem.GetLabel().find('Save') != -1:
+				menuItem.Enable(True)
+		for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
+			for menuItem in menu.GetMenuItems():
+				menuItem.Enable(True)
+				
+		frame.setSaveButton()
+	else:
+		## Otherwise, disable the various menus that only do something if there is 
+		## a file to look at
+		for menuItem in frame.fileMenu.GetMenuItems():
+			if menuItem.GetLabel().find('Save') != -1:
+				menuItem.Enable(False)
+		for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
+			for menuItem in menu.GetMenuItems():
+				menuItem.Enable(False)
+				
 	app.MainLoop()
 
 
