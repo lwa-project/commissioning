@@ -1636,26 +1636,16 @@ class MainWindow(wx.Frame):
 		smap.Check(ID_COLOR_STRETCH_LINEAR, True)
 		self.smapMenu = smap
 		
-		## Data Menu
-		if self.data.linear:
-			t1p1 = dataMenu.AppendRadioItem(ID_TUNING1_1, 'Tuning 1, XX')
-			t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, XY')
-			t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, YX')
-			t1p4 = dataMenu.AppendRadioItem(ID_TUNING1_4, 'Tuning 1, YY')
-			t2p1 = dataMenu.AppendRadioItem(ID_TUNING2_1, 'Tuning 2, XX')
-			t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, XY')
-			t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, YX')
-			t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, YY')
-		else:
-			t1p1 = dataMenu.AppendRadioItem(ID_TUNING1_1, 'Tuning 1, I')
-			t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, Q')
-			t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, U')
-			t1p4 = dataMenu.AppendRadioItem(ID_TUNING1_4, 'Tuning 1, V')
-			t2p1 = dataMenu.AppendRadioItem(ID_TUNING2_1, 'Tuning 2, I')
-			t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, Q')
-			t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, U')
-			t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, V')
-			
+		## Data Menu Stub
+		t1p1 = dataMenu.AppendRadioItem(ID_TUNING1_1, 'Tuning 1, XX')
+		t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, XY')
+		t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, YX')
+		t1p4 = dataMenu.AppendRadioItem(ID_TUNING1_4, 'Tuning 1, YY')
+		t2p1 = dataMenu.AppendRadioItem(ID_TUNING2_1, 'Tuning 2, XX')
+		t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, XY')
+		t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, YX')
+		t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, YY')
+		
 		dataMenu.InsertSeparator(4)
 		dataMenu.AppendSeparator()
 		self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, 'Change Time &Range')
@@ -1671,20 +1661,8 @@ class MainWindow(wx.Frame):
 		t2p2.Enable(False)
 		t2p3.Enable(False)
 		t2p4.Enable(False)
-		for p in self.data.dataProducts:
-			if p in ('I', 'XX'):
-				t1p1.Enable(True)
-				t2p1.Enable(True)
-			elif p in ('Q', 'XY'):
-				t1p2.Enable(True)
-				t2p2.Enable(True)
-			elif p in ('U', 'YX'):
-				t1p3.Enable(True)
-				t2p3.Enable(True)
-			else:
-				t1p4.Enable(True)
-				t2p4.Enable(True)
-				
+		self.dataMenuOptions = [t1p1, t1p2, t1p3, t1p4, t2p1, t2p2, t2p3, t2p4]
+		
 		## Mask Menu
 		suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
 		maskMenu.AppendItem(suggestC)
@@ -1860,6 +1838,50 @@ class MainWindow(wx.Frame):
 		else:
 			self.savemenu.Enable(False)
 			
+	def setDataMenuOptions(self):
+		"""
+		Control what is shown in the Data menu and if it is active or not.
+		"""
+		
+		# Turn them all off to start with
+		for item in self.dataMenuOptions:
+			item.Enable(False)
+			
+		# Update the text for the current mode
+		if self.data.linear:
+			self.dataMenuOptions[0].SetItemLabel('Tuning 1, XX')
+			self.dataMenuOptions[1].SetItemLabel('Tuning 1, XY')
+			self.dataMenuOptions[2].SetItemLabel('Tuning 1, YX')
+			self.dataMenuOptions[3].SetItemLabel('Tuning 1, YY')
+			self.dataMenuOptions[4].SetItemLabel('Tuning 2, XX')
+			self.dataMenuOptions[5].SetItemLabel('Tuning 2, XY')
+			self.dataMenuOptions[6].SetItemLabel('Tuning 2, YX')
+			self.dataMenuOptions[7].SetItemLabel('Tuning 2, YY')
+		else:
+			self.dataMenuOptions[0].SetItemLabel('Tuning 1, I')
+			self.dataMenuOptions[1].SetItemLabel('Tuning 1, Q')
+			self.dataMenuOptions[2].SetItemLabel('Tuning 1, U')
+			self.dataMenuOptions[3].SetItemLabel('Tuning 1, V')
+			self.dataMenuOptions[4].SetItemLabel('Tuning 2, I')
+			self.dataMenuOptions[5].SetItemLabel('Tuning 2, Q')
+			self.dataMenuOptions[6].SetItemLabel('Tuning 2, U')
+			self.dataMenuOptions[7].SetItemLabel('Tuning 2, V')
+			
+		# Now re-enable
+		for p in self.data.dataProducts:
+			if p in ('I', 'XX'):
+				self.dataMenuOptions[0].Enable(True)
+				self.dataMenuOptions[4].Enable(True)
+			elif p in ('Q', 'XY'):
+				self.dataMenuOptions[1].Enable(True)
+				self.dataMenuOptions[5].Enable(True)
+			elif p in ('U', 'YX'):
+				self.dataMenuOptions[2].Enable(True)
+				self.dataMenuOptions[6].Enable(True)
+			else:
+				self.dataMenuOptions[3].Enable(True)
+				self.dataMenuOptions[7].Enable(True)
+				
 	def onOpen(self, event):
 		"""
 		Open a file.
@@ -1875,9 +1897,6 @@ class MainWindow(wx.Frame):
 				
 		dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "HDF5 (*.hdf5;*.h5)|*.hdf5;*.h5|All Files|*.*", wx.OPEN)
 		if dlg.ShowModal() == wx.ID_OK:
-			wx.BeginBusyCursor()
-			wx.Yield()
-			
 			self.filename = dlg.GetFilename()
 			self.dirname = dlg.GetDirectory()
 			self.data = Waterfall_GUI(self)
@@ -1892,33 +1911,8 @@ class MainWindow(wx.Frame):
 					pass
 				self.cAdjust = None
 				
-			wx.EndBusyCursor()
-			
 		dlg.Destroy()
 		
-		if self.data.filename is None:
-			for menuItem in self.fileMenu.GetMenuItems():
-				if menuItem.GetLabel().find('Save') != -1:
-					menuItem.Enable(False)
-			for menu in (self.colorMenu, self.dataMenu, self.maskMenu, self.bandpassMenu, self.detailsMenu):
-				for menuItem in menu.GetMenuItems():
-					menuItem.Enable(False)
-		else:
-			for menuItem in self.fileMenu.GetMenuItems():
-				if menuItem.GetLabel().find('Save') != -1:
-					menuItem.Enable(True)
-			for menu in (self.colorMenu, self.dataMenu, self.maskMenu, self.bandpassMenu, self.detailsMenu):
-				for menuItem in menu.GetMenuItems():
-					menuItem.Enable(True)
-					
-			if self.data.filenames is None: 
-				self.examineFileButton.Enable(False) 
-			else: 
-				self.examineFileButton.Enable(True)
-				
-			self.edited = False
-			self.setSaveButton()
-			
 	def onSave(self, event):
 		"""
 		Save the data mask to a new NPZ file.
@@ -1929,7 +1923,6 @@ class MainWindow(wx.Frame):
 			
 		else:
 			wx.BeginBusyCursor()
-			wx.Yield()
 			
 			h = h5py.File(self.data.filename, 'a')
 			obs = h.get('Observation%i' % self.data.obsID, None)
@@ -1994,7 +1987,6 @@ class MainWindow(wx.Frame):
 			
 		if dialog.ShowModal() == wx.ID_OK:
 			wx.BeginBusyCursor()
-			wx.Yield()
 			
 			self.dirname = dialog.GetDirectory()
 			self.filename = dialog.GetPath()
@@ -2989,6 +2981,24 @@ class TimeRangeAdjust(wx.Frame):
 				self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename))
 				self.parent.data.render()
 				self.parent.data.draw()
+				
+				for menuItem in self.parent.fileMenu.GetMenuItems():
+					if menuItem.GetLabel().find('Save') != -1:
+						menuItem.Enable(True)
+				for menu in (self.parent.colorMenu, self.parent.dataMenu, self.parent.maskMenu, self.parent.bandpassMenu, self.parent.detailsMenu):
+					for menuItem in menu.GetMenuItems():
+						menuItem.Enable(True)
+						
+				if self.parent.data.filenames is None: 
+					self.parent.examineFileButton.Enable(False) 
+				else: 
+					self.parent.examineFileButton.Enable(True)
+					
+				self.parent.setDataMenuOptions()
+				
+				self.parent.edited = False
+				self.parent.setSaveButton()
+				
 		except Exception, e:
 			print "ERROR: %s" % str(e)
 		else:
@@ -3788,6 +3798,9 @@ def main(args):
 		else: 
 			frame.examineFileButton.Enable(True) 
 			
+		frame.setDataMenuOptions()
+		
+		frame.edited = False
 		frame.setSaveButton()
 	else:
 		## Otherwise, disable the various menus that only do something if there is 
