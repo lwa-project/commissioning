@@ -1055,6 +1055,7 @@ class Waterfall_GUI(object):
 				
 				
 		self.frame.edited = True
+		self.frame.setSaveButton()
 		
 		return True
 		
@@ -1069,6 +1070,7 @@ class Waterfall_GUI(object):
 		self.freqMask[index,:] = False
 		
 		self.frame.edited = True
+		self.frame.setSaveButton()
 		
 		return True
 		
@@ -1101,27 +1103,46 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
+			if self.index / (self.spec.shape[1]/2) == 0:
+				freq = self.freq1
+			else:
+				freq = self.freq2
+				
 			dataY = int(round(clickY / self.tInt))
 			
 			if event.button == 1:
+				## Update the current spectrum
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
+				
 			elif event.button == 2:
+				## Unmask
+				print "Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+				
 				self.spec.mask[dataY, self.index, :] = self.freqMask[self.index,:]
 				self.specBandpass.mask[dataY, self.index, :] = self.freqMask[self.index,:]
 				self.timeMask[dataY, self.index] = False
+				
 				self.draw()
 				self.drawSpectrum(clickY)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			elif event.button == 3:
+				## Mask
+				print "Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+				
 				self.spec.mask[dataY, self.index, :] = True
 				self.specBandpass.mask[dataY, self.index, :] = True
 				self.timeMask[dataY, self.index] = True
+				
 				self.draw()
 				self.drawSpectrum(clickY)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			else:
 				pass
 				
@@ -1134,27 +1155,46 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
+			if self.index / (self.spec.shape[1]/2) == 0:
+				freq = self.freq1
+			else:
+				freq = self.freq2
+				
 			dataY = int(round(clickY / self.tInt))
 			
 			if event.button == 1:
+				## Update the current spectrum
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
+				
 			elif event.button == 2:
+				## Unmask
+				print "Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+				
 				self.spec.mask[dataY, self.index, :] = self.freqMask[self.index,:]
 				self.specBandpass.mask[dataY, self.index, :] = self.freqMask[self.index,:]
 				self.timeMask[dataY, self.index] = False
+				
 				self.draw()
 				self.drawSpectrum(clickY)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			elif event.button == 3:
+				## Mask
+				print "Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+				
 				self.spec.mask[dataY, self.index, :] = True
 				self.specBandpass.mask[dataY, self.index, :] = True
 				self.timeMask[dataY, self.index] = True
+				
 				self.draw()
 				self.drawSpectrum(clickY)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			else:
 				pass
 				
@@ -1167,6 +1207,11 @@ class Waterfall_GUI(object):
 			clickX = event.xdata
 			clickY = event.ydata
 			
+			if self.index / (self.spec.shape[1]/2) == 0:
+				freq = self.freq1
+			else:
+				freq = self.freq2
+				
 			scaleX = self.ax1c.get_xlim()
 			rangeX = scaleX[1] - scaleX[0]
 			
@@ -1197,24 +1242,38 @@ class Waterfall_GUI(object):
 				print "Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, self.drift.data[best, self.index], self.time[best])
 				
 			if event.button == 1:
+				## Update the current spectrum
 				self.drawSpectrum(clickY)
 				self.makeMark(clickY)
+				
 			elif event.button == 2:
+				## Unmask
+				print "Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+				
 				self.spec.mask[best, self.index, :] = self.freqMask[self.index,:]
 				self.specBandpass.mask[best, self.index, :] = self.freqMask[self.index,:]
 				self.timeMask[best, self.index] = False
+				
 				self.draw()
 				self.drawSpectrum(clickY)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			elif event.button == 3:
+				## Mask
+				print "Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+				
 				self.spec.mask[best, self.index, :] = True
 				self.specBandpass.mask[best, self.index, :] = True
 				self.timeMask[best, self.index] = True
+				
 				self.draw()
 				self.drawSpectrum(clickY)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			else:
 				pass
 			
@@ -1231,25 +1290,41 @@ class Waterfall_GUI(object):
 				freq = self.freq1
 			else:
 				freq = self.freq2
-			
+				
 			dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
 			
-			if event.button == 2:
+			if event.button == 1:
+				## Nothing right now
+				pass
+				
+			elif event.button == 2:
+				## Unmask
+				print "Unmasking %.3f MHz" % (freq[dataX]/1e6,)
+				
 				self.spec.mask[:, self.index, dataX] = self.timeMask[:,self.index]
 				self.specBandpass.mask[:, self.index, dataX] = self.timeMask[:,self.index]
 				self.freqMask[self.index, dataX] = False
+				
 				self.draw()
 				self.drawSpectrum(self.spectrumClick)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			elif event.button == 3:
+				## Mask
+				print "Masking %.3f MHz" % (freq[dataX]/1e6,)
+				
 				self.spec.mask[:, self.index, dataX] = True
 				self.specBandpass.mask[:, self.index, dataX] = True
 				self.freqMask[self.index, dataX] = True
+				
 				self.draw()
 				self.drawSpectrum(self.spectrumClick)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
+				
 			else:
 				pass
 				
@@ -1317,6 +1392,7 @@ class Waterfall_GUI(object):
 				
 				self.draw()
 				self.drawSpectrum(self.spectrumClick)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
 				
@@ -1330,6 +1406,7 @@ class Waterfall_GUI(object):
 				
 				self.draw()
 				self.drawSpectrum(self.spectrumClick)
+				
 				self.frame.edited = True
 				self.frame.setSaveButton()
 				
@@ -1483,6 +1560,7 @@ class MainWindow(wx.Frame):
 		self.offset = 0.0
 		self.duration = -1
 		self.data = None
+		self.examineWindow = None
 		
 		self.edited = False
 		
