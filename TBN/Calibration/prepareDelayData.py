@@ -61,7 +61,7 @@ Options:
 -o, --output          Name for the final NPZ file (default = 
                       'prepared-dat-stopped.npz')
 """
-
+	
 	if exitCode is not None:
 		sys.exit(exitCode)
 	else:
@@ -80,7 +80,7 @@ def parseOptions(args):
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
-	
+		
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -89,10 +89,10 @@ def parseOptions(args):
 			config['output'] = value
 		else:
 			assert False
-	
+			
 	# Add in arguments
 	config['args'] = args
-
+	
 	# Return configuration
 	return config
 
@@ -109,15 +109,15 @@ def getGeoDelay(antenna1, antenna2, az, el, Degrees=False):
 	Get the geometrical delay (relative to a second antenna) for the 
 	specified antenna for a source at azimuth az, elevation el.
 	"""
-
+	
 	if Degrees:
 		az = az*numpy.pi/180.0
 		el = el*numpy.pi/180.0
-	
+		
 	source = numpy.array([numpy.cos(el)*numpy.sin(az), 
 					  numpy.cos(el)*numpy.cos(az), 
 					  numpy.sin(el)])
-	
+					  
 	xyz1 = numpy.array([antenna1.stand.x, antenna1.stand.y, antenna1.stand.z])
 	xyz2 = numpy.array([antenna2.stand.x, antenna2.stand.y, antenna2.stand.z])
 	xyzRel = xyz1 - xyz2
@@ -140,6 +140,7 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 	
 	# Get the u,v,w coordinates
 	uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
+	print uvw[0,0,0]
 	
 	return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
 
@@ -149,7 +150,7 @@ def main(args):
 	
 	reference = config['args'][0]
 	filenames = config['args'][1:]
-
+	
 	#
 	# Gather the station meta-data from its various sources
 	#
@@ -176,7 +177,7 @@ def main(args):
 	srcs = [ephem.Sun(),]
 	for line in _srcs:
 		srcs.append( ephem.readdb(line) )
-
+		
 	refSrc = None
 	for i in xrange(len(srcs)):
 		if srcs[i].name == reference:
@@ -185,7 +186,7 @@ def main(args):
 	if refSrc is None:
 		print "Cannot find reference source '%s' in source list, aborting." % reference
 		sys.exit(1)
-	
+		
 	#
 	# Parse the input files
 	#
@@ -207,18 +208,18 @@ def main(args):
 		phase = dataDict['simpleVis']
 		
 		centralFreq = dataDict['centralFreq'].item()
-
+		
 		ssmifContents = dataDict['ssmifContents']
 		
 		beginDate = datetime.utcfromtimestamp(times[0])
 		observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
-
+		
 		# Make sure we aren't mixing reference antennas
 		if oldRef is None:
 			oldRef = refAnt
 		if refAnt != oldRef:
 			raise RuntimeError("Dataset has different reference antennas than previous (%i != %i)" % (refAnt, oldRef))
-
+			
 		# Make sure we aren't mixing SSMIFs
 		ssmifMD5 = md5sum(ssmifContents)
 		if oldMD5 is None:
@@ -250,7 +251,7 @@ def main(args):
 		## all down to the same size later
 		if time[-1].size > maxTime:
 			maxTime = time[-1].size
-	
+			
 	# Pad with NaNs to the same length
 	for i in xrange(len(filenames)):
 		nTimes = time[i].size
@@ -267,7 +268,7 @@ def main(args):
 			newData += numpy.nan
 			newData[0:nTimes,:] = data[i][:,:]
 			data[i] = newData
-	
+			
 	# Convert to 2-D and 3-D numpy arrays
 	freq = numpy.array(freq)
 	time = numpy.array(time)
@@ -299,7 +300,7 @@ def main(args):
 			if len(good) < m:
 				m = len(good)
 		ms[fStart] = m
-			
+		
 	print "Minimum fringe stopping times:"
 	for fStart in sorted(ls.keys()):
 		fStop = fStart + 5
@@ -323,7 +324,6 @@ def main(args):
 	#
 	print "Fringe stopping on '%s':" % refSrc.name
 	pbar = ProgressBar(max=freq.size*520)
-
 	
 	for i in xrange(freq.size):
 		fq = freq[i]
@@ -370,7 +370,7 @@ def main(args):
 					pass
 				observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
 				refSrc.compute(observer)
-			
+				
 				az = refSrc.az
 				el = refSrc.alt
 				if j % 2 == 0:
