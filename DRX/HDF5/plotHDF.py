@@ -1355,6 +1355,7 @@ class Waterfall_GUI(object):
 				print "Spectrum Window Keys:"
 				print "  p - print the information about the underlying point"
 				print "  s - print statistics about the current frequency"
+				print "  w - write the current spectrum to a text file"
 				print "  m - mask the frequency under the cursor"
 				print "  u - unmask the frequency under the cursor"
 				print "  f - pick a boundary for a power law fit"
@@ -1380,6 +1381,83 @@ class Waterfall_GUI(object):
 				print "  Std. Dev.: %.3f" % spec[:, self.index, dataX].std()
 				print "  Skew: %.3f" % skew(spec[:, self.index, dataX])
 				print "  Kurtosis: %.3f" % kurtosis(spec[:, self.index, dataX])
+				print "==="
+				
+			elif event.key == 'w':
+				## Write
+				outname = "spectrum.txt"
+				print "Saving to '%s'" % outname
+				
+				fn = os.path.basename(self.filename)
+				if len(fn) > 33:
+					fn = fn[:30]+"..."
+				if self.linear:
+					tun = self.index / 4 + 1
+					ind = self.index % 4
+					mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+					pol = mapper[ind]
+				else:
+					tun = self.index / 4 + 1
+					ind = self.index % 4
+					mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
+					pol = mapper[ind]
+				dt = datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+				
+				beam = self.beam
+				srate, sunit = bestFreqUnits(self.srate)
+				tInt = self.tInt
+				isAggregate = False if self.filenames is None else True
+				tIntOrg = self.tIntOriginal
+				tIntAct = self.tIntActual
+		
+				target = self.target
+				if self.raUnit.lower().find('h') != -1:
+					ra = ephem.hours(self.ra*numpy.pi/12.0)
+				else:
+					ra = ephem.hours(self.ra*numpy.pi/180.0)
+				if self.decUnit.lower().find('h') != -1:
+					dec = ephem.degrees(self.dec*numpy.pi/12.0)
+				else:
+					dec = ephem.degrees(self.dec*numpy.pi/180.0)
+				mode = self.mode
+		
+				rbw = self.rbw
+				rbwu = self.rbwUnit
+				
+				fh = open(outname, 'w')
+				fh.write("#############################################\n")
+				fh.write("#                                           #\n")
+				fh.write("# Input: %-33s  #\n" % fn)
+				fh.write("#                                           #\n")
+				fh.write("# Beam: %-1i                                   #\n" % beam)
+				fh.write("# RA: %-13s                         #\n" % ra)
+				fh.write("# Dec: %-13s                        #\n" % dec)
+				fh.write("# Observing Mode: %-10s                #\n" % mode)
+				fh.write("# Sample Rate: %-11.4f                  #\n" % srate)
+				fh.write("# Sample Rate Units: %-10s             #\n" % sunit)
+				fh.write("#                                           #\n")
+				fh.write("# Tuning: %-1i                                 #\n" % tun)
+				fh.write("# Polarization: %-2s                          #\n" % pol)
+				fh.write("# Date/Time: %-26s     #\n" % dt)
+				fh.write("# Channel Count: %-10i                 #\n" % freq.size)
+				fh.write("# Resolution Bandwidth: %-12.6f        #\n" % rbw)
+				fh.write("# Resolution Bandwidth Units: %-10s    #\n" % rbwu)
+				fh.write("# Integration Time: %-12.6f            #\n" % tInt)
+				fh.write("# Integration Time Units: %-10s        #\n" % "s")
+				fh.write("# Aggregated File: %-5s                    #\n" % isAggregate)
+				fh.write("#                                           #\n")
+				fh.write("# Bandpass Applied: %-5s                   #\n" % self.bandpass)
+				fh.write("#                                           #\n")
+				fh.write("# Columns:                                  #\n")
+				fh.write("#  1. Frequency [Hz]                        #\n")
+				fh.write("#  2. Power Spectral Desity [arb. - linear] #\n")
+				fh.write("#  3. Masked Channel                        #\n")
+				fh.write("#                                           #\n")
+				fh.write("#############################################\n")
+				for i in xrange(freq.size):
+					fh.write("%13.5f  %13.6f  %13s\n" % (freq[i], spec.data[dataY,self.index,i], spec.mask[dataY,self.index,i]))
+				fh.close()
+				
 				print "==="
 				
 			elif event.key == 'm':
