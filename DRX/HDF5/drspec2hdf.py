@@ -261,10 +261,7 @@ def main(args):
 		frame = drspec.readFrame(fh)
 		
 		cTime = datetime.utcfromtimestamp(frame.getTime())
-		if cTime < obsList[o][0]:
-			# Skip over data that occurs before the start of the observation
-			continue
-		elif cTime > obsList[o][1]:
+		if cTime > obsList[o][1]:
 			# Increment to the next observation
 			o += 1
 			
@@ -279,8 +276,9 @@ def main(args):
 				print "End of observing block according to SDF, exiting"
 				break
 				
-		else:
-			pass
+		if cTime < obsList[o][0]:
+			# Skip over data that occurs before the start of the observation
+			continue
 			
 		try:
 			if frame.getTime() > oTime + 1.001*tInt:
