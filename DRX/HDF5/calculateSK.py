@@ -149,186 +149,120 @@ def main(args):
 		
 		# Loop over data products - primary
 		for dp in ('XX', 'YY', 'I', 'RR', 'LL'):
-			data1 = tuning1.get(dp, None)
-			data2 = tuning2.get(dp, None)
-			if data1 is None:
-				continue
-				
-			# Loop over chunks for computing pSK
-			sk1 = numpy.zeros_like(data1)
-			sk2 = numpy.zeros_like(data2)
-			
-			section1 = numpy.empty((chunkSize,data1.shape[1]), dtype=data1.dtype)
-			section2 = numpy.empty((chunkSize,data2.shape[1]), dtype=data2.dtype)
-			for i in xrange(time.size/chunkSize+1):
-				start = i*chunkSize
-				stop = start + chunkSize
-				if stop >= time.size:
-					stop = time.size - 1
-				if start == stop:
+			for t,tuning in enumerate((tuning1, tuning2)):
+				data = tuning.get(dp, None)
+				if data is None:
 					continue
 					
-				## Compute the pSK for each channel in both tunings
-				selection = numpy.s_[start:stop, :]
-				try:
-					data1.read_direct(section1, selection)
-					data2.read_direct(section2, selection)
-				except TypeError:
-					section1 = data1[start:stop,:]
-					section2 = data2[start:stop,:]
-				for j in xrange(section1.shape[1]):
-					sk1[start:stop,j] = kurtosis.spectralPower(section1[:,j], N=skN*nAdjust[dp])
-					sk2[start:stop,j] = kurtosis.spectralPower(section2[:,j], N=skN*nAdjust[dp])
-					
-			# Report
-			print "  => %s-1 SK Mean: %.3f" % (dp, numpy.mean(sk1))
-			print "     %s-1 SK Std. Dev.: %.3f" % (dp, numpy.std(sk1))
-			print "     %s-2 SK Mean: %.3f" % (dp, numpy.mean(sk2))
-			print "     %s-2 SK Std. Dev.: %.3f" % (dp, numpy.std(sk2))
-			
-			# Save the pSK information to the HDF5 file if we need to
-			if config['update']:
-				h.attrs['FileLastUpdated'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
+				# Loop over chunks for computing pSK
+				sk = numpy.zeros_like(data)
 				
-				if config['mask']:
-					## Calculate the expected pSK limits for the threshold
-					kLow, kHigh = kurtosis.getLimits(config['threshold'], chunkSize, N=skN*nAdjust[dp])
-					
-					## Generate the mask arrays
-					maskTable1 = numpy.where( (sk1 < kLow) | (sk1 > kHigh), True, False )
-					maskTable2 = numpy.where( (sk2 < kLow) | (sk2 > kHigh), True, False )
-					
-					## Report
-					print "       => %s-1 Mask Fraction: %.1f%%" % (dp, 100.0*maskTable1.sum()/maskTable1.size,)
-					print "          %s-2 Mask Fraction: %.1f%%" % (dp, 100.0*maskTable2.sum()/maskTable2.size,)
-					
-					## Pull out the Mask group from the HDF5 file
-					### Tuning 1
-					mask1 = tuning1.get('Mask', None)
-					if mask1 is None:
-						mask1 = tuning1.create_group('Mask')
-						for p in dataProducts:
-							mask1.create_dataset(p, tuning1[p].shape, 'bool')
-					mask1DP = mask1.get(dp, None)
-					if config['merge']:
-						mask1DP[:,:] |= maskTable1.astype(numpy.bool)
-					else:
-						mask1DP[:,:] = maskTable1.astype(numpy.bool)
-					
-					### Tuning 2
-					mask2 = tuning2.get('Mask', None)
-					if mask2 is None:
-						mask2 = tuning2.create_group('Mask')
-						for p in dataProducts:
-							mask2.create_dataset(p, tuning2[p].shape, 'bool')
-					mask2DP = mask2.get(dp, None)
-					if config['merge']:
-						mask2DP[:,:] |= maskTable2.astype(numpy.bool)
-					else:
-						mask2DP[:,:] = maskTable2.astype(numpy.bool)
+				section = numpy.empty((chunkSize,data.shape[1]), dtype=data.dtype)
+				for i in xrange(time.size/chunkSize+1):
+					start = i*chunkSize
+					stop = start + chunkSize
+					if stop >= time.size:
+						stop = time.size - 1
+					if start == stop:
+						continue
 						
-				else:
-					## Tuning 1
-					sks1 = tuning1.get('SpectralKurtosis', None)
-					if sks1 is None:
-						sks1 = tuning1.create_group('SpectralKurtosis')
+					## Compute the pSK for each channel in both tunings
+					selection = numpy.s_[start:stop, :]
 					try:
-						sks1.create_dataset(dp, sk1.shape, 'f4')
-					except:
-						pass
-					sks1[dp][:,:] = sk1
-					sks1.attrs['N'] = skN*nAdjust[dp]
-					sks1.attrs['M'] = chunkSize
+						data.read_direct(section, selection)
+					except TypeError:
+						section = data[start:stop,:]
+					for j in xrange(section.shape[1]):
+						sk[start:stop,j] = kurtosis.spectralPower(section[:,j], N=skN*nAdjust[dp])
+						
+				# Report
+				print "  => %s-%i SK Mean: %.3f" % (dp, t+1, numpy.mean(sk))
+				print "     %s-%i SK Std. Dev.: %.3f" % (dp, t+1, numpy.std(sk))
+				
+				# Save the pSK information to the HDF5 file if we need to
+				if config['update']:
+					h.attrs['FileLastUpdated'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
 					
-					## Tuning 2
-					sks2 = tuning2.get('SpectralKurtosis', None)
-					if sks2 is None:
-						sks2 = tuning2.create_group('SpectralKurtosis')
-					try:
-						sks2.create_dataset(dp, sk2.shape, 'f4')
-					except:
-						pass
-					sks2[dp][:,:] = sk2
-					sks2.attrs['N'] = skN*nAdjust[dp]
-					sks2.attrs['M'] = chunkSize
-					
+					if config['mask']:
+						## Calculate the expected pSK limits for the threshold
+						kLow, kHigh = kurtosis.getLimits(config['threshold'], chunkSize, N=skN*nAdjust[dp])
+						
+						## Generate the mask arrays
+						maskTable = numpy.where( (sk < kLow) | (sk > kHigh), True, False )
+						
+						## Report
+						print "     => %s-%i Mask Fraction: %.1f%%" % (dp, t+1, 100.0*maskTable.sum()/maskTable.size,)
+						
+						## Pull out the Mask group from the HDF5 file
+						mask = tuning.get('Mask', None)
+						if mask is None:
+							mask = tuning.create_group('Mask')
+							for p in dataProducts:
+								mask.create_dataset(p, tuning[p].shape, 'bool')
+						maskDP = mask.get(dp, None)
+						if config['merge']:
+							maskDP[:,:] |= maskTable.astype(numpy.bool)
+						else:
+							maskDP[:,:] = maskTable.astype(numpy.bool)
+							
+					else:
+						sks = tuning.get('SpectralKurtosis', None)
+						if sks is None:
+							sks = tuning.create_group('SpectralKurtosis')
+						try:
+							sks.create_dataset(dp, sk.shape, 'f4')
+						except:
+							pass
+						sks[dp][:,:] = sk
+						sks.attrs['N'] = skN*nAdjust[dp]
+						sks.attrs['M'] = chunkSize
+						
 		if config['mask'] and config['fill']:	
 			# Loop over data products - secondary
 			for dp in dataProducts:
-				## Jump over the primary polarizations
-				if dp in ('XX', 'YY', 'I', 'RR', 'LL'):
-					continue
-					
-				if dp in ('Q', 'U', 'V'):
-					## Case 1 - Flag Stokes Q, U, and V off I
-					
-					## Pull out the Mask group from the HDF5 file
-					### Tuning 1
-					mask1 = tuning1.get('Mask', None)
-					mask1DP = mask1.get(dp, None)
-					mask1Base = mask1.get('I', None)
-					if config['merge']:
-						mask1DP[:,:] |= mask1Base[:,:]
-					else:
-						mask1DP[:,:] = mask1Base[:,:]
+				for t,tuning in enumerate((tuning1, tuning2)):
+					## Jump over the primary polarizations
+					if dp in ('XX', 'YY', 'I', 'RR', 'LL'):
+						continue
 						
-					### Tuning 2
-					mask2 = tuning2.get('Mask', None)
-					mask2DP = mask2.get(dp, None)
-					mask2Base = mask2.get('I', None)
-					if config['merge']:
-						mask2DP[:,:] |= mask2Base[:,:]
-					else:
-						mask2DP[:,:] = mask2Base[:,:]
+					if dp in ('Q', 'U', 'V'):
+						## Case 1 - Flag Stokes Q, U, and V off I
 						
-				elif dp in ('XY', 'YX'):
-					## Case 2 - Flag XY and YX off XX and YY
-					
-					## Pull out the Mask group from the HDF5 file
-					### Tuning 1
-					mask1 = tuning1.get('Mask', None)
-					mask1DP = mask1.get(dp, None)
-					mask1Base1 = mask1.get('XX', None)
-					mask1Base2 = mask1.get('YY', None)
-					if config['merge']:
-						mask1DP[:,:] |= (mask1Base1[:,:] | mask1Base2[:,:])
-					else:
-						mask1DP[:,:] = (mask1Base1[:,:] | mask1Base2[:,:])
+						## Pull out the Mask group from the HDF5 file
+						mask = tuning.get('Mask', None)
+						maskDP = mask.get(dp, None)
+						maskBase = mask.get('I', None)
+						if config['merge']:
+							maskDP[:,:] |= maskBase[:,:]
+						else:
+							maskDP[:,:] = maskBase[:,:]
+							
+					elif dp in ('XY', 'YX'):
+						## Case 2 - Flag XY and YX off XX and YY
 						
-					### Tuning 2
-					mask2 = tuning2.get('Mask', None)
-					mask2DP = mask2.get(dp, None)
-					mask2Base1 = mask2.get('XX', None)
-					mask2Base2 = mask2.get('YY', None)
-					if config['merge']:
-						mask2DP[:,:] |= (mask2Base1[:,:] | mask2Base2[:,:])
-					else:
-						mask2DP[:,:] = (mask2Base1[:,:] | mask2Base2[:,:])
+						## Pull out the Mask group from the HDF5 file
+						mask = tuning.get('Mask', None)
+						maskDP = mask.get(dp, None)
+						maskBase1 = mask.get('XX', None)
+						maskBase2 = mask.get('YY', None)
+						if config['merge']:
+							maskDP[:,:] |= (maskBase1[:,:] | maskBase2[:,:])
+						else:
+							maskDP[:,:] = (maskBase1[:,:] | maskBase2[:,:])
+							
+					elif dp in ('RL', 'LR'):
+						## Case 3 - Flag RL and LR off RR and LL
 						
-				elif dp in ('RL', 'LR'):
-					## Case 3 - Flag RL and LR off RR and LL
-					
-					## Pull out the Mask group from the HDF5 file
-					### Tuning 1
-					mask1 = tuning1.get('Mask', None)
-					mask1DP = mask1.get(dp, None)
-					mask1Base1 = mask1.get('RR', None)
-					mask1Base2 = mask1.get('LL', None)
-					if config['merge']:
-						mask1DP[:,:] |= (mask1Base1[:,:] | mask1Base2[:,:])
-					else:
-						mask1DP[:,:] = (mask1Base1[:,:] | mask1Base2[:,:])
-						
-					### Tuning 2
-					mask2 = tuning2.get('Mask', None)
-					mask2DP = mask2.get(dp, None)
-					mask2Base1 = mask2.get('RR', None)
-					mask2Base2 = mask2.get('LL', None)
-					if config['merge']:
-						mask2DP[:,:] |= (mask2Base1[:,:] | mask2Base2[:,:])
-					else:
-						mask2DP[:,:] = (mask2Base1[:,:] | mask2Base2[:,:])
-						
+						## Pull out the Mask group from the HDF5 file
+						mask = tuning.get('Mask', None)
+						maskDP = mask.get(dp, None)
+						maskBase1 = mask.get('RR', None)
+						maskBase2 = mask.get('LL', None)
+						if config['merge']:
+							maskDP[:,:] |= (maskBase1[:,:] | maskBase2[:,:])
+						else:
+							maskDP[:,:] = (maskBase1[:,:] | maskBase2[:,:])
+							
 	# Done!
 	h.close()
 
