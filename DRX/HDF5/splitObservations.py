@@ -116,7 +116,7 @@ def main(args):
 			for source,obsIDs in sources.iteritems():
 				outname = os.path.split(filename)[1]
 				outname = os.path.splitext(outname)[0]
-				outname = "%s-%s.hdf5" % (outname, source.replace(' ', ''))
+				outname = "%s-%s.hdf5" % (outname, source.replace(' ', '').replace('/','').replace('&','and'))
 				
 				if os.path.exists(outname):
 					yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
