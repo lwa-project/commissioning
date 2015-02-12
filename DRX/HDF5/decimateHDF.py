@@ -27,6 +27,7 @@ Usage: decimateHDF.py [OPTIONS] timeDecim file
 Options:
 -h, --help                Display this help information
 -s, --spec-decimation     Apply a decimation to the spectral dimension
+-f, --force               Force overwritting of existing HDF5 files
 
 Note:  This scripts decimates even if the number of times steps or frquency
        channels is not an intger multiple of the decimation factor.  This
@@ -44,11 +45,12 @@ def parseOptions(args):
 	config = {}
 	# Command line flags - default values
 	config['sDecimation'] = 1
+	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:", ["help", "spec-decimation="])
+		opts, args = getopt.getopt(args, "hs:f", ["help", "spec-decimation=", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -60,6 +62,8 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-s', '--spec-decimation'):
 			config['sDecimation'] = int(value)
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		else:
 			assert False
 			
@@ -172,7 +176,11 @@ def main(args):
 		outname = '%s-decim.hdf5' % outname
 		
 		if os.path.exists(outname):
-			yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+			if not config['force']:
+				yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+			else:
+				yn = 'y'
+				
 			if yn not in ('n', 'N'):
 				os.unlink(outname)
 			else:

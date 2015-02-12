@@ -57,6 +57,7 @@ Options:
 -e, --estimate-clip         Use robust statistics to estimate an appropriate clip 
                             level (overrides the `-c` option)
 -m, --metadata              Metadata tarball for additional information
+-f, --force                 Force overwritting of existing HDF5 files
 -k, --stokes                Generate Stokes parameters instead of XX and YY
 -w, --without-sats          Do not generate saturation counts
 
@@ -85,13 +86,14 @@ def parseOptions(args):
 	config['clip'] = 0
 	config['estimate'] = False
 	config['metadata'] = None
+	config['force'] = False
 	config['linear'] = True
 	config['countSats'] = True
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:kw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "stokes", "without-sats"])
+		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:fkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "force", "stokes", "without-sats"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -123,6 +125,8 @@ def parseOptions(args):
 			config['estimate'] = True
 		elif opt in ('-m', '--metadata'):
 			config['metadata'] = value
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		elif opt in ('-k', '--stokes'):
 			config['linear'] = False
 		elif opt in ('-w', '--without-sats'):
@@ -744,7 +748,11 @@ def main(args):
 	outname = '%s-waterfall.hdf5' % outname
 	
 	if os.path.exists(outname):
-		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+		if not config['force']:
+			yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+		else:
+			yn = 'y'
+			
 		if yn not in ('n', 'N'):
 			os.unlink(outname)
 		else:

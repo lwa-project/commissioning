@@ -34,6 +34,7 @@ Options:
 -s, --skip                  Skip foward the specified number of seconds into the file
 -m, --metadata              Metadata tarball for additional information
 -d, --sdf                   SDF for additional information
+-f, --force                 Force overwritting of existing HDF5 files
 """
 	
 	if exitCode is not None:
@@ -48,11 +49,12 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['metadata'] = None
 	config['sdf'] = None
+	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:m:d:", ["help", "skip=", "metadata=", "sdf="])
+		opts, args = getopt.getopt(args, "hs:m:d:f", ["help", "skip=", "metadata=", "sdf=", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -70,6 +72,8 @@ def parseOptions(args):
 			config['metadata'] = value
 		elif opt in ('-d', '--sdf'):
 			config['sdf'] = value
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		else:
 			assert False
 			
@@ -179,7 +183,11 @@ def main(args):
 	outname = '%s-waterfall.hdf5' % outname
 	
 	if os.path.exists(outname):
-		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+		if not config['force']:
+			yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+		else:
+			yn = 'y'
+			
 		if yn not in ('n', 'N'):
 			os.unlink(outname)
 		else:

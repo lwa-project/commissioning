@@ -35,6 +35,7 @@ Options:
 -l, --list                List source names
 -s, --source              Split by source name instead of observation 
                           ID
+-f, --force               Force overwritting of existing HDF5 files
 """
 
 	if exitCode is not None:
@@ -48,11 +49,12 @@ def parseOptions(args):
 	# Command line flags - default values
 	config['list'] = False
 	config['source'] = False
+	config['force'] = False
 	config['args'] = []
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hls", ["help", "list", "source"])
+		opts, args = getopt.getopt(args, "hlsf", ["help", "list", "source", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -66,6 +68,8 @@ def parseOptions(args):
 			config['list'] = True
 		elif opt in ('-s', '--source'):
 			config['source'] = True
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		else:
 			assert False
 	
@@ -119,7 +123,11 @@ def main(args):
 				outname = "%s-%s.hdf5" % (outname, source.replace(' ', '').replace('/','').replace('&','and'))
 				
 				if os.path.exists(outname):
-					yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+					if not config['force']:
+						yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+					else:
+						yn = 'y'
+						
 					if yn not in ('n', 'N'):
 						os.unlink(outname)
 					else:
@@ -143,6 +151,18 @@ def main(args):
 				outname = os.path.splitext(outname)[0]
 				outname = "%s-%i.hdf5" % (outname, obsID)
 				
+				if os.path.exists(outname):
+					if not config['force']:
+						yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+					else:
+						yn = 'y'
+						
+					if yn not in ('n', 'N'):
+						os.unlink(outname)
+					else:
+						print "WARNING: output file '%s' already exists, skipping" % outname
+						continue
+						
 				hOut = h5py.File(outname, 'a')
 				for name in h.attrs.keys():
 					hOut.attrs[name] = h.attrs[name]

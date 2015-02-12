@@ -30,6 +30,7 @@ Usage: dedisperseHDF.py [OPTIONS] DM file
 
 Options:
 -h, --help                Display this help information
+-f, --force               Force overwritting of existing HDF5 files
 """
 	
 	if exitCode is not None:
@@ -41,11 +42,12 @@ Options:
 def parseOptions(args):
 	config = {}
 	# Command line flags - default values
+	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "h", ["help",])
+		opts, args = getopt.getopt(args, "hf", ["help", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -55,6 +57,8 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		else:
 			assert False
 			
@@ -81,7 +85,11 @@ def main(args):
 	outname = "%s-DM%.4f.hdf5" % (outname, dm)
 	
 	if os.path.exists(outname):
-		yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+		if not config['force']:
+			yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+		else:
+			yn = 'y'
+			
 		if yn not in ('n', 'N'):
 			shutil.copy(filename, outname)
 		else:
