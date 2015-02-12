@@ -57,12 +57,16 @@ Options:
 -e, --estimate-clip         Use robust statistics to estimate an appropriate clip 
                             level (overrides the `-c` option)
 -m, --metadata              Metadata tarball for additional information
+-i, --sdf                   SDF for additional information
 -f, --force                 Force overwritting of existing HDF5 files
 -k, --stokes                Generate Stokes parameters instead of XX and YY
 -w, --without-sats          Do not generate saturation counts
 
-Note:  Specifying the -m/--metadata option overrides the -d/--duration setting 
-       and the entire file is reduced.
+Note:  Both the -m/--metadata and -i/--sdf options provide the same additional
+       observation information to hdfWaterfall.py so only one needs to be provided.
+
+Note:  Specifying the -m/--metadata or -i/--sdf optiosn overrides the 
+       -d/--duration setting and the entire file is reduced.
 """
 	
 	if exitCode is not None:
@@ -86,6 +90,7 @@ def parseOptions(args):
 	config['clip'] = 0
 	config['estimate'] = False
 	config['metadata'] = None
+	config['sdf'] = None
 	config['force'] = False
 	config['linear'] = True
 	config['countSats'] = True
@@ -93,7 +98,7 @@ def parseOptions(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:fkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "force", "stokes", "without-sats"])
+		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:i:fkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "sdf=", "force", "stokes", "without-sats"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -125,6 +130,8 @@ def parseOptions(args):
 			config['estimate'] = True
 		elif opt in ('-m', '--metadata'):
 			config['metadata'] = value
+		elif opt in ('-i', '--sdf'):
+			config['sdf'] = value
 		elif opt in ('-f', '--force'):
 			config['force'] = True
 		elif opt in ('-k', '--stokes'):
@@ -787,6 +794,26 @@ def main(args):
 		print " "
 			
 		hdfData.fillFromMetabundle(f, config['metadata'])
+		
+	elif config['sdf'] is not None:
+		from lsl.common import mcs
+		from lsl.common.sdf import parseSDF
+		sdf = parseSDF(config['sdf'])
+		
+		sdfBeam  = sdf.sessions[0].drxBeam
+		spcSetup = sdf.sessions[0].spcSetup
+		if sdfBeam != beam:
+			raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
+			
+		for i,obs in enumerate(sdf.sessions[0].observations):
+			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
+			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
+			obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
+			
+			obsList[i+1] = (sdfStart, sdfStop, obsChunks)
+			
+		hdfData.fillFromSDF(f, config['sdf'])
+		
 	else:
 		obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), config['duration'], srate)
 		

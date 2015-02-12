@@ -35,6 +35,9 @@ Options:
 -m, --metadata              Metadata tarball for additional information
 -d, --sdf                   SDF for additional information
 -f, --force                 Force overwritting of existing HDF5 files
+
+Note:  Both the -m/--metadata and -d/--sdf options provide the same additional
+       observation information to drspec2hdf.py so only one needs to be provided.
 """
 	
 	if exitCode is not None:
