@@ -833,11 +833,17 @@ class Waterfall_GUI(object):
 		self.ax1c = self.frame.figure1c.gca()
 		if self.usedB:
 			z = to_dB(self.drift[:,self.index])
-			self.ax1c.scatter(z, self.time, c=z, marker='x', cmap=self.cmap)
+			try:
+				self.ax1c.scatter(z, self.time, c=z, marker='x', cmap=self.cmap)
+			except ValueError:
+				self.ax1c.scatter(z, self.time, c=z, marker='x', cmap=self.cmap, vmin=-1, vmax=1)
 			self.ax1c.set_xlabel('Inner 75% Mean Power [arb. dB]')
 		else:
 			z = self.drift[:,self.index]
-			self.ax1c.scatter(z, self.time, c=z, marker='x', cmap=self.cmap)
+			try:
+				self.ax1c.scatter(z, self.time, c=z, marker='x', cmap=self.cmap)
+			except ValueError:
+				self.ax1c.scatter(z, self.time, c=z, marker='x', cmap=self.cmap, vmin=-1, vmax=1)
 			self.ax1c.set_xlabel('Inner 75% Mean Power [arb. lin.]')
 		self.ax1c.set_ylim((self.time[0], self.time[-1]))
 		self.ax1c.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
