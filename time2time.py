@@ -32,6 +32,7 @@ Usage: time2time.py [OPTIONS] YYYY/MM/DD HH:MM:SS[.SSS]
 Options:
 -h, --help                  Display this help information
 -s, --sidereal              Input time is in LST, not local
+-u, --utc                   Input time is in UTC, not local
 """
 
 	if exitCode is not None:
@@ -42,11 +43,11 @@ Options:
 
 def parseOptions(args):
 	config = {}
-	config['local'] = True
+	config['inputType'] = 'local'
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs", ["help", "sidereal"])
+		opts, args = getopt.getopt(args, "hsu", ["help", "sidereal", "utc"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -57,7 +58,9 @@ def parseOptions(args):
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
 		elif opt in ('-s', '--sidereal'):
-			config['local'] = False
+			config['inputType'] = 'sidereal'
+		elif opt in ('-u', '--utc'):
+			config['inputType'] = 'utc'
 		else:
 			assert False
 	
@@ -113,10 +116,15 @@ def main(args):
 		iSeconds = int(float(second))
 		mSeconds = int(round((float(second) - iSeconds)*1000000))
 		
-		if config['local']:
+		if config['inputType'] == 'local':
 			# Mountain time
 			dt = MST.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
-		else:
+			
+		elif config['inputType'] == 'utc':
+			# UTC
+			dt = UTC.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
+			
+		elif config['inputType'] == 'sidereal':
 			# LST
 			dt = astroDate(int(year), int(month), int(day), 0, 0, 0)
 			jd = dt.to_jd()
@@ -166,12 +174,17 @@ def main(args):
 			
 			## Localize as the appropriate time zone
 			dt = UTC.localize(datetime.datetime(year, month, day, hour, minute, second, microsecond))
+			
+		else:
+			raise RuntimeError("Unknown input date/time type '%s'" % config['inputType'])
+			
 		dt = dt.astimezone(UTC)
 		
 	obs.date = dt.astimezone(UTC).strftime("%Y/%m/%d %H:%M:%S.%f")
 	mjd, mpm = datetime2mjdmpm(dt)
 	
 	print "Localtime: %s" % dt.astimezone(MST).strftime("%B %d, %Y at %H:%M:%S %Z")
+	print "UTC: %s" % dt.astimezone(UTC).strftime("%B %d, %Y at %H:%M:%S %Z")
 	print "LST: %s" % obs.sidereal_time()
 	print "MJD: %i" % mjd
 	print "MPM: %i" % mpm
