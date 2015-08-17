@@ -19,7 +19,7 @@ import getopt
 import shutil
 from datetime import datetime
 
-from lsl.misc.dedispersion import incoherent
+from lsl.misc.dedispersion import delay, incoherent
 
 
 def usage(exitCode=None):
@@ -30,6 +30,8 @@ Usage: dedisperseHDF.py [OPTIONS] DM file
 
 Options:
 -h, --help                Display this help information
+-c, --correct-time        Correct the timestamps relative to the infinite 
+                          frequency case (default = no)
 -f, --force               Force overwritting of existing HDF5 files
 """
 	
@@ -42,12 +44,13 @@ Options:
 def parseOptions(args):
 	config = {}
 	# Command line flags - default values
+	config['correctTime'] = False
 	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hf", ["help", "force"])
+		opts, args = getopt.getopt(args, "hcf", ["help", "correct-time", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -57,6 +60,8 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-c', '--correct-time'):
+			config['correctTime'] = True
 		elif opt in ('-f', '--force'):
 			config['force'] = True
 		else:
@@ -127,6 +132,15 @@ def main(args):
 		baseSK1 = tuning1.get('SpectralKurtosis', None)
 		baseSK2 = tuning2.get('SpectralKurtosis', None)
 		
+		# Update the time
+		if config['correctTime']:
+			maxFreq = max( [max(freq1), max(freq2)] )
+			infDelay = delay(numpy.array([maxFreq, numpy.inf]), dm)
+			print "  Infinite Time Delay: %.3f s" % max(infDelay)
+			
+			time = time - max(infDelay)
+			obs['time'][:] = time
+			
 		# Loop over data products
 		for dp in ('XX', 'YY', 'XY', 'YX', 'I', 'Q', 'U', 'V'):
 			data1 = tuning1.get(dp, None)
@@ -167,12 +181,26 @@ def main(args):
 				skC[:,freq1.shape[0]:] = sk2[:,:]
 				
 			## Dedisperse
-			dataCD = incoherent(freqC, dataC, tInt, dm)
+			try:
+				dataCD = incoherent(freqC, dataC, tInt, dm, boundary='fill', fill_value=numpy.nan)
+			except TypeError:
+				dataCD = incoherent(freqC, dataC, tInt, dm)
+				
 			if mask1 is not None:
-				maskCD = incoherent(freqC, maskC, tInt, dm)
+				try:
+					maskCD = incoherent(freqC, maskC, tInt, dm, boundary='fill', fill_value=numpy.nan)
+				except TypeError:
+					maskCD = incoherent(freqC, maskC, tInt, dm)
+					
+				maskCD[numpy.where( ~numpy.isfinite(dataCD) )] = True
 				maskCD = maskCD.astype(mask1.dtype)
 			if sk1 is not None:
-				skCD = incoherent(freqC, skC, tInt, dm)
+				try:
+					skCD = incoherent(freqC, skC, tInt, dm, boundary='fill', fill_value=numpy.nan)
+				except TypeError:
+					skCD = incoherent(freqC, skC, tInt, dm)
+					
+				skCD[numpy.where( ~numpy.isfinite(dataCD) )] = 0.0
 				skCD = skCD.astype(sk1.dtype)
 				
 			## Update
