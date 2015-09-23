@@ -49,13 +49,9 @@ def main(args):
 	print "Sample rate: %i Hz" % sampleRate
 	print "Time tag skip per frame: %i" % tagSkip
 
-	# Create the FrameBuffer instance and change the figure of merit to
-	# the frame count
+	# Create the FrameBuffer instance
 	buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
-	def newFoM(frame):
-		return frame.header.frameCount
-	buffer.figureOfMerit = newFoM
-
+	
 	j = 0
 	k = 0
 	while True:
