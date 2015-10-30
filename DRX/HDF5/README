@@ -7,6 +7,14 @@ Version of drxWaterfall.py that writes to HDF5 rather than NPZ to provide
 an easier path to getting the data into other packages, e.g., Matlab.  This
 script supports both linear polarization products and Stokes parameter.
 
+drspecCheckTimetags.py
+----------------------
+Script to check the flow of time in a DR spectrometer data file.
+
+drspecFileCheck.py
+------------------
+Script to scan a DR spectrometer file and look at the data quality.
+
 drspec2hdf.py
 -------------
 Simple script to convert a binary DR spectrometer file into an HDF5 file that
