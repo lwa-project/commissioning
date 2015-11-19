@@ -1,7 +1,9 @@
-LWA1 Commissioning Scripts
-==========================
+LWA Commissioning Scripts
+=========================
 This is a collection of scripts use for commissioning and testing at the LWA1 
-station.  All of the scripts depend on the LSL 0.6.x branch.
+and LWA-SV stations.  All of the scripts (everything except for TBF) depend 
+on the LSL 0.6.x branch.  The TBF-related scripts depend on the LSL 1.2.x 
+branch.
 
 checkDRSU.sh
 ------------
@@ -60,6 +62,10 @@ and physical slot.
 TBW
 ---
 See the TBW/README file.
+
+TBF
+---
+See the TBF/README file.
 
 TBN
 ---
