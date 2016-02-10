@@ -156,7 +156,7 @@ def estimateClipLevel(fh, beampols):
 	"""
 	
 	filePos = fh.tell()
-		
+	
 	# Read in the first 100 frames for each tuning/polarization
 	count = {0:0, 1:0, 2:0, 3:0}
 	data = numpy.zeros((4, 4096*100), dtype=numpy.csingle)
@@ -167,13 +167,13 @@ def estimateClipLevel(fh, beampols):
 			break
 		except errors.syncError:
 			continue
-		
+			
 		beam,tune,pol = cFrame.parseID()
 		aStand = 2*(tune-1) + pol
 		
 		data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
 		count[aStand] +=  1
-	
+		
 	# Go back to where we started
 	fh.seek(filePos)
 	
@@ -189,13 +189,13 @@ def estimateClipLevel(fh, beampols):
 		
 		stdsI.append( robust.std(data[i,:].real) )
 		stdsQ.append( robust.std(data[i,:].imag) )
-	
+		
 	# Report
 	print "Statistics:"
 	for i in xrange(4):
 		print " Mean %i: %.3f + %.3f j" % (i+1, meanI[i], meanQ[i])
 		print " Std  %i: %.3f + %.3f j" % (i+1, stdsI[i], stdsQ[i])
-	
+		
 	# Come up with the clip levels based on 4 sigma
 	clip1 = (meanI[0] + meanI[1] + meanQ[0] + meanQ[1]) / 4.0
 	clip2 = (meanI[2] + meanI[3] + meanQ[2] + meanQ[3]) / 4.0
@@ -217,7 +217,7 @@ def estimateClipLevel(fh, beampols):
 def bestFreqUnits(freq):
 	"""Given a numpy array of frequencies in Hz, return a new array with the
 	frequencies in the best units possible (kHz, MHz, etc.)."""
-
+	
 	# Figure out how large the data are
 	scale = int(math.log10(freq.max()))
 	if scale >= 9:
@@ -232,10 +232,10 @@ def bestFreqUnits(freq):
 	else:
 		divis = 1
 		units = 'Hz'
-
+		
 	# Convert the frequency
 	newFreq = freq / divis
-
+	
 	# Return units and freq
 	return (newFreq, units)
 
@@ -284,7 +284,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
 	config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
 	maxFrames = nFramesAvg
-
+	
 	# Number of remaining chunks (and the correction to the number of
 	# frames to read in).
 	nChunks = int(round(duration / config['average']))
@@ -365,7 +365,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 			aStand = 2*(tune-1) + pol
 			if j is 0:
 				cTime = cFrame.getTime()
-			
+				
 			try:
 				data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
 				count[aStand] +=  1
@@ -456,7 +456,7 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
 	config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
 	maxFrames = nFramesAvg
-
+	
 	# Number of remaining chunks (and the correction to the number of
 	# frames to read in).
 	nChunks = int(round(duration / config['average']))
@@ -464,6 +464,18 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 		nChunks = 1
 	nFrames = nFramesAvg*nChunks
 	
+	# Line up the time tags for the various tunings/polarizations
+	timeTags = []
+	for i in xrange(16):
+		junkFrame = drx.readFrame(fh)
+		timeTags.append(junkFrame.data.timeTag)
+	fh.seek(-16*drx.FrameSize, 1)
+	
+	i = 0
+	while (timeTags[i+0] != timeTags[i+1]) or (timeTags[i+0] != timeTags[i+2]) or (timeTags[i+0] != timeTags[i+3]):
+		i += 1
+		fh.seek(drx.FrameSize, 1)
+		
 	# Date & Central Frequency
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	centralFreq1 = 0.0
@@ -532,18 +544,18 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 				break
 			except errors.syncError:
 				continue
-
+				
 			beam,tune,pol = cFrame.parseID()
 			aStand = 2*(tune-1) + pol
 			if j is 0:
 				cTime = cFrame.getTime()
-			
+				
 			try:
 				data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
 				count[aStand] +=  1
 			except ValueError:
 				raise RuntimeError("Invalid Shape")
-
+				
 		# Save out some easy stuff
 		dataSets['obs%i-time' % obsID][i] = cTime
 		
@@ -585,10 +597,10 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 def main(args):
 	# Parse command line options
 	config = parseOptions(args)
-
+	
 	# Length of the FFT
 	LFFT = config['LFFT']
-
+	
 	# Open the file and find good data (not spectrometer data)
 	filename = config['args'][0]
 	fh = open(filename, "rb")
@@ -678,6 +690,7 @@ def main(args):
 		config['duration'] = 0
 	if config['duration'] == 0:
 		config['duration'] = 1.0 * nFramesFile / beampols * 4096 / srate
+		config['duration'] -= config['offset']
 	else:
 		config['duration'] = int(round(config['duration'] * srate * beampols / 4096) / beampols * 4096 / srate)
 	nChunks = int(round(config['duration'] / config['average']))

@@ -55,7 +55,7 @@ def createNewFile(filename):
 	f.attrs['ObserverID'] = 0
 	f.attrs['ObserverName'] = ''
 	f.attrs['ProjectID'] = ''
-	f.attrs['SessionsID'] = 0
+	f.attrs['SessionID'] = 0
 	
 	# File creation time
 	f.attrs['FileCreation'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
@@ -119,7 +119,7 @@ def fillFromMetabundle(f, tarball):
 	f.attrs['ObserverID'] = sdf.observer.id
 	f.attrs['ObserverName'] = sdf.observer.name
 	f.attrs['ProjectID'] = sdf.id
-	f.attrs['SessionsID'] = sdf.sessions[0].id
+	f.attrs['SessionID'] = sdf.sessions[0].id
 	
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(tarball)
@@ -250,7 +250,7 @@ def fillFromSDF(f, sdfFilename):
 	f.attrs['ObserverID'] = sdf.observer.id
 	f.attrs['ObserverName'] = sdf.observer.name
 	f.attrs['ProjectID'] = sdf.id
-	f.attrs['SessionsID'] = sdf.sessions[0].id
+	f.attrs['SessionID'] = sdf.sessions[0].id
 	
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
