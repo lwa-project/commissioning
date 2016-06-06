@@ -292,6 +292,24 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 		nChunks = 1
 	nFrames = nFramesAvg*nChunks
 	
+	# Line up the time tags for the various tunings/polarizations
+	timeTags = []
+	for i in xrange(16):
+		junkFrame = drx.readFrame(fh)
+		timeTags.append(junkFrame.data.timeTag)
+	fh.seek(-16*drx.FrameSize, 1)
+	
+	i = 0
+	if beampols == 4:
+		while (timeTags[i+0] != timeTags[i+1]) or (timeTags[i+0] != timeTags[i+2]) or (timeTags[i+0] != timeTags[i+3]):
+			i += 1
+			fh.seek(drx.FrameSize, 1)
+			
+	elif beampols == 2:
+		while timeTags[i+0] != timeTags[i+1]:
+			i += 1
+			fh.seek(drx.FrameSize, 1)
+			
 	# Date & Central Frequency
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	centralFreq1 = 0.0
@@ -472,10 +490,16 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 	fh.seek(-16*drx.FrameSize, 1)
 	
 	i = 0
-	while (timeTags[i+0] != timeTags[i+1]) or (timeTags[i+0] != timeTags[i+2]) or (timeTags[i+0] != timeTags[i+3]):
-		i += 1
-		fh.seek(drx.FrameSize, 1)
-		
+	if beampols == 4:
+		while (timeTags[i+0] != timeTags[i+1]) or (timeTags[i+0] != timeTags[i+2]) or (timeTags[i+0] != timeTags[i+3]):
+			i += 1
+			fh.seek(drx.FrameSize, 1)
+			
+	elif beampols == 2:
+		while timeTags[i+0] != timeTags[i+1]:
+			i += 1
+			fh.seek(drx.FrameSize, 1)
+			
 	# Date & Central Frequency
 	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 	centralFreq1 = 0.0
