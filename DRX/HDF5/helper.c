@@ -15,7 +15,7 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data, *dataF;
 	
-	long i, j, k, nStand, nSamps, nChans;
+	long i, j, k, jk, nStand, nSamps, nChans, iPrime;
 	
 	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -43,28 +43,37 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Pointers
 	float *a, *b;
-	double tempV;
+	float tempV;
 	a = (float *) data->data;
 	b = (float *) dataF->data;
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, tempV)
+		#pragma omp parallel default(shared) private(i, j, k, jk, tempV, iPrime)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(dynamic)
 		#endif
-		for(j=0; j<nStand; j++) {
-			for(k=0; k<nChans; k++) {
-				tempV = 0.0;
-				
-				for(i=0; i<nSamps; i++) {
-					tempV += (double) *(a + nStand*nChans*i + nChans*j + k);
+		for(jk=0; jk<nStand*nChans; jk++) {
+			j = jk / nChans;
+			k = jk % nChans;
+			
+			tempV = 0.0;
+			
+			iPrime = 0;
+			for(i=0; i<nSamps; i++) {
+				if( *(a + nStand*nChans*i + nChans*j + k) == *(a + nStand*nChans*i + nChans*j + k) ) {
+					tempV += (float) *(a + nStand*nChans*i + nChans*j + k);
+					iPrime++;
 				}
-				
-				tempV /= (double) nSamps;
-				*(b + nChans*j + k) = (float) tempV;
 			}
+			
+			if( iPrime > 0 ) {
+				tempV /= (float) iPrime;
+			} else {
+				tempV = 1.0;
+			}
+			*(b + nChans*j + k) = tempV;
 		}
 	}
 	
@@ -129,7 +138,7 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 	
 	// Pointers
 	float *a, *b;
-	double tempMin, tempMax;
+	float tempMin, tempMax;
 	a = (float *) data->data;
 	b = (float *) dataF->data;
 	
@@ -146,13 +155,10 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 			
 			for(k=chanMin; k<chanMax; k++) {
 				for(i=0; i<nSamps; i++) {
-					if( (double) *(a + nStand*nChans*i + nChans*j + k) < tempMin ) {
-						tempMin = (double) *(a + nStand*nChans*i + nChans*j + k);
-						continue;
-					}
-					if( (double) *(a + nStand*nChans*i + nChans*j + k) > tempMax ) {
-						tempMax = (double) *(a + nStand*nChans*i + nChans*j + k);
-						continue;
+					if( (float) *(a + nStand*nChans*i + nChans*j + k) < tempMin ) {
+						tempMin = (float) *(a + nStand*nChans*i + nChans*j + k);
+					} else if( (float) *(a + nStand*nChans*i + nChans*j + k) > tempMax ) {
+						tempMax = (float) *(a + nStand*nChans*i + nChans*j + k);
 					}
 				}
 			}
@@ -190,7 +196,7 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 	PyObject *spectra, *bandpass, *spectraF;
 	PyArrayObject *data, *dataB;
 	
-	long i, j, k, nStand, nSamps, nChans;
+	long i, j, k, jk, nStand, nSamps, nChans;
 	
 	if(!PyArg_ParseTuple(args, "OO", &spectra, &bandpass)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -215,13 +221,14 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(dynamic)
 		#endif
-		for(j=0; j<nStand; j++) {
-			for(k=0; k<nChans; k++) {
-				for(i=0; i<nSamps; i++) {
-					*(a + nStand*nChans*i + nChans*j + k) /= *(b + nChans*j + k);
-				}
+		for(jk=0; jk<nStand*nChans; jk++) {
+			j = jk / nChans;
+			k = jk % nChans;
+			
+			for(i=0; i<nSamps; i++) {
+				*(a + nStand*nChans*i + nChans*j + k) /= *(b + nChans*j + k);
 			}
 		}
 	}
@@ -265,7 +272,7 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data, *dataF;
 	
-	long i, j, k, nStand, nSamps, nChans;
+	long i, j, k, nStand, nSamps, nChans, iPrime;
 	
 	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -299,23 +306,32 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 	float *tempV;
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, tempV)
+		#pragma omp parallel default(shared) private(i, j, k, tempV, iPrime)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(dynamic)
 		#endif
-		for(j=0; j<nStand; j++) {
+		for(k=0; k<nChans; k++) {
 			tempV = (float *) malloc(nSamps*sizeof(float));
 			
-			for(k=0; k<nChans; k++) {
+			for(j=0; j<nStand; j++) {
+				
+				iPrime = 0;
 				for(i=0; i<nSamps; i++) {
-					*(tempV + i) = *(a + nStand*nChans*i + nChans*j + k);
+					*(tempV + iPrime) = *(a + nStand*nChans*i + nChans*j + k);
+					if( *(tempV + iPrime) == *(tempV + iPrime) ) {
+						iPrime++;
+					}
 				}
 				
-				qsort(tempV, nSamps, sizeof(float), cmpfloat);
-				
-				*(b + nChans*j + k) = *(tempV + nSamps/2);
+				if( iPrime > 0 ) {
+					qsort(tempV, iPrime, sizeof(float), cmpfloat);
+					
+					*(b + nChans*j + k) = *(tempV + iPrime/2);
+				} else {
+					*(b + nChans*j + k) = 1.0;
+				}
 			}
 			
 			free(tempV);
@@ -354,7 +370,7 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data;
 	
-	long i, j, k, nStand, nSamps, nChans;
+	long i, j, k, nStand, nSamps, nChans, iPrime;
 	long int stand, chanMin, chanMax;
 	stand = 0;
 	chanMin = 0;
@@ -387,7 +403,7 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	temp99 = (float *) malloc((chanMax-chanMin)*sizeof(float));
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, tempV)
+		#pragma omp parallel default(shared) private(i, j, k, tempV, iPrime)
 	#endif
 	{
 		#ifdef _OPENMP
@@ -398,14 +414,23 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 			
 			tempV = (float *) malloc(nSamps*sizeof(float));
 			
+			iPrime = 0;
 			for(i=0; i<nSamps; i++) {
-				*(tempV + i) = *(a + nStand*nChans*i + nChans*j + k);
+				*(tempV + iPrime) = *(a + nStand*nChans*i + nChans*j + k);
+				if( *(tempV + iPrime) == *(tempV + iPrime) ){
+					iPrime++;
+				}
 			}
 			
-			qsort(tempV, nSamps, sizeof(float), cmpfloat);
+			qsort(tempV, iPrime, sizeof(float), cmpfloat);
 			
-			*(temp5  + k - chanMin) = *(tempV + (int) (nSamps * 0.05));
-			*(temp99 + k - chanMin) = *(tempV + (int) (nSamps * 0.99));
+			if( iPrime > 0 ) {
+				*(temp5  + k - chanMin) = *(tempV + (int) (iPrime * 0.05));
+				*(temp99 + k - chanMin) = *(tempV + (int) (iPrime * 0.99));
+			} else {
+				*(temp5  + k - chanMin) = 0.1;
+				*(temp99 + k - chanMin) = 0.2;
+			}
 			
 			free(tempV);
 		}

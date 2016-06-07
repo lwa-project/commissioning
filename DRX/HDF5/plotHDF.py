@@ -607,9 +607,9 @@ class Waterfall_GUI(object):
 		
 		try:
 			from _helper import FastAxis0Median
-			meanSpec = FastAxis0Median(self.spec.data)
+			meanSpec = FastAxis0Median(self.spec)
 		except ImportError:
-			meanSpec = numpy.median(self.spec.data, axis=0)
+			meanSpec = numpy.median(self.spec, axis=0)
 			
 		# Come up with an appropriate smoothing window (wd) and order (od)
 		ws = int(round(self.spec.shape[2]/10.0))
@@ -621,6 +621,7 @@ class Waterfall_GUI(object):
 		bpm2 = []
 		for i in xrange(self.spec.shape[1]):
 			bpm = savitzky_golay(meanSpec[i,:], ws, od, deriv=0)
+			bpm = numpy.ma.array(bpm, mask=~numpy.isfinite(bpm))
 			
 			if bpm.mean() == 0:
 				bpm += 1
@@ -634,7 +635,7 @@ class Waterfall_GUI(object):
 			FastAxis0Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
 		except ImportError:
 			for i in xrange(self.spec.shape[1]):
-				self.specBandpass[:,i,:] = self.spec[:,i,:] / bpm2[i]
+				self.specBandpass.data[:,i,:] = self.spec.data[:,i,:] / bpm2[i]
 				
 		return True
 		
@@ -739,7 +740,7 @@ class Waterfall_GUI(object):
 			FastAxis0Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
 		except ImportError:
 			for i in xrange(self.spec.shape[1]):
-				self.specBandpass[:,i,:] = self.spec[:,i,:] / bpm2[i]
+				self.specBandpass.data[:,i,:] = self.spec.data[:,i,:] / bpm2[i]
 				
 		return True
 		
