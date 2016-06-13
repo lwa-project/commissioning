@@ -18,13 +18,13 @@
   Simple Fringing of Complex data
 */
 
-static Simple(PyObject *self, PyObject *args, PyObject *kwds) {
+static PyObject *Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *signals, *visOut;
 	PyArrayObject *data, *vis;
 	
 	int refX, refY;
 	float clipLevel;
-	long i, j, nStand, nSamps;
+	long i, j, k, nStand, nSamps;
 	
 	if(!PyArg_ParseTuple(args, "Oiif", &signals, &refX, &refY, &clipLevel)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -55,12 +55,13 @@ static Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 	float complex *b;
 	a = (float complex *) data->data;
 	b = (float complex *) vis->data;
+	double complex tempV;
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(j, ref)
+		#pragma omp parallel default(shared) private(j, k, ref, tempV)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(guided)
+			#pragma omp for schedule(dynamic)
 		#endif
 		for(i=0; i<nStand; i++) {
 			// Which reference to use based on polarization ordering
@@ -71,7 +72,8 @@ static Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 			}
 			
 			// Go!
-			*(b + i) = 0.0;
+			k = 0;
+			tempV = 0.0;
 			for(j=0; j<nSamps; j++) {
 				// Bad input value
 				if(cabs(*(a + (nSamps*i + j))) >= clipLevel) {
@@ -83,11 +85,16 @@ static Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 					continue;
 				}
 				
-				*(b + i) += *(a + (nSamps*i + j)) * conj(*(a + (nSamps*ref + j)));
+				tempV += *(a + (nSamps*i + j)) * conj(*(a + (nSamps*ref + j)));
+				k++;
 			}
 			
 			// Average
-			*(b + i) /= (float) nSamps;
+			if( k > 0 ) {
+				*(b + i) = tempV / (float) k;
+			} else {
+				*(b + i) = 0.0;
+			}
 		}
 	}
 	
@@ -107,8 +114,8 @@ PyDoc_STRVAR(Simple_doc, \
 */
 
 static PyMethodDef FringeMethods[] = {
-	{"Simple",  Simple,  METH_VARARGS, Simple_doc}, 
-	{NULL,      NULL,    0,            NULL      }
+	{"Simple",  (PyCFunction) Simple,  METH_VARARGS, Simple_doc}, 
+	{NULL,      NULL,                  0,            NULL      }
 };
 
 PyDoc_STRVAR(fringe_doc, \

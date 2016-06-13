@@ -32,13 +32,15 @@ from scipy.stats import pearsonr
 
 from lsl.common.constants import c as vLight
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
-from lsl.common.stations import parseSSMIF, lwa1
+from lsl.common.stations import lwa1
 from lsl.correlator.uvUtils import computeUVW
 from lsl.misc.mathutil import to_dB
 from lsl.statistics import robust
 from lsl.common.progress import ProgressBar
 
 import lsl.sim.vis as simVis
+
+from multiStation import parseSSMIF
 
 # List of bright radio sources and pulsars in PyEphem format
 _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
@@ -140,7 +142,7 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 	
 	# Get the u,v,w coordinates
 	uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
-	print uvw[0,0,0]
+	#print uvw[0,0,0]
 	
 	return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
 
@@ -167,6 +169,7 @@ def main(args):
 		
 		site = parseSSMIF(tempSSMIF)
 		os.unlink(tempSSMIF)
+	print site.name
 	observer = site.getObserver()
 	antennas = site.getAntennas()
 	nAnts = len(antennas)

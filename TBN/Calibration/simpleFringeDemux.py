@@ -22,7 +22,7 @@ import ephem
 import numpy
 import getopt
 
-from lsl.common.stations import parseSSMIF, lwa1
+from lsl.common.stations import lwa1
 from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
@@ -34,6 +34,7 @@ from matplotlib import pyplot as plt
 from collections import deque
 
 import fringe
+from multiStation import parseSSMIF
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -82,7 +83,7 @@ def parseOptions(args):
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
-	
+		
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -97,10 +98,10 @@ def parseOptions(args):
 			config['clipLevel'] = float(value)
 		else:
 			assert False
-	
+			
 	# Add in arguments
 	config['args'] = args
-
+	
 	# Return configuration
 	return config
 
@@ -141,7 +142,12 @@ def main(args):
 	srate = tbn.getSampleRate(fh)
 	antpols = len(antennas)
 	fh.seek(0)
-	
+	if srate < 1000:
+		fh.seek(len(antennas)*4*tbn.FrameSize)
+		srate = tbn.getSampleRate(fh)
+		antpols = len(antennas)
+		fh.seek(len(antennas)*4*tbn.FrameSize)
+		
 	# Reference antenna
 	ref = config['refStand']
 	foundRef = False
@@ -230,7 +236,7 @@ def main(args):
 		done = False
 		while j < fillsWork:
 			cFrames = deque()
-			for l in xrange(520):
+			for l in xrange(len(antennas)):
 				try:
 					cFrames.append( tbn.readFrame(fh) )
 					k = k + 1
