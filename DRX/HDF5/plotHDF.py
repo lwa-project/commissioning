@@ -297,7 +297,7 @@ class SinhNorm(Normalize):
 
 class HistEqNorm(Normalize):
 	"""
-	Normalize a given value to the 0-1 range using histrogram equalization
+	Normalize a given value to the 0-1 range using histogram equalization
 	"""
 	
 	def __call__(self, value, clip=None):
@@ -1905,7 +1905,7 @@ class MainWindow(wx.Frame):
 		self.canvas1b.Bind(wx.EVT_KEY_UP, self.onKeyPress)
 		self.canvas2.Bind(wx.EVT_KEY_UP,  self.onKeyPress)
 		
-		# Make the plots resizable
+		# Make the plots re-sizable
 		self.Bind(wx.EVT_PAINT, self.resizePlots)
 		self.Bind(wx.EVT_SIZE, self.onSize)
 		
@@ -2945,9 +2945,31 @@ class ContrastAdjust(wx.Frame):
 		self.parent.data.draw()
 		
 	def onOk(self, event):
+		needToRedraw = False
+		
+		index = self.parent.data.index
+		if self.parent.data.bandpass:
+			if float(self.lText.GetValue()) != self.parent.data.limitsBandpass[index][0]:
+				self.parent.data.limitsBandpass[index][0] = float(self.lText.GetValue())
+				needToRedraw = True
+			if float(self.uText.GetValue()) != self.parent.data.limitsBandpass[index][1]:
+				self.parent.data.limitsBandpass[index][1] = float(self.uText.GetValue())
+				needToRedraw = True
+				
+		else:
+			if float(self.lText.GetValue()) != self.parent.data.limits[index][0]:
+				self.parent.data.limits[index][0] = float(self.lText.GetValue())
+				needToRedraw = True
+			if float(self.uText.GetValue()) != self.parent.data.limits[index][1]:
+				self.parent.data.limits[index][1] = float(self.uText.GetValue())
+				needToRedraw = True
+				
+		if needToRedraw:
+			self.parent.data.draw()
+			
 		self.parent.cAdjust = None
 		self.Close()
-	
+		
 	def __getRange(self, index):
 		if self.parent.data.bandpass:
 			return (self.parent.data.limitsBandpass[index][1] - self.parent.data.limitsBandpass[index][0])
@@ -3784,7 +3806,7 @@ After the HDF5 file has been loaded there are a variety of menu, <a href="#mouse
 <ul>
 	<li>Color - Adjust the color stretch, map, and transfer function used in the dynamic waterfall</li>
 	<li>Data - Change which tuning and data product is currently displayed</li>
-	<li>Mask - Use (psuedo) spectral kurtosis to generate a radio frequency interference (RFI) mask and 
+	<li>Mask - Use (pseudo) spectral kurtosis to generate a radio frequency interference (RFI) mask and 
 	apply it to the data.  The masking parameters can also be tweaked in this menu.</li>
 	<li>Bandpass - Apply a data or instrumental spectral bandpass to the data.</li>
 	<li>Details - Get metadata about the current HDF5 file and how the data were reduced and display 
@@ -3834,7 +3856,7 @@ are:
 	<li>c - Clear the current power law fit <it>(lower section only)</it></li>
 </ul>
 <br /><br />
-<b>Note:</b> In order to interact wit the lower section you will need to click in the axes with the left mouse button.
+<b>Note:</b> In order to interact with the lower section you will need to click in the axes with the left mouse button.
 <br /><a href="#top">Top</a>
 </a>
 </p>
@@ -3857,6 +3879,12 @@ def main(args):
 	# Parse the command line options
 	config = parseOptions(args)
 	
+	# Check for the _helper module
+	try:
+		import _helper
+	except ImportError:
+		print "WARNING: _helper.so not found, consider building it with 'make'"
+		
 	# Go!
 	app = wx.App(0)
 	frame = MainWindow(None, -1)
