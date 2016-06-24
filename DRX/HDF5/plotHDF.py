@@ -1838,6 +1838,7 @@ class MainWindow(wx.Frame):
 		hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.FIXED_MINSIZE)
 		panel3.SetSizer(hbox3)
 		vbox.Add(panel3, 1, wx.EXPAND)
+		self.panel3 = panel3
 		
 		# Use some sizers to see layout options
 		self.SetSizer(vbox)
@@ -2781,6 +2782,8 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
 		except:
 			pass
 		self.figure2.canvas.draw()
+		
+		self.panel3.Refresh()
 		
 	def GetToolBar(self):
 		# You will need to override GetToolBar if you are using an 
