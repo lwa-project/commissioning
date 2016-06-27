@@ -24,3 +24,12 @@ applyNewStretchFactors.py
 Given an input SSMIF and a collection of stretch factors from 
 convertDelayToStretch.py, apply the new stretch factors and create a new SSMIF.
 
+estimateSEFD.py
+---------------
+Given an SSMIF and a collection of TBW files, use the SoftwareDP to form beams at 
+the transit point of a source and estimate the SEFD and pointing error.
+
+fitEstimatedSEFD.py
+-------------------
+Fit a Gaussian to the results of estimateSEFD.py to determined the SEFD and pointing 
+error.

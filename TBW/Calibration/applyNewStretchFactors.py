@@ -74,6 +74,7 @@ def parseConfig(args):
 	# Return configuration
 	return config
 
+
 def main(args):
 	#
 	# Parse the command line
