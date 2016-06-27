@@ -39,9 +39,9 @@ _srcs = ["TauA,f|J,05:34:32.00,+22:00:52.0,1",
 def usage(exitCode=None):
 	print """estimateSEFD.py - Given an SSMIF and a collection of TBW files, use
 the SoftwareDP to form beams at the transit point of a source and estimate the
-SEFD and pointing error.
+system equivalent flux density (SEFD) and pointing error.
 
-Usage: estimateSEFD [OPTIONS] SSMIF tbw [tbw [...]]
+Usage: estimateSEFD.py [OPTIONS] SSMIF tbw [tbw [...]]
 
 Options:
 -h, --help             Display this help information
