@@ -38,6 +38,7 @@ def main(args):
 	# channels that are in the file
 	nFramesPerObs = tbf.getFramesPerObs(fh)
 	nChannels = tbf.getChannelCount(fh)
+	nSamples = 7840
 	
 	# Figure out how many chunks we need to work with
 	nChunks = nFrames / nFramesPerObs
@@ -46,7 +47,8 @@ def main(args):
 	mapper = []
 	for i in xrange(2*nFramesPerObs):
 		cFrame = tbf.readFrame(fh)
-		mapper.append( cFrame.header.firstChan )
+		if cFrame.header.firstChan not in mapper:
+			mapper.append( cFrame.header.firstChan )
 	fh.seek(-2*nFramesPerObs*tbf.FrameSize, 1)
 	mapper.sort()
 	
