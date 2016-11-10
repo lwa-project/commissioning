@@ -5,13 +5,6 @@ and LWA-SV stations.  All of the scripts (everything except for TBF) depend
 on the LSL 0.6.x branch.  The TBF-related scripts depend on the LSL 1.2.x 
 branch.
 
-checkDRSU.sh
-------------
-Shell script to run on Linux machines with attached and powered-on DRSU to report 
-the firmware version of Seagate drives with model number "ST31000525SV".  This is 
-useful for identifying disks with the newer (and less reliable) firmware version 
-"CV12".
-
 time2time.py
 ------------
 Given a date/time in the format of "YYYY/MM/DD HH:MM:SS[.SSS]" in local time, 
@@ -34,6 +27,10 @@ Script to estimate the data volume of TBN and DRX observations.
 findMyStand.py
 --------------
 Simple script to locate and label where stands are in the array.
+
+getARXBoardInfo.py
+------------------
+Retrive ARX information (board, channel, control stand) for a stand.
 
 plotShelterTemp.py
 ------------------
