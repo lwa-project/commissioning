@@ -32,6 +32,10 @@ tinyMaster2.py
 Modified version of stationMaster2.py that uses Numpy memory maps to work on systems with
 less than 16 GB of memory.
 
+healthCheck2stationMaster.py
+----------------------------
+Convert a TBW health check file into a .npz file that works with smGUI.py.
+
 smGUI.py
 --------
 GUI that interfaces with a NPZ file created by stationMaster.py that makes looking for
