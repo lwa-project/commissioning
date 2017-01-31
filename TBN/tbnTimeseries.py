@@ -34,6 +34,7 @@ Usage: tbnTimeseries.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
+-v, --lwasv                 Use mapping from LWA-SV instead of LWA1
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
 -p, --plot-range            Number of seconds of data to show in the I/Q plots
@@ -54,6 +55,7 @@ Options:
 def parseOptions(args):
 	config = {}
 	# Command line flags - default values
+	config['site'] = 'lwa1'
 	config['offset'] = 0.0
 	config['average'] = 0.01
 	config['maxFrames'] = 2*260*1000
@@ -65,7 +67,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:p:k:i", ["help", "quiet", "output=", "skip=", "plot-range=", "keep=", "instantaneous-power"])
+		opts, args = getopt.getopt(args, "hqvo:s:p:k:i", ["help", "quiet", "lwasv", "output=", "skip=", "plot-range=", "keep=", "instantaneous-power"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -77,6 +79,9 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-q', '--quiet'):
 			config['verbose'] = False
+		elif opt in ('-v', '--lwasv'):
+			config['site'] = 'lwasv'
+			config['maxFrames'] = 2*256*1000
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
@@ -102,7 +107,12 @@ def main(args):
 	config = parseOptions(args)
 	
 	# Set the station
-	station = stations.lwa1
+	if config['site'] == 'lwa1':
+		station = stations.lwa1
+	elif config['site'] == 'lwasv':
+		station = stations.lwasv
+	else:
+		raise RuntimeError("Unknown site name: %s" % config['site'])
 	antennas = station.getAntennas()
 
 	fh = open(config['args'][0], "rb")

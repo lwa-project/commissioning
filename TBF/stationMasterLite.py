@@ -161,7 +161,9 @@ def main(args):
 					
 				# Actually load the data.  x pol goes into the even numbers, y pol into the 
 				# odd numbers
-				count = cFrame.header.frameCount - 1
+				if i == 0 and j == 0:
+					refCount = cFrame.header.frameCount
+				count = cFrame.header.frameCount - refCount
 				masterSpectra[count,0::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.data.fDomain[:,:,0], 1) )**2
 				masterSpectra[count,1::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.data.fDomain[:,:,1], 1) )**2
 

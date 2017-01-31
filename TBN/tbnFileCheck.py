@@ -28,6 +28,7 @@ Usage: tbnFileCheck.py [OPTIONS] filename
 
 Options:
 -h, --help         Display this help information
+-v, --lwasv                 Use mapping from LWA-SV instead of LWA1
 -l, --length       Length of time in seconds to analyze (default 1 s)
 -s, --skip         Skip period in seconds between chunks (default 900 s)
 -t, --trim-level   Trim level for power analysis with clipping (default 16129)
@@ -41,12 +42,13 @@ Options:
 
 def parseOptions(args):
 	config = {}
+	config['site'] = 'lwa1'
 	config['length'] = 1.0
 	config['skip'] = 900.0
 	config['trim'] = 16129
 	
 	try:
-		opts, args = getopt.getopt(args, "hl:s:t:", ["help", "length=", "skip=", "trim-level="])
+		opts, args = getopt.getopt(args, "hvl:s:t:", ["help", "lwasv", "length=", "skip=", "trim-level="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -56,6 +58,8 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-v', '--lwasv'):
+			config['site'] = 'lwasv'
 		elif opt in ('-l', '--length'):
 			config['length'] = float(value)
 		elif opt in ('-s', '--skip'):
@@ -77,7 +81,12 @@ def main(args):
 	filename = config['args'][0]
 	
 	# Set the station
-	station = stations.lwa1
+	if config['site'] == 'lwa1':
+		station = stations.lwa1
+	elif config['site'] == 'lwasv':
+		station = stations.lwasv
+	else:
+		raise RuntimeError("Unknown site name: %s" % config['site'])
 	antennas = station.getAntennas()
 
 	fh = open(filename, "rb")

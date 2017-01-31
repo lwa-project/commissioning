@@ -175,6 +175,8 @@ class TBW_GUI(object):
 		self.limits.append([0, 2])
 		self.limits.append([1, 2])
 		self.limits.append([1, 2])
+		#self.limits.append([0, 0.05])
+		self.limits.append([1, 160])
 		self.limits.append([0, 3])
 		self.limits.append([31, 50])
 		
@@ -252,6 +254,19 @@ class TBW_GUI(object):
 				
 			cbTitle = 'RFI-64 Index'
 		elif self.color == 3:
+			# Color by the wiggle index.  This is determined by fitting a line to
+			# the log(spectra) between 65 and 70 MHz and looking at the RMS.
+			specDiff = numpy.zeros(self.spec.shape[0])
+			wgl = numpy.where( (self.freq>65e6) & (self.freq<70e6) )[0]
+			for i in xrange(self.spec.shape[0]):
+				junk = numpy.log10( self.spec[i,wgl] / self.specTemplate[wgl] )
+				specDiff[i] = junk.std()
+				specDiff[i] = 17 - int(self.antennas[i].arx.aspChannel % 16) + 1
+				specDiff[i] *= self.antennas[i].cable.length / 10.0
+				print i, specDiff[i]
+				
+			cbTitle = 'Wiggle Index'
+		elif self.color == 4:
 			# Color by antenna status code.
 			specDiff = numpy.zeros(self.spec.shape[0])
 			for i in xrange(self.spec.shape[0]):
@@ -316,6 +331,9 @@ class TBW_GUI(object):
 		## Set the color bar, its title, and the axis labels
 		cm = self.frame.figure1.colorbar(m, ax=self.ax1)
 		cm.ax.set_ylabel(cbTitle)
+		if cbTitle == 'Antenna Status':
+			cm.set_ticks([1, 2, 3])
+			cm.set_ticklabels(['Bad', 'Suspect', 'Good'])
 		self.ax1.set_xlabel('$\Delta$ X [m]')
 		self.ax1.set_ylabel('$\Delta$ Y [m]')
 		
@@ -346,7 +364,7 @@ class TBW_GUI(object):
 						self.bestX = ant.digitizer
 					else:
 						self.bestY = ant.digitizer
-		
+						
 		else:
 			## Right now 259 and 260 are at 0,0,0 and sit on top of each other.  Using
 			## the preferStand keyword, we can break this at least for searches
@@ -356,7 +374,7 @@ class TBW_GUI(object):
 						self.bestX = ant.digitizer
 					else:
 						self.bestY = ant.digitizer
-		
+						
 		## Plot the spectra.  This plot includes the median composite 
 		## (self.specTemplate) in green, the X polarization in blue, and 
 		## the Y polarization in red.  
@@ -477,7 +495,8 @@ ID_COLOR_1 = 21
 ID_COLOR_2 = 22
 ID_COLOR_3 = 23
 ID_COLOR_4 = 24
-ID_COLOR_ADJUST = 25
+ID_COLOR_5 = 25
+ID_COLOR_ADJUST = 26
 ID_DETAIL_ANT = 30
 ID_DETAIL_STAND = 31
 ID_DETAIL_FEE = 32
@@ -534,10 +553,11 @@ class MainWindow(wx.Frame):
 		
 		# Color menu
 		colorMenu.AppendRadioItem(ID_COLOR_0, '&Median Comparison')
-		colorMenu.AppendRadioItem(ID_COLOR_4, '&Resonance Point')
+		colorMenu.AppendRadioItem(ID_COLOR_5, '&Resonance Point')
 		colorMenu.AppendRadioItem(ID_COLOR_1, 'RFI-&46 Index')
 		colorMenu.AppendRadioItem(ID_COLOR_2, 'RFI-&64 Index')
-		colorMenu.AppendRadioItem(ID_COLOR_3, 'Antenna Status')
+		colorMenu.AppendRadioItem(ID_COLOR_3, 'Wiggle Index')
+		colorMenu.AppendRadioItem(ID_COLOR_4, 'Antenna Status')
 		colorMenu.AppendSeparator()
 		cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
 		colorMenu.AppendItem(cadj)
@@ -630,6 +650,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.onColor2, id=ID_COLOR_2)
 		self.Bind(wx.EVT_MENU, self.onColor3, id=ID_COLOR_3)
 		self.Bind(wx.EVT_MENU, self.onColor4, id=ID_COLOR_4)
+		self.Bind(wx.EVT_MENU, self.onColor5, id=ID_COLOR_5)
 		self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
 		
 		# Detail menu events
@@ -755,12 +776,27 @@ class MainWindow(wx.Frame):
 			
 	def onColor4(self, event):
 		"""
-		Set the stand field color coding to the estimates resonance point
-		frequency in MHz.  Re-draw if necessary.
+		Set the stand field color coding to the antenna status.  Re-draw if 
+		necessary.
 		"""
 		
 		if self.data.color != 4:
 			self.data.color = 4
+			self.data.draw()
+			if self.cAdjust is not None:
+				try:
+					self.cAdjust.Close()
+				except:
+					pass
+			
+	def onColor5(self, event):
+		"""
+		Set the stand field color coding to the estimates resonance point
+		frequency in MHz.  Re-draw if necessary.
+		"""
+		
+		if self.data.color != 5:
+			self.data.color = 5
 			self.data.draw()
 			if self.cAdjust is not None:
 				try:
@@ -1139,7 +1175,12 @@ Global Range:
 		Bring up a dialog box to find an antenna based on its ID number.
 		"""
 		
-		box = SelectBox(self, mode='antenna')
+		try:
+			currAnt = self.data.antennas[self.data.bestX-1].id
+		except:
+			currAnt = 1
+			
+		box = SelectBox(self, mode='antenna', current=currAnt)
 		if box.ShowModal() == wx.ID_OK:
 			antID = int(box.input.GetValue())
 			if antID < 1 or antID > 520:
@@ -1160,7 +1201,12 @@ Global Range:
 		Bring up a dialog box to find a stand based on its ID number.
 		"""
 		
-		box = SelectBox(self, mode='stand')
+		try:
+			currStand = self.data.antennas[self.data.bestX-1].stand.id
+		except:
+			currStand = None
+			
+		box = SelectBox(self, mode='stand', current=currStand)
 		if box.ShowModal() == wx.ID_OK:
 			stdID = int(box.input.GetValue())
 			if stdID < 1 or stdID > 260:
@@ -1182,7 +1228,12 @@ Global Range:
 		digitizer number.
 		"""
 		
-		box = SelectBox(self, mode='digitizer')
+		try:
+			currDig = self.data.antennas[self.data.bestX-1].digitizer
+		except:
+			currDig = None
+			
+		box = SelectBox(self, mode='digitizer', current=currDig)
 		if box.ShowModal() == wx.ID_OK:
 			digID = int(box.input.GetValue())
 			if digID < 1 or digID > 520:
@@ -1272,6 +1323,8 @@ class ContrastAdjust(wx.Frame):
 		elif self.parent.data.color == 2:
 			mode = 'RFI-64 Index'
 		elif self.parent.data.color == 3:
+			mode = 'Wiggle Index'
+		elif self.parent.data.color == 4:
 			mode = 'Antenna Status'
 		else:
 			mode = 'Resonance Point'
@@ -1866,13 +1919,15 @@ class SelectBox(wx.Dialog):
 	Window for displaying the a simple dialog to find an antenna/stand/digitizer.
 	"""
 	
-	def __init__(self, parent, mode='antenna'):
+	def __init__(self, parent, mode='antenna', current=None):
 		wx.Dialog.__init__(self, parent, title='Find %s by ID' % mode.capitalize(), size=(200, 125))
 		
 		self.parent = parent
 		self.mode = mode
+		self.current = current
 		
 		self.initUI()
+		self.initEvents()
 		
 	def initUI(self):
 		"""
@@ -1888,17 +1943,60 @@ class SelectBox(wx.Dialog):
 			wx.StaticText(panel, -1, 'Limits: 1 - 260, inclusive', (15, 60))
 		else:
 			wx.StaticText(panel, -1, 'Limits: 1 - 520, inclusive', (15, 60))
-
+			
 		hbox = wx.BoxSizer(wx.HORIZONTAL)
 		okButton = wx.Button(self, wx.ID_OK, 'Ok', size=(70, 30))
 		closeButton = wx.Button(self, wx.ID_CANCEL, 'Close', size=(70, 30))
 		hbox.Add(okButton, 1)
 		hbox.Add(closeButton, 1, wx.LEFT, 5)
-
+		
 		vbox.Add(panel)
 		vbox.Add(hbox, 1, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 10)
-
+		
 		self.SetSizer(vbox)
+		
+		if self.current is not None:
+			self.input.SetValue('%i' % self.current)
+			
+	def initEvents(self):
+		"""
+		Bind the events needed to make this run.
+		"""
+		
+		self.Bind(wx.EVT_KEY_UP, self.onKeyPress)
+		
+	def onKeyPress(self, event):
+		"""
+		Work with key presses on the dialog.
+		"""
+		
+		keycode = event.GetKeyCode()
+		
+		if keycode == wx.WXK_RETURN: 
+			self.EndModal(wx.ID_OK)
+			
+		elif keycode == wx.WXK_ESCAPE:
+			self.EndModal(wx.ID_CANCEL)
+			
+		elif keycode == wx.WXK_DOWN:
+			try:
+				value = int(self.input.GetValue(), 10)
+				value = max([1, value-1])
+				self.input.SetValue('%i' % value)
+			except ValueError:
+				pass
+				
+		elif keycode == wx.WXK_UP:
+			try:
+				value = int(self.input.GetValue(), 10)
+				maxValue = 260 if self.mode == 'stand' else 520
+				value = min([maxValue, value+1])
+				self.input.SetValue('%i' % value)
+			except ValueError:
+				pass
+				
+		else:
+			event.Skip()
 
 
 STATUS_CHANGE_OK = 201

@@ -19,7 +19,7 @@ import ephem
 import getopt
 from datetime import datetime
 
-from lsl.common.stations import lwa1
+from lsl.common import stations
 
 
 # Time zones
@@ -61,7 +61,7 @@ def parseOptions(args):
 	config = {}
 	config['useMountain'] = True
 	config['positionMode'] = False
-	config['station'] = 'lwa1'
+	config['site'] = 'lwa1'
 	
 	# Read in and process the command line flags
 	try:
@@ -80,7 +80,7 @@ def parseOptions(args):
 		elif opt in ('-p', '--position-mode'):
 			config['positionMode'] = True
 		elif opt in ('-s', '--lwasv'):
-			config['station'] = 'lwasv'
+			config['site'] = 'lwasv'
 		else:
 			assert False
 			
@@ -95,15 +95,15 @@ def main(args):
 	# Parse the command line
 	config = parseOptions(args)
 	
-	# Get LWA-1
-	observer = lwa1.getObserver()
-	if config['station'] == 'lwasv':
-		# Or LWA-SV...
-		lwa1.name = 'LWA-SV'
-		observer.lat = ephem.degrees('34.352')
-		observer.long = ephem.degrees('-106.882')
-		observer.elev = 1478.3 
-	print "Current site is %s at lat %s, lon %s" % (lwa1.name, observer.lat, observer.long)
+	# Set the station
+	if config['site'] == 'lwa1':
+		station = stations.lwa1
+	elif config['site'] == 'lwasv':
+		station = stations.lwasv
+	else:
+		raise RuntimeError("Unknown site name: %s" % config['site'])
+	observer = station.getObserver()
+	print "Current site is %s at lat %s, lon %s" % (station.name, observer.lat, observer.long)
 	
 	# Set the current time so we can find the "next" transit.  Go ahead
 	# and report the time and the current LST (for reference)
@@ -136,7 +136,7 @@ def main(args):
 	observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
 	print "Current time is %s" % tNow.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z")
 	print "                %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z")
-	print "Current LST at %s is %s" % (lwa1.name, observer.sidereal_time())
+	print "Current LST at %s is %s" % (station.name, observer.sidereal_time())
 	
 	# Load in the sources and compute
 	srcs = [ephem.Sun(), ephem.Jupiter()]

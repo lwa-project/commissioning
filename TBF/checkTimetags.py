@@ -91,7 +91,9 @@ def main(args):
 				
 			# Actually load the data.  x pol goes into the even numbers, y pol into the 
 			# odd numbers
-			count = cFrame.header.frameCount - 1
+			if i == 0 and j == 0:
+				refCount = cFrame.header.frameCount
+			count = cFrame.header.frameCount - refCount
 			timeTags[aStand,   count] = cFrame.data.timeTag
 			
 	# Check for missing frames

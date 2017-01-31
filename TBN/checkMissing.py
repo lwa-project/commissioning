@@ -37,6 +37,7 @@ Usage: checkMissing.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
+-v, --lwasv                 Use mapping from LWA-SV instead of LWA1
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
 -a, --average               Number of seconds of data to examine for frame loss
@@ -54,6 +55,7 @@ Options:
 def parseOptions(args):
 	config = {}
 	# Command line flags - default values
+	config['site'] = 'lwa1'
 	config['maxFrames'] = 200*520
 	config['offset'] = 0.0
 	config['average'] = 10.0
@@ -63,7 +65,7 @@ def parseOptions(args):
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqo:s:a:", ["help", "quiet", "output=", "skip=", "average="])
+		opts, args = getopt.getopt(args, "hqvo:s:a:", ["help", "quiet", "lwasv", "output=", "skip=", "average="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -75,6 +77,9 @@ def parseOptions(args):
 			usage(exitCode=0)
 		elif opt in ('-q', '--quiet'):
 			config['verbose'] = False
+		elif opt in ('-v', '--lwasv'):
+			config['site'] = 'lwasv'
+			config['maxFrames'] = 200*512
 		elif opt in ('-o', '--output'):
 			config['output'] = value
 		elif opt in ('-s', '--skip'):
@@ -103,13 +108,18 @@ def plotMissing(ax1, ax2, missingPackets, missingList, antpols):
 
 
 def main(args):
-	# Set the station
-	station = stations.lwa1
-	antennas = station.getAntennas()
-	
 	# Parse command line options
 	config = parseOptions(args)
-
+	
+	# Set the station
+	if config['site'] == 'lwa1':
+		station = stations.lwa1
+	elif config['site'] == 'lwasv':
+		station = stations.lwasv
+	else:
+		raise RuntimeError("Unknown site name: %s" % config['site'])
+	antennas = station.getAntennas()
+	
 	fh = open(config['args'][0], "rb")
 	nFramesFile = os.path.getsize(config['args'][0]) / tbn.FrameSize
 	srate = tbn.getSampleRate(fh)
