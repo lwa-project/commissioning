@@ -48,6 +48,7 @@ Options:
 -u, --utc                   Display rise, transit, and set times in UTC instead of MST/MDT
 -p, --position-mode         Display the azimuth and elevation of sources above the
                             horizon.
+-s, --lwassv                Compute for LWA-SV instead of LWA-1
 """
 	
 	if exitCode is not None:
@@ -60,10 +61,11 @@ def parseOptions(args):
 	config = {}
 	config['useMountain'] = True
 	config['positionMode'] = False
+	config['station'] = 'lwa1'
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hup", ["help", "utc", "position-mode"])
+		opts, args = getopt.getopt(args, "hups", ["help", "utc", "position-mode", "lwasv"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -77,6 +79,8 @@ def parseOptions(args):
 			config['useMountain'] = False
 		elif opt in ('-p', '--position-mode'):
 			config['positionMode'] = True
+		elif opt in ('-s', '--lwasv'):
+			config['station'] = 'lwasv'
 		else:
 			assert False
 			
@@ -93,6 +97,12 @@ def main(args):
 	
 	# Get LWA-1
 	observer = lwa1.getObserver()
+	if config['station'] == 'lwasv':
+		# Or LWA-SV...
+		lwa1.name = 'LWA-SV'
+		observer.lat = ephem.degrees('34.352')
+		observer.long = ephem.degrees('-106.882')
+		observer.elev = 1478.3 
 	print "Current site is %s at lat %s, lon %s" % (lwa1.name, observer.lat, observer.long)
 	
 	# Set the current time so we can find the "next" transit.  Go ahead

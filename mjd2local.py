@@ -29,6 +29,7 @@ Usage: mjd2local.py [OPTIONS] MJD [MJD [MJD [...]]]
 
 Options:
 -h, --help                  Display this help information
+-u, --utc                   Report UTC time rather than local
 -p, --pairs                 Interpret the input as MJD, MPM pairs
 """
 
@@ -40,11 +41,12 @@ Options:
 
 def parseOptions(args):
 	config = {}
+	config['tz'] = MST
 	config['pairs'] = False
 
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hp", ["help", "pairs"])
+		opts, args = getopt.getopt(args, "hup", ["help", "utc", "pairs"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -54,7 +56,9 @@ def parseOptions(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
-		if opt in ('-p', '--pairs'):
+		elif opt in ('-u', '--utc'):
+			config['tz'] = UTC
+		elif opt in ('-p', '--pairs'):
 			config['pairs'] = True
 		else:
 			assert False
@@ -68,7 +72,7 @@ def parseOptions(args):
 
 def main(args):
 	config = parseOptions(args)
-
+	
 	if not config['pairs']:
 		for arg in config['args']:
 			mjd1 = int(arg)
@@ -76,23 +80,27 @@ def main(args):
 
 			d1 = mjdmpm2datetime(mjd1, 0)
 			d1 = UTC.localize(d1)
-			d1  = d1.astimezone(MST)
+			d1  = d1.astimezone(config['tz'])
 
 			d2 = mjdmpm2datetime(mjd2, 0)
 			d2 = UTC.localize(d2)
-			d2  = d2.astimezone(MST)
-
+			d2  = d2.astimezone(config['tz'])
+			
+			tzname = d1.strftime('%Z')
+			
 			print "MJD: %i" % mjd1
-			print "Localtime: %s to %s" % (d1.strftime("%B %d, %Y at %H:%M:%S %Z"), d2.strftime("%B %d, %Y at %H:%M:%S %Z"))
+			print "%s: %s to %s" % (tzname, d1.strftime("%B %d, %Y at %H:%M:%S %Z"), d2.strftime("%B %d, %Y at %H:%M:%S %Z"))
 	else:
 		for arg in zip(config['args'][0::2], config['args'][1::2]):
 			mjd, mpm = [int(i) for i in arg]
 			d = mjdmpm2datetime(mjd, mpm)
 			d = UTC.localize(d)
-			d = d.astimezone(MST)
-
+			d = d.astimezone(config['tz'])
+			
+			tzname = d.strftime('%Z')
+			
 			print "MJD: %i, MPM: %i" % (mjd, mpm)
-			print "Localtime: %s" % d.strftime("%B %d, %Y at %H:%M:%S %Z")
+			print "%s: %s" % (tzname, d.strftime("%B %d, %Y at %H:%M:%S %Z"))
 
 
 if __name__ == "__main__":
