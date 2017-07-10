@@ -13,9 +13,13 @@ import h5py
 import numpy
 from datetime import datetime
 
-from lsl.common.sdf import parseSDF
-from lsl.common import dp, mcs, metabundle
+from lsl.common import dp, mcs, sdf, metabundle
 from lsl.reader.drx import filterCodes
+try:
+	from lsl.common import sdfADP, metabundleADP
+	adpReady = True
+except ImportError:
+	adpReady = False
 
 
 __version__ = "0.5"
@@ -112,14 +116,21 @@ def fillFromMetabundle(f, tarball):
 	"""
 	
 	# Pull out what we need from the tarball
-	sdf = metabundle.getSessionDefinition(tarball)
-	cds = metabundle.getCommandScript(tarball)
-	
+	try:
+		project = metabundle.getSessionDefinition(tarball)
+		cds = metabundle.getCommandScript(tarball)
+	except Exception as e:
+		if adpReady:
+			project = metabundleADP.getSessionDefinition(tarball)
+			cds = metabundleADP.getCommandScript(tarball)
+		else:
+			raise e
+			
 	# Observer and Project Info.
-	f.attrs['ObserverID'] = sdf.observer.id
-	f.attrs['ObserverName'] = sdf.observer.name
-	f.attrs['ProjectID'] = sdf.id
-	f.attrs['SessionID'] = sdf.sessions[0].id
+	f.attrs['ObserverID'] = project.observer.id
+	f.attrs['ObserverName'] = project.observer.name
+	f.attrs['ProjectID'] = project.id
+	f.attrs['SessionID'] = project.sessions[0].id
 	
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(tarball)
@@ -130,7 +141,7 @@ def fillFromMetabundle(f, tarball):
 	except:
 		arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
 		
-	for i,obsS in enumerate(sdf.sessions[0].observations):
+	for i,obsS in enumerate(project.sessions[0].observations):
 		# Detailed observation information
 		obsD = metabundle.getObservationSpec(tarball, selectObs=i+1)
 		
@@ -244,25 +255,31 @@ def fillFromSDF(f, sdfFilename):
 	"""
 	
 	# Pull out what we need from the tarball
-	sdf = parseSDF(sdfFilename)
-	
+	try:
+		project = sdf.parseSDF(sdfFilename)
+	except Exception as e:
+		if adpReady:
+			project = sdfADP.parseSDF(sdfFilename)
+		else:
+			raise e
+			
 	# Observer and Project Info.
-	f.attrs['ObserverID'] = sdf.observer.id
-	f.attrs['ObserverName'] = sdf.observer.name
-	f.attrs['ProjectID'] = sdf.id
-	f.attrs['SessionID'] = sdf.sessions[0].id
+	f.attrs['ObserverID'] = project.observer.id
+	f.attrs['ObserverName'] = project.observer.name
+	f.attrs['ProjectID'] = project.id
+	f.attrs['SessionID'] = project.sessions[0].id
 	
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
 	
 	# ARX configuration summary
 	arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
-	arx['filter'] = numpy.median( sdf.sessions[0].observations[0].aspFlt )
-	arx['at1'] = numpy.median( sdf.sessions[0].observations[0].aspAT1 )
-	arx['at2'] = numpy.median( sdf.sessions[0].observations[0].aspAT2 )
-	arx['atsplit'] = numpy.median( sdf.sessions[0].observations[0].aspATS )
+	arx['filter'] = numpy.median( project.sessions[0].observations[0].aspFlt )
+	arx['at1'] = numpy.median( project.sessions[0].observations[0].aspAT1 )
+	arx['at2'] = numpy.median( project.sessions[0].observations[0].aspAT2 )
+	arx['atsplit'] = numpy.median( project.sessions[0].observations[0].aspATS )
 	
-	for i,obsS in enumerate(sdf.sessions[0].observations):
+	for i,obsS in enumerate(project.sessions[0].observations):
 		# Get the group or create it if it doesn't exist
 		grp = f.get('/Observation%i' % (i+1,), None)
 		if grp is None:
@@ -283,7 +300,7 @@ def fillFromSDF(f, sdfFilename):
 		grp.attrs['ARX_Gain1'] = arx['at1']
 		grp.attrs['ARX_Gain2'] = arx['at2']
 		grp.attrs['ARX_GainS'] = arx['atsplit']
-		grp.attrs['Beam'] = sdf.sessions[0].drxBeam
+		grp.attrs['Beam'] = project.sessions[0].drxBeam
 		grp.attrs['DRX_Gain'] = obsS.gain
 		grp.attrs['sampleRate'] = float(filterCodes[obsS.filter])
 		grp.attrs['sampleRate_Units'] = 'samples/s'
