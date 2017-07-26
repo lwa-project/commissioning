@@ -22,7 +22,7 @@ except ImportError:
 	adpReady = False
 
 
-__version__ = "0.5"
+__version__ = "0.6"
 __revision__ = "$Rev$"
 __all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF', 'getObservationSet', 'createDataSets', 'getDataSet', 
 		 '__version__', '__revision__', '__all__']
@@ -61,6 +61,9 @@ def createNewFile(filename):
 	f.attrs['ProjectID'] = ''
 	f.attrs['SessionID'] = 0
 	
+	# Station information
+	f.attrs['StationName'] = ''
+	
 	# File creation time
 	f.attrs['FileCreation'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
 	f.attrs['FileGenerator'] = ''
@@ -72,11 +75,18 @@ def createNewFile(filename):
 	return f
 
 
-def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s'):
+def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
 	"""
 	Minimum metadata filling for a particular observation.
 	"""
 	
+	# Station information
+	if station is not None:
+		if station in ('lwa1', 'lwasv'):
+			f.attrs['StationName'] = station
+		else:
+			raise ValueError("Unknown station name: %s" % station)
+			
 	# Get the group or create it if it doesn't exist
 	obs = f.get('/Observation%i' % obsID, None)
 	if obs is None:
@@ -119,10 +129,12 @@ def fillFromMetabundle(f, tarball):
 	try:
 		project = metabundle.getSessionDefinition(tarball)
 		cds = metabundle.getCommandScript(tarball)
+		station = 'lwa1'
 	except Exception as e:
 		if adpReady:
 			project = metabundleADP.getSessionDefinition(tarball)
 			cds = metabundleADP.getCommandScript(tarball)
+			station = 'lwasv'
 		else:
 			raise e
 			
@@ -131,6 +143,9 @@ def fillFromMetabundle(f, tarball):
 	f.attrs['ObserverName'] = project.observer.name
 	f.attrs['ProjectID'] = project.id
 	f.attrs['SessionID'] = project.sessions[0].id
+	
+	# Station information
+	f.attrs['StationName'] = station
 	
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(tarball)
@@ -249,7 +264,7 @@ def fillFromMetabundle(f, tarball):
 	return True
 
 
-def fillFromSDF(f, sdfFilename):
+def fillFromSDF(f, sdfFilename, station=None):
 	"""
 	Fill in a HDF5 file based off an input session definition file.
 	"""
@@ -269,6 +284,13 @@ def fillFromSDF(f, sdfFilename):
 	f.attrs['ProjectID'] = project.id
 	f.attrs['SessionID'] = project.sessions[0].id
 	
+	# Station information
+	if station is not None:
+		if station in ('lwa1', 'lwasv'):
+			f.attrs['StationName'] = station
+		else:
+			raise ValueError("Unknown station name: %s" % station)
+			
 	# Input file info.
 	f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
 	

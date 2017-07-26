@@ -19,14 +19,17 @@ import ephem
 import getopt
 from datetime import datetime
 
-import lsl.reader.drx as drx
-import lsl.reader.drspec as drspec
-import lsl.reader.errors as errors
-import lsl.statistics.robust as robust
+from lsl.reader import drx, drspec, errors
+from lsl.reader.ldp import LWA1DataFile
 import lsl.correlator.fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common import progress, stations
-from lsl.common import mcs, metabundle
+from lsl.common import mcs, sdf, metabundle
+try:
+	from lsl.common import sdfADP, metabundleADP
+	adpReady = True
+except ImportError:
+	adpReady = False
 
 import matplotlib.pyplot as plt
 
@@ -58,6 +61,7 @@ Options:
                             level (overrides the `-c` option)
 -m, --metadata              Metadata tarball for additional information
 -i, --sdf                   SDF for additional information
+-v, --lwasv                 Data is from LWA-SV instead of LWA-1
 -f, --force                 Force overwritting of existing HDF5 files
 -k, --stokes                Generate Stokes parameters instead of XX and YY
 -w, --without-sats          Do not generate saturation counts
@@ -91,6 +95,7 @@ def parseOptions(args):
 	config['estimate'] = False
 	config['metadata'] = None
 	config['sdf'] = None
+	config['site'] = 'lwa1'
 	config['force'] = False
 	config['linear'] = True
 	config['countSats'] = True
@@ -98,7 +103,7 @@ def parseOptions(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:i:fkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "sdf=", "force", "stokes", "without-sats"])
+		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:i:vfkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "sdf=", "lwasv", "force", "stokes", "without-sats"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -132,6 +137,8 @@ def parseOptions(args):
 			config['metadata'] = value
 		elif opt in ('-i', '--sdf'):
 			config['sdf'] = value
+		elif opt in ('-v', '--lwasv'):
+			config['site'] = 'lwasv'
 		elif opt in ('-f', '--force'):
 			config['force'] = True
 		elif opt in ('-k', '--stokes'):
@@ -146,72 +153,6 @@ def parseOptions(args):
 	
 	# Return configuration
 	return config
-
-
-def estimateClipLevel(fh, beampols):
-	"""
-	Read in a set of 100 frames and come up with the 4-sigma clip levels 
-	for each tuning.  These clip levels are returned as a two-element 
-	tuple.
-	"""
-	
-	filePos = fh.tell()
-	
-	# Read in the first 100 frames for each tuning/polarization
-	count = {0:0, 1:0, 2:0, 3:0}
-	data = numpy.zeros((4, 4096*100), dtype=numpy.csingle)
-	for i in xrange(beampols*100):
-		try:
-			cFrame = drx.readFrame(fh, Verbose=False)
-		except errors.eofError:
-			break
-		except errors.syncError:
-			continue
-			
-		beam,tune,pol = cFrame.parseID()
-		aStand = 2*(tune-1) + pol
-		
-		data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
-		count[aStand] +=  1
-		
-	# Go back to where we started
-	fh.seek(filePos)
-	
-	# Compute the robust mean and standard deviation for I and Q for each
-	# tuning/polarization
-	meanI = []
-	meanQ = []
-	stdsI = []
-	stdsQ = []
-	for i in xrange(4):
-		meanI.append( robust.mean(data[i,:].real) )
-		meanQ.append( robust.mean(data[i,:].imag) )
-		
-		stdsI.append( robust.std(data[i,:].real) )
-		stdsQ.append( robust.std(data[i,:].imag) )
-		
-	# Report
-	print "Statistics:"
-	for i in xrange(4):
-		print " Mean %i: %.3f + %.3f j" % (i+1, meanI[i], meanQ[i])
-		print " Std  %i: %.3f + %.3f j" % (i+1, stdsI[i], stdsQ[i])
-		
-	# Come up with the clip levels based on 4 sigma
-	clip1 = (meanI[0] + meanI[1] + meanQ[0] + meanQ[1]) / 4.0
-	clip2 = (meanI[2] + meanI[3] + meanQ[2] + meanQ[3]) / 4.0
-	
-	clip1 += 5*(stdsI[0] + stdsI[1] + stdsQ[0] + stdsQ[1]) / 4.0
-	clip2 += 5*(stdsI[2] + stdsI[3] + stdsQ[2] + stdsQ[3]) / 4.0
-	
-	clip1 = int(round(clip1))
-	clip2 = int(round(clip2))
-	
-	# Report again
-	print "Clip Levels:"
-	print " Tuning 1: %i" % clip1
-	print " Tuning 2: %i" % clip2
-	
-	return clip1, clip2
 
 
 def bestFreqUnits(freq):
@@ -240,7 +181,7 @@ def bestFreqUnits(freq):
 	return (newFreq, units)
 
 
-def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
 	"""
 	Process a chunk of data in a raw DRX file into linear polarization 
 	products and add the contents to an HDF5 file.
@@ -250,88 +191,29 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 	LFFT = config['LFFT']
 	
 	# Find the start of the observation
-	junkFrame = drx.readFrame(fh)
-	srate = junkFrame.getSampleRate()
-	t0 = junkFrame.getTime()
-	fh.seek(-drx.FrameSize, 1)
-	
 	print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sampleRate)
-	while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
-		junkFrame = drx.readFrame(fh)
-		srate = junkFrame.getSampleRate()
-		t0 = junkFrame.getTime()
+	idf.reset()
+	
+	t0 = idf.getInfo('tStart')
+	tDiff = tStart - datetime.utcfromtimestamp(t0)
+	offset = idf.offset( tDiff.total_seconds() + 1 )
+	t0 = idf.getInfo('tStart')
+	srate = idf.getInfo('sampleRate')
+	
 	print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
 	tDiff = datetime.utcfromtimestamp(t0) - tStart
-	try:
-		duration = duration - tDiff.total_seconds()
-	except:
-		duration = duration - (tDiff.seconds + tDiff.microseconds/1e6)
-	
-	beam,tune,pol = junkFrame.parseID()
-	beams = drx.getBeamCount(fh)
-	tunepols = drx.getFramesPerObs(fh)
-	tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
-	beampols = tunepol
-	
-	# Make sure that the file chunk size contains is an integer multiple
-	# of the FFT length so that no data gets dropped.  This needs to
-	# take into account the number of beampols in the data, the FFT length,
-	# and the number of samples per frame.
-	maxFrames = int(1.0*config['maxFrames']/beampols*4096/float(LFFT))*LFFT/4096*beampols
-	
-	# Number of frames to integrate over
-	nFramesAvg = int(round(config['average'] * srate / 4096 * beampols))
-	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
-	config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
-	maxFrames = nFramesAvg
+	duration = duration - max([0, tDiff.total_seconds()])
 	
 	# Number of remaining chunks (and the correction to the number of
 	# frames to read in).
 	nChunks = int(round(duration / config['average']))
 	if nChunks == 0:
 		nChunks = 1
-	nFrames = nFramesAvg*nChunks
-	
-	# Line up the time tags for the various tunings/polarizations
-	timeTags = []
-	for i in xrange(16):
-		junkFrame = drx.readFrame(fh)
-		timeTags.append(junkFrame.data.timeTag)
-	fh.seek(-16*drx.FrameSize, 1)
-	
-	i = 0
-	if beampols == 4:
-		while (timeTags[i+0] != timeTags[i+1]) or (timeTags[i+0] != timeTags[i+2]) or (timeTags[i+0] != timeTags[i+3]):
-			i += 1
-			fh.seek(drx.FrameSize, 1)
-			
-	elif beampols == 2:
-		while timeTags[i+0] != timeTags[i+1]:
-			i += 1
-			fh.seek(drx.FrameSize, 1)
-			
+		
 	# Date & Central Frequency
-	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
-	centralFreq1 = 0.0
-	centralFreq2 = 0.0
-	for i in xrange(4):
-		junkFrame = drx.readFrame(fh)
-		b,t,p = junkFrame.parseID()
-		if p == 0 and t == 1:
-			try:
-				centralFreq1 = junkFrame.getCentralFreq()
-			except AttributeError:
-				from lsl.common.dp import fS
-				centralFreq1 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
-		elif p == 0 and t == 2:
-			try:
-				centralFreq2 = junkFrame.getCentralFreq()
-			except AttributeError:
-				from lsl.common.dp import fS
-				centralFreq2 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
-		else:
-			pass
-	fh.seek(-4*drx.FrameSize, 1)
+	beginDate = ephem.Date(unix_to_utcjd(t0) - DJD_OFFSET)
+	centralFreq1 = idf.getInfo('freq1')
+	centralFreq2 = idf.getInfo('freq2')
 	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
 	if float(fxc.__version__) < 0.8:
 		freq = freq[1:]
@@ -350,46 +232,14 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 	dataProducts = ['XX', 'YY']
 	done = False
 	for i in xrange(nChunks):
-		# Find out how many frames remain in the file.  If this number is larger
-		# than the maximum of frames we can work with at a time (maxFrames),
-		# only deal with that chunk
-		framesRemaining = nFrames - i*maxFrames
-		if framesRemaining > maxFrames:
-			framesWork = maxFrames
-		else:
-			framesWork = framesRemaining
-		print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
-		
-		count = {0:0, 1:0, 2:0, 3:0}
-		data = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.csingle)
-		# If there are fewer frames than we need to fill an FFT, skip this chunk
-		if data.shape[1] < LFFT:
-			break
-			
 		# Inner loop that actually reads the frames into the data array
-		print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+		print "Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1)
+		print "Working on %.1f ms of data" % (config['average']*1000.0,)
 		
-		for j in xrange(framesWork):
-			# Read in the next frame and anticipate any problems that could occur
-			try:
-				cFrame = drx.readFrame(fh, Verbose=False)
-			except errors.eofError:
-				done = True
-				break
-			except errors.syncError:
-				continue
-
-			beam,tune,pol = cFrame.parseID()
-			aStand = 2*(tune-1) + pol
-			if j is 0:
-				cTime = cFrame.getTime()
-				
-			try:
-				data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
-				count[aStand] +=  1
-			except ValueError:
-				raise RuntimeError("Invalid Shape")
-				
+		tInt, cTime, data = idf.read(config['average'])
+		if i == 0:
+			print "Actual integration time is %.1f ms" % (tInt*1000.0,)
+			
 		# Save out some easy stuff
 		dataSets['obs%i-time' % obsID][i] = cTime
 		
@@ -400,7 +250,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 		else:
 			dataSets['obs%i-Saturation1' % obsID][i,:] = -1
 			dataSets['obs%i-Saturation2' % obsID][i,:] = -1
-		
+			
 		# Calculate the spectra for this block of data and then weight the results by 
 		# the total number of frames read.  This is needed to keep the averages correct.
 		if clip1 == clip2:
@@ -430,7 +280,7 @@ def processDataBatchLinear(fh, antennas, tStart, duration, sampleRate, config, d
 	return True
 
 
-def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
 	"""
 	Process a chunk of data in a raw DRX file into Stokes parameters and 
 	add the contents to an HDF5 file.
@@ -440,88 +290,37 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 	LFFT = config['LFFT']
 	
 	# Find the start of the observation
-	junkFrame = drx.readFrame(fh)
-	srate = junkFrame.getSampleRate()
-	t0 = junkFrame.getTime()
-	fh.seek(-drx.FrameSize, 1)
+	t0 = idf.getInfo('tStart')
 	
 	print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sampleRate)
-	while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
-		junkFrame = drx.readFrame(fh)
-		srate = junkFrame.getSampleRate()
-		t0 = junkFrame.getTime()
+	idf.reset()
+	
+	t0 = idf.getInfo('tStart')
+	tDiff = tStart - datetime.utcfromtimestamp(t0)
+	offset = idf.offset( tDiff.total_seconds() + 1 )
+	t0 = idf.getInfo('tStart')
+	srate = idf.getInfo('sampleRate')
+	
 	print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
 	tDiff = datetime.utcfromtimestamp(t0) - tStart
-	try:
-		duration = duration - tDiff.total_seconds()
-	except:
-		duration = duration - (tDiff.seconds + tDiff.microseconds/1e6)
-	
-	beam,tune,pol = junkFrame.parseID()
-	beams = drx.getBeamCount(fh)
-	tunepols = drx.getFramesPerObs(fh)
-	tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
-	beampols = tunepol
-	
-	# Make sure that the file chunk size contains is an integer multiple
-	# of the FFT length so that no data gets dropped.  This needs to
-	# take into account the number of beampols in the data, the FFT length,
-	# and the number of samples per frame.
-	maxFrames = int(1.0*config['maxFrames']/beampols*4096/float(LFFT))*LFFT/4096*beampols
-	
-	# Number of frames to integrate over
-	nFramesAvg = int(round(config['average'] * srate / 4096 * beampols))
-	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
-	config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
-	maxFrames = nFramesAvg
-	
+	duration = duration - max([0, tDiff.total_seconds()])
+		
 	# Number of remaining chunks (and the correction to the number of
 	# frames to read in).
 	nChunks = int(round(duration / config['average']))
 	if nChunks == 0:
 		nChunks = 1
-	nFrames = nFramesAvg*nChunks
-	
-	# Line up the time tags for the various tunings/polarizations
-	timeTags = []
-	for i in xrange(16):
-		junkFrame = drx.readFrame(fh)
-		timeTags.append(junkFrame.data.timeTag)
-	fh.seek(-16*drx.FrameSize, 1)
-	
-	i = 0
-	if beampols == 4:
-		while (timeTags[i+0] != timeTags[i+1]) or (timeTags[i+0] != timeTags[i+2]) or (timeTags[i+0] != timeTags[i+3]):
-			i += 1
-			fh.seek(drx.FrameSize, 1)
-			
-	elif beampols == 2:
-		while timeTags[i+0] != timeTags[i+1]:
-			i += 1
-			fh.seek(drx.FrameSize, 1)
-			
+		
+	# Number of remaining chunks (and the correction to the number of
+	# frames to read in).
+	nChunks = int(round(duration / config['average']))
+	if nChunks == 0:
+		nChunks = 1
+		
 	# Date & Central Frequency
-	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
-	centralFreq1 = 0.0
-	centralFreq2 = 0.0
-	for i in xrange(4):
-		junkFrame = drx.readFrame(fh)
-		b,t,p = junkFrame.parseID()
-		if p == 0 and t == 1:
-			try:
-				centralFreq1 = junkFrame.getCentralFreq()
-			except AttributeError:
-				from lsl.common.dp import fS
-				centralFreq1 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
-		elif p == 0 and t == 2:
-			try:
-				centralFreq2 = junkFrame.getCentralFreq()
-			except AttributeError:
-				from lsl.common.dp import fS
-				centralFreq2 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
-		else:
-			pass
-	fh.seek(-4*drx.FrameSize, 1)
+	beginDate = ephem.Date(unix_to_utcjd(t0) - DJD_OFFSET)
+	centralFreq1 = idf.getInfo('freq1')
+	centralFreq2 = idf.getInfo('freq2')
 	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
 	if float(fxc.__version__) < 0.8:
 		freq = freq[1:]
@@ -540,46 +339,14 @@ def processDataBatchStokes(fh, antennas, tStart, duration, sampleRate, config, d
 	dataProducts = ['I', 'Q', 'U', 'V']
 	done = False
 	for i in xrange(nChunks):
-		# Find out how many frames remain in the file.  If this number is larger
-		# than the maximum of frames we can work with at a time (maxFrames),
-		# only deal with that chunk
-		framesRemaining = nFrames - i*maxFrames
-		if framesRemaining > maxFrames:
-			framesWork = maxFrames
-		else:
-			framesWork = framesRemaining
-		print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
-		
-		count = {0:0, 1:0, 2:0, 3:0}
-		data = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.csingle)
-		# If there are fewer frames than we need to fill an FFT, skip this chunk
-		if data.shape[1] < LFFT:
-			break
-			
 		# Inner loop that actually reads the frames into the data array
-		print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+		print "Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1)
+		print "Working on %.1f ms of data" % (config['average']*1000.0,)
 		
-		for j in xrange(framesWork):
-			# Read in the next frame and anticipate any problems that could occur
-			try:
-				cFrame = drx.readFrame(fh, Verbose=False)
-			except errors.eofError:
-				done = True
-				break
-			except errors.syncError:
-				continue
-				
-			beam,tune,pol = cFrame.parseID()
-			aStand = 2*(tune-1) + pol
-			if j is 0:
-				cTime = cFrame.getTime()
-				
-			try:
-				data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
-				count[aStand] +=  1
-			except ValueError:
-				raise RuntimeError("Invalid Shape")
-				
+		tInt, cTime, data = idf.read(config['average'])
+		if i == 0:
+			print "Actual integration time is %.1f ms" % (tInt*1000.0,)
+			
 		# Save out some easy stuff
 		dataSets['obs%i-time' % obsID][i] = cTime
 		
@@ -628,7 +395,6 @@ def main(args):
 	# Open the file and find good data (not spectrometer data)
 	filename = config['args'][0]
 	fh = open(filename, "rb")
-	nFramesFile = os.path.getsize(filename) / drx.FrameSize
 	
 	try:
 		for i in xrange(5):
@@ -637,71 +403,20 @@ def main(args):
 	except errors.syncError:
 		fh.seek(0)
 		
-	while True:
-		try:
-			junkFrame = drx.readFrame(fh)
-			try:
-				srate = junkFrame.getSampleRate()
-				t0 = junkFrame.getTime()
-				break
-			except ZeroDivisionError:
-				pass
-		except errors.syncError:
-			fh.seek(-drx.FrameSize+1, 1)
-			
-	fh.seek(-drx.FrameSize, 1)
-	
-	beam,tune,pol = junkFrame.parseID()
-	beams = drx.getBeamCount(fh)
-	tunepols = drx.getFramesPerObs(fh)
-	tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
-	beampols = tunepol
+	# Good, we seem to have a real DRX file, switch over to the LDP interface
+	fh.close()
+	idf = LWA1DataFile(filename, ignoreTimeTagErrors=False)
 
-	# Offset in frames for beampols beam/tuning/pol. sets
-	offset = int(config['offset'] * srate / 4096 * beampols)
-	offset = int(1.0 * offset / beampols) * beampols
-	fh.seek(offset*drx.FrameSize, 1)
+	# Offset into the file
+	offset = idf.offset(config['offset'])
 	
-	# Iterate on the offsets until we reach the right point in the file.  This
-	# is needed to deal with files that start with only one tuning and/or a 
-	# different sample rate.  
-	while True:
-		## Figure out where in the file we are and what the current tuning/sample 
-		## rate is
-		junkFrame = drx.readFrame(fh)
-		srate = junkFrame.getSampleRate()
-		t1 = junkFrame.getTime()
-		tunepols = drx.getFramesPerObs(fh)
-		tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
-		beampols = tunepol
-		fh.seek(-drx.FrameSize, 1)
-		
-		## See how far off the current frame is from the target
-		tDiff = t1 - (t0 + config['offset'])
-		
-		## Half that to come up with a new seek parameter
-		tCorr = -tDiff / 2.0
-		cOffset = int(tCorr * srate / 4096 * beampols)
-		cOffset = int(1.0 * cOffset / beampols) * beampols
-		offset += cOffset
-		
-		## If the offset is zero, we are done.  Otherwise, apply the offset
-		## and check the location in the file again/
-		if cOffset is 0:
-			break
-		fh.seek(cOffset*drx.FrameSize, 1)
+	# Metadata
+	nFramesFile = idf.getInfo('nFrames')
+	beam = idf.getInfo('beam')
+	srate = idf.getInfo('sampleRate')
+	beampols = idf.getInfo('beampols')
+	beams = max([1, beampols / 4])
 	
-	# Update the offset actually used
-	config['offset'] = t1 - t0
-	offset = int(round(config['offset'] * srate / 4096 * beampols))
-	offset = int(1.0 * offset / beampols) * beampols
-
-	# Make sure that the file chunk size contains is an integer multiple
-	# of the FFT length so that no data gets dropped.  This needs to
-	# take into account the number of beampols in the data, the FFT length,
-	# and the number of samples per frame.
-	maxFrames = int(1.0*config['maxFrames']/beampols*4096/float(LFFT))*LFFT/4096*beampols
-
 	# Number of frames to integrate over
 	nFramesAvg = int(config['average'] * srate / 4096 * beampols)
 	nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
@@ -723,29 +438,10 @@ def main(args):
 	nFrames = nFramesAvg*nChunks
 	
 	# Date & Central Frequency
-	t1  = junkFrame.getTime()
-	beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
-	centralFreq1 = 0.0
-	centralFreq2 = 0.0
-	for i in xrange(4):
-		junkFrame = drx.readFrame(fh)
-		b,t,p = junkFrame.parseID()
-		if p == 0 and t == 1:
-			try:
-				centralFreq1 = junkFrame.getCentralFreq()
-			except AttributeError:
-				from lsl.common.dp import fS
-				centralFreq1 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
-		elif p == 0 and t == 2:
-			try:
-				centralFreq2 = junkFrame.getCentralFreq()
-			except AttributeError:
-				from lsl.common.dp import fS
-				centralFreq2 = fS * ((junkFrame.data.flags>>32) & (2**32-1)) / 2**32
-		else:
-			pass
-	fh.seek(-4*drx.FrameSize, 1)
-	
+	t1  = idf.getInfo('tStart')
+	beginDate = ephem.Date(unix_to_utcjd(t1) - DJD_OFFSET)
+	centralFreq1 = idf.getInfo('freq1')
+	centralFreq2 = idf.getInfo('freq2')
 	config['freq1'] = centralFreq1
 	config['freq2'] = centralFreq2
 
@@ -753,7 +449,7 @@ def main(args):
 	print "Filename: %s" % filename
 	print "Date of First Frame: %s" % str(beginDate)
 	print "Beams: %i" % beams
-	print "Tune/Pols: %i %i %i %i" % tunepols
+	print "Tune/Pols: %i" % beampols
 	print "Sample Rate: %i Hz" % srate
 	print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
 	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
@@ -766,7 +462,9 @@ def main(args):
 	
 	# Estimate clip level (if needed)
 	if config['estimate']:
-		clip1, clip2 = estimateClipLevel(fh, beampols)
+		estimate = idf.estimateLevels(fh, Sigma=5.0)
+		clip1 = (estiamte[0] + estimate[1]) / 2.0
+		clip2 = (estiamte[2] + estimate[3]) / 2.0
 	else:
 		clip1 = config['clip']
 		clip2 = config['clip']
@@ -809,14 +507,20 @@ def main(args):
 	# whole file.
 	obsList = {}
 	if config['metadata'] is not None:
-		sdf = metabundle.getSessionDefinition(config['metadata'])
-		
-		sdfBeam  = sdf.sessions[0].drxBeam
-		spcSetup = sdf.sessions[0].spcSetup
+		try:
+			project = metabundle.getSessionDefinition(config['metadata'])
+		except Exception as e:
+			if adpReady:
+				project = metabundleADP.getSessionDefinition(config['metadata'])
+			else:
+				raise e
+				
+		sdfBeam  = project.sessions[0].drxBeam
+		spcSetup = project.sessions[0].spcSetup
 		if sdfBeam != beam:
 			raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
 			
-		for i,obs in enumerate(sdf.sessions[0].observations):
+		for i,obs in enumerate(project.sessions[0].observations):
 			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
 			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
 			obsDur   = obs.dur/1000.0
@@ -833,28 +537,32 @@ def main(args):
 		hdfData.fillFromMetabundle(f, config['metadata'])
 		
 	elif config['sdf'] is not None:
-		from lsl.common import mcs
-		from lsl.common.sdf import parseSDF
-		sdf = parseSDF(config['sdf'])
-		
-		sdfBeam  = sdf.sessions[0].drxBeam
-		spcSetup = sdf.sessions[0].spcSetup
+		try:
+			project = sdf.parseSDF(config['sdf'])
+		except Exception as e:
+			if adpReady:
+				project = sdfADP.parseSDF(config['sdf'])
+			else:
+				raise e
+				
+		sdfBeam  = project.sessions[0].drxBeam
+		spcSetup = project.sessions[0].spcSetup
 		if sdfBeam != beam:
 			raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
 			
-		for i,obs in enumerate(sdf.sessions[0].observations):
+		for i,obs in enumerate(project.sessions[0].observations):
 			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
 			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
 			obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
 			
 			obsList[i+1] = (sdfStart, sdfStop, obsChunks)
 			
-		hdfData.fillFromSDF(f, config['sdf'])
+		hdfData.fillFromSDF(f, config['sdf'], station=config['site'])
 		
 	else:
 		obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), config['duration'], srate)
 		
-		hdfData.fillMinimum(f, 1, beam, srate)
+		hdfData.fillMinimum(f, 1, beam, srate, station=config['site'])
 		
 	if config['linear']:
 		dataProducts = ['XX', 'YY']
@@ -891,12 +599,15 @@ def main(args):
 	# Go!
 	for o in sorted(obsList.keys()):
 		try:
-			processDataBatch(fh, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
+			processDataBatch(idf, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
 		except RuntimeError, e:
 			print "Observation #%i: %s, abandoning this observation" % (o, str(e))
 
 	# Save the output to a HDF5 file
 	f.close()
+	
+	# Close out the data file
+	idf.close()
 
 
 if __name__ == "__main__":

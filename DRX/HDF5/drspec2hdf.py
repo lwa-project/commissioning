@@ -34,6 +34,7 @@ Options:
 -s, --skip                  Skip foward the specified number of seconds into the file
 -m, --metadata              Metadata tarball for additional information
 -d, --sdf                   SDF for additional information
+-v, --lwasv                 Data is from LWA-SV instead of LWA-1
 -f, --force                 Force overwritting of existing HDF5 files
 
 Note:  Both the -m/--metadata and -d/--sdf options provide the same additional
@@ -52,12 +53,13 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['metadata'] = None
 	config['sdf'] = None
+	config['site'] = 'lwa1'
 	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:m:d:f", ["help", "skip=", "metadata=", "sdf=", "force"])
+		opts, args = getopt.getopt(args, "hs:m:d:vf", ["help", "skip=", "metadata=", "sdf=", "lwasv", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -75,6 +77,8 @@ def parseOptions(args):
 			config['metadata'] = value
 		elif opt in ('-d', '--sdf'):
 			config['sdf'] = value
+		elif opt in ('-v', '--lwasv'):
+			config['site'] = 'lwasv'
 		elif opt in ('-f', '--force'):
 			config['force'] = True
 		else:
@@ -233,12 +237,12 @@ def main(args):
 			
 			obsList[i+1] = (sdfStart, sdfStop, obsChunks)
 			
-		hdfData.fillFromSDF(f, config['sdf'])
+		hdfData.fillFromSDF(f, config['sdf'], station=config['site'])
 		
 	else:
 		obsList[1] = (beginDate, datetime(2222,12,31,23,59,59), nChunks)
 		
-		hdfData.fillMinimum(f, 1, beam, srate)
+		hdfData.fillMinimum(f, 1, beam, srate, station=config['site'])
 		
 	dataProducts = junkFrame.getDataProducts()
 	for o in sorted(obsList.keys()):
