@@ -46,6 +46,11 @@ Simple script to check the time tag sequence in a DRX file and look for strange
 jumps and other badness.  It can also be used to check the DRX decimate (sample 
 rate) field and if the time has been set correctly on the various boards.
 
+fastDRXCheck.py
+---------------
+Script to quickly check a DRX file for time tag problems and, optionally, split the
+file at any time tag problems.
+
 getTuningOffset.py
 -------------------
 Check for an offset in the time tags associated with the two tunings beyond what is
