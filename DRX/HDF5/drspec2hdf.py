@@ -34,7 +34,10 @@ Options:
 -s, --skip                  Skip foward the specified number of seconds into the file
 -m, --metadata              Metadata tarball for additional information
 -d, --sdf                   SDF for additional information
--v, --lwasv                 Data is from LWA-SV instead of LWA-1
+-1, --lwa1                  Data is from LWA-1 (needed for -d/--sdf or when no metadata 
+                            is provided)
+-v, --lwasv                 Data is from LWA-SV (needed for -d/--sdf or when no metadata 
+                            is provided)
 -f, --force                 Force overwritting of existing HDF5 files
 
 Note:  Both the -m/--metadata and -d/--sdf options provide the same additional
@@ -53,13 +56,13 @@ def parseOptions(args):
 	config['offset'] = 0.0
 	config['metadata'] = None
 	config['sdf'] = None
-	config['site'] = 'lwa1'
+	config['site'] = None
 	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:m:d:vf", ["help", "skip=", "metadata=", "sdf=", "lwasv", "force"])
+		opts, args = getopt.getopt(args, "hs:m:d:1vf", ["help", "skip=", "metadata=", "sdf=", "lwa1", "lwasv", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -77,6 +80,8 @@ def parseOptions(args):
 			config['metadata'] = value
 		elif opt in ('-d', '--sdf'):
 			config['sdf'] = value
+		elif opt in ('-1', '--lwa1'):
+			config['site'] = 'lwa1'
 		elif opt in ('-v', '--lwasv'):
 			config['site'] = 'lwasv'
 		elif opt in ('-f', '--force'):
