@@ -13,39 +13,44 @@
 
 static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
-	PyArrayObject *data, *dataF;
+	PyArrayObject *data=NULL, *dataF=NULL;
 	
 	long i, j, k, jk, nStand, nSamps, nChans, iPrime;
 	
 	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
-		return NULL;
+		goto fail;
 	}
 	
 	// Bring the data into C and make it usable
 	data = (PyArrayObject *) PyArray_ContiguousFromObject(spectra, NPY_FLOAT32, 3, 3);
+	if( data == NULL ) {
+		PyErr_Format(PyExc_RuntimeError, "Cannot cast input spectra array to 3-D float32");
+		goto fail;
+	}
 	
 	// Get the properties of the data
-	nSamps = (long) data->dimensions[0];
-	nStand = (long) data->dimensions[1];
-	nChans = (long) data->dimensions[2];
+	nSamps = (long) PyArray_DIM(data, 0);
+	nStand = (long) PyArray_DIM(data, 1);
+	nChans = (long) PyArray_DIM(data, 2);
 	
 	// Find out how large the output array needs to be and initialize it
 	npy_intp dims[2];
 	dims[0] = (npy_intp) nStand;
 	dims[1] = (npy_intp) nChans;
-	dataF = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_FLOAT32);
+	dataF = (PyArrayObject*) PyArray_ZEROS(2, dims, NPY_FLOAT32, 0);
 	if(dataF == NULL) {
 		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
-		Py_XDECREF(data);
-		return NULL;
+		goto fail;
 	}
+	
+	Py_BEGIN_ALLOW_THREADS
 	
 	// Pointers
 	float *a, *b;
 	float tempV;
-	a = (float *) data->data;
-	b = (float *) dataF->data;
+	a = (float *) PyArray_DATA(data);
+	b = (float *) PyArray_DATA(dataF);
 	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(i, j, k, jk, tempV, iPrime)
@@ -77,12 +82,20 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 		}
 	}
 	
-	Py_XDECREF(data);
+	Py_END_ALLOW_THREADS
 	
 	spectraF = Py_BuildValue("O", PyArray_Return(dataF));
+	
+	Py_XDECREF(data);
 	Py_XDECREF(dataF);
 	
 	return spectraF;
+	
+fail:
+	Py_XDECREF(data);
+	Py_XDECREF(dataF);
+	
+	return NULL;
 }
 
 PyDoc_STRVAR(FastAxis0Mean_doc, \
@@ -101,7 +114,7 @@ Outputs:\n\
 
 static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
-	PyArrayObject *data, *dataF;
+	PyArrayObject *data=NULL, *dataF=NULL;
 	
 	long i, j, k, nStand, nSamps, nChans;
 	long int chanMin, chanMax;
@@ -111,16 +124,20 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 	static char *kwlist[] = {"spectra", "chanMin", "chanMax", NULL};
 	if(!PyArg_ParseTupleAndKeywords(args, kwds, "O|ll", kwlist, &spectra, &chanMin, &chanMax)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
-		return NULL;
+		goto fail;
 	}
 	
 	// Bring the data into C and make it usable
 	data = (PyArrayObject *) PyArray_ContiguousFromObject(spectra, NPY_FLOAT32, 3, 3);
+	if( data == NULL ) {
+		PyErr_Format(PyExc_RuntimeError, "Cannot cast input spectra array to 3-D float32");
+		goto fail;
+	}
 	
 	// Get the properties of the data
-	nSamps = (long) data->dimensions[0];
-	nStand = (long) data->dimensions[1];
-	nChans = (long) data->dimensions[2];
+	nSamps = (long) PyArray_DIM(data, 0);
+	nStand = (long) PyArray_DIM(data, 1);
+	nChans = (long) PyArray_DIM(data, 2);
 	if( chanMax < chanMin ) {
 		chanMax = nChans;
 	}
@@ -129,25 +146,26 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 	npy_intp dims[2];
 	dims[0] = (npy_intp) nStand;
 	dims[1] = (npy_intp) 2;
-	dataF = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_FLOAT32);
+	dataF = (PyArrayObject*) PyArray_ZEROS(2, dims, NPY_FLOAT32, 0);
 	if(dataF == NULL) {
 		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
-		Py_XDECREF(data);
-		return NULL;
+		goto fail;
 	}
+	
+	Py_BEGIN_ALLOW_THREADS
 	
 	// Pointers
 	float *a, *b;
 	float tempMin, tempMax;
-	a = (float *) data->data;
-	b = (float *) dataF->data;
+	a = (float *) PyArray_DATA(data);
+	b = (float *) PyArray_DATA(dataF);
 	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(i, j, k, tempMin, tempMax)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(dynamic)
 		#endif
 		for(j=0; j<nStand; j++) {
 			tempMin = 1e200;
@@ -168,12 +186,20 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 		}
 	}
 	
-	Py_XDECREF(data);
+	Py_END_ALLOW_THREADS
 	
 	spectraF = Py_BuildValue("O", PyArray_Return(dataF));
+	
+	Py_XDECREF(data);
 	Py_XDECREF(dataF);
 	
 	return spectraF;
+	
+fail:
+	Py_XDECREF(data);
+	Py_XDECREF(dataF);
+	
+	return NULL;
 }
 
 PyDoc_STRVAR(FastAxis1MinMax_doc, \
@@ -194,27 +220,38 @@ Outputs:\n\
 
 static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *bandpass, *spectraF;
-	PyArrayObject *data, *dataB;
+	PyArrayObject *data=NULL, *dataB=NULL;
 	
 	long i, j, k, jk, nStand, nSamps, nChans;
 	
 	if(!PyArg_ParseTuple(args, "OO", &spectra, &bandpass)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
-		return NULL;
+		goto fail;
 	}
 	
 	// Bring the data into C and make it usable
 	data = (PyArrayObject *) PyArray_ContiguousFromObject(spectra, NPY_FLOAT32, 3, 3);
 	dataB = (PyArrayObject *) PyArray_ContiguousFromObject(bandpass, NPY_FLOAT32, 2, 2);
+	if( data == NULL ) {
+		PyErr_Format(PyExc_RuntimeError, "Cannot cast input spectra array to 3-D float32");
+		goto fail;
+	}
+	if( dataB == NULL ) {
+		PyErr_Format(PyExc_RuntimeError, "Cannot cast input bandpass array to 2-D float32");
+		goto fail;
+	}
+	
 	// Get the properties of the data
-	nSamps = (long) data->dimensions[0];
-	nStand = (long) data->dimensions[1];
-	nChans = (long) data->dimensions[2];
+	nSamps = (long) PyArray_DIM(data, 0);
+	nStand = (long) PyArray_DIM(data, 1);
+	nChans = (long) PyArray_DIM(data, 2);
+	
+	Py_BEGIN_ALLOW_THREADS
 	
 	// Pointers
 	float *a, *b;
-	a = (float *) data->data;
-	b = (float *) dataB->data;
+	a = (float *) PyArray_DATA(data);
+	b = (float *) PyArray_DATA(dataB);
 	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(i, j, k)
@@ -233,11 +270,20 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 		}
 	}
 	
+	Py_END_ALLOW_THREADS
+	
+	spectraF = Py_BuildValue("i", 1);
+	
 	Py_XDECREF(data);
 	Py_XDECREF(dataB);
 	
-	spectraF = Py_BuildValue("i", 1);
 	return spectraF;
+	
+fail:
+	Py_XDECREF(data);
+	Py_XDECREF(dataB);
+	
+	return NULL;
 }
 
 PyDoc_STRVAR(FastAxis0Bandpass_doc, \
@@ -270,38 +316,43 @@ int cmpfloat(const void *a, const void *b) {
 
 static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
-	PyArrayObject *data, *dataF;
+	PyArrayObject *data=NULL, *dataF=NULL;
 	
 	long i, j, k, nStand, nSamps, nChans, iPrime;
 	
 	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
-		return NULL;
+		goto fail;
 	}
 	
 	// Bring the data into C and make it usable
 	data = (PyArrayObject *) PyArray_ContiguousFromObject(spectra, NPY_FLOAT32, 3, 3);
+	if( data == NULL ) {
+		PyErr_Format(PyExc_RuntimeError, "Cannot cast input spectra array to 3-D float32");
+		goto fail;
+	}
 	
 	// Get the properties of the data
-	nSamps = (long) data->dimensions[0];
-	nStand = (long) data->dimensions[1];
-	nChans = (long) data->dimensions[2];
+	nSamps = (long) PyArray_DIM(data, 0);
+	nStand = (long) PyArray_DIM(data, 1);
+	nChans = (long) PyArray_DIM(data, 2);
 	
 	// Find out how large the output array needs to be and initialize it
 	npy_intp dims[2];
 	dims[0] = (npy_intp) nStand;
 	dims[1] = (npy_intp) nChans;
-	dataF = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_FLOAT32);
+	dataF = (PyArrayObject*) PyArray_ZEROS(2, dims, NPY_FLOAT32, 0);
 	if(dataF == NULL) {
 		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
-		Py_XDECREF(data);
-		return NULL;
+		goto fail;
 	}
+	
+	Py_BEGIN_ALLOW_THREADS
 	
 	// Pointers
 	float *a, *b;
-	a = (float *) data->data;
-	b = (float *) dataF->data;
+	a = (float *) PyArray_DATA(data);
+	b = (float *) PyArray_DATA(dataF);
 	
 	float *tempV;
 	
@@ -338,12 +389,20 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 		}
 	}
 	
-	Py_XDECREF(data);
+	Py_END_ALLOW_THREADS
 	
 	spectraF = Py_BuildValue("O", PyArray_Return(dataF));
+	
+	Py_XDECREF(data);
 	Py_XDECREF(dataF);
 	
 	return spectraF;
+	
+fail:
+	Py_XDECREF(data);
+	Py_XDECREF(dataF);
+	
+	return NULL;
 }
 
 PyDoc_STRVAR(FastAxis0Median_doc, \
@@ -368,7 +427,7 @@ Outputs:\n\
 
 static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
-	PyArrayObject *data;
+	PyArrayObject *data=NULL;
 	
 	long i, j, k, nStand, nSamps, nChans, iPrime;
 	long int stand, chanMin, chanMax;
@@ -379,25 +438,32 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	static char *kwlist[] = {"spectra", "stand", "chanMin", "chanMax", NULL};
 	if(!PyArg_ParseTupleAndKeywords(args, kwds, "Ol|ll", kwlist, &spectra, &stand, &chanMin, &chanMax)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
-		return NULL;
+		goto fail;
 	}
 	
 	// Bring the data into C and make it usable
 	data = (PyArrayObject *) PyArray_ContiguousFromObject(spectra, NPY_FLOAT32, 3, 3);
+	if( data == NULL ) {
+		PyErr_Format(PyExc_RuntimeError, "Cannot cast input spectra array to 3-D float32");
+		goto fail;
+	}
 	
 	// Get the properties of the data
-	nSamps = (long) data->dimensions[0];
-	nStand = (long) data->dimensions[1];
-	nChans = (long) data->dimensions[2];
+	nSamps = (long) PyArray_DIM(data, 0);
+	nStand = (long) PyArray_DIM(data, 1);
+	nChans = (long) PyArray_DIM(data, 2);
 	if( chanMax < chanMin ) {
 		chanMax = nChans;
 	}
 	
 	// Pointers
-	float *a;
-	a = (float *) data->data;
+	float *temp5, *temp99;
 	
-	float *tempV, *temp5, *temp99;
+	Py_BEGIN_ALLOW_THREADS
+	
+	// Pointers
+	float *a, *tempV;
+	a = (float *) PyArray_DATA(data);
 	
 	temp5  = (float *) malloc((chanMax-chanMin)*sizeof(float));
 	temp99 = (float *) malloc((chanMax-chanMin)*sizeof(float));
@@ -407,7 +473,7 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(dynamic)
 		#endif
 		for(k=chanMin; k<chanMax; k++) {
 			j = stand;
@@ -436,17 +502,23 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 		}
 	}
 	
-	Py_XDECREF(data);
-	
 	qsort(temp5,  (chanMax-chanMin), sizeof(float), cmpfloat);
 	qsort(temp99, (chanMax-chanMin), sizeof(float), cmpfloat);
+	
+	Py_END_ALLOW_THREADS
 	
 	spectraF = Py_BuildValue("ff", *(temp5 + (int) ((chanMax-chanMin)*0.05)), *(temp99 + (int) ((chanMax-chanMin) * 0.99)));
 	
 	free(temp5);
 	free(temp99);
+	Py_XDECREF(data);
 	
 	return spectraF;
+	
+fail:
+	Py_XDECREF(data);
+	
+	return NULL;
 }
 
 PyDoc_STRVAR(FastAxis1Percentiles5And99_doc, \

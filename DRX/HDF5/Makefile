@@ -1,4 +1,6 @@
-CFLAGS = $(shell python-config --cflags) $(shell python -c "import numpy; print '-I' + numpy.get_include()")
+CFLAGS = $(shell python-config --cflags) \
+         $(shell python -c "import numpy; print '-I' + numpy.get_include()") \
+         -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 
 LDFLAGS = $(shell python-config --ldflags)
 
