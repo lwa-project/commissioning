@@ -33,15 +33,19 @@ static PyObject *Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Bring the data into C and make it usable
 	data = (PyArrayObject *) PyArray_ContiguousFromObject(signals, NPY_COMPLEX64, 2, 2);
+	if( data == NULL ) {
+		PyErr_Format(PyExc_RuntimeError, "Cannot cast input signals array to 2-D complex64");
+		return NULL;
+	}
 	
 	// Get the properties of the data
-	nStand = (long) data->dimensions[0];
-	nSamps = (long) data->dimensions[1];
+	nStand = (long) PyArray_DIM(data, 0);
+	nSamps = (long) PyArray_DIM(data, 1);
 	
 	// Find out how large the output array needs to be and initialize it
 	npy_intp dims[1];
 	dims[0] = (npy_intp) nStand;
-	vis = (PyArrayObject*) PyArray_SimpleNew(1, dims, NPY_COMPLEX64);
+	vis = (PyArrayObject*) PyArray_ZEROS(1, dims, NPY_COMPLEX64, 0);
 	if(vis == NULL) {
 		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
 		Py_XDECREF(data);
@@ -50,11 +54,13 @@ static PyObject *Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	int ref;
 	
+	Py_BEGIN_ALLOW_THREADS
+	
 	// Pointers
 	float complex *a;
 	float complex *b;
-	a = (float complex *) data->data;
-	b = (float complex *) vis->data;
+	a = (float complex *) PyArray_DATA(data);
+	b = (float complex *) PyArray_DATA(vis);
 	double complex tempV;
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(j, k, ref, tempV)
@@ -98,11 +104,13 @@ static PyObject *Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 		}
 	}
 	
-	Py_XDECREF(data);
+	Py_END_ALLOW_THREADS
 	
 	visOut = Py_BuildValue("O", PyArray_Return(vis));
+	
+	Py_XDECREF(data);
 	Py_XDECREF(vis);
-
+	
 	return visOut;
 }
 

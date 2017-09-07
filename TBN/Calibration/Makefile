@@ -1,8 +1,14 @@
-finge.so: fringe.o
-	gcc fringe.o -o fringe.so -fopenmp -lm -shared
+CFLAGS = $(shell python-config --cflags) \
+         $(shell python -c "import numpy; print '-I' + numpy.get_include()") \
+         -DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 
-fringe.o:
-	gcc -c fringe.c -o fringe.o -I/usr/include/python2.7 -I/usr/lib/python2.7/dist-packages/numpy/core/include -fopenmp -O3 -fPIC -shared
+LDFLAGS = $(shell python-config --ldflags)
+
+finge.so: fringe.o
+	$(CC) -o fringe.so fringe.o $(LDFLAGS) -lm -shared -fopenmp -march=native
+
+fringe.o: fringe.c
+	$(CC) -c $(CFLAGS) -fPIC -o fringe.o fringe.c -funroll-loops -O3 -fopenmp -march=native
 
 clean:
 	rm -rf fringe.o fringe.so
