@@ -6,6 +6,11 @@
 
 #ifdef _OPENMP
 	#include <omp.h>
+	
+	// OpenMP scheduling method
+	#ifndef OMP_SCHEDULER
+	#define OMP_SCHEDULER dynamic
+	#endif
 #endif
 
 #include "numpy/arrayobject.h"
@@ -57,7 +62,7 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(dynamic)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(jk=0; jk<nStand*nChans; jk++) {
 			j = jk / nChans;
@@ -165,7 +170,7 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(dynamic)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(j=0; j<nStand; j++) {
 			tempMin = 1e200;
@@ -258,7 +263,7 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(dynamic)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(jk=0; jk<nStand*nChans; jk++) {
 			j = jk / nChans;
@@ -361,7 +366,7 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(dynamic)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(k=0; k<nChans; k++) {
 			tempV = (float *) malloc(nSamps*sizeof(float));
@@ -473,7 +478,7 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(dynamic)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(k=chanMin; k<chanMax; k++) {
 			j = stand;
