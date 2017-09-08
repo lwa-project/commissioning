@@ -7,12 +7,15 @@
 
 #ifdef _OPENMP
 	#include <omp.h>
+	
+	// OpenMP scheduling method
+	#ifndef OMP_SCHEDULER
+	#define OMP_SCHEDULER dynamic
+	#endif
 #endif
 
 #include "numpy/arrayobject.h"
 
-#define PI 3.1415926535898
-#define imaginary _Complex_I
 
 /*
   Simple Fringing of Complex data
@@ -67,7 +70,7 @@ static PyObject *Simple(PyObject *self, PyObject *args, PyObject *kwds) {
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(dynamic)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(i=0; i<nStand; i++) {
 			// Which reference to use based on polarization ordering
