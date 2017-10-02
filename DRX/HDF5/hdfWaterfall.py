@@ -558,9 +558,10 @@ def main(args):
 		for i,obs in enumerate(project.sessions[0].observations):
 			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
 			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
-			obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
+			obsDur   = obs.dur/1000.0
+			obsSR    = drx.filterCodes[obs.filter]
 			
-			obsList[i+1] = (sdfStart, sdfStop, obsChunks)
+			obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
 			
 		hdfData.fillFromSDF(f, config['sdf'], station=config['site'])
 		
