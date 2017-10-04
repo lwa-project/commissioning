@@ -68,6 +68,7 @@ Options:
 -f, --force                 Force overwritting of existing HDF5 files
 -k, --stokes                Generate Stokes parameters instead of XX and YY
 -w, --without-sats          Do not generate saturation counts
+-g, --ignore-time-errors    Ignore timetag errors in the file (default = no, catch errors)
 
 Note:  Both the -m/--metadata and -i/--sdf options provide the same additional
        observation information to hdfWaterfall.py so only one needs to be provided.
@@ -102,11 +103,12 @@ def parseOptions(args):
 	config['force'] = False
 	config['linear'] = True
 	config['countSats'] = True
+	config['ignoreTTE'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:i:1vfkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "sdf=", "lwa1", "lwasv", "force", "stokes", "without-sats"])
+		opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:i:1vfkwg", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "sdf=", "lwa1", "lwasv", "force", "stokes", "without-sats", "ignore-time-errors"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -150,6 +152,8 @@ def parseOptions(args):
 			config['linear'] = False
 		elif opt in ('-w', '--without-sats'):
 			config['countSats'] = False
+		elif opt in ('-g', '--ignore-time-errors'):
+			config['ignoreTTE'] = True
 		else:
 			assert False
 			
@@ -410,7 +414,7 @@ def main(args):
 		
 	# Good, we seem to have a real DRX file, switch over to the LDP interface
 	fh.close()
-	idf = LWA1DataFile(filename, ignoreTimeTagErrors=False)
+	idf = LWA1DataFile(filename, ignoreTimeTagErrors=config['ignoreTTE'])
 
 	# Offset into the file
 	offset = idf.offset(config['offset'])
