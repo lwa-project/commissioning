@@ -127,13 +127,15 @@ def fillFromMetabundle(f, tarball):
 	
 	# Pull out what we need from the tarball
 	try:
-		project = metabundle.getSessionDefinition(tarball)
-		cds = metabundle.getCommandScript(tarball)
+		mbParser = metabundle
+		project = mbParser.getSessionDefinition(tarball)
+		cds = mbParser.getCommandScript(tarball)
 		station = 'lwa1'
 	except Exception as e:
 		if adpReady:
-			project = metabundleADP.getSessionDefinition(tarball)
-			cds = metabundleADP.getCommandScript(tarball)
+			mbParser = metabundleADP
+			project = mbParser.getSessionDefinition(tarball)
+			cds = mbParser.getCommandScript(tarball)
 			station = 'lwasv'
 		else:
 			raise e
@@ -152,13 +154,13 @@ def fillFromMetabundle(f, tarball):
 	
 	# ARX configuration summary
 	try:
-		arx = metabundle.getASPConfigurationSummary(tarball)
+		arx = mbParser.getASPConfigurationSummary(tarball)
 	except:
 		arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
 		
 	for i,obsS in enumerate(project.sessions[0].observations):
 		# Detailed observation information
-		obsD = metabundle.getObservationSpec(tarball, selectObs=i+1)
+		obsD = mbParser.getObservationSpec(tarball, selectObs=i+1)
 		
 		# Get the group or create it if it doesn't exist
 		grp = f.get('/Observation%i' % (i+1,), None)

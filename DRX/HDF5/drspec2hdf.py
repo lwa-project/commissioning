@@ -19,6 +19,12 @@ from datetime import datetime
 
 from lsl.reader import drx, drspec, errors
 from lsl.common import progress
+from lsl.common import mcs, sdf, metabundle
+try:
+	from lsl.common import sdfADP, metabundleADP
+	adpReady = True
+except ImportError:
+	adpReady = False
 
 import data as hdfData
 
@@ -208,15 +214,20 @@ def main(args):
 	f = hdfData.createNewFile(outname)
 	obsList = {}
 	if config['metadata'] is not None:
-		from lsl.common import mcs, metabundle
-		sdf = metabundle.getSessionDefinition(config['metadata'])
-		
-		sdfBeam  = sdf.sessions[0].drxBeam
-		spcSetup = sdf.sessions[0].spcSetup
+		try:
+			project = metabundle.getSessionDefinition(config['metadata'])
+		except Exception as e:
+			if adpReady:
+				project = metabundleADP.getSessionDefinition(config['metadata'])
+			else:
+				raise e
+				
+		sdfBeam  = project.sessions[0].drxBeam
+		spcSetup = project.sessions[0].spcSetup
 		if sdfBeam != beam:
 			raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
 			
-		for i,obs in enumerate(sdf.sessions[0].observations):
+		for i,obs in enumerate(project.sessions[0].observations):
 			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
 			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
 			obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
@@ -226,16 +237,20 @@ def main(args):
 		hdfData.fillFromMetabundle(f, config['metadata'])
 		
 	elif config['sdf'] is not None:
-		from lsl.common import mcs
-		from lsl.common.sdf import parseSDF
-		sdf = parseSDF(config['sdf'])
-		
-		sdfBeam  = sdf.sessions[0].drxBeam
-		spcSetup = sdf.sessions[0].spcSetup
+		try:
+			project = sdf.parseSDF(config['sdf'])
+		except Exception as e:
+			if adpReady:
+				project = sdfADP.parseSDF(config['sdf'])
+			else:
+				raise e
+				
+		sdfBeam  = project.sessions[0].drxBeam
+		spcSetup = project.sessions[0].spcSetup
 		if sdfBeam != beam:
 			raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
 			
-		for i,obs in enumerate(sdf.sessions[0].observations):
+		for i,obs in enumerate(project.sessions[0].observations):
 			sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
 			sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
 			obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
