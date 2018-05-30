@@ -205,10 +205,14 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, 
 	
 	t0 = idf.getInfo('tStart')
 	tDiff = tStart - datetime.utcfromtimestamp(t0)
-	offset = idf.offset( tDiff.total_seconds() + 1 )
+	offset = idf.offset( tDiff.total_seconds() )
 	t0 = idf.getInfo('tStart')
 	srate = idf.getInfo('sampleRate')
-	
+	while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
+		offset = idf.offset( 4096./sampleRate )
+		t0 = idf.getInfo('tStart')
+		srate = idf.getInfo('sampleRate')
+		
 	print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
 	tDiff = datetime.utcfromtimestamp(t0) - tStart
 	duration = duration - max([0, tDiff.total_seconds()])
@@ -306,10 +310,14 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, 
 	
 	t0 = idf.getInfo('tStart')
 	tDiff = tStart - datetime.utcfromtimestamp(t0)
-	offset = idf.offset( tDiff.total_seconds() + 1 )
+	offset = idf.offset( tDiff.total_seconds() )
 	t0 = idf.getInfo('tStart')
 	srate = idf.getInfo('sampleRate')
-	
+	while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
+		offset = idf.offset( 4096./sampleRate )
+		t0 = idf.getInfo('tStart')
+		srate = idf.getInfo('sampleRate')
+		
 	print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
 	tDiff = datetime.utcfromtimestamp(t0) - tStart
 	duration = duration - max([0, tDiff.total_seconds()])
