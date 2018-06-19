@@ -19,29 +19,29 @@ from lsl.common.stations import lwa1
 
 
 def main(args):
-	filename = args[0]
+    filename = args[0]
 
-	# Read in the entire file
-	fh = open(filename, 'rb')
-	data = fh.read()
-	fh.close()
-	
-	# Unpack the raw delays (520 unsigned short ints)
-	rawDelays = struct.unpack('<520H', data)
+    # Read in the entire file
+    fh = open(filename, 'rb')
+    data = fh.read()
+    fh.close()
+    
+    # Unpack the raw delays (520 unsigned short ints)
+    rawDelays = struct.unpack('<520H', data)
 
-	# Convert to delays in ns
-	delays = [DPDtodelay(d) for d in rawDelays]
-	
-	# Report
-	ants = lwa1.getAntennas()[0::2]
-	
-	print "Std   X [ns]    Y [ns]"
-	print "----------------------"
-	for i in xrange(len(ants)):
-		dx, dy = delays[2*i+0], delays[2*i+1]
-		print "%3i   %7.2f  %7.2f" % (ants[i].stand.id, dx, dy)
+    # Convert to delays in ns
+    delays = [DPDtodelay(d) for d in rawDelays]
+    
+    # Report
+    ants = lwa1.getAntennas()[0::2]
+    
+    print "Std   X [ns]    Y [ns]"
+    print "----------------------"
+    for i in xrange(len(ants)):
+        dx, dy = delays[2*i+0], delays[2*i+1]
+        print "%3i   %7.2f  %7.2f" % (ants[i].stand.id, dx, dy)
 
 
 if __name__ == "__main__":
-	main(sys.argv[1:])
+    main(sys.argv[1:])
 
