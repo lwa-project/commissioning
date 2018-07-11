@@ -12,3 +12,8 @@ stationMasterLite.py
 Modified version of the TBW stationMaster.py script that estimates the frequency (in 
 MHz) of each dipole's resonance point and saves that information along with time-
 average spectra to a NPZ file.
+
+tbfMux.py
+---------
+Combine multiple single-server TBF files from the ADP triggering system into a single
+file.
