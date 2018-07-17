@@ -12,11 +12,61 @@ $LastChangedDate$
 
 import os
 import sys
+import getopt
 import struct
 from collections import deque
 
 from lsl.reader.ldp import TBFFile
 from lsl.reader import tbf, errors, buffer
+
+
+def usage(exitCode=None):
+    print """tbfMux.py - Given a TBF filles created the the on-line triggering system on ADP, 
+combine the files together into a single file that can be used like a standard 
+DR-recorded TBF file
+
+Usage: tbfMux.py [OPTIONS] file
+
+Options:
+-h, --help                  Display this help information
+-o, --output                Write the combined file to the provided filename
+                            (Default = auto-deterine the filename)
+"""
+    
+    if exitCode is not None:
+        sys.exit(exitCode)
+    else:
+        return True
+
+
+def parseOptions(args):
+    config = {}
+    # Command line flags - default values
+    config['output'] = None
+    config['args'] = []
+    
+    # Read in and process the command line flags
+    try:
+        opts, args = getopt.getopt(args, "ho:", ["help", "output="])
+    except getopt.GetoptError, err:
+        # Print help information and exit:
+        print str(err) # will print something like "option -a not recognized"
+        usage(exitCode=2)
+        
+    # Work through opts
+    for opt, value in opts:
+        if opt in ('-h', '--help'):
+            usage(exitCode=0)
+        elif opt in ('-o', '--output'):
+            config['output'] = value
+        else:
+            assert False
+            
+    # Add in arguments
+    config['args'] = args
+    
+    # Return configuration
+    return config
 
 
 class RawTBFFrame(object):
@@ -140,8 +190,9 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
 
 
 def main(args):
-    # Get the files
-    filenames = args
+    # Parse the command line
+    config = parseOptions(args)
+    filenames = config['args']
     
     # Open them up and make sure we have a continuous range of frequencies
     idf = [TBFFile(filename) for filename in filenames]
@@ -157,9 +208,25 @@ def main(args):
     buffer = RawTBFFrameBuffer(chans=chans, ReorderFrames=False)
     
     # Setup the output filename
-    outname = os.path.basename(filenames[0])
-    outname = outname.rsplit('_', 1)[1]
-    oh = open(outname, 'wb')
+    if config['output'] is None:
+        names = [os.path.basename(filename) for filename in filenames]
+        common = names[0][-1]
+        
+        valid = True
+        while valid and len(common) < len(names[0]):
+            for name in names:
+                if name[-len(common):] != common:
+                    valid = False
+                    break
+            if valid:
+                common = name[-len(common)-1:]
+        common = common[1:]
+        if common[0] == '_':
+            common = common[1:]
+        config['output'] = common
+        
+    print "Writing combined file to '%s'" % os.path.basename(config['output'])
+    oh = open(config['output'], 'wb')
     
     # Go!
     fh = [i.fh for i in idf]
