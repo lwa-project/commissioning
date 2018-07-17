@@ -12,6 +12,7 @@ import os
 import h5py
 import numpy
 from datetime import datetime
+from collections import defaultdict
 
 from lsl.common import dp, mcs, sdf, metabundle
 from lsl.reader.drx import filterCodes
@@ -24,8 +25,9 @@ except ImportError:
 
 __version__ = "0.6"
 __revision__ = "$Rev$"
-__all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF', 'getObservationSet', 'createDataSets', 'getDataSet', 
-        '__version__', '__revision__', '__all__']
+__all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF', 
+           'getObservationSet', 'createDataSets', 'getDataSet', 
+           '__version__', '__revision__', '__all__']
 
 
 def _valuetoDelay(value):
@@ -44,6 +46,70 @@ def _valuetoGain(value):
         return dp.DPGtogain(value)
 
 
+class _HDFFileRegistry(object):
+    """
+    Class to keep track of which HDF files are open so that we can close them 
+    out when we exit.
+    
+    This concept/framework/class is borrowed from PyTables:
+        https://github.com/PyTables/PyTables/blob/master/tables/file.py
+    """
+    
+    def __init__(self):
+        self._name_mapping = defaultdict(set)
+        self._handlers = set()
+        
+    @property
+    def filenames(self):
+        return list(self._name_mapping.keys())
+        
+    @property
+    def handlers(self):
+        return self._handlers
+        
+    def __len__(self):
+        return len(self._handlers)
+        
+    def __contains__(self, filename):
+        return filename in self.filenames
+        
+    def add(self, handler):
+        self._name_mapping[handler.alt_filename].add(handler)
+        self._handlers.add(handler)
+        
+    def remove(self, handler):
+        filename = handler.alt_filename
+        self._name_mapping[filename].remove(handler)
+        if not self._name_mapping[filename]:
+            del self._name_mapping[filename]
+        self._handlers.remove(handler)
+        
+    def close_all(self):
+        handlers = list(self.handlers)  # make a copy
+        for handler in handlers:
+            handler.close()
+
+
+_open_hdf_files = _HDFFileRegistry()
+
+
+class HDFFileWrapper(h5py.File):
+    """
+    Sub-class of h5py.File that allows us to hook in to the HDF file registry 
+    so that any open HDF files are closed automatically on exit.
+    """
+    
+    def __init__(self, name, mode=None, driver=None, libver=None, userblock_size=None, **kwds):
+        super(HDFFileWrapper, self).__init__(name, mode=mode, driver=driver, libver=libver, userblock_size=userblock_size, **kwds)
+	self.alt_filename = self.filename  # We need to store this because it
+					   # disappears when close() is called
+        _open_hdf_files.add(self)
+        
+    def close(self):
+        super(HDFFileWrapper, self).close()
+        _open_hdf_files.remove(self)
+
+
 def createNewFile(filename):
     """
     Create a new HDF5 and return the handle for it.  This sets up all of 
@@ -53,7 +119,7 @@ def createNewFile(filename):
     """
     
     # Create the file
-    f = h5py.File(filename, 'w')
+    f = HDFFileWrapper(filename, 'w')
     
     # Observer and Project Info.
     f.attrs['ObserverID'] = 0
@@ -497,3 +563,6 @@ def getDataSet(f, observation, tuning, dataProduct):
         raise RuntimeError("Unknown data product for Observation %i, Tuning %i: %s" % (observation, tuning, dataProduct))
         
     return d
+
+import atexit
+atexit.register(_open_hdf_files.close_all)
