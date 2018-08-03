@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Given a TBF filles created the the on-line triggering system on ADP, combine 
+Given a TBF filles created by the on-line triggering system on ADP, combine 
 the files together into a single file that can be used like a standard 
 DR-recorded TBF file
 
@@ -21,7 +21,7 @@ from lsl.reader import tbf, errors, buffer
 
 
 def usage(exitCode=None):
-    print """tbfMux.py - Given a TBF filles created the the on-line triggering system on ADP, 
+    print """tbfMux.py - Given a TBF files created by the on-line triggering system on ADP, 
 combine the files together into a single file that can be used like a standard 
 DR-recorded TBF file
 
@@ -184,7 +184,7 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
         filLFrame[14] = (chan & 0x00FF)
         
         # Zero the data for the fill packet
-        fillFrame[32:] = '\x00'*(12*256*2)
+        fillFrame[24:] = '\x00'*(12*256*2)
         
         return fillFrame
 
