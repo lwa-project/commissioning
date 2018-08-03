@@ -56,19 +56,23 @@ plotChassisTemps.py
 Script to plot colormaps of the FPGA temperatures as a function of time, chassis, 
 and physical slot.
 
-TBW
+COR
 ---
-See the TBW/README file.
-
-TBF
----
-See the TBF/README file.
-
-TBN
----
-See the TBN/README file.
+See the COR/README.md file.
 
 DRX
 ---
-See the DRX/README file.
+See the DRX/README.md file.
+
+TBF
+---
+See the TBF/README.md file.
+
+TBN
+---
+See the TBN/README.md file.
+
+TBW
+---
+See the TBW/README.md file.
 
