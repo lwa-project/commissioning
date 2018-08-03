@@ -82,6 +82,7 @@ def parseOptions(args):
     # Return configuration
     return config
 
+
 def main(args):
     config = parseOptions(args)
     filename = config['args'][0]
