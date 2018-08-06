@@ -12,6 +12,7 @@ $LastChangedDate$
 
 import os
 import sys
+import copy
 import getopt
 import struct
 from collections import deque
@@ -142,8 +143,8 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
     
     """
     
-    def __init__(self, chans, nSegments=25, ReorderFrames=False):
-        super(RawTBFFrameBuffer, self).__init__(mode='TBF', chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames)
+    def __init__(self, chans, nSegments=25, ReorderFrames=False, FillInMissingFrames=True):
+        super(RawTBFFrameBuffer, self).__init__(mode='TBF', chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames, FillInMissingFrames=FillInMissingFrames)
         
     def calcFrames(self):
         """
@@ -193,6 +194,7 @@ def main(args):
     # Parse the command line
     config = parseOptions(args)
     filenames = config['args']
+    filenames.sort()
     
     # Open them up and make sure we have a continuous range of frequencies
     idf = [TBFFile(filename) for filename in filenames]
@@ -205,7 +207,7 @@ def main(args):
             raise RuntimeError("Unexpected channel increment: %i != 12" % (chans[i]-chans[i-1],))
             
     # Setup the buffer
-    buffer = RawTBFFrameBuffer(chans=chans, ReorderFrames=False)
+    buffer = RawTBFFrameBuffer(chans=chans, ReorderFrames=False, FillInMissingFrames=False)
     
     # Setup the output filename
     if config['output'] is None:
@@ -253,7 +255,7 @@ def main(args):
             
         ## Write the re-ordered frames to the output file
         for rFrame in rFrames:
-            oh.write(rFrame.contents)         
+            oh.write(rFrame.contents)
     # Empty the buffer
     for rFrames in buffer.flush():
         for rFrame in rFrames:
