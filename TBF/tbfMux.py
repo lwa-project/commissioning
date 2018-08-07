@@ -143,8 +143,8 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
     
     """
     
-    def __init__(self, chans, nSegments=25, ReorderFrames=False, FillInMissingFrames=True):
-        super(RawTBFFrameBuffer, self).__init__(mode='TBF', chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames, FillInMissingFrames=FillInMissingFrames)
+    def __init__(self, chans, nSegments=25, ReorderFrames=False):
+        super(RawTBFFrameBuffer, self).__init__(mode='TBF', chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames)
         
     def calcFrames(self):
         """
@@ -170,6 +170,13 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
         
         return frame.timeTag
         
+    def frameID(self, frame):
+        """
+        ID value or tuple for a given frame.
+        """
+        
+        return frame.firstChan
+        
     def createFill(self, key, frameParameters):
         """
         Create a 'fill' frame of zeros using an existing good
@@ -177,7 +184,7 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
         """
 
         # Get a template based on the first frame for the current buffer
-        fillFrame = copy.deepcopy(self.buffer[key][0])
+        fillFrame = RawTBFFrame( copy.deepcopy(self.buffer[key][0].contents) )
         
         # Get out the frame parameters and fix-up the header
         chan = frameParameters
@@ -207,7 +214,7 @@ def main(args):
             raise RuntimeError("Unexpected channel increment: %i != 12" % (chans[i]-chans[i-1],))
             
     # Setup the buffer
-    buffer = RawTBFFrameBuffer(chans=chans, ReorderFrames=False, FillInMissingFrames=False)
+    buffer = RawTBFFrameBuffer(chans=chans, ReorderFrames=False)
     
     # Setup the output filename
     if config['output'] is None:

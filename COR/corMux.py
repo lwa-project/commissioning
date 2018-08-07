@@ -153,8 +153,8 @@ class RawCORFrameBuffer(buffer.FrameBuffer):
     
     """
     
-    def __init__(self, chans, nSegments=5, ReorderFrames=False, FillInMissingFrames=True):
-        super(RawCORFrameBuffer, self).__init__(mode='COR', stands=list(range(1,256+1)), chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames, FillInMissingFrames=FillInMissingFrames)
+    def __init__(self, chans, nSegments=5, ReorderFrames=False):
+        super(RawCORFrameBuffer, self).__init__(mode='COR', stands=list(range(1,256+1)), chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames)
         
     def calcFrames(self):
         """
@@ -184,6 +184,13 @@ class RawCORFrameBuffer(buffer.FrameBuffer):
         
         return frame.timeTag
         
+    def frameID(self, frame):
+        """
+        ID value or tuple for a given frame.
+        """
+        
+        return frame.parseID()+(frame.firstChan,)
+        
     def createFill(self, key, frameParameters):
         """
         Create a 'fill' frame of zeros using an existing good
@@ -191,7 +198,7 @@ class RawCORFrameBuffer(buffer.FrameBuffer):
         """
 
         # Get a template based on the first frame for the current buffer
-        fillFrame = copy.deepcopy(self.buffer[key][0])
+        fillFrame = RawCORFrame( copy.deepcopy(self.buffer[key][0].contents) )
         
         # Get out the frame parameters and fix-up the header
         stand0, stand1, chan = frameParameters
@@ -225,7 +232,7 @@ def main(args):
             raise RuntimeError("Unexpected channel increment: %i != %s" % (chans[i]-chans[i-1], cor.FrameChannelCount))
             
     # Setup the buffer
-    buffer = RawCORFrameBuffer(chans=chans, ReorderFrames=False, FillInMissingFrames=False)
+    buffer = RawCORFrameBuffer(chans=chans, ReorderFrames=False)
     
     # Setup the output filename
     if config['output'] is None:
