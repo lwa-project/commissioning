@@ -531,7 +531,7 @@ class MainWindow(wx.Frame):
         
         self.statusbar = self.CreateStatusBar()
         
-        font = wx.SystemSettings_GetFont(wx.SYS_SYSTEM_FONT)
+        font = wx.SystemSettings.GetFont(wx.SYS_SYSTEM_FONT)
         font.SetPointSize(10)
         
         menubar = wx.MenuBar()
