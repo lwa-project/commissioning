@@ -3950,6 +3950,9 @@ def main(args):
         for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
             for menuItem in menu.GetMenuItems():
                 menuItem.Enable(True)
+                if menuItem.IsSubMenu():
+                    for menuItem2 in menuItem.GetSubMenu().GetMenuItems():
+                        menuItem2.Enable(True)
                 
         if frame.data.filenames is None: 
             frame.examineFileButton.Enable(False) 
@@ -3969,7 +3972,10 @@ def main(args):
         for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
             for menuItem in menu.GetMenuItems():
                 menuItem.Enable(False)
-                
+                if menuItem.IsSubMenu():
+                    for menuItem2 in menuItem.GetSubMenu().GetMenuItems():
+                        menuItem2.Enable(False)
+                        
     app.MainLoop()
 
 
