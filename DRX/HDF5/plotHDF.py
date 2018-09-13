@@ -43,10 +43,18 @@ from matplotlib.collections import LineCollection
 from matplotlib import cm
 from matplotlib.figure import Figure
 
-
 __version__ = "0.2"
 __revision__ = "$Rev$"
 __author__ = "Jayce Dowell"
+
+
+# Deal with the different wxPython versions
+if 'phoenix' in wx.PlatformInfo:
+    AppendMenuItem = lambda x, y: x.Append(y)
+    AppendMenuMenu = lambda *args, **kwds: args[0].Append(*args[1:], **kwds)
+else:
+    AppendMenuItem = lambda x, y: x.AppendItem(y)
+    AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
 
 
 def usage(exitCode=None):
@@ -1678,21 +1686,21 @@ class MainWindow(wx.Frame):
         
         ## File Menu
         open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
-        fileMenu.AppendItem(open)
+        AppendMenuItem(fileMenu, open)
         save = wx.MenuItem(fileMenu, ID_SAVE, "&Save")
         self.savemenu = save
-        fileMenu.AppendItem(save)
+        AppendMenuItem(fileMenu, save)
         saveas = wx.MenuItem(fileMenu, ID_SAVE_AS, "Save &As")
-        fileMenu.AppendItem(saveas)
+        AppendMenuItem(fileMenu, saveas)
         fileMenu.AppendSeparator()
         exit = wx.MenuItem(fileMenu, ID_QUIT, "E&xit")
-        fileMenu.AppendItem(exit)
+        AppendMenuItem(fileMenu, exit)
         
         ## Color Menu
         auto = wx.MenuItem(colorMenu, ID_COLOR_AUTO, '&Auto-scale Colorbar')
-        colorMenu.AppendItem(auto)
+        AppendMenuItem(colorMenu, auto)
         cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, 'Adjust &Contrast')
-        colorMenu.AppendItem(cadj)
+        AppendMenuItem(colorMenu, cadj)
         cmap = wx.Menu()
         cmap.AppendRadioItem(ID_COLOR_MAP_PAIRED, '&Paired')
         cmap.AppendRadioItem(ID_COLOR_MAP_SPECTRAL, "&Spectral")
@@ -1706,7 +1714,7 @@ class MainWindow(wx.Frame):
         cmap.AppendRadioItem(ID_COLOR_MAP_GRAY, '&Gray')
         cmap.AppendSeparator()
         cmap.AppendCheckItem(ID_COLOR_INVERT, 'In&vert')
-        colorMenu.AppendMenu(-1, 'Color &Map', cmap)
+        AppendMenuMenu(colorMenu, -1, 'Color &Map', cmap)
         cmap.Check(ID_COLOR_MAP_JET, True)
         self.cmapMenu = cmap
         smap = wx.Menu()
@@ -1717,7 +1725,7 @@ class MainWindow(wx.Frame):
         smap.AppendRadioItem(ID_COLOR_STRETCH_ASINH, '&ASinh')
         smap.AppendRadioItem(ID_COLOR_STRETCH_SINH, '&Sinh')
         smap.AppendRadioItem(ID_COLOR_STRETCH_HIST, '&Histogram Equalization')
-        colorMenu.AppendMenu(-1, 'Color &Stretch', smap)
+        AppendMenuMenu(colorMenu, -1, 'Color &Stretch', smap)
         smap.Check(ID_COLOR_STRETCH_LINEAR, True)
         self.smapMenu = smap
         
@@ -1735,8 +1743,8 @@ class MainWindow(wx.Frame):
         dataMenu.AppendSeparator()
         self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, 'Change Time &Range')
         self.changeObservationButton = wx.MenuItem(colorMenu, ID_CHANGE_OBSID, 'Change &Observation')
-        dataMenu.AppendItem(self.changeRangeButton)
-        dataMenu.AppendItem(self.changeObservationButton)
+        AppendMenuItem(dataMenu, self.changeRangeButton)
+        AppendMenuItem(dataMenu, self.changeObservationButton)
         
         t1p1.Enable(False)
         t1p2.Enable(False)
@@ -1750,42 +1758,42 @@ class MainWindow(wx.Frame):
         
         ## Mask Menu
         suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
-        maskMenu.AppendItem(suggestC)
+        AppendMenuItem(maskMenu, suggestC)
         suggestA = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_ALL, 'Suggest Mask - All')
-        maskMenu.AppendItem(suggestA)
+        AppendMenuItem(maskMenu, suggestA)
         maskMenu.AppendSeparator()
         resetC = wx.MenuItem(maskMenu, ID_MASK_RESET_CURRENT, 'Reset Mask - Current')
-        maskMenu.AppendItem(resetC)
+        AppendMenuItem(maskMenu, resetC)
         resetA = wx.MenuItem(maskMenu, ID_MASK_RESET_ALL, 'Reset Mask - All')
-        maskMenu.AppendItem(resetA)
+        AppendMenuItem(maskMenu, resetA)
         maskMenu.AppendSeparator()
         tweak = wx.MenuItem(maskMenu, ID_MASK_TWEAK, 'Adjust Masking Parameters')
-        maskMenu.AppendItem(tweak)
+        AppendMenuItem(maskMenu, tweak)
         
         ## Bandpass Menu
         bandpassMenu.AppendRadioItem(ID_BANDPASS_OFF, 'Off')
         bandpassMenu.AppendRadioItem(ID_BANDPASS_ON,  'On')
         bandpassMenu.AppendSeparator()
         recompute = wx.MenuItem(bandpassMenu, ID_BANDPASS_RECOMPUTE, 'Recompute Fits')
-        bandpassMenu.AppendItem(recompute)
+        AppendMenuItem(bandpassMenu, recompute)
         
         ## Details Menu
         cf = wx.MenuItem(detailsMenu, ID_DETAIL_SUMMARY, 'Current File Info.')
-        detailsMenu.AppendItem(cf)
+        AppendMenuItem(detailsMenu, cf)
         self.examineFileButton = wx.MenuItem(detailsMenu, ID_DETAIL_SUBFILE, 'Examine File')
-        detailsMenu.AppendItem(self.examineFileButton)
+        AppendMenuItem(detailsMenu, self.examineFileButton)
         detailsMenu.AppendSeparator()
         zm = wx.MenuItem(detailsMenu, ID_DETAIL_WATERFALL, 'Zoomable Waterfall')
-        detailsMenu.AppendItem(zm)
+        AppendMenuItem(detailsMenu, zm)
         zd = wx.MenuItem(detailsMenu, ID_DETAIL_DRIFTCURVE, 'Zoomable Drift Curve')
-        detailsMenu.AppendItem(zd)
+        AppendMenuItem(detailsMenu, zd)
         
         # Help menu items
         help = wx.MenuItem(helpMenu, ID_HELP, 'plotHDF Handbook\tF1')
-        helpMenu.AppendItem(help)
+        AppendMenuItem(helpMenu, help)
         helpMenu.AppendSeparator()
         about = wx.MenuItem(helpMenu, ID_ABOUT, '&About')
-        helpMenu.AppendItem(about)
+        AppendMenuItem(helpMenu, about)
         
         # Creating the menubar.
         menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
@@ -1816,7 +1824,7 @@ class MainWindow(wx.Frame):
         hbox1.Add(self.canvas1a, 3, wx.ALIGN_LEFT | wx.EXPAND)
         
         # Add a saturation fraction plot
-        self.figure1b = Figure()
+        self.figure1b = Figure(figsize=(1,2))
         self.canvas1b = FigureCanvasWxAgg(panel1, -1, self.figure1b)
         hbox1.Add(self.canvas1b, 1, wx.ALIGN_CENTER | wx.EXPAND)
         
@@ -1826,16 +1834,17 @@ class MainWindow(wx.Frame):
         hbox1.Add(self.canvas1c, 3, wx.ALIGN_RIGHT | wx.EXPAND)
         panel1.SetSizer(hbox1)
         vbox.Add(panel1, 1, wx.EXPAND)
+        self.panel1 = panel1
         
         # Add a spectrum plot (with toolbar)
         panel3 = wx.Panel(self, -1)
         hbox3 = wx.BoxSizer(wx.VERTICAL)
-        self.figure2 = Figure()
+        self.figure2 = Figure(figsize=(5,2))
         self.canvas2 = FigureCanvasWxAgg(panel3, -1, self.figure2)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
         self.toolbar.Realize()
         hbox3.Add(self.canvas2, 1, wx.EXPAND)
-        hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.FIXED_MINSIZE)
+        hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
         panel3.SetSizer(hbox3)
         vbox.Add(panel3, 1, wx.EXPAND)
         self.panel3 = panel3
@@ -1907,7 +1916,7 @@ class MainWindow(wx.Frame):
         self.canvas2.Bind(wx.EVT_KEY_UP,  self.onKeyPress)
         
         # Make the plots re-sizable
-        self.Bind(wx.EVT_PAINT, self.resizePlots)
+        #self.Bind(wx.EVT_PAINT, self.resizePlots)
         self.Bind(wx.EVT_SIZE, self.onSize)
         
         # Window manager close
@@ -1981,7 +1990,7 @@ class MainWindow(wx.Frame):
             else:
                 return False
                 
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "HDF5 (*.hdf5;*.h5)|*.hdf5;*.h5|All Files|*.*", wx.FD_OPEN)
+        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "HDF5 (*.hdf5;*.h5)|*.hdf5;*.h5|All Files|*.*", wx.OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             self.filename = dlg.GetFilename()
             self.dirname = dlg.GetDirectory()
@@ -2069,7 +2078,7 @@ class MainWindow(wx.Frame):
         Save the current observation to a new SD file.
         """
         
-        dialog = wx.FileDialog(self, "Select Output File", self.dirname, '', 'HDF5 Files (*.hdf5)|*.hdf5|All Files (*.*)|*.*', wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        dialog = wx.FileDialog(self, "Select Output File", self.dirname, '', 'HDF5 Files (*.hdf5)|*.hdf5|All Files (*.*)|*.*', wx.SAVE|wx.FD_OVERWRITE_PROMPT)
             
         if dialog.ShowModal() == wx.ID_OK:
             wx.BeginBusyCursor()
@@ -2783,6 +2792,7 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
             pass
         self.figure2.canvas.draw()
         
+        self.panel1.Refresh()
         self.panel3.Refresh()
         
     def GetToolBar(self):
@@ -3431,14 +3441,15 @@ class WaterfallDisplay(wx.Frame):
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
+        self.figure = Figure(figsize=(4,4))
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
         vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
+        self.panel1 = panel1
         
         # Use some sizers to see layout options
         self.SetSizer(hbox)
@@ -3451,7 +3462,7 @@ class WaterfallDisplay(wx.Frame):
         """
         
         # Make the images resizable
-        self.Bind(wx.EVT_PAINT, self.resizePlots)
+        self.Bind(wx.EVT_SIZE, self.onSize)
         
     def initPlot(self):
         """
@@ -3557,14 +3568,29 @@ class WaterfallDisplay(wx.Frame):
     def onCancel(self, event):
         self.Close()
         
-    def resizePlots(self, event):
-        w, h = self.GetSize()
+    def onSize(self, event):
+        event.Skip()
+        wx.CallAfter(self.resizePlots)
+        
+    def resizePlots(self, event=None):
+        # Get the current size of the window and the navigation toolbar
+        w, h = self.GetClientSize()
+        wt, ht = self.toolbar.GetSize()
+        
+        # Come up with new figure size in inches.
+        # NOTE:  The height of the plot at the bottom needs to be
+        #        corrected for the height of the toolbar
         dpi = self.figure.get_dpi()
         newW = 1.0*w/dpi
-        newH1 = 1.0*(h/2-100)/dpi
-        newH2 = 1.0*(h/2-75)/dpi
-        self.figure.set_size_inches((newW, newH1))
+        newH = 1.0*(h-ht)/dpi
+        self.figure.set_size_inches((newW, newH))
+        try:
+            self.figure.tight_layout()
+        except:
+            pass
         self.figure.canvas.draw()
+        
+        self.panel1.Refresh()
 
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an 
@@ -3597,19 +3623,20 @@ class DriftCurveDisplay(wx.Frame):
         
         self.statusbar = self.CreateStatusBar()
         
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
+        hbox = wx.BoxSizer(wx.VERTICAL)
         
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
+        self.figure = Figure(figsize=(4,4))
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
         vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
+        self.panel1 = panel1
         
         # Use some sizers to see layout options
         self.SetSizer(hbox)
@@ -3622,7 +3649,7 @@ class DriftCurveDisplay(wx.Frame):
         """
         
         # Make the images resizable
-        self.Bind(wx.EVT_PAINT, self.resizePlots)
+        self.Bind(wx.EVT_SIZE, self.onSize)
         
     def initPlot(self):
         """
@@ -3723,14 +3750,29 @@ class DriftCurveDisplay(wx.Frame):
     def onCancel(self, event):
         self.Close()
         
-    def resizePlots(self, event):
-        w, h = self.GetSize()
+    def onSize(self, event):
+        event.Skip()
+        wx.CallAfter(self.resizePlots)
+        
+    def resizePlots(self, event=None):
+       # Get the current size of the window and the navigation toolbar
+        w, h = self.GetClientSize()
+        wt, ht = self.toolbar.GetSize()
+        
+        # Come up with new figure size in inches.
+        # NOTE:  The height of the plot at the bottom needs to be
+        #        corrected for the height of the toolbar
         dpi = self.figure.get_dpi()
         newW = 1.0*w/dpi
-        newH1 = 1.0*(h/2-100)/dpi
-        newH2 = 1.0*(h/2-75)/dpi
-        self.figure.set_size_inches((newW, newH1))
+        newH = 1.0*(h-ht)/dpi
+        self.figure.set_size_inches((newW, newH))
+        try:
+            self.figure.tight_layout()
+        except:
+            pass
         self.figure.canvas.draw()
+        
+        self.panel1.Refresh()
         
     def GetToolBar(self):
         # You will need to override GetToolBar if you are using an 

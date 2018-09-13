@@ -25,6 +25,16 @@ matplotlib.interactive(True)
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
 from matplotlib.figure import Figure
 
+
+# Deal with the different wxPython versions
+if 'phoenix' in wx.PlatformInfo:
+    AppendMenuItem = lambda x, y: x.Append(y)
+    AppendMenuMenu = lambda *args, **kwds: args[0].Append(*args[1:], **kwds)
+else:
+    AppendMenuItem = lambda x, y: x.AppendItem(y)
+    AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
+
+
 class PlotPanel(wx.Panel):
     """
     The PlotPanel has a Figure and a Canvas. OnSize events simply set a 
@@ -45,7 +55,7 @@ class PlotPanel(wx.Panel):
         wx.Panel.__init__(self, parent, **kwargs)
 
         # initialize matplotlib stuff
-        self.figure = Figure(None, dpi)
+        self.figure = Figure(figsize=(4,4), dpi=dpi)
         self.canvas = FigureCanvasWxAgg(self, -1, self.figure)
         self.SetColor(color)
 
@@ -544,12 +554,12 @@ class MainWindow(wx.Frame):
         
         ## File menu
         open = wx.MenuItem(fileMenu, ID_OPEN, '&Open')
-        fileMenu.AppendItem(open)
+        AppendMenuItem(fileMenu, open)
         ssmif = wx.MenuItem(fileMenu, ID_SSMIF, '&Show SSMIF Status')
-        fileMenu.AppendItem(ssmif)
+        AppendMenuItem(fileMenu, ssmif)
         fileMenu.AppendSeparator()
         quit = wx.MenuItem(fileMenu, ID_QUIT, '&Quit')
-        fileMenu.AppendItem(quit)
+        AppendMenuItem(fileMenu, quit)
         
         # Color menu
         colorMenu.AppendRadioItem(ID_COLOR_0, '&Median Comparison')
@@ -560,43 +570,43 @@ class MainWindow(wx.Frame):
         colorMenu.AppendRadioItem(ID_COLOR_4, 'Antenna Status')
         colorMenu.AppendSeparator()
         cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
-        colorMenu.AppendItem(cadj)
+        AppendMenuItem(colorMenu, cadj)
         
         # Detail menu
         dant = wx.MenuItem(detailMenu, ID_DETAIL_ANT, '&Antenna')
-        detailMenu.AppendItem(dant)
+        AppendMenuItem(detailMenu, dant)
         dstd = wx.MenuItem(detailMenu, ID_DETAIL_STAND, '&Stand')
-        detailMenu.AppendItem(dstd)
+        AppendMenuItem(detailMenu, dstd)
         dfee = wx.MenuItem(detailMenu, ID_DETAIL_FEE, '&FEE')
-        detailMenu.AppendItem(dfee)
+        AppendMenuItem(detailMenu, dfee)
         dcbl = wx.MenuItem(detailMenu, ID_DETAIL_CABLE, '&Cable')
-        detailMenu.AppendItem(dcbl)
+        AppendMenuItem(detailMenu, dcbl)
         detailMenu.AppendSeparator()
         dshl = wx.MenuItem(detailMenu, ID_DETAIL_RFI, 'Shelter &RFI Index')
-        detailMenu.AppendItem(dshl)
+        AppendMenuItem(detailMenu, dshl)
         detailMenu.AppendSeparator()
         dcst = wx.MenuItem(detailMenu, ID_DETAIL_CHANGE_STATUS, 'Change Antenna/FEE Status')
-        detailMenu.AppendItem(dcst)
+        AppendMenuItem(detailMenu, dcst)
         
         # Power
         ahst = wx.MenuItem(powerMenu, ID_AVG_HIST, '&Plot ADC Histogram')
-        powerMenu.AppendItem(ahst)
+        AppendMenuItem(powerMenu, ahst)
         apwr = wx.MenuItem(powerMenu, ID_AVG_POWER, '&Plot Power')
-        powerMenu.AppendItem(apwr)
+        AppendMenuItem(powerMenu, apwr)
         drng = wx.MenuItem(powerMenu, ID_AVG_RANGE, '&Plot Data Range')
-        powerMenu.AppendItem(drng)
+        AppendMenuItem(powerMenu, drng)
         powerMenu.AppendSeparator()
         spwr = wx.MenuItem(powerMenu, ID_AVG_SUMMARY, '&Summary')
-        powerMenu.AppendItem(spwr)
+        AppendMenuItem(powerMenu, spwr)
         
         # Select
         sant = wx.MenuItem(selectMenu, ID_SELECT_ANTENNA, '&Antenna ID')
-        selectMenu.AppendItem(sant)
+        AppendMenuItem(selectMenu, sant)
         sstd = wx.MenuItem(selectMenu, ID_SELECT_STAND, '&Stand ID')
-        selectMenu.AppendItem(sstd)
+        AppendMenuItem(selectMenu, sstd)
         selectMenu.AppendSeparator()
         sdig = wx.MenuItem(selectMenu, ID_SELECT_DIGITIZER, '&Digitizer Number')
-        selectMenu.AppendItem(sdig)
+        AppendMenuItem(selectMenu, sdig)
         
         # Creating the menubar.
         menubar.Append(fileMenu, '&File')
@@ -611,7 +621,7 @@ class MainWindow(wx.Frame):
         # Add plots
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure1 = Figure()
+        self.figure1 = Figure(figsize=(4,4))
         self.canvas1 = FigureCanvasWxAgg(panel1, -1, self.figure1)
         vbox1.Add(self.canvas1, 1, wx.EXPAND)
         panel1.SetSizer(vbox1)
@@ -620,12 +630,12 @@ class MainWindow(wx.Frame):
         # Add a spectrum plot
         panel2 = wx.Panel(self, -1)
         vbox2 = wx.BoxSizer(wx.VERTICAL)
-        self.figure2 = Figure()
+        self.figure2 = Figure(figsize=(4,1))
         self.canvas2 = FigureCanvasWxAgg(panel2, -1, self.figure2)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
         self.toolbar.Realize()
         vbox2.Add(self.canvas2, 1, wx.EXPAND)
-        vbox2.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+        vbox2.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
         panel2.SetSizer(vbox2)
         hbox.Add(panel2, 1, wx.EXPAND)
         
@@ -1465,12 +1475,12 @@ class AvgPowerDisplay(wx.Frame):
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
+        self.figure = Figure(figsize=(4,4))
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
         vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
         
@@ -1622,12 +1632,12 @@ class DataRangeDisplay(wx.Frame):
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
+        self.figure = Figure(figsize=(4,4))
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
         vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
         
@@ -1782,12 +1792,12 @@ class ADCHistogramDisplay(wx.Frame):
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
+        self.figure = Figure(figsize=(4,4))
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
         vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.LEFT | wx.FIXED_MINSIZE)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
         
