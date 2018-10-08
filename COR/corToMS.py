@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 """
 Basic script to take a COR file, apply the station delay model, and write the
 data out as a CASA measurement set.
@@ -15,6 +17,7 @@ import aipy
 import time
 import ephem
 import numpy
+import getopt
 from datetime import datetime
 
 from lsl.common import stations
@@ -29,8 +32,68 @@ from lsl.writer import measurementset
 from matplotlib import pyplot as plt
 
 
+def usage(exitCode=None):
+    print("""cor2MS.py - Given a COR files created by ADP, convert the file into a CASA
+meaurement set.
+
+Usage: corToMS.py [OPTIONS] file
+
+Options:
+-h, --help                  Display this help information
+-s, --skip                  Skip the specified number of seconds at the beginning
+                            of the file (default = 0)
+-o, --output                Write the combined file to the provided filename
+                            (Default = auto-deterine the filename)
+""")
+    
+    if exitCode is not None:
+        sys.exit(exitCode)
+    else:
+        return True
+
+
+def parseOptions(args):
+    config = {}
+    # Command line flags - default values
+    config['offset'] = 0.0
+    config['output'] = None
+    config['args'] = []
+    
+    # Read in and process the command line flags
+    try:
+        opts, args = getopt.getopt(args, "hs:o:", ["help", "skip=", "output="])
+    except getopt.GetoptError, err:
+        # Print help information and exit:
+        print(str(err)) # will print something like "option -a not recognized"
+        usage(exitCode=2)
+        
+    # Work through opts
+    for opt, value in opts:
+        if opt in ('-h', '--help'):
+            usage(exitCode=0)
+        elif opt in ('-s', '--skip'):
+            config['offset'] = float(value)
+        elif opt in ('-o', '--output'):
+            config['output'] = value
+        else:
+            assert False
+            
+    # Add in arguments
+    config['args'] = args
+    
+    # Validate
+    if len(config['args']) != 1:
+        raise RuntimeError("Must provide at a single file to convert")
+        
+    
+    # Return configuration
+    return config
+
+
 def main(args):
-    filename = args[0]
+    # Parse the command line
+    config = parseOptions(args)
+    filename = config['args'][0]
     
     # Setup the site information
     station = stations.lwasv
@@ -50,37 +113,34 @@ def main(args):
     centralFreq = idf.getInfo('freq1')
     centralFreq = centralFreq[len(centralFreq)/2]
     
-    print "Data type:  %s" % type(idf)
-    print "Samples per observations: %i" % (nFpO,)
-    print "Integration Time: %.3f s" % tInt
-    print "Tuning frequency: %.3f Hz" % centralFreq
-    print "Captures in file: %i (%.1f s)" % (nInts, nInts*tInt)
-    print "=="
-    print "Station: %s" % station.name
-    print "Date observed: %s" % date
-    print "Julian day: %.5f" % jd
-    print " "
+    print("Data type:  %s" % type(idf))
+    print("Samples per observations: %i" % (nFpO,))
+    print("Integration Time: %.3f s" % tInt)
+    print("Tuning frequency: %.3f Hz" % centralFreq)
+    print("Captures in file: %i (%.1f s)" % (nInts, nInts*tInt))
+    print("==")
+    print("Station: %s" % station.name)
+    print("Date observed: %s" % date)
+    print("Julian day: %.5f" % jd)
+    print(" ")
     
-    print idf.offset(600), '->', str(ephem.Date(astro.unix_to_utcjd(idf.getInfo('tStart'))-astro.DJD_OFFSET))
-    
+    # Offset into the file
+    offset = idf.offset(config['offset'])
+    if offset != 0.0:
+        print("Skipped %.3f s into the file" % offset)
+        
     # Open the file and go
-    q = 0
     while True:
-        t0 = time.time()
-        print 'Read'
         tInt, tStart, data = idf.read(tInt)
-        q += 1
             
-        t1 = time.time()
-        print 'Metadata'
         freqs = idf.getInfo('freq1')
         beginJD = astro.unix_to_utcjd( tStart )
+        beginTime = datetime.utcfromtimestamp( tStart )
         
-        t2 = time.time()
         try:
             phase
         except NameError:
-            print 'Update Phasing for %.3f to %.3f MHz' % (freqs[0]/1e6, freqs[-1]/1e6)
+            print("Updating phasing for %.3f to %.3f MHz" % (freqs[0]/1e6, freqs[-1]/1e6))
             
             k = 0
             phase = numpy.zeros((nBL, nChan, 2, 2), dtype=numpy.complex64)
@@ -101,23 +161,25 @@ def main(args):
                     
                     k += 1
                     
-        t3 = time.time()
-        print 'Phase'
         for i in xrange(data.shape[-1]):
             data[...,i] *= phase
             
         # Convert to a dataDict
-        t4 = time.time()
-        print 'Convert'
         try:
             blList
         except NameError:
             blList = uvUtils.getBaselines(ants[0::2], IncludeAuto=True)
             
-        outname = os.path.basename(filename)
-        outname = os.path.splitext(outname)[0]
-        outname = "%s_%i.ms" % (outname, q)
-        
+        if config['output'] is None:
+            outname = os.path.basename(filename)
+            outname = os.path.splitext(outname)[0]
+            outname = "%s_%i_%s.ms" % (outname, int(beginJD-astro.MJD_OFFSET), beginTime.strftime("%H_%M_%S"))
+        else:
+            base, ext = os.path.splitext(config['output'])
+            if ext == '':
+                ext = '.ms'
+            outname = "%s_%i_%s%s" % (base, int(beginJD-astro.MJD_OFFSET), beginTime.strftime("%H_%M_%S"), ext)
+            
         fits = measurementset.MS(outname, refTime=tStart)
         fits.setStokes(['xx', 'xy', 'yx', 'yy'])
         fits.setFrequency(freqs)
@@ -131,10 +193,7 @@ def main(args):
         fits.write()
         fits.close()
         
-        t5 = time.time()
-        print t5-t0, '->', t1-t0, t2-t1, t3-t2, t4-t3, t5-t4
-        
-    fh.close()
+    idf.close()
 
 
 if __name__ == "__main__":

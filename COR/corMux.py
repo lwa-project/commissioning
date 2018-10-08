@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 """
 Given a COR filles created by ADP, combine the files together into a single 
 file that can be used like a standard DR-recorded COR file
@@ -21,16 +23,16 @@ from lsl.reader import cor, errors, buffer
 
 
 def usage(exitCode=None):
-    print """corMux.py - Given a COR files created by ADP, combine the files together into a 
+    print("""corMux.py - Given a COR files created by ADP, combine the files together into a 
 single file that can be used like a standard DR-recorded COR file
 
-Usage: corMux.py [OPTIONS] file
+Usage: corMux.py [OPTIONS] file file [file [...]]
 
 Options:
 -h, --help                  Display this help information
 -o, --output                Write the combined file to the provided filename
                             (Default = auto-deterine the filename)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -49,7 +51,7 @@ def parseOptions(args):
         opts, args = getopt.getopt(args, "ho:", ["help", "output="])
     except getopt.GetoptError, err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -64,6 +66,10 @@ def parseOptions(args):
     # Add in arguments
     config['args'] = args
     
+    # Validate
+    if len(config['args']) < 2:
+        raise RuntimeError("Must provide at least two files to combine")
+        
     # Return configuration
     return config
 
@@ -252,7 +258,7 @@ def main(args):
             common = common[1:]
         config['output'] = common
         
-    print "Writing combined file to '%s'" % os.path.basename(config['output'])
+    print("Writing combined file to '%s'" % os.path.basename(config['output']))
     oh = open(config['output'], 'wb')
     
     # Go!
