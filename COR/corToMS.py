@@ -42,6 +42,8 @@ Options:
 -h, --help                  Display this help information
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
+-d, --duration              Number of seconds to write out data for (default = 0; 
+                            run the entire file)
 -o, --output                Write the combined file to the provided filename
                             (Default = auto-deterine the filename)
 """)
@@ -56,12 +58,13 @@ def parseOptions(args):
     config = {}
     # Command line flags - default values
     config['offset'] = 0.0
+    config['duration'] = 0.0
     config['output'] = None
     config['args'] = []
     
     # Read in and process the command line flags
     try:
-        opts, args = getopt.getopt(args, "hs:o:", ["help", "skip=", "output="])
+        opts, args = getopt.getopt(args, "hs:d:o:", ["help", "skip=", "duration=", "output="])
     except getopt.GetoptError, err:
         # Print help information and exit:
         print(str(err)) # will print something like "option -a not recognized"
@@ -73,6 +76,8 @@ def parseOptions(args):
             usage(exitCode=0)
         elif opt in ('-s', '--skip'):
             config['offset'] = float(value)
+        elif opt in ('-d', '--duration'):
+            config['duration'] = float(value)
         elif opt in ('-o', '--output'):
             config['output'] = value
         else:
@@ -130,8 +135,17 @@ def main(args):
         print("Skipped %.3f s into the file" % offset)
         
     # Open the file and go
-    while True:
-        tInt, tStart, data = idf.read(tInt)
+    nFiles = int(config['duration'] /  tInt)
+    if nFiles == 0:
+        nFiles = numpy.inf
+    
+    fileCount = 0
+    while fileCount < nFiles:
+        try:
+            tInt, tStart, data = idf.read(tInt)
+        except Exception as e:
+            print("ERROR: %s" % str(e))
+            break
             
         freqs = idf.getInfo('freq1')
         beginJD = astro.unix_to_utcjd( tStart )
@@ -192,6 +206,7 @@ def main(args):
         fits.addDataSet(obsTime, tInt, blList, data[:,:,1,1,0], pol='yy')
         fits.write()
         fits.close()
+        fileCount += 1
         
     idf.close()
 
