@@ -125,7 +125,7 @@ def main(args):
         beams.append(beam)
         
         numpy.savez('%s_%iMHz_%iaz_%iel_%s.npz' % (station.name, config['freq']/1e6, config['az'], config['el'], name), station=station.name.lower(), beam=beam, freq=config['freq'], pol=name, az=config['az'], el=config['el'])
-    
+        
     if config['plots']:
         fig = plt.figure()
         ax1 = fig.add_subplot(1, 2, 1)
@@ -133,7 +133,6 @@ def main(args):
         ax1.imshow( beams[0], interpolation='nearest' )
         ax2.imshow( beams[1], interpolation='nearest' )
         plt.show()
-    
 
 
 if __name__ == "__main__":
