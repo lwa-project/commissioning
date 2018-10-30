@@ -27,13 +27,14 @@ contiguous
 Usage: fastDRXCheck.py [OPTIONS] file
 
 Options:
--h, --help                  Display this help information
--v, --verbose               Be verbose (default = no)
--m, --min-frames            Minimum number of frames to consider 
-                            (default = 4096)
--s, --split                 Split out sections that are valid (default = no)
--k, --keep                  When splitting, only work the N largest sections
-                            (default = all)
+-h, --help             Display this help information
+-v, --verbose          Be verbose (default = no)
+-m, --min-frames       Minimum number of frames to consider (default = 4096)
+-s, --split            Split out sections that are valid (default = no)
+-k, --keep             When splitting, only work the N largest sections
+                       (default = all)
+-b, --brief            Use "brief" filenames (default = long filenames that 
+                       contain the section bytes range)
 """
     
     if exitCode is not None:
@@ -49,11 +50,12 @@ def parseOptions(args):
     config['minFrames'] = 4096
     config['split'] = False
     config['keep'] = -1
+    config['brief'] = False
     config['args'] = []
     
     # Read in and process the command line flags
     try:
-        opts, args = getopt.getopt(args, "hvm:sk:", ["help", "verbose", "min-frames=", "split", "keep="])
+        opts, args = getopt.getopt(args, "hvm:sk:b", ["help", "verbose", "min-frames=", "split", "keep=", "brief"])
     except getopt.GetoptError, err:
         # Print help information and exit:
         print str(err) # will print something like "option -a not recognized"
@@ -71,6 +73,8 @@ def parseOptions(args):
             config['split'] = True
         elif opt in ('-k', '--keep'):
             config['keep'] = int(value, 10)
+        elif opt in ('-b', '--brief'):
+            config['brief'] = True
         else:
             assert False
             
@@ -193,6 +197,58 @@ def identify_section(fh, start=0, stop=-1, min_frames=4096, verbose=True):
     return parts
 
 
+def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
+    fh.seek(start)
+    
+    # Report
+    if verbose:
+        print "Tuning boundary at %i of '%s'..." % (start, os.path.basename(fh.name))
+        
+    # Align on the start of a Mark5C packet...
+    while True:
+        try:
+            junkFrame = drx.readFrame(fh)
+            try:
+                # ... that has a valid decimation
+                srate = junkFrame.getSampleRate()
+                break
+            except ZeroDivisionError:
+                pass
+        except errors.syncError:
+            fh.seek(-drx.FrameSize+1, 1)
+    fh.seek(-drx.FrameSize, 1)
+    # ... and save that location
+    frame_begin = junkFrame.data.timeTag
+    file_begin = fh.tell()
+    if verbose:
+        print "  start @ %i with %i" % (file_begin, frame_begin)
+        
+    # Get how much the timetags should change and other basic information
+    fh.seek(file_begin)
+    ids = []
+    for i in xrange(24*8):
+        junkFrame = drx.readFrame(fh)
+        b,t,p = junkFrame.parseID()
+        id = (t,p)
+        if id not in ids:
+            ids.append(id)
+    ttStep = 4096*junkFrame.header.decimation
+    if verbose:
+        print "  %i frames with a timetag step of %i" % (len(ids), ttStep)
+        
+    # Load in the times to figure out what to do
+    fh.seek(file_begin)
+    timetags = []
+    for i in xrange(max_frames):
+        junkFrame = drx.readFrame(fh)
+        timetags.append( junkFrame.data.timeTag )
+    skips = [timetags[i]-timetags[i-1] for i in xrange(1, max_frames)]
+    offset = min([skips.index(0), skips.index(ttStep)])
+    print "  -> shifting boundary by %i frame(s)" % offset
+    start += drx.FrameSize*offset
+    return start
+
+
 def getBestSize(value, powerOfTwo=True):
     scale = 1024. if powerOfTwo else 1000.
     if value >= 0.96*scale**4:
@@ -225,17 +281,26 @@ def main(args):
     # Figure out the parts
     fh = open(filename, 'rb')
     parts = identify_section(fh, min_frames=config['minFrames'], verbose=config['verbose'])
+    if parts is None:
+        print "No valid byte ranges found, exiting"
+        sys.exit(1)
+        
+    # Fine tune the boundaries
+    for p,part in enumerate(parts):
+        start, stop = part
+        start = fine_tune_boundary_start(fh, start)
+        parts[p][0] = start
     
     # Report
     print "Valid Byte Ranges:"
     valid = 0
     rank = []
-    for part in parts:
+    for p,part in enumerate(parts):
         start, stop = part
         size = stop - start
         frames = size / drx.FrameSize
         valid += size
-        rank.append( [size, start, stop] )
+        rank.append( [size, start, stop, p] )
         
         s,su = getBestSize(size, powerOfTwo=True)
         f,fu = getBestSize(frames, powerOfTwo=False)
@@ -249,9 +314,15 @@ def main(args):
         if config['keep'] >= 1:
             rank = rank[:config['keep']]
             
-        fmt = '%%s-%%0%ii-%%0%ii' % (scale, scale)
-        for i,(size,start,stop) in enumerate(rank):
-            outname = fmt % (os.path.basename(filename), start, stop)
+        if config['brief']:
+            scale = math.log10(len(parts))
+            scale = int(math.ceil(scale))
+            fmt = '{0:s}-S{3:0%id}' % scale
+        else:
+            fmt = '{0:s}-{1:0%id}-{2:00%id}' % (scale, scale)
+            
+        for i,(size,start,stop,section) in enumerate(rank):
+            outname = fmt.format(os.path.basename(filename), start, stop, section)
             print "Working on section #%i..." % (i+1)
             print "  Filename: %s" % outname
             
@@ -271,7 +342,6 @@ def main(args):
             t1 = time.time()
             s,su = getBestSize(os.path.getsize(outname), powerOfTwo=True)
             print "  Copied %.3f %sB in %.3f s (%.3f MB/s)" % (s, su, t1-t0, os.path.getsize(outname)/1024.0**2/(t1-t0))
-            
 
 
 if __name__ == "__main__":
