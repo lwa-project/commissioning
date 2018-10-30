@@ -27,9 +27,9 @@ Usage: driftcurve.py [OPTIONS] beam_file
 
 Options:
 -h, --help             Display this help information
--l, --lf-map           Use LF map instead of GSM
+-l, --lfsm             Use LFSM instead of GSM
 -t, --time-step        Time step of simulations in minutes (default = 
-                    10)
+                       10)
 -x, --do-plot          Plot the driftcurve data
 -v, --verbose          Run driftcurve in vebose mode
 """
@@ -51,7 +51,7 @@ def parseOptions(args):
     
     # Read in and process the command line flags
     try:
-        opts, arg = getopt.getopt(args, "hvlt:x", ["help", "verbose", "lf-map", "time-step=", "do-plot",])
+        opts, arg = getopt.getopt(args, "hvolt:x", ["help", "verbose", "lfsm", "time-step=", "do-plot",])
     except getopt.GetoptError, err:
         # Print help information and exit:
         print str(err) # will print something like "option -a not recognized"
@@ -63,7 +63,7 @@ def parseOptions(args):
             usage(exitCode=0)
         elif opt in ('-v', '--verbose'):
             config['verbose'] = True
-        elif opt in ('-l', '--lf-map'):
+        elif opt in ('-l', '--lfsm'):
             config['GSM'] = False
         elif opt in ('-t', '--time-step'):
             config['tStep'] = float(value)
@@ -89,22 +89,28 @@ def main(args):
     beam = beamDict['beam']
     beam /= beam.max()
     
-    # Polarization and frequency
+    # Station, polarization, and frequency
+    name = beamDict['station']
     pol = beamDict['pol']
     freq = beamDict['freq']
     
-    # Get the site information for LWA-1
-    sta = stations.lwa1
-    
+    # Get the site information
+    if name == 'lwa1':
+        sta = stations.lwa1
+    elif name == 'lwasv':
+        sta = stations.lwasv
+    else:
+        raise RuntimeError("Unknown site: %s" % config['site'])
+        
     # Read in the skymap (GSM or LF map @ 74 MHz)
     if config['GSM']:
         smap = skymap.SkyMapGSM(freqMHz=freq/1e6)
         if config['verbose']:
             print "Read in GSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
     else:
-        smap = skymap.SkyMap(freqMHz=freq/1e6)
+        smap = skymap.SkyMapLFSM(freqMHz=config['freq']/1e6)
         if config['verbose']:
-            print "Read in LF map at %.2f MHz of %d x %d pixels; min=%f, max=%f" % (freq/1e6, smap.numPixelsX, smap.numPixelsY, smap._power.min(), smap._power.max())
+            print "Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (config['freq']/1e6, len(smap.ra), smap._power.min(), smap._power.max())
             
     def BeamPattern(az, alt, beam=beam):
         iAz  = numpy.round(az).astype(numpy.int32)
@@ -139,20 +145,14 @@ def main(args):
     powListAnt = [] 
     
     for t in times:
+        # Project skymap to site location and observation time
+        pmap = skymap.ProjectedSkyMap(smap, sta.lat*180.0/math.pi, sta.long*180.0/math.pi, t)
         lst = astro.get_local_sidereal_time(sta.long*180.0/math.pi, t)
         lstList.append(lst)
         
-        # Project skymap to site location and observation time
-        pmap = skymap.ProjectedSkyMap(smap, sta.lat*180.0/math.pi, sta.long*180.0/math.pi, t)
-        
-        if config['GSM']:
-            cdec = numpy.ones_like(pmap.visibleDec)
-        else:
-            cdec = numpy.cos(pmap.visibleDec * smap.degToRad)
-            
         # Convolution of user antenna pattern with visible skymap
         gain = BeamPattern(pmap.visibleAz, pmap.visibleAlt)
-        powerAnt = (pmap.visiblePower * gain * cdec).sum() / (gain * cdec).sum()
+        powerAnt = (pmap.visiblePower * gain).sum() / gain.sum()
         powListAnt.append(powerAnt)
 
         if config['verbose']:
@@ -175,7 +175,7 @@ def main(args):
         pylab.draw()
         pylab.show()
         
-    outputFile = "driftcurve_%s_%s_%.2f.txt" % ('lwa1', pol, freq/1e6)
+    outputFile = "driftcurve_%s_%s_%.2f.txt" % (name, pol, freq/1e6)
     print "Writing driftcurve to file '%s'" % outputFile
     mf = file(outputFile, "w")
     for lst,pow in zip(lstList, powListAnt):

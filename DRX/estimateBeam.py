@@ -30,7 +30,7 @@ Usage: estimateBeam.py [OPTIONS] file
 
 Options:
 -h, --help                  Display this help information
--f, --frequency             Frequency in MHz to calculate the gain/delays for 
+-f, --frequency             Frequency in MHz to calculate the beam for 
                             (Default = 65 MHz)
 -a, --azimuth               Azimuth east of north in degrees for the pointing center
                             (Default = 90 degrees)
@@ -124,7 +124,7 @@ def main(args):
             beam = beam**2
         beams.append(beam)
         
-        numpy.savez('test_%iMHz_%iaz_%iel_%s.npz' % (config['freq']/1e6, config['az'], config['el'], name), beam=beam, freq=config['freq'], pol=name, az=config['az'], el=config['el'])
+        numpy.savez('%s_%iMHz_%iaz_%iel_%s.npz' % (station.name, config['freq']/1e6, config['az'], config['el'], name), station=station.name.lower(), beam=beam, freq=config['freq'], pol=name, az=config['az'], el=config['el'])
     
     if config['plots']:
         fig = plt.figure()
