@@ -243,7 +243,10 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
         junkFrame = drx.readFrame(fh)
         timetags.append( junkFrame.data.timeTag )
     skips = [timetags[i]-timetags[i-1] for i in xrange(1, max_frames)]
-    offset = min([skips.index(0), skips.index(ttStep)])
+    try:
+        offset = min([skips.index(0), skips.index(ttStep)])
+    except ValueError:
+        offset = skips.index(0)
     print "  -> shifting boundary by %i frame(s)" % offset
     start += drx.FrameSize*offset
     return start
