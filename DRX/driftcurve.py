@@ -90,9 +90,9 @@ def main(args):
     beam /= beam.max()
     
     # Station, polarization, and frequency
-    name = beamDict['station']
-    pol = beamDict['pol']
-    freq = beamDict['freq']
+    name = beamDict['station'].item()
+    pol = beamDict['pol'].item()
+    freq = beamDict['freq'].item()
     
     # Get the site information
     if name == 'lwa1':
@@ -108,9 +108,9 @@ def main(args):
         if config['verbose']:
             print "Read in GSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
     else:
-        smap = skymap.SkyMapLFSM(freqMHz=config['freq']/1e6)
+        smap = skymap.SkyMapLFSM(freqMHz=freq/1e6)
         if config['verbose']:
-            print "Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (config['freq']/1e6, len(smap.ra), smap._power.min(), smap._power.max())
+            print "Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
             
     def BeamPattern(az, alt, beam=beam):
         iAz  = numpy.round(az).astype(numpy.int32)
@@ -166,8 +166,8 @@ def main(args):
     # Plot results
     if config['enableDisplay']:
         pylab.figure(2)
-        pylab.title("Driftcurve: %s pol. @ %0.2f MHz - LWA-1" % \
-            (pol, freq/1e6))
+        pylab.title("Driftcurve: %s pol. @ %0.2f MHz - %s" % \
+            (pol, freq/1e6, name.upper()))
         pylab.plot(lstList, powListAnt, "ro",label="Antenna Pattern")
         pylab.xlabel("LST [hours]")
         pylab.ylabel("Temp. [K]")
