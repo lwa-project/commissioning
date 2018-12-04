@@ -291,7 +291,7 @@ def main(args):
     # Fine tune the boundaries
     for p,part in enumerate(parts):
         start, stop = part
-        start = fine_tune_boundary_start(fh, start)
+        start = fine_tune_boundary_start(fh, start, verbose=config['verbose'])
         parts[p][0] = start
     
     # Report
