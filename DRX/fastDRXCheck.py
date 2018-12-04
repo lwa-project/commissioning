@@ -29,6 +29,7 @@ Usage: fastDRXCheck.py [OPTIONS] file
 Options:
 -h, --help             Display this help information
 -v, --verbose          Be verbose (default = no)
+-l, --loose            Do not require exact time flow, good for LWA-SV files
 -m, --min-frames       Minimum number of frames to consider (default = 4096)
 -s, --split            Split out sections that are valid (default = no)
 -k, --keep             When splitting, only work the N largest sections
@@ -47,6 +48,7 @@ def parseOptions(args):
     config = {}
     # Command line flags - default values
     config['verbose'] = False
+    config['strict'] = True
     config['minFrames'] = 4096
     config['split'] = False
     config['keep'] = -1
@@ -55,7 +57,7 @@ def parseOptions(args):
     
     # Read in and process the command line flags
     try:
-        opts, args = getopt.getopt(args, "hvm:sk:b", ["help", "verbose", "min-frames=", "split", "keep=", "brief"])
+        opts, args = getopt.getopt(args, "hvlm:sk:b", ["help", "verbose", "loose", "min-frames=", "split", "keep=", "brief"])
     except getopt.GetoptError, err:
         # Print help information and exit:
         print str(err) # will print something like "option -a not recognized"
@@ -67,6 +69,8 @@ def parseOptions(args):
             usage(exitCode=0)
         elif opt in ('-v', '--verbose'):
             config['verbose'] = True
+        elif opt in ('-l', '--loose'):
+            config['strict'] = False
         elif opt in ('-m', '--min-frames'):
             config['minFrames'] = int(value, 10)
         elif opt in ('-s', '--split'):
@@ -85,7 +89,7 @@ def parseOptions(args):
     return config
 
 
-def identify_section(fh, start=0, stop=-1, min_frames=4096, verbose=True):
+def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose=True):
     if stop <= start:
         stop = os.path.getsize(fh.name)
     fh.seek(start)
@@ -162,12 +166,12 @@ def identify_section(fh, start=0, stop=-1, min_frames=4096, verbose=True):
         print "  -> expected timetag difference is %i" % ttDiffExpected
         
     # Decide what to do
-    if ttDiffFound != ttDiffExpected:
+    if abs(ttDiffFound - ttDiffExpected) > ttStep*(1-strict):
         if verbose:
             print "  ====> mis-match, subsampling"
         file_middle = file_begin + (nFrames / 2) * drx.FrameSize
-        parts0 = identify_section(fh, file_begin, file_middle, min_frames=min_frames, verbose=verbose)
-        parts1 = identify_section(fh, file_middle, file_end, min_frames=min_frames, verbose=verbose)
+        parts0 = identify_section(fh, file_begin, file_middle, strict=strict, min_frames=min_frames, verbose=verbose)
+        parts1 = identify_section(fh, file_middle, file_end, strict=strict, min_frames=min_frames, verbose=verbose)
         
     else:
         if verbose:
@@ -247,7 +251,8 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
         offset = min([skips.index(0), skips.index(ttStep)])
     except ValueError:
         offset = skips.index(0)
-    print "  -> shifting boundary by %i frame(s)" % offset
+    if verbose:
+        print "  -> shifting boundary by %i frame(s)" % offset
     start += drx.FrameSize*offset
     return start
 
@@ -283,7 +288,7 @@ def main(args):
     
     # Figure out the parts
     fh = open(filename, 'rb')
-    parts = identify_section(fh, min_frames=config['minFrames'], verbose=config['verbose'])
+    parts = identify_section(fh, strict=config['strict'], min_frames=config['minFrames'], verbose=config['verbose'])
     if parts is None:
         print "No valid byte ranges found, exiting"
         sys.exit(1)
