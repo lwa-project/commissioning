@@ -424,9 +424,6 @@ def main(args):
     fh.close()
     idf = LWA1DataFile(filename, ignoreTimeTagErrors=config['ignoreTTE'])
 
-    # Offset into the file
-    offset = idf.offset(config['offset'])
-    
     # Metadata
     nFramesFile = idf.getInfo('nFrames')
     beam = idf.getInfo('beam')
@@ -439,6 +436,9 @@ def main(args):
     nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
     config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
     maxFrames = nFramesAvg
+    
+    # Offset into the file, if needed
+    offset = idf.offset(config['offset'])
     
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
