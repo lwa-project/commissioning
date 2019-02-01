@@ -642,7 +642,7 @@ class MainWindow(wx.Frame):
         # Add plots
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure1 = Figure(figsize=(4,4))
+        self.figure1 = Figure(figsize=(6,4))
         self.canvas1 = FigureCanvasWxAgg(panel1, -1, self.figure1)
         vbox1.Add(self.canvas1, 1, wx.EXPAND)
         panel1.SetSizer(vbox1)
@@ -651,7 +651,7 @@ class MainWindow(wx.Frame):
         # Add a spectrum plot
         panel2 = wx.Panel(self, -1)
         vbox2 = wx.BoxSizer(wx.VERTICAL)
-        self.figure2 = Figure(figsize=(4,1))
+        self.figure2 = Figure(figsize=(6,4))
         self.canvas2 = FigureCanvasWxAgg(panel2, -1, self.figure2)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
         self.toolbar.Realize()
