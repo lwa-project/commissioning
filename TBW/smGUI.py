@@ -164,6 +164,7 @@ class TBW_GUI(object):
             ssmifContents = dataDict['ssmifContents']
             if ssmifContents.shape == ():
                 station = stations.lwa1
+                self.station = station.name
                 self.antennas = station.getAntennas()
             else:
                 fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
@@ -173,11 +174,13 @@ class TBW_GUI(object):
                 fh.close()
                 
                 station = stations.parseSSMIF(tempSSMIF)
+                self.station = station.name
                 self.antennas = station.getAntennas()
                 os.unlink(tempSSMIF)
             
         except KeyError:
             station = stations.lwa1
+            self.station = station.name
             self.antennas = station.getAntennas()
 
         # Set default colobars
@@ -321,23 +324,34 @@ class TBW_GUI(object):
         # Stands 
         m = self.ax1.scatter(standPos[:,0], standPos[:,1]+0.8, c=specDiff[0::2], s=45.0, alpha=0.80, marker='^')
         self.ax1.scatter(standPos[:,0], standPos[:,1]-0.8, c=specDiff[1::2], s=45.0, alpha=0.80, marker='v')
+        
+        if self.station == 'LWA1':
+            ## Add the fence as a dashed line
+            self.ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
+                          [59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
+            
+            ## Add the shelter
+            self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
+                          [45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
+            
+            ## Set the limits to just zoom in on the main station and the plot title
+            self.ax1.set_xlim([-65, 65])
+            self.ax1.set_ylim([-65, 65])
+            
+        elif self.station == 'LWASV':
+            ## Add the shelter
+            self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863],
+                          [45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
 
-        ## Add the fence as a dashed line
-        self.ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
-                [59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
-
-        ## Add the shelter
-        self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
-                [45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
-
-        ## Set the limits to just zoom in on the main station and the plot title
+            ## Set the limits to just zoom in on the main station and the plot title
+            self.ax1.set_xlim([-75, 75])
+            self.ax1.set_ylim([-50,100])
+            
         if self.date is None:
             self.ax1.set_title("Filename: '%s'" % self.filename)
         else:
             self.ax1.set_title('Date: UT %s' % self.date)
-        self.ax1.set_xlim([-65, 65])
-        self.ax1.set_ylim([-65, 65])
-
+            
         ## Set the color bar, its title, and the axis labels
         cm = self.frame.figure1.colorbar(m, ax=self.ax1)
         cm.ax.set_ylabel(cbTitle)
