@@ -339,9 +339,13 @@ class TBW_GUI(object):
             self.ax1.set_ylim([-65, 65])
             
         elif self.station == 'LWASV':
+            ## Add the awning
+            self.ax1.plot([-30.625, -20.911, -13.498, -23.212, -30.625], 
+                          [107.211, 78.239, 81.013, 109.368, 107.211], linestyle='-', color='k')
+            
             ## Add the shelter
-            self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863],
-                          [45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
+            self.ax1.plot([-29.347, -28.836, -22.956, -23.467, -29.347], 
+                          [86.869, 84.712, 86.253, 88.41, 86.869], linestyle='-', color='k')
 
             ## Set the limits to just zoom in on the main station and the plot title
             self.ax1.set_xlim([-75, 75])
@@ -438,10 +442,13 @@ class TBW_GUI(object):
         self.oldMark = self.ax1.plot([xy[0], xy[0]], [xy[1], xy[1]], linestyle=' ', marker='o', ms=15.0, mfc='None', color='k')
         
         ## Set the limits to just zoom in on the main stations
-        self.ax1.set_xlim([-65, 65])
-        self.ax1.set_ylim([-65, 65])
-
-
+        if self.station == 'LWA1':
+            self.ax1.set_xlim([-65, 65])
+            self.ax1.set_ylim([-65, 65])
+        elif self.station == 'LWASV':
+            self.ax1.set_xlim([-75, 75])
+            self.ax1.set_ylim([-50,100])
+            
         self.frame.canvas1.draw()
     
     def connect(self):
@@ -939,43 +946,53 @@ Status: %i
         
         if self.data.bestX != -1:
             std = self.data.antennas[self.data.bestX-1].stand
-            shlDist = numpy.sqrt( (std.x - 56.965)**2 + (std.y - 48.908)**2 )
-            
-            fenDistA = numpy.zeros(4)
-            k = 0
-            for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752)]):
-                x1 = p1[0]
-                y1 = p1[1]
-                x2 = p2[0]
-                y2 = p2[1]
+            if self.data.station == 'LWA1':
+                shlDist = numpy.sqrt( (std.x - 56.965)**2 + (std.y - 86.623)**2 )
+            elif self.data.station == 'LWASV':
+                shlDist = numpy.sqrt( (std.x + 26.790)**2 + (std.y - 48.908)**2 )
+            else:
+                shlDist = numpy.nan
                 
-                a = (y2-y1)/(x2-x1)
-                b = (y2*x1-y1*x2)/(x2-x1)
-                
-                x3 = std.x
-                y3 = std.y
-                
-                x4 = (x3/a + y3 - b)*a / (a**2+1)
-                y4 = a*x4 + b
-                
-                fenDistA[k] = numpy.sqrt( (x3-x4)**2 + (y3-y4)**2 )
-                k += 1
-            
-            # Catch things outside the fence
-            if abs(std.x) > 60 or abs(std.y) > 60:
+            if self.data.station == 'LWA1':
+                fenDistA = numpy.zeros(4)
                 k = 0
-                for p1 in [(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)]:
+                for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752)]):
                     x1 = p1[0]
                     y1 = p1[1]
+                    x2 = p2[0]
+                    y2 = p2[1]
+                    
+                    a = (y2-y1)/(x2-x1)
+                    b = (y2*x1-y1*x2)/(x2-x1)
                     
                     x3 = std.x
                     y3 = std.y
                     
-                    fenDistA[k] = numpy.sqrt( (x3-x1)**2 + (y3-y1)**2 )
+                    x4 = (x3/a + y3 - b)*a / (a**2+1)
+                    y4 = a*x4 + b
+                    
+                    fenDistA[k] = numpy.sqrt( (x3-x4)**2 + (y3-y4)**2 )
                     k += 1
                 
-            fenDist = fenDistA.min()
-            
+                # Catch things outside the fence
+                if abs(std.x) > 60 or abs(std.y) > 60:
+                    k = 0
+                    for p1 in [(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)]:
+                        x1 = p1[0]
+                        y1 = p1[1]
+                        
+                        x3 = std.x
+                        y3 = std.y
+                        
+                        fenDistA[k] = numpy.sqrt( (x3-x1)**2 + (y3-y1)**2 )
+                        k += 1
+                    
+                fenDist = fenDistA.min()
+            elif self.data.station == 'LWASV':
+                fenDist = numpy.nan
+            else:
+                fenDist = numpy.nan
+                
             outString = """Stand: %i
 
 Coordinates:
