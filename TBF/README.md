@@ -13,6 +13,10 @@ Modified version of the TBW stationMaster.py script that estimates the frequency
 MHz) of each dipole's resonance point and saves that information along with time-
 average spectra to a NPZ file.
 
+healthCheck2stationMaster.py
+----------------------------
+Convert a TBF health check file into a .npz file that works with smGUI.py.
+
 tbfMux.py
 ---------
 Combine multiple single-server TBF files from the ADP triggering system into a single

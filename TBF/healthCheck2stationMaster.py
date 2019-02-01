@@ -119,6 +119,7 @@ def parseIndex(index):
             
         date = filename.split('_', 1)[1]
         date = date.split('.', 1)[0]
+        date = date.split('_', 1)[1]
         date = datetime.strptime('%s 000000' % date, '%y%m%d %H%M%S')
         versions.append( (filename, date) )
         
@@ -163,7 +164,7 @@ class DynamicSSMIF(object):
         """
         
         # Pull the data from the archive
-        ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/%s" % self.filename)
+        ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwasv/ssmif/%s" % self.filename)
         contents = ah.read()
         ah.close()
         
@@ -213,7 +214,7 @@ def loadSSMIFCache():
     """
     
     # Retrieve the list
-    ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/")
+    ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwasv/ssmif/")
     index = ah.read()
     ah.close()
     
