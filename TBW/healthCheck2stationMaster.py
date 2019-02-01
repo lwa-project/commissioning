@@ -193,7 +193,8 @@ class DynamicSSMIF(object):
         except AttributeError:
             self._retrieve()
             contents = self.contents
-            
+        contents = contents.split('\n')
+        
         return contents
         
     def getStation(self):
