@@ -15,7 +15,7 @@ import sys
 import math
 import numpy
 import ephem
-import getopt
+import argparse
 
 from lsl.common import stations
 from lsl.reader import tbf
@@ -27,77 +27,18 @@ from lsl.common.paths import data as dataPath
 import matplotlib.pyplot as plt
 
 
-def usage(exitCode=None):
-    print """stationMasterLite.py - Read in TBF files and create a collection of 
-time-averaged spectra.
-
-Usage: stationMasterLite.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--m, --metadata              Name of SSMIF file to use for mappings
--f, --force                 Remake the NPZ file, even if it exists
--q, --quiet                 Run tbfSpectra in silent mode
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['SSMIF'] = ''
-    config['force'] = False
-    config['applyGain'] = True
-    config['verbose'] = True
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hm:fq", ["help", "metadata=", "force", "quiet",])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-m', '--metadata'):
-            config['SSMIF'] = value
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Set the station
-    if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
-        ssmifContents = open(config['SSMIF']).readlines()
+    if args.metadata is not None:
+        station = stations.parseSSMIF(args.metadata)
+        ssmifContents = open(args.metadata).readlines()
     else:
         station = stations.lwasv
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
     antennas = station.getAntennas()
     
-    fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbf.FrameSize
+    fh = open(args.filename, "rb")
+    nFrames = os.path.getsize(args.filename) / tbf.FrameSize
     
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
@@ -123,7 +64,7 @@ def main(args):
     mapper.sort()
     
     # File summary
-    print "Filename: %s" % config['args'][0]
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Frames per Observation: %i" % nFramesPerObs
     print "Channel Count: %i" % nChannels
@@ -131,10 +72,10 @@ def main(args):
     print "==="
     print "Chunks: %i" % nChunks
     
-    outfile = os.path.split(config['args'][0])[1]
+    outfile = os.path.split(args.filename)[1]
     outfile = os.path.splitext(outfile)[0]
     outfile = "%s.npz" % outfile	
-    if (not os.path.exists(outfile)) or config['force']:
+    if (not os.path.exists(outfile)) or args.force:
         # Master loop over all of the file chunks
         masterSpectra = numpy.zeros((nChunks, 512, nChannels), numpy.float32)
         
@@ -156,7 +97,7 @@ def main(args):
                 
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
-                if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
+                if cFrame.header.frameCount % 10000 == 0 and args.verbose:
                     print "%4i -> %3i  %6.3f  %5i  %i" % (cFrame.header.firstChan, aStand, cFrame.getTime(), cFrame.header.frameCount, cFrame.data.timeTag)
                     
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
@@ -183,7 +124,7 @@ def main(args):
             del(data)
             
         # Apply the cable loss corrections, if requested
-        if config['applyGain']:
+        if True:
             for s in xrange(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
                 for c in xrange(masterSpectra.shape[0]):
@@ -249,7 +190,7 @@ def main(args):
     standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in antennas if ant.pol == 0])
     
     # Plots
-    if config['verbose']:
+    if args.verbose:
         fig = plt.figure()
         ax1 = fig.add_subplot(1, 2, 1)
         ax1.scatter(standPos[:,0], standPos[:,1], c=specDiff[0::2], s=40.0, alpha=0.50)
@@ -266,5 +207,16 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in a TBF file and create a collection of time-averaged spectra', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to convert')
+    parser.add_argument('-m', '--metadata', type=str, 
+                        help='name of SSMIF file to use for mappings')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false', 
+                        help='run %(prog)s in silent mode')
+    args = parser.parse_args()
+    main(args)
     

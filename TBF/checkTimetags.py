@@ -14,6 +14,7 @@ import sys
 import math
 import ephem
 import numpy
+import argparse
 
 from lsl.common import stations
 from lsl.reader import tbf
@@ -22,11 +23,10 @@ from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
 import matplotlib.pyplot as plt
 
+
 def main(args):
-    filename = args[0]
-    
-    fh = open(filename, "rb")
-    nFrames = os.path.getsize(filename) / tbf.FrameSize
+    fh = open(args.filename, "rb")
+    nFrames = os.path.getsize(args.filename) / tbf.FrameSize
     
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
@@ -53,7 +53,7 @@ def main(args):
     mapper.sort()
     
     # File summary
-    print "Filename: %s" % filename
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Frames per Observation: %i" % nFramesPerObs
     print "Channel Count: %i" % nChannels
@@ -141,5 +141,13 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-
+    parser = argparse.ArgumentParser(
+        description='given a TBF file, check the time tags', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    args = parser.parse_args()
+    main(args)
+    
+    

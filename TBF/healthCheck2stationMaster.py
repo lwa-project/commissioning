@@ -15,9 +15,9 @@ import os
 import re
 import sys
 import numpy
-import getopt
 import struct
 import urllib
+import argparse
 import tempfile
 from datetime import datetime
 from xml.etree import ElementTree
@@ -26,59 +26,6 @@ from BeautifulSoup import BeautifulSoup
 
 from lsl.common.stations import parseSSMIF
 from lsl.common.progress import ProgressBar
-
-
-def usage(exitCode=None):
-    print """healthCheck2stationMaster.py - Read in binary TBW health check file and
-convert it into a .npz file compatable with smGUI.py.
-time-averaged spectra.
-
-Usage: healthCheck2stationMaster.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--f, --force                 Remake the NPZ file, even if it exists
--q, --quiet                 Run healthCheck2StationMaster.py in silent mode
-"""
-
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['force'] = False
-    config['applyGain'] = True
-    config['verbose'] = True
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hfq", ["help", "force", "quiet"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
 
 
 def parseIndex(index):
@@ -262,22 +209,18 @@ def loadHealthCheckFile(filename):
 
 
 def main(args):
-    # Parse the command line
-    config = parseOptions(args)
-    filenames = config['args']
-    
     # Get the SSMIF cache
     ssmifCache = loadSSMIFCache()
     
     # Go!
-    for filename in filenames:
+    for filename in args.filename:
         ## Report
         print "Working on '%s'..." % os.path.basename(filename)
         
         ## Create the output filename and figure out if we need to overwrite if
         outfile = os.path.basename(filename)
         outfile = "%s.npz" % os.path.splitext(outfile)[0]
-        if os.path.exists(outfile) and not config['force']:
+        if os.path.exists(outfile) and not args.force:
             print "  ERROR: Output file '%s' already exists, skipping" % outfile
             continue
             
@@ -288,7 +231,7 @@ def main(args):
         antpols, nChan = spec.shape
         
         ## Report on the file's contents
-        if config['verbose']:
+        if args.verbose:
             print "  Capture Date: %s" % beginDate
             print "  Antenna/pols.: %i" % antpols
             print "  Channels: %i" % nChan
@@ -300,7 +243,7 @@ def main(args):
                 found = True
                 break
         if found:
-            if config['verbose']:
+            if args.verbose:
                 print "  Using SSMIF '%s' for mappings" % ssmif.filename
         else:
             print "  ERROR: Cannot find a suitable SSMIF for %s, skipping" % filename
@@ -321,14 +264,14 @@ def main(args):
         adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
         
         ## Apply the cable loss corrections, if requested
-        if config['applyGain']:
+        if True:
             for s in xrange(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
                 for c in xrange(masterSpectra.shape[0]):
                     masterSpectra[c,s,:] /= currGain
                     
         ## Estimate the dipole resonance frequencies
-        if config['verbose']:
+        if args.verbose:
             print "  Computing dipole resonance frequencies"
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
@@ -352,10 +295,10 @@ def main(args):
                 pass
                 
             pb.inc(amount=1)
-            if config['verbose'] and pb.amount != 0 and pb.amount % 10 == 0:
+            if args.verbose and pb.amount != 0 and pb.amount % 10 == 0:
                 sys.stdout.write('  '+pb.show()+'\r')
                 sys.stdout.flush()
-        if config['verbose']:
+        if args.verbose:
             sys.stdout.write('  '+pb.show()+'\r')
             sys.stdout.write('\n')
             sys.stdout.flush()
@@ -363,10 +306,21 @@ def main(args):
         ## Save to disk
         numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
                     avgPower=avgPower, dataRange=dataRange, adcHistogram=adcHistogram, ssmifContents=ssmifContents)
-        if config['verbose']:
+        if args.verbose:
             print "  Saved %.1f MB to '%s'" % (os.path.getsize(outfile)/1024.0**2, os.path.basename(outfile))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in binary TBF health check file and convert it into a .npz file compatible with smGUI.py', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to convert')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='remake the NPZ file, even if it exists')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false', 
+                        help='run %(prog)s in silent mode')
+    args = parser.parse_args()
+    main(args)
     
