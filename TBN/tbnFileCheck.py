@@ -4,9 +4,9 @@
 """
 Run through a TBN file and determine if it is bad or not.
 
-$Rev: 965 $
-$LastChangedBy: jdowell $
-$LastChangedDate: 2012-07-25 17:33:24 -0600 (Wed, 25 Jul 2012) $
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os
