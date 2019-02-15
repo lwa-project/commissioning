@@ -14,64 +14,12 @@ $LastChangedDate$
 import os
 import sys
 import copy
-import getopt
 import struct
+import argparse
 from collections import deque
 
 from lsl.reader.ldp import CORFile
 from lsl.reader import cor, errors, buffer
-
-
-def usage(exitCode=None):
-    print("""corMux.py - Given a COR files created by ADP, combine the files together into a 
-single file that can be used like a standard DR-recorded COR file
-
-Usage: corMux.py [OPTIONS] file file [file [...]]
-
-Options:
--h, --help                  Display this help information
--o, --output                Write the combined file to the provided filename
-                            (Default = auto-deterine the filename)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['output'] = None
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "ho:", ["help", "output="])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if len(config['args']) < 2:
-        raise RuntimeError("Must provide at least two files to combine")
-        
-    # Return configuration
-    return config
 
 
 class RawCORFrame(object):
@@ -223,10 +171,11 @@ class RawCORFrameBuffer(buffer.FrameBuffer):
 
 def main(args):
     # Parse the command line
-    config = parseOptions(args)
-    filenames = config['args']
+    filenames = args.filename
     filenames.sort()
-    
+    if len(filenames) < 2:
+        raise RuntimeError("Need at least two files to combine")
+        
     # Open them up and make sure we have a continuous range of frequencies
     idf = [CORFile(filename) for filename in filenames]
     chans = []
@@ -241,7 +190,7 @@ def main(args):
     buffer = RawCORFrameBuffer(chans=chans, ReorderFrames=False)
     
     # Setup the output filename
-    if config['output'] is None:
+    if args.output is None:
         names = [os.path.basename(filename) for filename in filenames]
         common = names[0][-1]
         
@@ -256,10 +205,10 @@ def main(args):
         common = common[1:]
         if common[0] == '_':
             common = common[1:]
-        config['output'] = common
+        args.output = common
         
-    print("Writing combined file to '%s'" % os.path.basename(config['output']))
-    oh = open(config['output'], 'wb')
+    print("Writing combined file to '%s'" % os.path.basename(args.output))
+    oh = open(args.output, 'wb')
     
     # Go!
     fh = [i.fh for i in idf]
@@ -297,5 +246,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='given a COR files created by ADP, combine the files together into a single file that can be used like a standard DR-recorded COR file', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to combine')
+    parser.add_argument('-o', '--output', type=str, 
+                        help='write the combined file to the provided filename, auto-determine if not provided')
+    args = parser.parse_args()
+    main(args)
     

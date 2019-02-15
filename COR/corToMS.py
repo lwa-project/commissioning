@@ -17,7 +17,7 @@ import aipy
 import time
 import ephem
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl.common import stations
@@ -28,84 +28,19 @@ from lsl.imaging import utils
 from lsl.correlator import uvUtils
 from lsl.sim import vis as simVis
 from lsl.writer import measurementset
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""cor2MS.py - Given a COR files created by ADP, convert the file into a CASA
-meaurement set.
-
-Usage: corToMS.py [OPTIONS] file [file [...]]
-
-Options:
--h, --help                  Display this help information
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--d, --duration              Number of seconds to write out data for (default = 0; 
-                            run the entire file)
--o, --output                Write the combined file to the provided filename
-                            (Default = auto-deterine the filename)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['duration'] = 0.0
-    config['output'] = None
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hs:d:o:", ["help", "skip=", "duration=", "output="])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-d', '--duration'):
-            config['duration'] = float(value)
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if len(config['args']) < 1:
-        raise RuntimeError("Must provide at least one file to convert")
-        
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse the command line
-    config = parseOptions(args)
-    filenames = config['args']
-    
     # Setup the site information
     station = stations.lwasv
     ants = station.getAntennas()
     nAnt = len([a for a in ants if a.pol == 0])
     
     phase_freq_range = [0, 0]
-    for filename in filenames:
+    for filename in arg.filename:
         # Open the file and get ready to go
         idf = CORFile(filename)
         nBL = idf.getInfo('nBaseline')
@@ -131,12 +66,12 @@ def main(args):
         print(" ")
         
         # Offset into the file
-        offset = idf.offset(config['offset'])
+        offset = idf.offset(args.skip)
         if offset != 0.0:
             print("Skipped %.3f s into the file" % offset)
             
         # Open the file and go
-        nFiles = int(config['duration'] /  tInt)
+        nFiles = int(args.duration /  tInt)
         if nFiles == 0:
             nFiles = numpy.inf
             
@@ -185,12 +120,12 @@ def main(args):
             except NameError:
                 blList = uvUtils.getBaselines(ants[0::2], IncludeAuto=True)
                 
-            if config['output'] is None:
+            if args.output is None:
                 outname = os.path.basename(filename)
                 outname = os.path.splitext(outname)[0]
                 outname = "%s_%i_%s.ms" % (outname, int(beginJD-astro.MJD_OFFSET), beginTime.strftime("%H_%M_%S"))
             else:
-                base, ext = os.path.splitext(config['output'])
+                base, ext = os.path.splitext(args.output)
                 if ext == '':
                     ext = '.ms'
                 outname = "%s_%i_%s%s" % (base, int(beginJD-astro.MJD_OFFSET), beginTime.strftime("%H_%M_%S"), ext)
@@ -213,5 +148,18 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='given a COR files created by ADP, convert the file into a CASA meaurement set', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to convert')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip the specified number of seconds at the beginning of the file')
+    parser.add_argument('-d', '--duration', type=aph.positive_or_zero_float, default=0.0, 
+                        help='number of seconds to write out data for')
+    parser.add_argument('-o', '--output', type=str, 
+                        help='write the combined file to the provided filename, auto-determine if not provided')
+    args = parser.parse_args()
+    main(args)
     
