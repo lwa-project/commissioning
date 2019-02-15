@@ -17,7 +17,7 @@ import sys
 import math
 import numpy
 import ephem
-import getopt
+import argparse
 
 from lsl.reader import tbn
 from lsl.reader import errors
@@ -25,75 +25,9 @@ from lsl.reader.buffer import TBNFrameBuffer
 from lsl.correlator import fx as fxc
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
-
-
-def usage(exitCode=None):
-    print """checkMissing.py - Read in a TBN file and find out what is missing or
-appears to be missing.
-
-Usage: checkMissing.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--v, --lwasv                 Use mapping from LWA-SV instead of LWA1
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--a, --average               Number of seconds of data to examine for frame loss
-                            (default = 10)
--q, --quiet                 Run checkMissing in silent mode
--o, --output                Output file name for diagnostic image
-"""
-
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['site'] = 'lwa1'
-    config['maxFrames'] = 200*520
-    config['offset'] = 0.0
-    config['average'] = 10.0
-    config['output'] = None
-    config['verbose'] = True
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hqvo:s:a:", ["help", "quiet", "lwasv", "output=", "skip=", "average="])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-v', '--lwasv'):
-            config['site'] = 'lwasv'
-            config['maxFrames'] = 200*512
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-a', '--average'):
-            config['average'] = float(value)
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
 
 
 def plotMissing(ax1, ax2, missingPackets, missingList, antpols):
@@ -108,36 +42,31 @@ def plotMissing(ax1, ax2, missingPackets, missingList, antpols):
 
 
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Set the station
-    if config['site'] == 'lwa1':
-        station = stations.lwa1
-    elif config['site'] == 'lwasv':
+    if args.lwasv:
         station = stations.lwasv
     else:
-        raise RuntimeError("Unknown site name: %s" % config['site'])
+        station = stations.lwa1
     antennas = station.getAntennas()
     
-    fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / tbn.FrameSize
+    fh = open(args.filename, "rb")
+    nFramesFile = os.path.getsize(args.filename) / tbn.FrameSize
     srate = tbn.getSampleRate(fh)
     #antpols = tbn.getFramesPerObs(fh)
     antpols = len(antennas)
 
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(config['offset'] * srate / 512 * antpols)
+    offset = int(args.skip * srate / 512 * antpols)
     offset = int(1.0 * offset / antpols) * antpols
-    config['offset'] = 1.0 * offset / antpols * 512 / srate
+    args.skip = 1.0 * offset / antpols * 512 / srate
     fh.seek(offset*tbn.FrameSize)
 
     # Number of frames to integrate over
-    nFrames = int(config['average'] * srate / 512 * antpols)
-    config['average'] = 1.0 * nFrames / antpols * 512 / srate
+    nFrames = int(args.average * srate / 512 * antpols)
+    args.average = 1.0 * nFrames / antpols * 512 / srate
 
     # Number of remaining chunks
-    nChunks = int(math.ceil(1.0*(nFrames)/config['maxFrames']))
+    nChunks = int(math.ceil(1.0*(nFrames)/(200*520)))
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
@@ -146,14 +75,14 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % config['args'][0]
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Ant/Pols: %i" % antpols
     print "Sample Rate: %i Hz" % srate
     print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
     print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-    print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (config['average'], nFrames, nFrames / antpols)
+    print "Offset: %.3f s (%i frames)" % (args.skip, offset)
+    print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (args.average, nFrames, nFrames / antpols)
     print "Chunks: %i" % nChunks
 
     # Sanity check
@@ -182,11 +111,11 @@ def main(args):
     k = 0
     for i in xrange(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
-        # than the maximum of frames we can work with at a time (config['maxFrames']),
+        # than the maximum of frames we can work with at a time ((200*520)),
         # only deal with that chunk
         framesRemaining = nFrames - k
-        if framesRemaining > config['maxFrames']:
-            framesWork = config['maxFrames']
+        if framesRemaining > (200*520):
+            framesWork = (200*520)
         else:
             framesWork = framesRemaining
         
@@ -303,4 +232,18 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in a TBN file and find out what is missing or appears to be missing', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    parser.add_argument('-v', '--lwasv', action='store_true', 
+                        help='use mapping from LWA-SV instead of LWA1')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip the specified number of seconds at the beginning of the file')
+    parser.add_argument('-a', '--average', type=aph.positive_float, default=10.0, 
+                        help='number of seconds of data to examine for frame loss')
+    args = parser.parse_args()
+    main(args)
+    
