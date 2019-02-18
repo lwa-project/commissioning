@@ -14,6 +14,7 @@ import sys
 import math
 import ephem
 import numpy
+import argparse
 
 from lsl.common import stations
 from lsl.reader import tbw, tbn
@@ -23,14 +24,12 @@ from lsl.astro import unix_to_utcjd, DJD_OFFSET
 import matplotlib.pyplot as plt
 
 def main(args):
-    filename = args[0]
-
     # Set the station
     station = stations.lwa1
     antennas = station.getAntennas()
 
-    fh = open(filename, "rb")
-    nFrames = os.path.getsize(filename) / tbw.FrameSize
+    fh = open(args.filename, "rb")
+    nFrames = os.path.getsize(args.filename) / tbw.FrameSize
     dataBits = tbw.getDataBits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -49,7 +48,7 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % filename
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Ant/Pols: %i" % antpols
     print "Sample Length: %i-bit" % dataBits
@@ -172,5 +171,12 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-
+    parser = argparse.ArgumentParser(
+        description='read in a TBW file and check the flow of time', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    args = parser.parse_args()
+    main(args)
+    

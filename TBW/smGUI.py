@@ -12,6 +12,7 @@ $LastChangedDate$
 import os
 import sys
 import numpy
+import argparse
 import tempfile
 
 from lsl.common import stations
@@ -2341,10 +2342,18 @@ def main(args):
     frame = MainWindow(None, -1, "Station Master GUI")
     if len(args) == 1:
         frame.data = TBW_GUI(frame)
-        frame.data.loadData(args[0])
+        frame.data.loadData(args.filename)
         frame.data.draw()
     app.MainLoop()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='display NPZ data from stationMaster in an interactive GUI sort of way', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to display')
+    args = parser.parse_args()
+    main(args)
+    

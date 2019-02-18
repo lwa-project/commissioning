@@ -18,7 +18,7 @@ import math
 import h5py
 import numpy
 import ephem
-import getopt
+import argparse
 
 from scipy.stats import scoreatpercentile as percentile
 
@@ -31,73 +31,9 @@ from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
 from lsl.statistics import kurtosis
 from lsl.common.paths import data as dataPath
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
-
-
-def usage(exitCode=None):
-    print """rfiCheck.py - Read in TBW files and create a collection of 
-RFI statistics.
-
-Usage: rfiCheck.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--m, --metadata              Name of SSMIF file to use for mappings
--l, --fft-length            Set FFT length (default = 4096)
-"""
-
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['SSMIF'] = ''
-    config['force'] = False
-    config['LFFT'] = 4096
-    config['maxFrames'] = 30000*260
-    config['applyGain'] = True
-    config['verbose'] = True
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hm:fqtbnl:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length="])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-m', '--metadata'):
-            config['SSMIF'] = value
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-t', '--bartlett'):
-            config['window'] = numpy.bartlett
-        elif opt in ('-b', '--blackman'):
-            config['window'] = numpy.blackman
-        elif opt in ('-n', '--hanning'):
-            config['window'] = numpy.hanning
-        elif opt in ('-l', '--fft-length'):
-            config['LFFT'] = int(value)
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
 
 
 def expandMask(mask, radius=2, merge=False):
@@ -131,9 +67,9 @@ def main(args):
     config = parseOptions(args)
     
     # Set the station
-    if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
-        ssmifContents = open(config['SSMIF']).readlines()
+    if args.metadata is not None:
+        station = stations.parseSSMIF(args.metadata)
+        ssmifContents = open(args.metadata).readlines()
     else:
         station = stations.lwa1
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
@@ -148,19 +84,19 @@ def main(args):
         print i, j, antennas[j].stand.id
 
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped
-    maxFrames = int(config['maxFrames']/float(LFFT))*LFFT
+    maxFrames = int((30000*260)/float(LFFT))*LFFT
     # It seems like that would be a good idea, however...  TBW data comes one
     # capture at a time so doing something like this actually truncates data 
     # from the last set of stands for the first integration.  So, we really 
     # should stick with
-    maxFrames = config['maxFrames']
+    maxFrames = (30000*260)
 
-    fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbw.FrameSize
+    fh = open(args.filename, "rb")
+    nFrames = os.path.getsize(args.filename) / tbw.FrameSize
     dataBits = tbw.getDataBits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -179,7 +115,7 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % config['args'][0]
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Ant/Pols: %i" % antpols
     print "Sample Length: %i-bit" % dataBits
@@ -271,11 +207,11 @@ def main(args):
                 tsPct[j,i] = percentile(numpy.abs(data[j,:]), p[i])
     
         # Frequency domain analysis - spectra
-        freq = numpy.fft.fftfreq(2*config['LFFT'], d=1.0/196e6)
-        freq = freq[:config['LFFT']]
+        freq = numpy.fft.fftfreq(2*args.fft_length, d=1.0/196e6)
+        freq = freq[:args.fft_length]
         
         delays = numpy.zeros((data.shape[0], freq.size))
-        signalsF, validF = FEngineR2(data, freq, delays, LFFT=config['LFFT'], Overlap=1, SampleRate=196e6, ClipLevel=0)
+        signalsF, validF = FEngineR2(data, freq, delays, LFFT=args.fft_length, Overlap=1, SampleRate=196e6, ClipLevel=0)
         
         # Cleanup to save memory
         del validF, data
@@ -304,11 +240,11 @@ def main(args):
         masterSpectra = numpy.ma.array(masterSpectra, mask=mask)
         
         # Save the data to an HDF5 file
-        outname = os.path.splitext(config['args'][0])[0]
+        outname = os.path.splitext(args.filename)[0]
         outname = "%s-RFI.hdf5" % outname
         
         f = h5py.File(outname, 'w')
-        f.attrs['filename'] = config['args'][0]
+        f.attrs['filename'] = args.filename
         f.attrs['mode'] = 'TBW'
         f.attrs['station'] = 'LWA-1'
         f.attrs['dataBits'] = dataBits
@@ -377,10 +313,19 @@ def main(args):
         ax2.legend(loc=0)
         
         plt.show()
-        
-        
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in TBW files and create a collection of RFI statistics', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to process')
+    parser.add_argument('-m', '--metadata', type=str, 
+                        help='name of the SSMIF or metadata tarball file to use for mappings')
+    parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=4096, 
+                        help='set FFT length')
+    args = parser.parse_args()
+    main(args)
     
