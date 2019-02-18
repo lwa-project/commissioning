@@ -242,7 +242,7 @@ if __name__ == "__main__":
                         help='use mapping from LWA-SV instead of LWA1')
     parser.add_argument('-s', '--skip', type=aph.positive_float, default=0.0, 
                         help='skip period in seconds between chunks')
-    parser.add_argument('-p', '--plot-range', type=aph.positive_float, default=0.0, 
+    parser.add_argument('-p', '--plot-range', type=aph.positive_float, default=0.01, 
                         help='number of seconds of data to show in the I/Q plots')
     parser.add_argument('-k', '--keep', type=aph.csv_int_list, default='all', 
                         help='only display the following comma-seperated list of stands')
@@ -253,6 +253,5 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', type=str, 
                         help='output file name for timeseries image')
     args = parser.parse_args()
-    print args
     main(args)
     
