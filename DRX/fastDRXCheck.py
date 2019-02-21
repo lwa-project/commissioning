@@ -15,78 +15,10 @@ import os
 import sys
 import math
 import time
-import getopt
+import argparse
 
 from lsl.reader import drx, errors
-
-
-def usage(exitCode=None):
-    print """fastDRXCheck.py - Read in a DRX file and identify byte ranges that are
-contiguous
-
-Usage: fastDRXCheck.py [OPTIONS] file
-
-Options:
--h, --help             Display this help information
--v, --verbose          Be verbose (default = no)
--l, --loose            Do not require exact time flow, good for LWA-SV files
--m, --min-frames       Minimum number of frames to consider (default = 4096)
--s, --split            Split out sections that are valid (default = no)
--k, --keep             When splitting, only work the N largest sections
-                       (default = all)
--b, --brief            Use "brief" filenames (default = long filenames that 
-                       contain the section bytes range)
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['verbose'] = False
-    config['strict'] = True
-    config['minFrames'] = 4096
-    config['split'] = False
-    config['keep'] = -1
-    config['brief'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hvlm:sk:b", ["help", "verbose", "loose", "min-frames=", "split", "keep=", "brief"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-v', '--verbose'):
-            config['verbose'] = True
-        elif opt in ('-l', '--loose'):
-            config['strict'] = False
-        elif opt in ('-m', '--min-frames'):
-            config['minFrames'] = int(value, 10)
-        elif opt in ('-s', '--split'):
-            config['split'] = True
-        elif opt in ('-k', '--keep'):
-            config['keep'] = int(value, 10)
-        elif opt in ('-b', '--brief'):
-            config['brief'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
+from lsl.misc import parser as aph
 
 
 def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose=True):
@@ -278,8 +210,7 @@ def getBestSize(value, powerOfTwo=True):
 
 def main(args):
     # Parse the command line
-    config = parseOptions(args)
-    filename = config['args'][0]
+    filename = args.filename
     
     # Determine how to print out what we find
     scale = math.log10(os.path.getsize(filename))
@@ -288,7 +219,7 @@ def main(args):
     
     # Figure out the parts
     fh = open(filename, 'rb')
-    parts = identify_section(fh, strict=config['strict'], min_frames=config['minFrames'], verbose=config['verbose'])
+    parts = identify_section(fh, strict=(not args.loose), min_frames=args.min_frames, verbose=args.verbose)
     if parts is None:
         print "No valid byte ranges found, exiting"
         sys.exit(1)
@@ -296,7 +227,7 @@ def main(args):
     # Fine tune the boundaries
     for p,part in enumerate(parts):
         start, stop = part
-        start = fine_tune_boundary_start(fh, start, verbose=config['verbose'])
+        start = fine_tune_boundary_start(fh, start, verbose=args.verbose)
         parts[p][0] = start
     
     # Report
@@ -313,16 +244,16 @@ def main(args):
         s,su = getBestSize(size, powerOfTwo=True)
         f,fu = getBestSize(frames, powerOfTwo=False)
         print fmt % (start, stop, s, su, f, fu)
-    print "-> %.1f%% contiguous in %i frame blocks" % (100.0*valid/os.path.getsize(filename), config['minFrames'])
+    print "-> %.1f%% contiguous in %i frame blocks" % (100.0*valid/os.path.getsize(filename), args.min_frames)
     
-    if config['split']:
+    if args.split:
         print " "
         
         rank.sort(reverse=True)
-        if config['keep'] >= 1:
-            rank = rank[:config['keep']]
+        if args.keep >= 1:
+            rank = rank[:args.keep]
             
-        if config['brief']:
+        if args.brief:
             scale = math.log10(len(parts))
             scale = int(math.ceil(scale))
             fmt = '{0:s}-S{3:0%id}' % scale
@@ -353,5 +284,24 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in a DRX file and identify byte ranges that are contiguous', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='SSMIF filename to use')
+    parser.add_argument('-v', '--verbose', action='store_true', 
+                        help='be verbose')
+    parser.add_argument('-l', '--loose', action='store_true', 
+                        help='do not require exact time flow, good for LWA-SV files')
+    parser.add_argument('-m', '--min-frames', type=aph.positive_int, default=4096, 
+                        help='minimum number of frames to consider')
+    parser.add_argument('-s', '--split', action='store_true', 
+                        help='split out sections that are valid')
+    parser.add_argument('-k', '--keep', type=int, default=-1, 
+                        help='when splitting, only work the N largest sections; -1 keeps all')
+    parser.add_argument('-b', '--brief', action='store_true', 
+                        help='use "brief" filenames that do not contain byte ranges')
+    args = parser.parse_args()
+    main(args)
     

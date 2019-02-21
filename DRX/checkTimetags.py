@@ -15,20 +15,19 @@ import os
 import sys
 import ephem
 import gc
+import argparse
 
 from lsl import astro
 from lsl.reader import drx
 from lsl.reader import errors
 from lsl.common.dp import fS
+from lsl.misc import parser as aph
+
 
 def main(args):
-    if args[0] == '-s':
-        skip = float(args[1])
-        fh = open(args[2], "rb")
-    else:
-        skip = 0
-        fh = open(args[0], "rb")
-
+    skip = args.skip
+    fh = open(args.filename, "rb")
+    
     # Get the first frame and find out what the firt time tag is, which the
     # first frame number is, and what the sample rate it.  From the sample 
     # rate, estimate how the time tag should advance between frames.
@@ -52,7 +51,7 @@ def main(args):
     fh.seek(int(skip*sampleRate/4096)*4*drx.FrameSize)
 
     # Report on the file
-    print "Filename: %s" % os.path.basename(args[0])
+    print "Filename: %s" % os.path.basename(args.filename)
     print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
     print "Sample rate: %i Hz" % sampleRate
     print "Time tag skip per frame: %i" % tagSkip
@@ -125,4 +124,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in a DRX file and check the flow of time', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    parser.add_argument('-s', '--skip', type=aph.positive_float, default=0.0, 
+                        help='skip period in seconds between chunks')
+    args = parser.parse_args()
+    main(args)
+    
