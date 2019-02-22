@@ -20,72 +20,14 @@ import os
 import sys
 import h5py
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 
-def usage(exitCode=None):
-    print """splitObservations.py - Read in DRX/HDF5 waterfall file split out various 
-observations.
-
-Usage: splitObservations.py [OPTIONS] file
-
-Options:
--h, --help                Display this help information
--l, --list                List source names
--s, --source              Split by source name instead of observation 
-                        ID
--f, --force               Force overwritting of existing HDF5 files
-"""
-
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['list'] = False
-    config['source'] = False
-    config['force'] = False
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hlsf", ["help", "list", "source", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-l', '--list'):
-            config['list'] = True
-        elif opt in ('-s', '--source'):
-            config['source'] = True
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
 def main(args):
-    config = parseOptions(args)
+    h = h5py.File(args.filename, 'r')
     
-    filename = config['args'][0]
-    h = h5py.File(filename, 'r')
-    
-    if config['list']:
+    if args.list:
         for obsName in h.keys():
             obs = h.get(obsName, None)
             
@@ -104,7 +46,7 @@ def main(args):
             print "  tInt: %.3f s" % tInt
             
     else:
-        if config['source']:
+        if args.source:
             # Create a list of sources and which observation ID they correspond to
             sources = {}
             for obsName in h.keys():
@@ -118,12 +60,12 @@ def main(args):
                     
             # Loop over those sources and create a new HDF5 file for each
             for source,obsIDs in sources.iteritems():
-                outname = os.path.split(filename)[1]
+                outname = os.path.split(args.filename)[1]
                 outname = os.path.splitext(outname)[0]
                 outname = "%s-%s.hdf5" % (outname, source.replace(' ', '').replace('/','').replace('&','and'))
                 
                 if os.path.exists(outname):
-                    if not config['force']:
+                    if not args.force:
                         yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
                     else:
                         yn = 'y'
@@ -147,12 +89,12 @@ def main(args):
             for obsName in h.keys():
                 obsID = int(obsName.replace('Observation', ''))
                 
-                outname = os.path.split(filename)[1]
+                outname = os.path.split(args.filename)[1]
                 outname = os.path.splitext(outname)[0]
                 outname = "%s-%i.hdf5" % (outname, obsID)
                 
                 if os.path.exists(outname):
-                    if not config['force']:
+                    if not args.force:
                         yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
                     else:
                         yn = 'y'
@@ -174,5 +116,18 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in DRX/HDF5 waterfall file split out various observations', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to decimate')
+    parser.add_argument('-l', '--list', action='store_true', 
+                        help='list source names')
+    parser.add_argument('-s', '--source', action='store_true', 
+                        help='split by source name instead of observation ID')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwritting of existing HDF5 files')
+    args = parser.parse_args()
+    main(args)
     

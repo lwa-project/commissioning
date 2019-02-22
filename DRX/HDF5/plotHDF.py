@@ -16,7 +16,7 @@ import math
 import time
 import numpy
 import ephem
-import getopt
+import argparse
 import subprocess
 from datetime import datetime
 from multiprocessing import Pool
@@ -30,6 +30,7 @@ from lsl.reader.drx import filterCodes
 from lsl.misc.mathutil import to_dB, from_dB, savitzky_golay
 from lsl.statistics import robust
 from lsl.statistics.kurtosis import spectralPower, std as skStd
+from lsl.misc import parser as aph
 
 import wx
 import wx.html
@@ -97,9 +98,9 @@ Note:  The "ASP_Filter" attribute of the HDF5 file will override the
 def parseOptions(args):
     config = {}
     # Command line flags - default values
-    config['offset'] = 0.0
-    config['duration'] = -1.0
-    config['obsID'] = 1
+    args.skip = 0.0
+    args.duration = -1.0
+    args.observation = 1
     config['bandpassType'] = 'data'
     config['arxFilter'] = 'split'
     config['args'] = []
@@ -117,11 +118,11 @@ def parseOptions(args):
         if opt in ('-h', '--help'):
             usage(exitCode=0)
         elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
+            args.skip = float(value)
         elif opt in ('-d', '--duration'):
-            config['duration'] = float(value)
+            args.duration = float(value)
         elif opt in ('-o', '--observation'):
-            config['obsID'] = int(value)
+            args.observation = int(value)
         elif opt in ('-i', '--instrumental'):
             config['bandpassType'] = 'instrumental'
         elif opt in ('-f', '--full'):
@@ -3922,7 +3923,14 @@ def main(args):
     numpy.seterr(invalid='ignore', divide='ignore')
     
     # Parse the command line options
-    config = parseOptions(args)
+    bandpassType = 'data'
+    if args.instrumental:
+        bandpassType = 'instrumental'
+    arxFilter = 'split'
+    if args.full:
+        arxFilter = 'full'
+    elif args.reduced:
+        arxFilter = 'reduced'
     
     # Check for the _helper module
     try:
@@ -3933,14 +3941,14 @@ def main(args):
     # Go!
     app = wx.App(0)
     frame = MainWindow(None, -1)
-    frame.offset = config['offset']
-    frame.duration = config['duration']
-    frame.data = Waterfall_GUI(frame, bandpassType=config['bandpassType'], arxFilter=config['arxFilter'])
+    frame.offset = args.skip
+    frame.duration = args.duration
+    frame.data = Waterfall_GUI(frame, bandpassType=bandpassType, arxFilter=arxFilter)
     frame.render()
-    if len(config['args']) == 1:
+    if args.filename is not None:
         ## If there is a filename on the command line, load it
-        frame.filename = config['args'][0]
-        frame.data.loadData(config['args'][0], obsID=config['obsID'])
+        frame.filename = args.filename
+        frame.data.loadData(args.filename, obsID=args.observation)
         frame.data.render()
         frame.data.draw()
         
@@ -3980,4 +3988,28 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in a HDF5 waterfall file and plot it interactively', 
+        epilog='NOTE:  The bandpass provides by the -i/--instrumental flag is based on the current "best knowledge" of LWA1 but may not remove all bandpass-related features in the data.', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='?', 
+                        help='filename to display')
+    parser.add_argument('-s', '--skip', type=aph.positive_float, default=0.0, 
+                        help='skip period in seconds between chunks')
+    parser.add_argument('-d', '--duration', type=float, default=-1.0, 
+                        help='number of seconds to display')
+    parser.add_argument('-o', '--observation', type=aph.positive_int, default=1, 
+                        help='plot the specified observation')
+    parser.add_argument('-i', '--instrumental', action='store_true', 
+                        help='use an instrument-based bandpass composed of the antenna impedance mis-match, the ARX response, and the DRX filter coefficients')
+    fgroup = parser.add_mutually_exclusive_group(required=False)
+    fgroup.add_argument('-n', '--split', action='store_true', default=True, 
+                        help='take ARX to be in the full bandwidth setting for the instrument-based bandpass')
+    fgroup.add_argument('-f', '--full', action='store_true', 
+                        help='take ARX to be in the full bandwidth setting for the instrument-based bandpass')
+    fgroup.add_argument('-r', '--reduced', action='store_true', 
+                        help='take ARX to be in the reduced bandwidth setting for the instrument-based bandpass')
+    args = parser.parse_args()
+    main(args)
+    

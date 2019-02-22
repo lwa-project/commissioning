@@ -14,12 +14,13 @@ import os
 import sys
 import h5py
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl.reader import drx, drspec, errors
 from lsl.common import progress
 from lsl.common import mcs, sdf, metabundle
+from lsl.misc import parser as aph
 try:
     from lsl.common import sdfADP, metabundleADP
     adpReady = True
@@ -29,101 +30,28 @@ except ImportError:
 import data as hdfData
 
 
-def usage(exitCode=None):
-    print """drspec2hdf.py - Convert a DR spectrometer file to a HDF5 similar to what
-hdfWaterfall.py generates.
-
-Usage: drspec2hdf.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--s, --skip                  Skip foward the specified number of seconds into the file
--m, --metadata              Metadata tarball for additional information
--d, --sdf                   SDF for additional information
--1, --lwa1                  Data is from LWA-1 (needed for -d/--sdf or when no metadata 
-                            is provided)
--v, --lwasv                 Data is from LWA-SV (needed for -d/--sdf or when no metadata 
-                            is provided)
--f, --force                 Force overwritting of existing HDF5 files
-
-Note:  Both the -m/--metadata and -d/--sdf options provide the same additional
-    observation information to drspec2hdf.py so only one needs to be provided.
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['metadata'] = None
-    config['sdf'] = None
-    config['site'] = None
-    config['force'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hs:m:d:1vf", ["help", "skip=", "metadata=", "sdf=", "lwa1", "lwasv", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-m', '--metadata'):
-            config['metadata'] = value
-        elif opt in ('-d', '--sdf'):
-            config['sdf'] = value
-        elif opt in ('-1', '--lwa1'):
-            config['site'] = 'lwa1'
-        elif opt in ('-v', '--lwasv'):
-            config['site'] = 'lwasv'
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-            
-    # Make sure we aren't offsetting when we have metadata
-    if config['metadata'] is not None or config['sdf'] is not None:
-        config['offset'] = 0.0
-        
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
-
-
 def main(args):
-    config = parseOptions(args)
-
+    # Set the site
+    site = None
+    if args.lwa1:
+        site = 'lwa1'
+    elif args.lwasv:
+        site = 'lwasv'
+        
     # Open the file and file good data (not raw DRX data)
-    filename = config['args'][0]
-    fh = open(filename, 'rb')
+    fh = open(args.filename, 'rb')
 
     try:
         for i in xrange(5):
             junkFrame = drx.readFrame(fh)
-        raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % filename)
+        raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % args.filename)
     except errors.syncError:
         fh.seek(0)
         
     # Interrogate the file to figure out what frames sizes to expect, now many 
     # frames there are, and what the transform length is
     FrameSize = drspec.getFrameSize(fh)
-    nFrames = os.path.getsize(filename) / FrameSize
+    nFrames = os.path.getsize(args.filename) / FrameSize
     nChunks = nFrames
     LFFT = drspec.getTransformSize(fh)
 
@@ -135,7 +63,7 @@ def main(args):
     tInt = junkFrame.header.nInts*LFFT/srate
     
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(round(config['offset'] / tInt))
+    offset = int(round(args.skip / tInt))
     fh.seek(offset*FrameSize, 1)
     
     # Iterate on the offsets until we reach the right point in the file.  This
@@ -151,7 +79,7 @@ def main(args):
         fh.seek(-FrameSize, 1)
         
         ## See how far off the current frame is from the target
-        tDiff = t1 - (t0 + config['offset'])
+        tDiff = t1 - (t0 + args.skip)
         
         ## Half that to come up with a new seek parameter
         tCorr = -tDiff / 2.0
@@ -165,8 +93,8 @@ def main(args):
         fh.seek(cOffset*FrameSize, 1)
         
     # Update the offset actually used
-    config['offset'] = t1 - t0
-    nChunks = (os.path.getsize(filename) - fh.tell()) / FrameSize
+    args.skip = t1 - t0
+    nChunks = (os.path.getsize(args.filename) - fh.tell()) / FrameSize
     
     # Update the file contents
     beam = junkFrame.parseID()
@@ -179,11 +107,11 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
         
     # Report
-    print "Filename: %s" % filename
-    if config['metadata'] is not None:
-        print "Metadata: %s" % config['metadata']
-    elif config['sdf'] is not None:
-        print "SDF: %s" % config['sdf']
+    print "Filename: %s" % args.filename
+    if args.metadata is not None:
+        print "Metadata: %s" % args.metadata
+    elif args.sdf is not None:
+        print "SDF: %s" % args.sdf
     print "Date of First Frame: %s" % beginDate
     print "Beam: %i" % beam
     print "Sample Rate: %i Hz" % srate
@@ -191,17 +119,17 @@ def main(args):
     print "Data Products: %s" % ','.join(dataProducts)
     print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
     print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
+    print "Offset: %.3f s (%i frames)" % (args.skip, offset)
     print "Transform Length: %i" % LFFT
     print "Integration: %.3f s" % tInt
     
     # Setup the output file
-    outname = os.path.split(filename)[1]
+    outname = os.path.split(args.filename)[1]
     outname = os.path.splitext(outname)[0]
     outname = '%s-waterfall.hdf5' % outname
     
     if os.path.exists(outname):
-        if not config['force']:
+        if not args.force:
             yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
@@ -213,12 +141,12 @@ def main(args):
             
     f = hdfData.createNewFile(outname)
     obsList = {}
-    if config['metadata'] is not None:
+    if args.metadata is not None:
         try:
-            project = metabundle.getSessionDefinition(config['metadata'])
+            project = metabundle.getSessionDefinition(args.metadata)
         except Exception as e:
             if adpReady:
-                project = metabundleADP.getSessionDefinition(config['metadata'])
+                project = metabundleADP.getSessionDefinition(args.metadata)
             else:
                 raise e
                 
@@ -234,14 +162,14 @@ def main(args):
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
             
-        hdfData.fillFromMetabundle(f, config['metadata'])
+        hdfData.fillFromMetabundle(f, args.metadata)
         
-    elif config['sdf'] is not None:
+    elif args.sdf is not None:
         try:
-            project = sdf.parseSDF(config['sdf'])
+            project = sdf.parseSDF(args.sdf)
         except Exception as e:
             if adpReady:
-                project = sdfADP.parseSDF(config['sdf'])
+                project = sdfADP.parseSDF(args.sdf)
             else:
                 raise e
                 
@@ -257,12 +185,12 @@ def main(args):
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
             
-        hdfData.fillFromSDF(f, config['sdf'], station=config['site'])
+        hdfData.fillFromSDF(f, args.sdf, station=site)
         
     else:
         obsList[1] = (beginDate, datetime(2222,12,31,23,59,59), nChunks)
         
-        hdfData.fillMinimum(f, 1, beam, srate, station=config['site'])
+        hdfData.fillMinimum(f, 1, beam, srate, station=site)
         
     dataProducts = junkFrame.getDataProducts()
     for o in sorted(obsList.keys()):
@@ -270,7 +198,7 @@ def main(args):
             hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float32), obsList[o][2], dataProducts)
             
     f.attrs['FileGenerator'] = 'drspec2hdf.py'
-    f.attrs['InputData'] = os.path.basename(filename)
+    f.attrs['InputData'] = os.path.basename(args.filename)
     
     # Create the various HDF group holders
     ds = {}
@@ -383,5 +311,26 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='convert a DR spectrometer file to a HDF5 similar to what hdfWaterfall.py generates', 
+        epilog='NOTE:  Both the -m/--metadata and -d/--sdf options provide the same additional observation information to drspec2hdf.py so only one needs to be provided.', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to convert')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip foward the specified number of seconds into the file')
+    parser.add_argument('-m', '--metadata', type=str, 
+                        help='metadata tarball for additional information')
+    parser.add_argument('-d', '--sdf', type=str, 
+                        help='SDF for additional information')
+    sgroup = parser.add_mutually_exclusive_group(required=False)
+    sgroup.add_argument('-1', '--lwa1', action='store_true', default=True, 
+                        help='data is from LWA1; needed for -d/--sdf or when no metadata is provided')
+    sgroup.add_argument('-v', '--lwasv', action='store_true', 
+                        help='data is from LWA-SV; needed for -d/--sdf or when no metadata is provided')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwritting of existing HDF5 files')
+    args = parser.parse_args()
+    main(args)
     

@@ -23,96 +23,16 @@ import os
 import sys
 import h5py
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl.statistics import robust, kurtosis
-
-
-def usage(exitCode=None):
-    print """calculateSK.py - Read in DRX/HDF5 waterfall file and calculate the pseudo-
-spectral kurtosis (pSK).
-
-Usage: calculateSK.py [OPTIONS] file
-
-Options:
--h, --help                Display this help information
--d, --duration            pSK update interval (default = 10s)
--n, --no-update           Do not add the pSK information to the HDF5 file
--g, --generate-mask       Added the pSK information to the file as a mask rather
-                        than pSK values.  The masking parameters are 
-                        controlled by the -t/--threshold, -f/--fill, and 
-                        -m/--merge flags.
--t, --threshold           Masking threshold, in sigma, if the -g/--generate-mask 
-                        flag is set (default = 4.0)
--f, --fill                Fill in the secondary polarizations (XY, YX; Q, U, V; 
-                        RL, LR) using the mask from the primaries (XX, YY; I; 
-                        RR, LL) (default = no)
--m, --merge               Merge the new mask table with the existing one, if it
-                        exists (default = replace)
-                        
-Note: The -g/--generate-mask flag overrides the -n/--no-update flag.
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['duration'] = 10.0
-    config['update'] = True
-    config['mask'] = False
-    config['threshold'] = 4.0
-    config['fill'] = False
-    config['merge'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hd:ngt:fm", ["help", "duration=", "no-update", "generate-mask", "threshold=", "fill", "merge"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-d', '--duration'):
-            config['duration'] = float(value)
-        elif opt in ('-n', '--no-update'):
-            config['update'] = False
-        elif opt in ('-g', '--generate-mask'):
-            config['update'] = True
-            config['mask'] = True
-        elif opt in ('-t', '--threshold'):
-            config['threshold'] = float(value)
-        elif opt in ('-f', '--fill'):
-            config['fill'] = True
-        elif opt in ('-m', '--merge'):
-            config['merge'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
+from lsl.misc import parser as aph
 
 
 def main(args):
-    config = parseOptions(args)
-    
-    filename = config['args'][0]
-    
     # Open the file and loop over the observation sections
-    h = h5py.File(filename, mode='a' if config['update'] else 'r')
+    h = h5py.File(args.filename, mode='a' if (not args.no_update) else 'r')
     for obsName in h.keys():
         obs = h.get(obsName, None)
         
@@ -122,7 +42,7 @@ def main(args):
         srate = obs.attrs['sampleRate']
         
         skN = int(tInt*srate / LFFT)
-        chunkSize = int(round(config['duration']/tInt))
+        chunkSize = int(round(args.duration/tInt))
         
         print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
         print "  Sample Rate: %.1f Hz" % srate
@@ -180,12 +100,12 @@ def main(args):
                 print "     %s-%i SK Std. Dev.: %.3f" % (dp, t+1, numpy.std(sk))
                 
                 # Save the pSK information to the HDF5 file if we need to
-                if config['update']:
+                if (not args.no_update):
                     h.attrs['FileLastUpdated'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
                     
-                    if config['mask']:
+                    if args.generate_mask:
                         ## Calculate the expected pSK limits for the threshold
-                        kLow, kHigh = kurtosis.getLimits(config['threshold'], chunkSize, N=skN*nAdjust[dp])
+                        kLow, kHigh = kurtosis.getLimits(args.threshold, chunkSize, N=skN*nAdjust[dp])
                         
                         ## Generate the mask arrays
                         maskTable = numpy.where( (sk < kLow) | (sk > kHigh), True, False )
@@ -200,7 +120,7 @@ def main(args):
                             for p in dataProducts:
                                 mask.create_dataset(p, tuning[p].shape, 'bool')
                         maskDP = mask.get(dp, None)
-                        if config['merge']:
+                        if args.merge:
                             maskDP[:,:] |= maskTable.astype(numpy.bool)
                         else:
                             maskDP[:,:] = maskTable.astype(numpy.bool)
@@ -217,7 +137,7 @@ def main(args):
                         sks.attrs['N'] = skN*nAdjust[dp]
                         sks.attrs['M'] = chunkSize
                         
-        if config['mask'] and config['fill']:	
+        if args.generate_mask and args.fill:	
             # Loop over data products - secondary
             for dp in dataProducts:
                 for t,tuning in enumerate((tuning1, tuning2)):
@@ -232,7 +152,7 @@ def main(args):
                         mask = tuning.get('Mask', None)
                         maskDP = mask.get(dp, None)
                         maskBase = mask.get('I', None)
-                        if config['merge']:
+                        if args.merge:
                             maskDP[:,:] |= maskBase[:,:]
                         else:
                             maskDP[:,:] = maskBase[:,:]
@@ -245,7 +165,7 @@ def main(args):
                         maskDP = mask.get(dp, None)
                         maskBase1 = mask.get('XX', None)
                         maskBase2 = mask.get('YY', None)
-                        if config['merge']:
+                        if args.merge:
                             maskDP[:,:] |= (maskBase1[:,:] | maskBase2[:,:])
                         else:
                             maskDP[:,:] = (maskBase1[:,:] | maskBase2[:,:])
@@ -258,7 +178,7 @@ def main(args):
                         maskDP = mask.get(dp, None)
                         maskBase1 = mask.get('RR', None)
                         maskBase2 = mask.get('LL', None)
-                        if config['merge']:
+                        if args.merge:
                             maskDP[:,:] |= (maskBase1[:,:] | maskBase2[:,:])
                         else:
                             maskDP[:,:] = (maskBase1[:,:] | maskBase2[:,:])
@@ -268,5 +188,25 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in DRX/HDF5 waterfall file and calculate the pseudo-spectral kurtosis (pSK)', 
+        epilog='NOTE:  The -g/--generate-mask flag overrides the -n/--no-update flag.', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to process')
+    parser.add_argument('-d', '--duration', type=aph.positive_float, default=10.0, 
+                        help='pSK update interval in seconds')
+    parser.add_argument('-n', '--no-update', action='store_true', 
+                        help='do not add the pSK information to the HDF5 file')
+    parser.add_argument('-g', '--generate-mask', action='store_true', 
+                        help='add pSK information to the file as a mask rather than pSK values')
+    parser.add_argument('-t', '--threshold', type=aph.positive_float, default=4.0, 
+                        help='masking threshold, in sigma, if the -g/--generate-mask flag is set')
+    parser.add_argument('-f', '--fill', action='store_true', 
+                        help='fill in the secondary polarizations, i.e., XY, YX; Q, U, V; RL, LR, using the mask from the primaries: XX, YY; I; RR, LL')
+    parser.add_argument('-m', '--merge', action='store_true', 
+                        help='merge the new mask table with the existing one, if it exists')
+    args = parser.parse_args()
+    main(args)
     

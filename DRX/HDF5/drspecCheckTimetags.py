@@ -13,31 +13,28 @@ import os
 import sys
 import numpy
 import gc
+import argparse
 from datetime import datetime
 
 from lsl.reader import drx, drspec, errors
+from lsl.misc import parser as aph
 
 
 def main(args):
-    if args[0] == '-s':
-        skip = float(args[1])
-        filename = args[2]
-    else:
-        skip = 0
-        filename = args[0]
-    fh = open(filename, "rb")
+    skip = args.skip
+    fh = open(args.filename, "rb")
         
     try:
         for i in xrange(5):
             junkFrame = drx.readFrame(fh)
-        raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % filename)
+        raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % args.filename)
     except errors.syncError:
         fh.seek(0)
         
     # Interrogate the file to figure out what frames sizes to expect, now many 
     # frames there are, and what the transform length is
     FrameSize = drspec.getFrameSize(fh)
-    nFrames = os.path.getsize(filename) / FrameSize
+    nFrames = os.path.getsize(args.filename) / FrameSize
     nChunks = nFrames
     LFFT = drspec.getTransformSize(fh)
 
@@ -80,7 +77,7 @@ def main(args):
         
     # Update the offset actually used
     skip = t1 - t0
-    nChunks = (os.path.getsize(filename) - fh.tell()) / FrameSize
+    nChunks = (os.path.getsize(args.filename) - fh.tell()) / FrameSize
     
     # Update the file contents
     beam = junkFrame.parseID()
@@ -93,7 +90,7 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
         
     # Report
-    print "Filename: %s" % filename
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % beginDate
     print "Beam: %i" % beam
     print "Sample Rate: %i Hz" % srate
@@ -140,5 +137,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in a DR spectrometer file and check the flow of time', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip period in seconds between chunks')
+    args = parser.parse_args()
+    main(args)
     

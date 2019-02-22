@@ -15,92 +15,32 @@ import sys
 import h5py
 import time
 import numpy
-import getopt
 import shutil
+import argparse
 from datetime import datetime
 
 from lsl.misc.dedispersion import delay, incoherent
-
-
-def usage(exitCode=None):
-    print """dedisperseHDF.py - Read in DRX/HDF5 waterfall file and apply incoherent 
-dedispersion to the data.
-
-Usage: dedisperseHDF.py [OPTIONS] DM file
-
-Options:
--h, --help                Display this help information
--c, --correct-time        Correct the timestamps relative to the infinite 
-                        frequency case (default = no)
--f, --force               Force overwritting of existing HDF5 files
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['correctTime'] = False
-    config['force'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hcf", ["help", "correct-time", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-c', '--correct-time'):
-            config['correctTime'] = True
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if len(config['args']) != 2:
-        raise RuntimeError("Must specify both a DM in pc/cm^3 and a HDF5 file to process")
-        
-    # Return configuration
-    return config
+from lsl.misc import parser as aph
 
 
 def main(args):
-    config = parseOptions(args)
-    
-    dm = float(config['args'][0])
-    filename = config['args'][1]
-    
     # Ready the outut filename
-    outname = os.path.basename(filename)
+    outname = os.path.basename(args.filename)
     outname = os.path.splitext(outname)[0]
-    outname = "%s-DM%.4f.hdf5" % (outname, dm)
+    outname = "%s-DM%.4f.hdf5" % (outname, args.DM)
     
     if os.path.exists(outname):
-        if not config['force']:
+        if not args.force:
             yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             
         if yn not in ('n', 'N'):
-            shutil.copy(filename, outname)
+            shutil.copy(args.filename, outname)
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
     else:
-        shutil.copy(filename, outname)
+        shutil.copy(args.filename, outname)
         
     # Open the file and loop over the observation sections
     h = h5py.File(outname, mode='a')
@@ -116,7 +56,7 @@ def main(args):
         print "  Sample Rate: %.1f Hz" % srate
         print "  LFFT: %i" % LFFT
         print "  tInt: %.3f s" % tInt
-        print "  DM: %.3f pc/cm^3" % dm
+        print "  DM: %.3f pc/cm^3" % args.DM
         
         time = obs.get('time', None)[:]
         tuning1 = obs.get('Tuning1', None)
@@ -133,9 +73,9 @@ def main(args):
         baseSK2 = tuning2.get('SpectralKurtosis', None)
         
         # Update the time
-        if config['correctTime']:
+        if args.correct_time:
             maxFreq = max( [max(freq1), max(freq2)] )
-            infDelay = delay(numpy.array([maxFreq, numpy.inf]), dm)
+            infDelay = delay(numpy.array([maxFreq, numpy.inf]), args.DM)
             print "  Infinite Time Delay: %.3f s" % max(infDelay)
             
             time = time - max(infDelay)
@@ -182,23 +122,23 @@ def main(args):
                 
             ## Dedisperse
             try:
-                dataCD = incoherent(freqC, dataC, tInt, dm, boundary='fill', fill_value=numpy.nan)
+                dataCD = incoherent(freqC, dataC, tInt, args.DM, boundary='fill', fill_value=numpy.nan)
             except TypeError:
-                dataCD = incoherent(freqC, dataC, tInt, dm)
+                dataCD = incoherent(freqC, dataC, tInt, args.DM)
                 
             if mask1 is not None:
                 try:
-                    maskCD = incoherent(freqC, maskC, tInt, dm, boundary='fill', fill_value=numpy.nan)
+                    maskCD = incoherent(freqC, maskC, tInt, args.DM, boundary='fill', fill_value=numpy.nan)
                 except TypeError:
-                    maskCD = incoherent(freqC, maskC, tInt, dm)
+                    maskCD = incoherent(freqC, maskC, tInt, args.DM)
                     
                 maskCD[numpy.where( ~numpy.isfinite(dataCD) )] = True
                 maskCD = maskCD.astype(mask1.dtype)
             if sk1 is not None:
                 try:
-                    skCD = incoherent(freqC, skC, tInt, dm, boundary='fill', fill_value=numpy.nan)
+                    skCD = incoherent(freqC, skC, tInt, args.DM, boundary='fill', fill_value=numpy.nan)
                 except TypeError:
-                    skCD = incoherent(freqC, skC, tInt, dm)
+                    skCD = incoherent(freqC, skC, tInt, args.DM)
                     
                 skCD[numpy.where( ~numpy.isfinite(dataCD) )] = 0.0
                 skCD = skCD.astype(sk1.dtype)
@@ -218,5 +158,18 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in DRX/HDF5 waterfall file and apply incoherent dedispersion to the data', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('DM', type=aph.positive_float, 
+                        help='dispersion measure in pc/cm^3')
+    parser.add_argument('filename', type=str, 
+                        help='filename to dedisperse')
+    parser.add_argument('-c', '--correct-time', action='store_true', 
+                        help='correct the timestamps relative to the infinite frequency case')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwritting of existing HDF5 files')
+    args = parser.parse_args()
+    main(args)
     

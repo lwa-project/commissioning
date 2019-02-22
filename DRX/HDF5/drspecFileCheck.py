@@ -13,81 +13,28 @@ import os
 import sys
 import ephem
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl import astro
 from lsl.reader import drx, drspec, errors
-
-
-def usage(exitCode=None):
-    print """drspecFileCheck.py - Run through a DR spectrometer file and determine if it is bad or not.
-
-Usage: drspecFileCheck.py [OPTIONS] filename
-
-Options:
--h, --help         Display this help information
--l, --length       Length of time in seconds to analyze (default 1 s)
--s, --skip         Skip period in seconds between chunks (default 900 s)
--t, --trim-level   Trim level for power analysis with clipping (default 49)
-"""
-
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return None
-
-
-def parseOptions(args):
-    config = {}
-    config['length'] = 1.0
-    config['skip'] = 900.0
-    config['trim'] = 49
-    
-    try:
-        opts, args = getopt.getopt(args, "hl:s:t:", ["help", "length=", "skip=", "trim-level="])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-l', '--length'):
-            config['length'] = float(value)
-        elif opt in ('-s', '--skip'):
-            config['skip'] = float(value)
-        elif opt in ('-t', '--trim-level'):
-            config['trim'] = int(value)
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return
-    return config
+from lsl.misc import parser as aph
 
 
 def main(args):
-    config = parseOptions(args)
-    filename = config['args'][0]
-    
-    fh = open(filename, "rb")
+    fh = open(args.filename, "rb")
     
     try:
         for i in xrange(5):
             junkFrame = drx.readFrame(fh)
-        raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % filename)
+        raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % args.filename)
     except errors.syncError:
         fh.seek(0)
         
     # Interrogate the file to figure out what frames sizes to expect, now many 
     # frames there are, and what the transform length is
     FrameSize = drspec.getFrameSize(fh)
-    nFrames = os.path.getsize(filename) / FrameSize
+    nFrames = os.path.getsize(args.filename) / FrameSize
     nChunks = nFrames
     LFFT = drspec.getTransformSize(fh)
     
@@ -109,7 +56,7 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
         
     # Report
-    print "Filename: %s" % filename
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % beginDate
     print "Beam: %i" % beam
     print "Sample Rate: %i Hz" % srate
@@ -121,10 +68,10 @@ def main(args):
     print "Integration: %.3f s" % tInt
     
     # Convert chunk length to total frame count
-    chunkLength = int(config['length'] / tInt)
+    chunkLength = int(args.length / tInt)
     
     # Convert chunk skip to total frame count
-    chunkSkip = int(config['skip'] / tInt)
+    chunkSkip = int(args.skip / tInt)
     
     # Output arrays
     clipFraction = []
@@ -198,5 +145,18 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='Run through a DR spectrometer file and determine if it is bad or not.', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    parser.add_argument('-l', '--length', type=aph.positive_float, default=1.0, 
+                        help='length of time in seconds to analyze')
+    parser.add_argument('-s', '--skip', type=aph.positive_float, default=900.0, 
+                        help='skip period in seconds between chunks')
+    parser.add_argument('-t', '--trim-level', type=aph.positive_float, default=49, 
+                        help='trim level for power analysis with clipping')
+    args = parser.parse_args()
+    main(args)
     

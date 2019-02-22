@@ -15,71 +15,9 @@ import os
 import sys
 import h5py
 import numpy
-import getopt
+import argparse
 
-
-def usage(exitCode=None):
-    print """decimateHDF.py - Read in DRX/HDF5 waterfall file and decimate the file as 
-requested
-
-Usage: decimateHDF.py [OPTIONS] timeDecim file
-
-Options:
--h, --help                Display this help information
--s, --spec-decimation     Apply a decimation to the spectral dimension
--f, --force               Force overwritting of existing HDF5 files
-
-Note:  This scripts decimates even if the number of times steps or frquency
-    channels is not an intger multiple of the decimation factor.  This
-    can lead to data loss at the end of observations and at the higher
-    channel numbers.
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['sDecimation'] = 1
-    config['force'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hs:f", ["help", "spec-decimation=", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-s', '--spec-decimation'):
-            config['sDecimation'] = int(value)
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if config['sDecimation'] < 1:
-        raise RuntimeError("Invalid spectral decimation factor '%i'" % config['sDecimation'])
-    if len(config['args']) < 2:
-        raise RuntimeError("Must specify both a temporal decimation factor and a filename")
-    if int(config['args'][0]) < 1:
-        raise RuntimeError("Invalid temporal decimation factor '%i'" % config['args'][0])
-        
-    # Return configuration
-    return config
+from lsl.misc import parser as aph
 
 
 def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
@@ -162,21 +100,13 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
 
 
 def main(args):
-    # Parse the command line
-    config = parseOptions(args)
-    
-    # Setup the decimation factors and the files to work on
-    tDecimation = int(config['args'][0])
-    sDecimation = int(config['sDecimation'])
-    filenames = config['args'][1:]
-    
-    for filename in filenames:
+    for filename in args.filename:
         outname = os.path.basename(filename)
         outname = os.path.splitext(outname)[0]
         outname = '%s-decim.hdf5' % outname
         
         if os.path.exists(outname):
-            if not config['force']:
+            if not args.force:
                 yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
@@ -190,12 +120,26 @@ def main(args):
         hIn  = h5py.File(filename, mode='r')
         hOut = h5py.File(outname, mode='w')
         
-        _fillHDF(hIn, hOut, tDecimation=tDecimation, sDecimation=sDecimation)
+        _fillHDF(hIn, hOut, tDecimation=args.time_decimation, sDecimation=args.spec_decimation)
         
         hIn.close()
         hOut.close()
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in DRX/HDF5 waterfall file and decimate the file as requested', 
+        epilog='NOTE:  This scripts decimates even if the number of times steps or frquency channels is not an intger multiple of the decimation factor.  This can lead to data loss at the end of observations and at the higher channel numbers.', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('time_decimation', type=aph.positive_int, 
+                        help='temporal decimation factor')
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to decimate')
+    parser.add_argument('-s', '--spec-decimation', type=aph.positive_int, default=1, 
+                        help='apply a decimation to the spectral dimension')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwritting of existing HDF5 files')
+    args = parser.parse_args()
+    main(args)
     

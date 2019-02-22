@@ -16,7 +16,7 @@ import h5py
 import math
 import numpy
 import ephem
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl.reader import drx, drspec, errors
@@ -30,138 +30,11 @@ try:
     adpReady = True
 except ImportError:
     adpReady = False
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
 import data as hdfData
-
-
-def usage(exitCode=None):
-    print """hdfWaterfall.py - Read in DRX files and create a collection of 
-time-averaged spectra.  These spectra are saved to a HDF5 file called <filename>-waterfall.hdf5.
-
-Usage: hdfWaterfall.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--t, --bartlett              Apply a Bartlett window to the data
--b, --blackman              Apply a Blackman window to the data
--n, --hanning               Apply a Hanning window to the data
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--a, --average               Number of seconds of data to average for spectra 
-                            (default = 1)
--d, --duration              Number of seconds to calculate the waterfall for 
-                            (default = 0; run the entire file)
--q, --quiet                 Run drxSpectra in silent mode and do not show the plots
--l, --fft-length            Set FFT length (default = 4096)
--c, --clip-level            FFT blanking clipping level in counts (default = 0, 
-                            0 disables)
--e, --estimate-clip         Use robust statistics to estimate an appropriate clip 
-                            level (overrides the `-c` option)
--m, --metadata              Metadata tarball for additional information
--i, --sdf                   SDF for additional information
--1, --lwa1                  Data is from LWA-1 (needed for -i/--sdf or when no metadata 
-                            is provided)
--v, --lwasv                 Data is from LWA-SV (needed for -i/--sdf or when no metadata 
-                            is provided)
--f, --force                 Force overwritting of existing HDF5 files
--k, --stokes                Generate Stokes parameters instead of XX and YY
--w, --without-sats          Do not generate saturation counts
--g, --ignore-time-errors    Ignore timetag errors in the file (default = no, catch errors)
-
-Note:  Both the -m/--metadata and -i/--sdf options provide the same additional
-    observation information to hdfWaterfall.py so only one needs to be provided.
-
-Note:  Specifying the -m/--metadata or -i/--sdf optiosn overrides the 
-    -d/--duration setting and the entire file is reduced.
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['average'] = 1.0
-    config['LFFT'] = 4096
-    config['freq1'] = 0
-    config['freq2'] = 0
-    config['maxFrames'] = 28000
-    config['window'] = fxc.noWindow
-    config['duration'] = 0.0
-    config['verbose'] = True
-    config['clip'] = 0
-    config['estimate'] = False
-    config['metadata'] = None
-    config['sdf'] = None
-    config['site'] = None
-    config['force'] = False
-    config['linear'] = True
-    config['countSats'] = True
-    config['ignoreTTE'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:em:i:1vfkwg", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "estimate-clip", "metadata=", "sdf=", "lwa1", "lwasv", "force", "stokes", "without-sats", "ignore-time-errors"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-t', '--bartlett'):
-            config['window'] = numpy.bartlett
-        elif opt in ('-b', '--blackman'):
-            config['window'] = numpy.blackman
-        elif opt in ('-n', '--hanning'):
-            config['window'] = numpy.hanning
-        elif opt in ('-l', '--fft-length'):
-            config['LFFT'] = int(value)
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-a', '--average'):
-            config['average'] = float(value)
-        elif opt in ('-d', '--duration'):
-            config['duration'] = float(value)
-        elif opt in ('-c', '--clip-level'):
-            config['clip'] = int(value)
-        elif opt in ('-e', '--estimate-clip'):
-            config['estimate'] = True
-        elif opt in ('-m', '--metadata'):
-            config['metadata'] = value
-        elif opt in ('-i', '--sdf'):
-            config['sdf'] = value
-        elif opt in ('-1', '--lwa1'):
-            config['site'] = 'lwa1'
-        elif opt in ('-v', '--lwasv'):
-            config['site'] = 'lwasv'
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        elif opt in ('-k', '--stokes'):
-            config['linear'] = False
-        elif opt in ('-w', '--without-sats'):
-            config['countSats'] = False
-        elif opt in ('-g', '--ignore-time-errors'):
-            config['ignoreTTE'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
 
 
 def bestFreqUnits(freq):
@@ -190,14 +63,14 @@ def bestFreqUnits(freq):
     return (newFreq, units)
 
 
-def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, args, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw DRX file into linear polarization 
     products and add the contents to an HDF5 file.
     """
     
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
     
     # Find the start of the observation
     print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sampleRate)
@@ -219,7 +92,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, 
     
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
-    nChunks = int(round(duration / config['average']))
+    nChunks = int(round(duration / args.average))
     if nChunks == 0:
         nChunks = 1
         
@@ -228,17 +101,15 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, 
     centralFreq1 = idf.getInfo('freq1')
     centralFreq2 = idf.getInfo('freq2')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
-    if float(fxc.__version__) < 0.8:
-        freq = freq[1:]
-        
+    
     dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
     dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
     
     obs = dataSets['obs%i' % obsID]
-    obs.attrs['tInt'] = config['average']
+    obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nChan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nChan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -247,16 +118,16 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, 
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
         print "Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1)
-        print "Working on %.1f ms of data" % (config['average']*1000.0,)
+        print "Working on %.1f ms of data" % (args.average*1000.0,)
         
-        tInt, cTime, data = idf.read(config['average'])
+        tInt, cTime, data = idf.read(args.average)
         if i == 0:
             print "Actual integration time is %.1f ms" % (tInt*1000.0,)
             
         # Save out some easy stuff
         dataSets['obs%i-time' % obsID][i] = cTime
         
-        if config['countSats']:
+        if (not args.without_sats):
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
             dataSets['obs%i-Saturation1' % obsID][i,:] = sats[0:2]
             dataSets['obs%i-Saturation2' % obsID][i,:] = sats[2:4]
@@ -267,7 +138,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, 
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
             
             l = 0
             for t in (1,2):
@@ -276,8 +147,8 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, 
                     l += 1
                     
         else:
-            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
-            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
+            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip2)
             
             for l,p in enumerate(dataProducts):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,:]
@@ -293,14 +164,14 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, config, 
     return True
 
 
-def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, args, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw DRX file into Stokes parameters and 
     add the contents to an HDF5 file.
     """
     
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
     
     # Find the start of the observation
     t0 = idf.getInfo('tStart')
@@ -324,13 +195,13 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, 
         
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
-    nChunks = int(round(duration / config['average']))
+    nChunks = int(round(duration / args.average))
     if nChunks == 0:
         nChunks = 1
         
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
-    nChunks = int(round(duration / config['average']))
+    nChunks = int(round(duration / args.average))
     if nChunks == 0:
         nChunks = 1
         
@@ -339,17 +210,15 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, 
     centralFreq1 = idf.getInfo('freq1')
     centralFreq2 = idf.getInfo('freq2')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
-    if float(fxc.__version__) < 0.8:
-        freq = freq[1:]
-        
+    
     dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
     dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
     
     obs = dataSets['obs%i' % obsID]
-    obs.attrs['tInt'] = config['average']
+    obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nChan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nChan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -358,16 +227,16 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, 
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
         print "Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1)
-        print "Working on %.1f ms of data" % (config['average']*1000.0,)
+        print "Working on %.1f ms of data" % (args.average*1000.0,)
         
-        tInt, cTime, data = idf.read(config['average'])
+        tInt, cTime, data = idf.read(args.average)
         if i == 0:
             print "Actual integration time is %.1f ms" % (tInt*1000.0,)
             
         # Save out some easy stuff
         dataSets['obs%i-time' % obsID][i] = cTime
         
-        if config['countSats']:
+        if (not args.without_sats):
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
             dataSets['obs%i-Saturation1' % obsID][i,:] = sats[0:2]
             dataSets['obs%i-Saturation2' % obsID][i,:] = sats[2:4]
@@ -378,15 +247,15 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, 
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
             
             for t in (1,2):
                 for l,p in enumerate(dataProducts):
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,t-1,:]
                     
         else:
-            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
-            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
+            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip2)
             
             for l,p in enumerate(dataProducts):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,0,:]
@@ -403,26 +272,31 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, config, 
 
 
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
-    # Length of the FFT
-    LFFT = config['LFFT']
+    # Length of the FFT and the window to use
+    LFFT = args.fft_length
+    if args.bartlett:
+        window = numpy.bartlett
+    elif args.blackman:
+        window = numpy.blackman
+    elif args.hanning:
+        window = numpy.hanning
+    else:
+        window = fxc.noWindow
+    args.window = window
     
     # Open the file and find good data (not spectrometer data)
-    filename = config['args'][0]
-    fh = open(filename, "rb")
+    fh = open(args.filename, "rb")
     
     try:
         for i in xrange(5):
             junkFrame = drspec.readFrame(fh)
-        raise RuntimeError("ERROR: '%s' appears to be a DR spectrometer file, not a raw DRX file" % filename)
+        raise RuntimeError("ERROR: '%s' appears to be a DR spectrometer file, not a raw DRX file" % args.filename)
     except errors.syncError:
         fh.seek(0)
         
     # Good, we seem to have a real DRX file, switch over to the LDP interface
     fh.close()
-    idf = LWA1DataFile(filename, ignoreTimeTagErrors=config['ignoreTTE'])
+    idf = LWA1DataFile(args.filename, ignoreTimeTagErrors=args.ignore_time_errors)
 
     # Metadata
     nFramesFile = idf.getInfo('nFrames')
@@ -432,24 +306,24 @@ def main(args):
     beams = max([1, beampols / 4])
     
     # Number of frames to integrate over
-    nFramesAvg = int(config['average'] * srate / 4096 * beampols)
+    nFramesAvg = int(args.average * srate / 4096 * beampols)
     nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
-    config['average'] = 1.0 * nFramesAvg / beampols * 4096 / srate
+    args.average = 1.0 * nFramesAvg / beampols * 4096 / srate
     maxFrames = nFramesAvg
     
     # Offset into the file, if needed
-    offset = idf.offset(config['offset'])
+    offset = idf.offset(args.skip)
     
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
-    if config['metadata'] is not None:
-        config['duration'] = 0
-    if config['duration'] == 0:
-        config['duration'] = 1.0 * nFramesFile / beampols * 4096 / srate
-        config['duration'] -= config['offset']
+    if args.metadata is not None:
+        args.duration = 0
+    if args.duration == 0:
+        args.duration = 1.0 * nFramesFile / beampols * 4096 / srate
+        args.duration -= args.skip
     else:
-        config['duration'] = int(round(config['duration'] * srate * beampols / 4096) / beampols * 4096 / srate)
-    nChunks = int(round(config['duration'] / config['average']))
+        args.duration = int(round(args.duration * srate * beampols / 4096) / beampols * 4096 / srate)
+    nChunks = int(round(args.duration / args.average))
     if nChunks == 0:
         nChunks = 1
     nFrames = nFramesAvg*nChunks
@@ -459,11 +333,9 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(t1) - DJD_OFFSET)
     centralFreq1 = idf.getInfo('freq1')
     centralFreq2 = idf.getInfo('freq2')
-    config['freq1'] = centralFreq1
-    config['freq2'] = centralFreq2
-
+    
     # File summary
-    print "Filename: %s" % filename
+    print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Beams: %i" % beams
     print "Tune/Pols: %i" % beampols
@@ -471,20 +343,20 @@ def main(args):
     print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
     print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
     print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-    print "Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFramesAvg, nFramesAvg / beampols)
-    print "Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols)
+    print "Offset: %.3f s (%i frames)" % (args.skip, offset)
+    print "Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average, nFramesAvg, nFramesAvg / beampols)
+    print "Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average*nChunks, nFrames, nFrames / beampols)
     print "Chunks: %i" % nChunks
     print " "
     
     # Estimate clip level (if needed)
-    if config['estimate']:
+    if args.estimate_clip_level:
         estimate = idf.estimateLevels(fh, Sigma=5.0)
         clip1 = (estiamte[0] + estimate[1]) / 2.0
         clip2 = (estiamte[2] + estimate[3]) / 2.0
     else:
-        clip1 = config['clip']
-        clip2 = config['clip']
+        clip1 = args.clip_level
+        clip2 = args.clip_level
         
     # Make the pseudo-antennas for Stokes calculation
     antennas = []
@@ -502,12 +374,12 @@ def main(args):
         antennas.append(newAnt)
         
     # Setup the output file
-    outname = os.path.split(filename)[1]
+    outname = os.path.split(args.filename)[1]
     outname = os.path.splitext(outname)[0]
     outname = '%s-waterfall.hdf5' % outname
     
     if os.path.exists(outname):
-        if not config['force']:
+        if not args.force:
             yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
@@ -523,12 +395,12 @@ def main(args):
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
-    if config['metadata'] is not None:
+    if args.metadata is not None:
         try:
-            project = metabundle.getSessionDefinition(config['metadata'])
+            project = metabundle.getSessionDefinition(args.metadata)
         except Exception as e:
             if adpReady:
-                project = metabundleADP.getSessionDefinition(config['metadata'])
+                project = metabundleADP.getSessionDefinition(args.metadata)
             else:
                 raise e
                 
@@ -551,14 +423,14 @@ def main(args):
             print " #%i: %s to %s (%.3f s) at %.3f MHz" % (i, obs[0], obs[1], obs[2], obs[3]/1e6)
         print " "
             
-        hdfData.fillFromMetabundle(f, config['metadata'])
+        hdfData.fillFromMetabundle(f, args.metadata)
         
-    elif config['sdf'] is not None:
+    elif args.sdf is not None:
         try:
-            project = sdf.parseSDF(config['sdf'])
+            project = sdf.parseSDF(args.sdf)
         except Exception as e:
             if adpReady:
-                project = sdfADP.parseSDF(config['sdf'])
+                project = sdfADP.parseSDF(args.sdf)
             else:
                 raise e
                 
@@ -575,24 +447,30 @@ def main(args):
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             
-        hdfData.fillFromSDF(f, config['sdf'], station=config['site'])
+        site = 'lwa1'
+        if args.lwasv:
+            site = 'lwasv'
+        hdfData.fillFromSDF(f, args.sdf, station=site)
         
     else:
-        obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), config['duration'], srate)
+        obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
         
-        hdfData.fillMinimum(f, 1, beam, srate, station=config['site'])
+        site = 'lwa1'
+        if args.lwasv:
+            site = 'lwasv'
+        hdfData.fillMinimum(f, 1, beam, srate, station=site)
         
-    if config['linear']:
+    if (not args.stokes):
         dataProducts = ['XX', 'YY']
     else:
         dataProducts = ['I', 'Q', 'U', 'V']
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=numpy.float32), int(round(obsList[o][2]/config['average'])), dataProducts)
+            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float32), int(round(obsList[o][2]/args.average)), dataProducts)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
-    f.attrs['InputData'] = os.path.basename(filename)
+    f.attrs['InputData'] = os.path.basename(args.filename)
     
     # Create the various HDF group holders
     ds = {}
@@ -600,7 +478,7 @@ def main(args):
         obs = hdfData.getObservationSet(f, o)
         
         ds['obs%i' % o] = obs
-        ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/config['average'])),), 'f8')
+        ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/args.average)),), 'f8')
         
         for t in (1,2):
             ds['obs%i-freq%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'freq')
@@ -609,7 +487,7 @@ def main(args):
             ds['obs%i-Saturation%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'Saturation')
             
     # Load in the correct analysis function
-    if config['linear']:
+    if (not args.stokes):
         processDataBatch = processDataBatchLinear
     else:
         processDataBatch = processDataBatchStokes
@@ -617,7 +495,7 @@ def main(args):
     # Go!
     for o in sorted(obsList.keys()):
         try:
-            processDataBatch(idf, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
+            processDataBatch(idf, antennas, obsList[o][0], obsList[o][2], obsList[o][3], args, ds, obsID=o, clip1=clip1, clip2=clip2)
         except RuntimeError, e:
             print "Observation #%i: %s, abandoning this observation" % (o, str(e))
 
@@ -629,4 +507,51 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+            description='read in a DRX file and create a collection of time-averaged spectra stored as an HDF5 file called <filename>-waterfall.hdf5', 
+            epilog='NOTE:  Both the -m/--metadata and -i/--sdf options provide the same additional observation information to %(prog)s so only one needs to be provided.  Specifying the -m/--metadata or -i/--sdf optiosn overrides the -d/--duration setting and the entire file is reduced.', 
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+            )
+    parser.add_argument('filename', type=str, 
+                        help='filename to process')
+    wgroup = parser.add_mutually_exclusive_group(required=False)
+    wgroup.add_argument('-t', '--bartlett', action='store_true', 
+                        help='apply a Bartlett window to the data')
+    wgroup.add_argument('-b', '--blackman', action='store_true', 
+                        help='apply a Blackman window to the data')
+    wgroup.add_argument('-n', '--hanning', action='store_true', 
+                        help='apply a Hanning window to the data')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip the specified number of seconds at the beginning of the file')
+    parser.add_argument('-a', '--average', type=aph.positive_float, default=1.0, 
+                        help='number of seconds of data to average for spectra')
+    parser.add_argument('-d', '--duration', type=aph.positive_or_zero_float, default=0.0, 
+                        help='number of seconds to calculate the waterfall for; 0 for everything') 
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false',
+                        help='run %(prog)s in silent mode')
+    parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=4096, 
+                        help='set FFT length')
+    parser.add_argument('-c', '--clip-level', type=aph.positive_or_zero_int, default=0,  
+                        help='FFT blanking clipping level in counts; 0 disables')
+    parser.add_argument('-e', '--estimate-clip-level', action='store_true', 
+                        help='use robust statistics to estimate an appropriate clip level; overrides -c/--clip-level')
+    parser.add_argument('-m', '--metadata', type=str, 
+                        help='metadata tarball for additional information')
+    parser.add_argument('-i', '--sdf', type=str, 
+                        help='SDF for additional information')
+    sgroup = parser.add_mutually_exclusive_group(required=False)
+    sgroup.add_argument('-1', '--lwa1', action='store_true', default=True, 
+                        help='data is from LWA-1; needed for -i/--sdf or when no metadata is provided')
+    sgroup.add_argument('-v', '--lwasv', action='store_true', 
+                        help='data is from LWA-SV; needed for -i/--sdf or when no metadata is provided')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwritting of existing HDF5 files')
+    parser.add_argument('-k', '--stokes', action='store_true', 
+                        help='generate Stokes parameters instead of XX and YY')
+    parser.add_argument('-w', '--without-sats', action='store_true',
+                        help='do not generate saturation counts')
+    parser.add_argument('-g', '--ignore-time-errors', action='store_true', 
+                        help='ignore timetag errors in the file')
+    args = parser.parse_args()
+    main(args)
+    

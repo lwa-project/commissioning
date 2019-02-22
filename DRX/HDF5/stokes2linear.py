@@ -15,56 +15,9 @@ import sys
 import h5py
 import time
 import numpy
-import getopt
 import shutil
+import argparse
 from datetime import datetime
-
-
-def usage(exitCode=None):
-    print """stokes2linear.py - Read in DRX/HDF5 waterfall file and convert the Stokes
-parameters into linear polarization products
-
-Usage: stokes2linear.py [OPTIONS] file
-
-Options:
--h, --help                Display this help information
--f, --force               Force overwritting of existing HDF5 files
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['force'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hf", ["help", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
 
 
 def _cloneStructure(input, output, level=0):
@@ -111,12 +64,8 @@ def _cloneStructure(input, output, level=0):
 
 
 def main(args):
-    config = parseOptions(args)
-    
-    filename = config['args'][0]
-    
     # Open the input file
-    hIn = h5py.File(filename, mode='a')
+    hIn = h5py.File(args.filename, mode='a')
     
     # Is it already a Stokes file and does it have enough information to continue?
     for obsName in hIn.keys():
@@ -132,7 +81,7 @@ def main(args):
                 
         ## Linear
         if 'XX' in dataProducts or 'YY' in dataProducts or 'XY' in dataProducts or 'YX' in dataProducts:
-            raise RuntimeError("Input file '%s' contains data products %s" % (filename, ', '.join(dataProducts)))
+            raise RuntimeError("Input file '%s' contains data products %s" % (args.filename, ', '.join(dataProducts)))
             
         ## Minimum information
         pairs = 0
@@ -141,15 +90,15 @@ def main(args):
         if 'U' in dataProducts and 'V' in dataProducts:
             pairs += 1
         if pairs == 0:
-            raise RuntimeError("Input file '%s' contains too few data products to form linear products" % filename)
+            raise RuntimeError("Input file '%s' contains too few data products to form linear products" % args.filename)
             
     # Ready the output filename
-    outname = os.path.basename(filename)
+    outname = os.path.basename(args.filename)
     outname = os.path.splitext(outname)[0]
     outname = "%s-linear.hdf5" % outname
     
     if os.path.exists(outname):
-        if not config['force']:
+        if not args.force:
             yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
@@ -293,4 +242,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in DRX/HDF5 waterfall file and convert the Stokes parameters into linear polarization products', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to decimate')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwritting of existing HDF5 files')
+    args = parser.parse_args()
+    main(args)
+    
