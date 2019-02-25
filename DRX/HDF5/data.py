@@ -528,7 +528,7 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
     if grp is None:
         grp = obs.create_group('Tuning%i' % tuning)
         
-    grp['freq'] = frequency
+    grp['freq'] = frequency.astype(numpy.float64)
     grp['freq'].attrs['Units'] = 'Hz'
     for p in dataProducts:
         d = grp.create_dataset(p, (chunks, frequency.size), 'f4')

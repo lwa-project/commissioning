@@ -195,7 +195,7 @@ def main(args):
     dataProducts = junkFrame.getDataProducts()
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float32), obsList[o][2], dataProducts)
+            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), obsList[o][2], dataProducts)
             
     f.attrs['FileGenerator'] = 'drspec2hdf.py'
     f.attrs['InputData'] = os.path.basename(args.filename)

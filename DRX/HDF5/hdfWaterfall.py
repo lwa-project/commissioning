@@ -467,7 +467,7 @@ def main(args):
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float32), int(round(obsList[o][2]/args.average)), dataProducts)
+            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), int(round(obsList[o][2]/args.average)), dataProducts)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(args.filename)
