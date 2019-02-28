@@ -289,7 +289,7 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, 
-                        help='SSMIF filename to use')
+                        help='filename to check')
     parser.add_argument('-v', '--verbose', action='store_true', 
                         help='be verbose')
     parser.add_argument('-l', '--loose', action='store_true', 
