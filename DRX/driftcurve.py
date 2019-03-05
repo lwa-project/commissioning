@@ -43,7 +43,7 @@ def main(args):
     elif name == 'lwasv':
         sta = stations.lwasv
     else:
-        raise RuntimeError("Unknown site: %s" % config['site'])
+        raise RuntimeError("Unknown site: %s" % name)
         
     # Read in the skymap (GSM or LF map @ 74 MHz)
     if not args.lfsm:
