@@ -40,7 +40,7 @@ def main(args):
     nAnt = len([a for a in ants if a.pol == 0])
     
     phase_freq_range = [0, 0]
-    for filename in arg.filename:
+    for filename in args.filename:
         # Open the file and get ready to go
         idf = CORFile(filename)
         nBL = idf.getInfo('nBaseline')
