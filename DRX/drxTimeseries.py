@@ -156,9 +156,7 @@ def main(args):
             except errors.syncError:
                 #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
                 continue
-            except errors.numpyError:
-                break
-            
+                
             beam,tune,pol = cFrame.parseID()
             aStand = 2*(tune-1) + pol
             
