@@ -17,7 +17,7 @@ import getopt
 
 from lsl.statistics import robust
 
-from lsl.reader import drx
+from lsl.reader import drx, errors
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.correlator import fx as fxc

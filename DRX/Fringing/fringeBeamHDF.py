@@ -18,7 +18,7 @@ from datetime import datetime
 
 from lsl.statistics import robust
 
-from lsl.reader import drx
+from lsl.reader import drx, errors
 from lsl.common.dp import fS
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
