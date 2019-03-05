@@ -30,9 +30,6 @@ import matplotlib.pyplot as plt
 
 
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Set the station
     if args.metadata is not None:
         station = stations.parseSSMIF(args.metadata)
@@ -116,6 +113,7 @@ def main(args):
         window = fxc.noWindow
         
     base, ext = os.path.splitext(args.filename)
+    base = os.path.basename(base)
     if (not os.path.exists("%s.npz" % base)) or args.force:
         # Master loop over all of the file chunks
         masterSpectra = numpy.zeros((nChunks, antpols, LFFT))

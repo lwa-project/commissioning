@@ -263,7 +263,7 @@ def main(args):
         adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
         
         ## Apply the cable loss corrections, if requested
-        if config['applyGain']:
+        if True:
             for s in xrange(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
                 for c in xrange(masterSpectra.shape[0]):

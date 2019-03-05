@@ -63,9 +63,6 @@ def expandMask(mask, radius=2, merge=False):
 
 
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Set the station
     if args.metadata is not None:
         station = stations.parseSSMIF(args.metadata)

@@ -113,10 +113,9 @@ def main(args):
     else:
         window = fxc.noWindow
         
-    outfile = os.path.split(args.filename)[1]
-    outfile = os.path.splitext(outfile)[0]
-    outfile = "%s.npz" % outfile	
-    if (not os.path.exists(outfile)) or args.force:
+    base, ext = os.path.splitext(args.filename)
+    base = os.path.basename(base)
+    if (not os.path.exists("%s.npz" % base)) or args.force:
         # Master loop over all of the file chunks
         masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
         for i in range(nChunks):
@@ -250,7 +249,7 @@ def main(args):
         sys.stdout.write('\n')
         sys.stdout.flush()
         
-        numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
+        numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
                     avgPower=avgPower, dataRange=dataRange, adcHistogram=adcHistogram, ssmifContents=ssmifContents)
     else:
         dataDict = numpy.load("%s.npz" % base)
