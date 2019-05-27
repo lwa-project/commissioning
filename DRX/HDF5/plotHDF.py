@@ -3916,7 +3916,7 @@ if __name__ == "__main__":
     parser.add_argument('filename', type=str, nargs='?', 
                         help='filename to display')
     parser.add_argument('-s', '--skip', type=aph.positive_float, default=0.0, 
-                        help='skip period in seconds between chunks')
+                        help='skip period in seconds before displaying')
     parser.add_argument('-d', '--duration', type=float, default=-1.0, 
                         help='number of seconds to display')
     parser.add_argument('-o', '--observation', type=aph.positive_int, default=1, 
