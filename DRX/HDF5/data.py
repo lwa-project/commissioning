@@ -286,46 +286,52 @@ def fillFromMetabundle(f, tarball):
                 
             # Deal with specified delays and gains if needed
             if obsD['steps'][0].OBS_STP_B == 3:
+                nstand = 260
+                label_base = 'DP'
+                if station == 'lwasv':
+                    nstand = 256
+                    label_base = 'ADP'
+                    
                 cbfg = grp.create_group('CustomBeamforming')
-                dlys = cbfg.create_dataset('Delays', (len(obsD['steps']), 520+1), 'f4')
+                dlys = cbfg.create_dataset('Delays', (len(obsD['steps']), nstand*2+1), 'f4')
                 dlys.attrs['col0'] = 'StartTime'
                 dlys.attrs['col0_Unit'] = 's'
-                for j in xrange(520):
-                    dlys.attrs['col%i' % (j+1)] = 'DP Digitizer %i' % (j+1)
+                for j in xrange(2*nstand):
+                    dlys.attrs['col%i' % (j+1)] = '%s Digitizer %i' % (label_base, j+1)
                     dlys.attrs['col%i_Unit' % (j+1)] = 'ns'
                     
                 # Extract the delays
-                dataD = numpy.zeros((len(obsD['steps']), 520+1))
+                dataD = numpy.zeros((len(obsD['steps']), 2*nstand+1))
                 t = obsD['MJD']*86400.0 + obsD['MPM']/1000.0 - 3506716800.0
                 for i,s in enumerate(obsD['steps']):
                     dataD[i,0] = t
-                    for j in xrange(520):
+                    for j in xrange(2*nstand):
                         dataD[i,1+j] = _valuetoDelay(s.delay[j])
                         
                 # Save the delays
                 dlys[:,:] = dataD
                 
-                gais = cbfg.create_dataset('Gains', (len(obsD['steps']), 260*2*2+1), 'f4')
+                gais = cbfg.create_dataset('Gains', (len(obsD['steps']), nstand*2*2+1), 'f4')
                 gais.attrs['col0'] = 'StartTime'
                 gais.attrs['col0_Unit'] = 's'
                 m = 1
-                for j in xrange(260):
+                for j in xrange(nstand):
                     for k in xrange(2):
                         for l in xrange(2):
-                            gais.attrs['col%i' % m] = 'DP Stand %i %s contribution to beam %s' % (j+1, 'X' if k == 0 else 'Y', 'X' if l == 0 else 'Y')
+                            gais.attrs['col%i' % m] = '%s Stand %i %s contribution to beam %s' % (label_base, j+1, 'X' if k == 0 else 'Y', 'X' if l == 0 else 'Y')
                             gais.attrs['col%i_Unit' % m] = 'None'
                             m += 1
                             
                 # Extract the gains
-                dataG = numpy.zeros((len(obsD['steps']), 260*2*2+1))
+                dataG = numpy.zeros((len(obsD['steps']), nstand*2*2+1))
                 for i,s in enumerate(obsD['steps']):
                     dataG[i,0] = t
-                    for j in xrange(260):
+                    for j in xrange(nstand):
                         dataG[i,1+4*j+0] = _valuetoGain(s.gain[j][0][0])
                         dataG[i,1+4*j+1] = _valuetoGain(s.gain[j][0][1])
                         dataG[i,1+4*j+2] = _valuetoGain(s.gain[j][1][0])
                         dataG[i,1+4*j+3] = _valuetoGain(s.gain[j][1][1])
-                        
+                         
                 # Save the gains
                 gais[:,:] = dataG
                 
@@ -428,41 +434,47 @@ def fillFromSDF(f, sdfFilename, station=None):
             
             # Deal with specified delays and gains if needed
             if obsS.steps[0].delays is not None and obsS.steps[0].gains is not None:
+                nstand = 260
+                label_base = 'DP'
+                if station == 'lwasv':
+                    nstand = 256
+                    label_base = 'ADP'
+                    
                 cbfg = grp.create_group('CustomBeamforming')
-                dlys = cbfg.create_dataset('Delays', (len(obsS.steps), 520+1), 'f4')
+                dlys = cbfg.create_dataset('Delays', (len(obsS.steps), nstand*2+1), 'f4')
                 dlys.attrs['col0'] = 'StartTime'
                 dlys.attrs['col0_Unit'] = 's'
-                for j in xrange(520):
-                    dlys.attrs['col%i' % (j+1)] = 'DP Digitizer %i' % (j+1)
+                for j in xrange(2*nstand):
+                    dlys.attrs['col%i' % (j+1)] = '%s Digitizer %i' % (label_base, j+1)
                     dlys.attrs['col%i_Unit' % (j+1)] = 'ns'
                     
                 # Extract the delays
-                dataD = numpy.zeros((len(obsS.steps), 520+1))
+                dataD = numpy.zeros((len(obsS.steps), nstand*2+1))
                 t = obsS.mjd*86400.0 + obsS.mpm/1000.0 - 3506716800.0
                 for i,s in enumerate(obsS.steps):
                     dataD[i,0] = t
-                    for j in xrange(520):
+                    for j in xrange(2*nstand):
                         dataD[i,1+j] = _valuetoDelay(s.delays[j])
                         
                 # Save the delays
                 dlys[:,:] = dataD
                 
-                gais = cbfg.create_dataset('Gains', (len(obsS.steps), 260*2*2+1), 'f4')
+                gais = cbfg.create_dataset('Gains', (len(obsS.steps), nstand*2*2+1), 'f4')
                 gais.attrs['col0'] = 'StartTime'
                 gais.attrs['col0_Unit'] = 's'
                 m = 1
-                for j in xrange(260):
+                for j in xrange(nstand):
                     for k in xrange(2):
                         for l in xrange(2):
-                            gais.attrs['col%i' % m] = 'DP Stand %i %s contribution to beam %s' % (j+1, 'X' if k == 0 else 'Y', 'X' if l == 0 else 'Y')
+                            gais.attrs['col%i' % m] = '%s Stand %i %s contribution to beam %s' % (label_base, j+1, 'X' if k == 0 else 'Y', 'X' if l == 0 else 'Y')
                             gais.attrs['col%i_Unit' % m] = 'None'
                             m += 1
                             
                 # Extract the gains
-                dataG = numpy.zeros((len(obsS.steps), 260*2*2+1))
+                dataG = numpy.zeros((len(obsS.steps), nstand*2*2+1))
                 for i,s in enumerate(obsS.steps):
                     dataG[i,0] = t
-                    for j in xrange(260):
+                    for j in xrange(nstand):
                         dataG[i,1+4*j+0] = _valuetoGain(s.gains[j][0][0])
                         dataG[i,1+4*j+1] = _valuetoGain(s.gains[j][0][1])
                         dataG[i,1+4*j+2] = _valuetoGain(s.gains[j][1][0])
