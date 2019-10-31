@@ -434,7 +434,7 @@ def main(args):
         for t in range(len(antennas)//2):
             hdfData.createDataSets(f, o, t+1, numpy.arange(LFFT, dtype=numpy.float64), int(round(obsList[o][2]/args.average)), dataProducts)
             
-    f.attrs['FileGenerator'] = 'hdfWaterfall.py'
+    f.attrs['FileGenerator'] = 'tbnWaterfall.py'
     f.attrs['InputData'] = os.path.basename(args.filename)
     
     # Create the various HDF group holders

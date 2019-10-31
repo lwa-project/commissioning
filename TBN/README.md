@@ -27,7 +27,7 @@ checkMissing.py
 Look at what is coming out of the TBN ring buffer and plot of what frames are missing,
 if any, as a function of time in the file.
 
-hdfWaterfall.py
+tbnWaterfall.py
 ---------------
 Process a TBN file into an HDF5 waterfall file where each antenna is stored as a
 separate tuning.
