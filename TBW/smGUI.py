@@ -268,6 +268,21 @@ class TBW_GUI(object):
                 
             cbTitle = 'RFI-64 Index'
         elif self.color == 3:
+            # Color by the value of the RFI-76 index.  This index is the maximum 
+            # ratio of the spectrum and the master template between 79 and 81 MHz.
+            # The value of RFI-64 is also corrected for any systematic offset 
+            # between the spectrum and the template by looking at the 63 to 65 MHz
+            # region.
+            specDiff = numpy.zeros(self.spec.shape[0])
+            rfi2 = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
+            corr = numpy.where( (self.freq>63e6) & (self.freq<65e6) )[0]
+            
+            for i in xrange(self.spec.shape[0]):
+                specDiff[i] = (self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
+                specDiff[i] /= numpy.median(self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
+                
+            cbTitle = 'RFI-76 Index'
+        elif self.color == 4:
             # Color by the wiggle index.  This is determined by fitting a line to
             # the log(spectra) between 65 and 70 MHz and looking at the RMS.
             specDiff = numpy.zeros(self.spec.shape[0])
@@ -280,7 +295,7 @@ class TBW_GUI(object):
                 print i, specDiff[i]
                 
             cbTitle = 'Wiggle Index'
-        elif self.color == 4:
+        elif self.color == 5:
             # Color by antenna status code.
             specDiff = numpy.zeros(self.spec.shape[0])
             for i in xrange(self.spec.shape[0]):
@@ -528,7 +543,8 @@ ID_COLOR_2 = 22
 ID_COLOR_3 = 23
 ID_COLOR_4 = 24
 ID_COLOR_5 = 25
-ID_COLOR_ADJUST = 26
+ID_COLOR_6 = 26
+ID_COLOR_ADJUST = 27
 ID_DETAIL_ANT = 30
 ID_DETAIL_STAND = 31
 ID_DETAIL_FEE = 32
@@ -585,11 +601,12 @@ class MainWindow(wx.Frame):
         
         # Color menu
         colorMenu.AppendRadioItem(ID_COLOR_0, '&Median Comparison')
-        colorMenu.AppendRadioItem(ID_COLOR_5, '&Resonance Point')
+        colorMenu.AppendRadioItem(ID_COLOR_6, '&Resonance Point')
         colorMenu.AppendRadioItem(ID_COLOR_1, 'RFI-&46 Index')
         colorMenu.AppendRadioItem(ID_COLOR_2, 'RFI-&64 Index')
-        colorMenu.AppendRadioItem(ID_COLOR_3, 'Wiggle Index')
-        colorMenu.AppendRadioItem(ID_COLOR_4, 'Antenna Status')
+        colorMenu.AppendRadioItem(ID_COLOR_3, 'RFI-&76 Index')
+        colorMenu.AppendRadioItem(ID_COLOR_4, 'Wiggle Index')
+        colorMenu.AppendRadioItem(ID_COLOR_5, 'Antenna Status')
         colorMenu.AppendSeparator()
         cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
         AppendMenuItem(colorMenu, cadj)
@@ -835,7 +852,22 @@ class MainWindow(wx.Frame):
                     self.cAdjust.Close()
                 except:
                     pass
-            
+                    
+    def onColor6(self, event):
+        """
+        Set the stand field color coding to the estimates resonance point
+        frequency in MHz.  Re-draw if necessary.
+        """
+        
+        if self.data.color != 6:
+            self.data.color = 6
+            self.data.draw()
+            if self.cAdjust is not None:
+                try:
+                    self.cAdjust.Close()
+                except:
+                    pass
+                    
     def onAdjust(self, event):
         """
         Bring up the colorbar adjustment dialog window.
@@ -2340,7 +2372,7 @@ class DisplaySSMIF(wx.Frame):
 def main(args):
     app = wx.App(0)
     frame = MainWindow(None, -1, "Station Master GUI")
-    if len(args) == 1:
+    if args.filename is not None:
         frame.data = TBW_GUI(frame)
         frame.data.loadData(args.filename)
         frame.data.draw()
