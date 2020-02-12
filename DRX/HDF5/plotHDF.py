@@ -1563,6 +1563,7 @@ ID_DETAIL_SUMMARY = 60
 ID_DETAIL_SUBFILE = 61
 ID_DETAIL_WATERFALL = 62
 ID_DETAIL_DRIFTCURVE = 63
+ID_DETAIL_POWERSPECTRUM = 64
 
 ID_HELP = 70
 ID_ABOUT = 71
@@ -1708,6 +1709,8 @@ class MainWindow(wx.Frame):
         AppendMenuItem(detailsMenu, zm)
         zd = wx.MenuItem(detailsMenu, ID_DETAIL_DRIFTCURVE, 'Zoomable Drift Curve')
         AppendMenuItem(detailsMenu, zd)
+        zp = wx.MenuItem(detailsMenu, ID_DETAIL_POWERSPECTRUM, 'Zoomable Power Spectrum')
+        AppendMenuItem(detailsMenu, zp)
         
         # Help menu items
         help = wx.MenuItem(helpMenu, ID_HELP, 'plotHDF Handbook\tF1')
@@ -1827,6 +1830,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onExamineFile, id=ID_DETAIL_SUBFILE)
         self.Bind(wx.EVT_MENU, self.onZoomWaterfall, id=ID_DETAIL_WATERFALL)
         self.Bind(wx.EVT_MENU, self.onZoomDrift, id=ID_DETAIL_DRIFTCURVE)
+        self.Bind(wx.EVT_MENU, self.onZoomPowerSpectrum, id=ID_DETAIL_POWERSPECTRUM)
         
         self.Bind(wx.EVT_MENU, self.onHelp, id=ID_HELP)
         self.Bind(wx.EVT_MENU, self.onAbout, id=ID_ABOUT)
@@ -2609,6 +2613,13 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
         """
         
         DriftCurveDisplay(self)
+        
+    def onZoomPowerSpectrum(self, event):
+        """
+        Create a zoomable power spectrum plot window.
+        """
+        
+        PowerSpectrumDisplay(self)
         
     def onKeyPress(self, event):
         """
@@ -3521,11 +3532,11 @@ class WaterfallDisplay(wx.Frame):
 
 class DriftCurveDisplay(wx.Frame):
     """
-    Window for displaying the waterfall data in a zoomable fashion
+    Window for displaying the drift curve data in a zoomable fashion
     """
     
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, title='Waterfall', size=(400, 375))
+        wx.Frame.__init__(self, parent, title='Drift Curve', size=(400, 375))
         
         self.parent = parent
         
@@ -3658,6 +3669,188 @@ class DriftCurveDisplay(wx.Frame):
             else:
                 value = self.drift[dataX,self.parent.data.index]
                 self.statusbar.SetStatusText("t=%s, LST=%s, p=%.2f" % (ts, lst, value))
+        else:
+            self.statusbar.SetStatusText("")
+    
+    def disconnect(self):
+        """
+        Disconnect all the stored connection ids.
+        """
+        
+        self.figure.canvas.mpl_disconnect(self.cidmotion)
+        
+    def onCancel(self, event):
+        self.Close()
+        
+    def onSize(self, event):
+        event.Skip()
+        wx.CallAfter(self.resizePlots)
+        
+    def resizePlots(self, event=None):
+       # Get the current size of the window and the navigation toolbar
+        w, h = self.GetClientSize()
+        wt, ht = self.toolbar.GetSize()
+        
+        # Come up with new figure size in inches.
+        # NOTE:  The height of the plot at the bottom needs to be
+        #        corrected for the height of the toolbar
+        dpi = self.figure.get_dpi()
+        newW = 1.0*w/dpi
+        newH = 1.0*(h-ht)/dpi
+        self.figure.set_size_inches((newW, newH))
+        try:
+            self.figure.tight_layout()
+        except:
+            pass
+        self.figure.canvas.draw()
+        
+        self.panel1.Refresh()
+        
+    def GetToolBar(self):
+        # You will need to override GetToolBar if you are using an 
+        # unmanaged toolbar in your frame
+        return self.toolbar
+
+
+class PowerSpectrumDisplay(wx.Frame):
+    """
+    Window for displaying the drift curve power spectrum in a zoomable fashion
+    """
+    
+    def __init__(self, parent):
+        wx.Frame.__init__(self, parent, title='Power Spectrum', size=(400, 375))
+        
+        self.parent = parent
+        
+        self.initUI()
+        self.initEvents()
+        self.Show()
+        
+        self.initPlot()
+        
+        self.site = stations.lwa1.getObserver()
+        
+    def initUI(self):
+        """
+        Start the user interface.
+        """
+        
+        self.statusbar = self.CreateStatusBar()
+        
+        hbox = wx.BoxSizer(wx.VERTICAL)
+        
+        # Add plots to panel 1
+        panel1 = wx.Panel(self, -1)
+        vbox1 = wx.BoxSizer(wx.VERTICAL)
+        self.figure = Figure(figsize=(4,4))
+        self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
+        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
+        self.toolbar.Realize()
+        vbox1.Add(self.canvas,  1, wx.EXPAND)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
+        panel1.SetSizer(vbox1)
+        hbox.Add(panel1, 1, wx.EXPAND)
+        self.panel1 = panel1
+        
+        # Use some sizers to see layout options
+        self.SetSizer(hbox)
+        self.SetAutoLayout(1)
+        hbox.Fit(self)
+        
+    def initEvents(self):
+        """
+        Set all of the various events in the data range window.
+        """
+        
+        # Make the images resizable
+        self.Bind(wx.EVT_SIZE, self.onSize)
+        
+    def initPlot(self):
+        """
+        Populate the figure/canvas areas with a plot.  We only need to do this
+        once for this type of window.
+        """
+        
+        if self.parent.data.bandpass:
+            spec = self.parent.data.specBandpass
+            limits = self.parent.data.limitsBandpass
+        else:
+            spec = self.parent.data.spec
+            limits = self.parent.data.limits
+        
+        # Plot Drift Curve
+        self.figure.clf()
+        self.ax1 = self.figure.gca()
+        
+        self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].mean(axis=2)
+        self.fft = numpy.abs(numpy.fft.fft(self.drift, axis=0))**2
+        self.fft_freq = numpy.fft.fftfreq(self.fft.shape[0],
+                                          d=(self.parent.data.time[1]-self.parent.data.time[0]))
+        self.fft = self.fft[:self.fft.shape[0]//2,:]
+        self.fft_freq = self.fft_freq[:self.fft_freq.size//2]
+        self.fft_units = 'Hz'
+        if self.fft_freq.max() < 1:
+            self.fft_freq *= 1000.0
+            self.fft_units = 'mHz'
+        elif self.fft_freq.max() > 1000:
+            self.fft_freq /= 1000.0
+            self.fft_units = 'kHz'
+            
+        z = to_dB(self.fft[:,self.parent.data.index])
+        self.ax1.scatter(self.fft_freq, z, c=z, marker='x', cmap=self.parent.data.cmap)
+        self.ax1.set_ylabel('PS of Inner 75% Mean Power [arb. dB]')
+        
+        levels = []
+        segments = []
+        for i in xrange(1, z.size):
+                levels.append( 0.5*(z[i-1]+z[i]) )
+                segments.append( [(self.fft_freq[i-1],z[i-1]), (self.fft_freq[i],z[i])] )
+        segments = LineCollection(segments)
+        segments.set_array(numpy.array(levels))
+        segments.set_norm(Normalize(vmin=z.min(), vmax=z.max()))
+        segments.set_cmap(self.parent.data.cmap)
+        self.ax1.add_collection(segments)
+        
+        self.ax1.set_xlim((self.fft_freq[0], self.fft_freq[-1]))
+        self.ax1.set_xlabel('Frequency [%s]' % self.fft_units)
+        if self.parent.data.linear:
+            tun = self.parent.data.index / 4 + 1
+            ind = self.parent.data.index % 4
+            mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+        else:
+            tun = self.parent.data.index / 4 + 1
+            ind = self.parent.data.index % 4
+            mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
+            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+            
+        ## Draw and save the click (Why?)
+        self.canvas.draw()
+        self.connect()
+        
+    def connect(self):
+        """
+        Connect to all the events we need to interact with the plots.
+        """
+        
+        self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+    
+    def on_motion(self, event):
+        """
+        Deal with motion events in the stand field window.  This involves 
+        setting the status bar with the current x and y coordinates as well
+        as the stand number of the selected stand (if any).
+        """
+        
+        if event.inaxes:
+            clickX = event.xdata
+            clickY = event.ydata
+            
+            dataX = numpy.where(numpy.abs(clickX-self.fft_freq) == (numpy.abs(clickX-self.fft_freq).min()))[0][0]
+            fft_freq = self.fft_freq[dataX]
+            
+            value = to_dB(self.fft[dataX,self.parent.data.index])
+            self.statusbar.SetStatusText("f=%.3f %s, p=%.2f dB" % (fft_freq, self.fft_units, value))
         else:
             self.statusbar.SetStatusText("")
     
