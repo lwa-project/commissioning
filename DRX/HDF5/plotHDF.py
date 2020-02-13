@@ -3969,7 +3969,7 @@ After the HDF5 file has been loaded there are a variety of menu, <a href="#mouse
     apply it to the data.  The masking parameters can also be tweaked in this menu.</li>
     <li>Bandpass - Apply a data or instrumental spectral bandpass to the data.</li>
     <li>Details - Get metadata about the current HDF5 file and how the data were reduced and display 
-    zoom-able dynamic waterfall and drift curve plots.</li>
+    zoom-able dynamic waterfall, drift curve, and drift curve power spectrum plots.</li>
     <li>Help - Show this help message.</li>
 </ul>
 <br /><br />
