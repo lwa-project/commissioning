@@ -6,10 +6,6 @@ Given a /data/temp.txt file (or one of the rotated backups) plot the temperature
 of FPGAs in DP as a function of time, chassis, and physical slot.  These 
 temperatures are plotted as color maps for (1) the mean FPGA temperature per board
 and (2) the maximum FPGA temperature per board.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import sys

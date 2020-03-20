@@ -4,10 +4,6 @@
 """
 plotShelterTemp.py - Script to read in the shelter.txt file and plot up the 
 shelter temperature (in F) as a function of time.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

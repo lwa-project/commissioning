@@ -4,10 +4,6 @@
 """
 Given a /data/temp.txt file (or one of the rotated backups) plot the temperatures
 of all 140 FPGAs in DP.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import sys

@@ -4,17 +4,13 @@
 """
 For a given MJD value or list of MJD values, return the range of local times 
 associated with that MJD.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import sys
 import pytz
 import getopt
 
-from lsl.common.mcs import mjdmpm2datetime
+from lsl.common.mcs import mjdmpm_to_datetime
 from datetime import datetime
 
 MST = pytz.timezone('US/Mountain')
@@ -78,11 +74,11 @@ def main(args):
             mjd1 = int(arg)
             mjd2 = float(mjd1) + 0.99999
 
-            d1 = mjdmpm2datetime(mjd1, 0)
+            d1 = mjdmpm_to_datetime(mjd1, 0)
             d1 = UTC.localize(d1)
             d1  = d1.astimezone(config['tz'])
 
-            d2 = mjdmpm2datetime(mjd2, 0)
+            d2 = mjdmpm_to_datetime(mjd2, 0)
             d2 = UTC.localize(d2)
             d2  = d2.astimezone(config['tz'])
             
@@ -93,7 +89,7 @@ def main(args):
     else:
         for arg in zip(config['args'][0::2], config['args'][1::2]):
             mjd, mpm = [int(i) for i in arg]
-            d = mjdmpm2datetime(mjd, mpm)
+            d = mjdmpm_to_datetime(mjd, mpm)
             d = UTC.localize(d)
             d = d.astimezone(config['tz'])
             

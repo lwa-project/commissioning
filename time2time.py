@@ -5,10 +5,6 @@
 Convert a local date/time string in the format of "YYYY/MM/DD HH:MM:SS[.SSS]" into 
 MJD and MPM UTC values.  If no date/time string is supplied, the current local 
 date/time is used.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import sys
@@ -18,7 +14,7 @@ import getopt
 import datetime
 
 from lsl.common.stations import lwa1
-from lsl.common.mcs import datetime2mjdmpm
+from lsl.common.mcs import datetime_to_mjdmpm
 from lsl.astro import date as astroDate, get_date as astroGetDate
 
 
@@ -102,7 +98,7 @@ def _getEquinoxEquation(jd):
 def main(args):
     config = parseOptions(args)
     
-    obs = lwa1.getObserver()
+    obs = lwa1.get_observer()
     MST = pytz.timezone('US/Mountain')
     UTC = pytz.utc
     
@@ -181,7 +177,7 @@ def main(args):
         dt = dt.astimezone(UTC)
         
     obs.date = dt.astimezone(UTC).strftime("%Y/%m/%d %H:%M:%S.%f")
-    mjd, mpm = datetime2mjdmpm(dt)
+    mjd, mpm = datetime_to_mjdmpm(dt)
     
     print "Localtime: %s" % dt.astimezone(MST).strftime("%B %d, %Y at %H:%M:%S %Z")
     print "UTC: %s" % dt.astimezone(UTC).strftime("%B %d, %Y at %H:%M:%S %Z")

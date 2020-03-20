@@ -3,10 +3,6 @@
 
 """
 Get ARX information about a stand.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -71,13 +67,13 @@ def main(args):
     
     # Set the station
     if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
+        station = stations.parse_ssmif(config['SSMIF'])
     else:
         station = stations.lwa1
         
     # Match the stands to ASP channels
     ants = []
-    antennas = station.getAntennas()
+    antennas = station.antennas
     for stand in stands:
         for antenna in antennas:
             if antenna.stand.id == stand:

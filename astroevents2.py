@@ -5,10 +5,6 @@
 New take on astroevents using PyEphem for calculations.  It can also take a
 date in the form of YYYY/MM/DD from the command line to use a as base for 
 its calculations.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -102,7 +98,7 @@ def main(args):
         station = stations.lwasv
     else:
         raise RuntimeError("Unknown site name: %s" % config['site'])
-    observer = station.getObserver()
+    observer = station.get_observer()
     print "Current site is %s at lat %s, lon %s" % (station.name, observer.lat, observer.long)
     
     # Set the current time so we can find the "next" transit.  Go ahead

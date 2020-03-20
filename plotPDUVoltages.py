@@ -5,10 +5,6 @@
 Given a /data/rack##.txt file (or one of the rotated backups) plot the PDU input
 voltage over time.  This script is designed to accept multiple files from multiple
 rack if needed.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
