@@ -5,10 +5,6 @@ from __future__ import print_function
 """
 Given a COR filles created by ADP, combine the files together into a single 
 file that can be used like a standard DR-recorded COR file
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -29,10 +25,10 @@ class RawCORFrame(object):
     
     def __init__(self, contents):
         self.contents = bytearray(contents)
-        if len(self.contents) != cor.FrameSize:
-            raise errors.eofError
+        if len(self.contents) != cor.FRAME_SIZE:
+            raise errors.EOFError
         if self.contents[0] != 0xDE or self.contents[1] != 0xC0 or self.contents[2] != 0xDE or self.contents[3] != 0x5c:
-            raise errors.syncError
+            raise errors.SyncError
             
     def __getitem__(self, key):
         return self.contents[key]
@@ -41,20 +37,20 @@ class RawCORFrame(object):
         self.contents[key] = value
         
     @property
-    def timeTag(self):
-        timeTag = 0L
-        timeTag |= self.contents[16] << 56
-        timeTag |= self.contents[17] << 48
-        timeTag |= self.contents[18] << 40
-        timeTag |= self.contents[19] << 32
-        timeTag |= self.contents[20] << 24
-        timeTag |= self.contents[21] << 16
-        timeTag |= self.contents[22] <<  8
-        timeTag |= self.contents[23]
-        return timeTag
+    def timetag(self):
+        timetag = 0L
+        timetag |= self.contents[16] << 56
+        timetag |= self.contents[17] << 48
+        timetag |= self.contents[18] << 40
+        timetag |= self.contents[19] << 32
+        timetag |= self.contents[20] << 24
+        timetag |= self.contents[21] << 16
+        timetag |= self.contents[22] <<  8
+        timetag |= self.contents[23]
+        return timetag
         
     @property
-    def firstChan(self):
+    def first_chan(self):
         chan0 = (self.contents[12] << 8) | self.contents[13]
         return chan0
         
@@ -68,7 +64,7 @@ class RawCORFrame(object):
         stand = (self.contents[30] << 8) | self.contents[31]
         return stand
         
-    def parseID(self):
+    def parse_id(self):
         return (self.stand0, self.stand1)
 
 
@@ -85,10 +81,10 @@ class RawCORFrameBuffer(buffer.FrameBuffer):
     chans
         list of start channel numbers to expect data for
     
-      nSegments
+      nsegments
         number of ring segments to use for the buffer (default is 5)
     
-      ReorderFrames
+      reorder
         whether or not to reorder frames returned by get() or flush() by 
         start channel (default is False)
     
@@ -107,10 +103,10 @@ class RawCORFrameBuffer(buffer.FrameBuffer):
     
     """
     
-    def __init__(self, chans, nSegments=5, ReorderFrames=False):
-        super(RawCORFrameBuffer, self).__init__(mode='COR', stands=list(range(1,256+1)), chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames)
+    def __init__(self, chans, nsegments=5, reorder=False):
+        super(RawCORFrameBuffer, self).__init__(mode='COR', stands=list(range(1,256+1)), chans=chans, nsegments=nsegments, reorder=reorder)
         
-    def calcFrames(self):
+    def get_max_frames(self):
         """
         Calculate the maximum number of frames that we expect from 
         the setup of the observations and a list of tuples that describes
@@ -130,20 +126,20 @@ class RawCORFrameBuffer(buffer.FrameBuffer):
                     
         return (nFrames, frameList)
         
-    def figureOfMerit(self, frame):
+    def get_figure_of_merit(self, frame):
         """
         Figure of merit for sorting frames.  For COR this is:
-        frame.data.timeTag
+        frame.data.timetag
         """
         
-        return frame.timeTag
+        return frame.timetag
         
     def frameID(self, frame):
         """
         ID value or tuple for a given frame.
         """
         
-        return frame.parseID()+(frame.firstChan,)
+        return frame.id+(frame.first_chan,)
         
     def createFill(self, key, frameParameters):
         """
@@ -183,11 +179,11 @@ def main(args):
         chans.extend( i.buffer.chans )
     chans.sort()
     for i in xrange(1, len(chans)):
-        if chans[i] != chans[i-1] + cor.FrameChannelCount:
-            raise RuntimeError("Unexpected channel increment: %i != %s" % (chans[i]-chans[i-1], cor.FrameChannelCount))
+        if chans[i] != chans[i-1] + cor.FRAME_CHANNEL_COUNT:
+            raise RuntimeError("Unexpected channel increment: %i != %s" % (chans[i]-chans[i-1], cor.FRAME_CHANNEL_COUNT))
             
     # Setup the buffer
-    buffer = RawCORFrameBuffer(chans=chans, ReorderFrames=False)
+    buffer = RawCORFrameBuffer(chans=chans, reorder=False)
     
     # Setup the output filename
     if args.output is None:
@@ -218,11 +214,11 @@ def main(args):
         rFrames = deque()
         for i,f in enumerate(fh):
             try:
-                rFrames.append( RawCORFrame(f.read(cor.FrameSize)) )
-            except errors.eofError:
+                rFrames.append( RawCORFrame(f.read(cor.FRAME_SIZE)) )
+            except errors.EOFError:
                 eofFound[i] = True
                 continue
-            except errors.syncError:
+            except errors.SyncError:
                 continue
                 
         ## Add the frames to the buffer
