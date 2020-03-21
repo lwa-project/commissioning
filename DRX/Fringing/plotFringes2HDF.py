@@ -3,10 +3,6 @@
 
 """
 A fancier version of plotFringes.py that makes waterfall-like plots.
-
-$Rev: 1244 $
-$LastChangedBy: jayce $
-$LastChangedDate: 2013-03-14 10:43:10 -0600 (Thu, 14 Mar 2013) $
 """
 
 import os

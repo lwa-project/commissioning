@@ -3,10 +3,6 @@
 """
 Simple script to read in a MCS binary packed DP delay file (.df) and print 
 out the delays in ns.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -33,7 +29,7 @@ def main(args):
     delays = [DPDtodelay(d) for d in rawDelays]
     
     # Report
-    ants = lwa1.getAntennas()[0::2]
+    ants = lwa1.antennas[0::2]
     
     print "Std   X [ns]    Y [ns]"
     print "----------------------"

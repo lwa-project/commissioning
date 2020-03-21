@@ -2,12 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.buildSimData()
+Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.build_sim_data()
 function and the bright sources listed in lsl.sim.vis.srcs.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -63,7 +59,7 @@ def main(args):
     # Build up the station
     site = stations.lwa1
     
-    rawAntennas = site.getAntennas()
+    rawAntennas = site.antennas
     
     antennas = []
     for ant in rawAntennas:
@@ -77,8 +73,8 @@ def main(args):
 
     # Create the simulated array
     refJD = unix_to_utcjd(timegm(times[0].timetuple()))
-    aa1 = simVis.buildSimArray(site, antennas, freq1/1e9, jd=refJD)
-    aa2 = simVis.buildSimArray(site, antennas, freq2/1e9, jd=refJD)
+    aa1 = simVis.build_sim_array(site, antennas, freq1/1e9, jd=refJD)
+    aa2 = simVis.build_sim_array(site, antennas, freq2/1e9, jd=refJD)
 
     # Build the model times and range.
     jdList = []
@@ -91,8 +87,8 @@ def main(args):
         dTimes.append( (times[i]-times[0]).seconds )
         
     # Actually run the simulations
-    simDict1 = simVis.buildSimData(aa1, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
-    simDict2 = simVis.buildSimData(aa2, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
+    simDict1 = simVis.build_sim_data(aa1, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
+    simDict2 = simVis.build_sim_data(aa2, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
 
     # Plot
     fig = plt.figure()

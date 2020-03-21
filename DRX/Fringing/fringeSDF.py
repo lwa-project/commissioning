@@ -5,10 +5,6 @@
 Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF that puts a 
 single dipole or beam on the X pol and the outlier on the other.  The 
 gain files are constructed such that all data is from X pol.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -18,9 +14,9 @@ import numpy
 import getopt
 
 from lsl.misc import beamformer
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 from lsl.common import sdf
-from lsl.common.mcs import applyPointingCorrection
+from lsl.common.mcs import apply_pointing_correction
 from lsl.common.dp import delaytoDPD, gaintoDPG
 
 def usage(exitCode=None):
@@ -180,8 +176,8 @@ def main(args):
     config['args'][1] = config['args'][1].replace('-', '/')
     tStart = "%s %s" % (config['args'][1], config['args'][2])
 
-    station = parseSSMIF(filename)
-    antennas = station.getAntennas()
+    station = parse_ssmif(filename)
+    antennas = station.antennas
 
     digs    = numpy.array([ant.digitizer  for ant in antennas])
     ants    = numpy.array([ant.id         for ant in antennas])
@@ -220,12 +216,12 @@ def main(args):
         # Load in the pointing correction
         pcTerms = getPointingTerms(filename)
         print "Applying Pointing Correction Terms: theta=%.2f, phi=%.2f, psi=%.2f" % pcTerms
-        az, el = applyPointingCorrection(config['az'], config['el'], *pcTerms)
+        az, el = apply_pointing_correction(config['az'], config['el'], *pcTerms)
         print "-> az %.2f, el %.2f to az %.2f, el %.2f" % (config['az'], config['el'], az, el)
         print " "
         
         print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (az, el, freq/1e6)
-        delays = beamformer.calcDelay(antennas, freq=freq, azimuth=az, elevation=el)
+        delays = beamformer.calc_delay(antennas, freq=freq, azimuth=az, elevation=el)
         delays *= 1e9
         delays = delays.max() - delays
         delays = [twoByteSwap(delaytoDPD(d)) for d in delays]
