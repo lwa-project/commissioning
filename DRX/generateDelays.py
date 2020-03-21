@@ -4,10 +4,6 @@
 """
 Read in SSMIF file and create a set of DRX gain and delay files for a given 
 frequency and topogentric pointing center.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import sys
@@ -17,7 +13,7 @@ import getopt
 import gain
 import delay
 from lsl.misc import beamformer
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 
 def usage(exitCode=None):
     print """generateDelays.py - Read in a SSMIF file and create a set of DRX
@@ -83,8 +79,8 @@ def main(args):
     config = parseOptions(args)
     filename = config['args'][0]
 
-    station = parseSSMIF(filename)
-    antennas = station.getAntennas()
+    station = parse_ssmif(filename)
+    antennas = station.antennas
 
     digs    = numpy.array([ant.digitizer  for ant in antennas])
     ants    = numpy.array([ant.id         for ant in antennas])
@@ -106,7 +102,7 @@ def main(args):
     gftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
 
     print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6)
-    delays = beamformer.calcDelay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
+    delays = beamformer.calc_delay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
     delays *= 1e9
     delays = delays.max() - delays
     junk = delay.list2delayfile('.', dftBase, delays)

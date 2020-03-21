@@ -3,10 +3,6 @@
 
 """
 Given a DRX file with both tunings set to the same parameters, check for coherency.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -112,20 +108,20 @@ def main(args):
     config = parseOptions(args)
     
     fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
+    nFramesFile = os.path.getsize(config['args'][0]) / drx.FRAME_SIZE
     
     while True:
-        junkFrame = drx.readFrame(fh)
+        junkFrame = drx.read_frame(fh)
         try:
-            srate = junkFrame.getSampleRate()
+            srate = junkFrame.sample_rate
             break
         except ZeroDivisionError:
             pass
-    fh.seek(-drx.FrameSize, 1)
+    fh.seek(-drx.FRAME_SIZE, 1)
     
-    print junkFrame.header.timeOffset
-    beams = drx.getBeamCount(fh)
-    tunepols = drx.getFramesPerObs(fh)
+    print junkFrame.header.time_offset
+    beams = drx.get_beam_count(fh)
+    tunepols = drx.get_frames_per_obs(fh)
     tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
     beampols = tunepol
 
@@ -133,7 +129,7 @@ def main(args):
     offset = int(round(config['offset'] * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
     config['offset'] = 1.0 * offset / beampols * 4096 / srate
-    fh.seek(offset*drx.FrameSize)
+    fh.seek(offset*drx.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
@@ -169,14 +165,14 @@ def main(args):
     if nFrames > (nFramesFile - offset):
         raise RuntimeError("Requested integration time+offset is greater than file length")
 
-    junkFrame = drx.readFrame(fh)
-    b,t,p = junkFrame.parseID()
+    junkFrame = drx.read_frame(fh)
+    b,t,p = junkFrame.id
     while 2*(t-1)+p != 0:
-        junkFrame = drx.readFrame(fh)
-        b,t,p = junkFrame.parseID()
+        junkFrame = drx.read_frame(fh)
+        b,t,p = junkFrame.id
         print b,t,p
     print fh.tell()
-    fh.seek(-drx.FrameSize, 1)
+    fh.seek(-drx.FRAME_SIZE, 1)
 
     # Master loop over all of the file chuncks
     standMapper = []
@@ -201,14 +197,14 @@ def main(args):
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = drx.read_frame(fh, Verbose=False)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+            except errors.SyncError:
+                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1)
                 continue
                 
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 4*(beam-1) + 2*(tune-1) + pol
             #print aStand, beam, tune, pol
             if aStand not in standMapper:
@@ -221,11 +217,11 @@ def main(args):
 
             if aStand not in count.keys():
                 count[aStand] = 0
-            #if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-            #	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
+            #if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
+            #	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frame_count, cFrame.data.timetag)
 
-            #print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.data.iq.shape
-            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+            #print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.payload.data.shape
+            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.payload.data
             # Update the counters so that we can average properly later on
             count[aStand] += 1
             

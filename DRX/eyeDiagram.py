@@ -3,10 +3,6 @@
 
 """
 Create an eye diagram for some portion of a TBN or DRX file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -120,31 +116,31 @@ def main(args):
     fh = open(filename, 'rb')
 
     # Get the sampel rate and number of stands for each pol
-    sampleRate = rdr.getSampleRate(fh)
-    nFrames = numpy.array(rdr.getFramesPerObs(fh))
-    nCaptures = sizeB / rdr.FrameSize / nFrames.sum()
+    sample_rate = rdr.get_sample_rate(fh)
+    nFrames = numpy.array(rdr.get_frames_per_obs(fh))
+    nCaptures = sizeB / rdr.FRAME_SIZE / nFrames.sum()
 
     print "Filename:    %s" % filename
     print "Size:        %.1f MB" % (float(sizeB)/1024/1024)
     print "Captures:    %i" % nCaptures
-    print "Sample Rate: %.2f kHz" % (sampleRate/1000.0)
+    print "Sample Rate: %.2f kHz" % (sample_rate/1000.0)
     print "==="
 
-    frame = rdr.readFrame(fh)
+    frame = rdr.read_frame(fh)
     fh.seek(0)
     
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(config['skip'] * sampleRate / frame.data.iq.size * nFrames.sum())
+    offset = int(config['skip'] * sample_rate / frame.payload.data.size * nFrames.sum())
     offset = int(1.0 * offset / nFrames.sum()) * nFrames.sum()
-    config['skip'] = 1.0 * offset / nFrames.sum() * frame.data.iq.size / sampleRate
-    fh.seek(offset*rdr.FrameSize)
+    config['skip'] = 1.0 * offset / nFrames.sum() * frame.payload.data.size / sample_rate
+    fh.seek(offset*rdr.FRAME_SIZE)
     
-    nCaptures = (sizeB - offset*rdr.FrameSize) / rdr.FrameSize / nFrames.sum()
+    nCaptures = (sizeB - offset*rdr.FRAME_SIZE) / rdr.FRAME_SIZE / nFrames.sum()
     
     # Compute the integration time and the number of frames per stand per 
     # integration
-    tInt = int(round( tInt * sampleRate)) / sampleRate
-    fInt = int(tInt * sampleRate / frame.data.iq.size)
+    tInt = int(round( tInt * sample_rate)) / sample_rate
+    fInt = int(tInt * sample_rate / frame.payload.data.size)
     
     # More output
     print "Keeping only:", config['keep']
@@ -154,8 +150,8 @@ def main(args):
     print " "
     
     # Go...
-    dtime = numpy.zeros((nFrames.sum(), fInt*frame.data.iq.size), dtype=numpy.float64)
-    data = numpy.zeros((nFrames.sum(), fInt*frame.data.iq.size), dtype=numpy.complex64)
+    dtime = numpy.zeros((nFrames.sum(), fInt*frame.payload.data.size), dtype=numpy.float64)
+    data = numpy.zeros((nFrames.sum(), fInt*frame.payload.data.size), dtype=numpy.complex64)
     
     count = {}
     standMapper = []
@@ -165,21 +161,21 @@ def main(args):
     for f in xrange(fInt*nFrames.sum()):
         # Read in the next frame and anticipate any problems that could occur
         try:
-            cFrame = rdr.readFrame(fh, Verbose=False)
-        except errors.eofError:
+            cFrame = rdr.read_frame(fh, Verbose=False)
+        except errors.EOFError:
             break
-        except errors.syncError:
-            #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FrameSize-1)
+        except errors.SyncError:
+            #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FRAME_SIZE-1)
             continue
         
         if f == 0:
-            tStart = cFrame.getTime()
+            tStart = cFrame.get_time()
 
         try:
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 4*(beam-1) + 2*(tune-1) + pol
         except:
-            stand,pol = cFrame.header.parseID()
+            stand,pol = cFrame.header.id
             aStand = 2*(stand-1)+pol
         
         if aStand not in standMapper:
@@ -196,8 +192,8 @@ def main(args):
         if aStand not in count.keys():
             count[aStand] = 0
 
-        dtime[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = 4096*count[aStand]/sampleRate + 1.0 / sampleRate * numpy.arange(0.0, cFrame.data.iq.size, dtype=numpy.float64)
-        data[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = cFrame.data.iq
+        dtime[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = 4096*count[aStand]/sample_rate + 1.0 / sample_rate * numpy.arange(0.0, cFrame.payload.data.size, dtype=numpy.float64)
+        data[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = cFrame.payload.data
         
         count[aStand] = count[aStand] + 1
         masterCount = masterCount + 1
@@ -209,7 +205,7 @@ def main(args):
     dtime = (dtime - dtime.min()) % period / period
     
     endPt = data.shape[1]/8
-    print endPt / sampleRate / period
+    print endPt / sample_rate / period
     
     fig = plt.figure()
     if config['polar']:

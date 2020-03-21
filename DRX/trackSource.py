@@ -7,10 +7,6 @@ BAM script to move all beams with ~4 minute steps.
 
 Usage:
 trackSource <SSMIF> <source_name> <start date> <start time> <duration in hr>
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -21,7 +17,7 @@ import numpy
 from datetime import datetime, timedelta
 
 from lsl.common import stations
-from lsl.misc.beamformer import calcDelay
+from lsl.misc.beamformer import calc_delay
 
 
 # Time zones
@@ -50,7 +46,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 tStep = 4.0
 
 # Observing frequency in Hz
-centralFreq = 74.03e6
+central_freq = 74.03e6
 
 # Beams to use
 beamsToUse = (1, 2, 4)
@@ -78,11 +74,11 @@ def main(args):
     tStart = tStart.astimezone(_UTC)
     
     # Load the SSMIF
-    station = stations.parseSSMIF(filename)
+    station = stations.parse_ssmif(filename)
 
     # Gather the necessary information to figure out where things are
-    observer = station.getObserver()
-    antennas = station.getAntennas()
+    observer = station.get_observer()
+    antennas = station.antennas
 
     # Find the "good" antennas to use
     digs    = numpy.array([ant.digitizer  for ant in antennas])
@@ -127,7 +123,7 @@ def main(args):
 # -> update interval is %.3f minutes
 #
 
-""" % (source, tStart.astimezone(_MST), centralFreq, duration, tStep)
+""" % (source, tStart.astimezone(_MST), central_freq, duration, tStep)
     
     # Create the DFT files and build the script
     nSteps = int(numpy.ceil(duration * 60 / 4))
@@ -142,13 +138,13 @@ def main(args):
         pointingEl = refSource.alt * 180.0 / numpy.pi
         
         # Compute the delays
-        delays = calcDelay(antennas, freq=centralFreq, azimuth=pointingAz, elevation=pointingEl)
+        delays = calc_delay(antennas, freq=central_freq, azimuth=pointingAz, elevation=pointingEl)
         delays *= 1e9
         delays = delays.max() - delays
         
         # Save - delays
         import delay
-        dftBase = 'delay_beam_%s_%03i_%iMHz' % (source, (s+1), centralFreq/1e6,)
+        dftBase = 'delay_beam_%s_%03i_%iMHz' % (source, (s+1), central_freq/1e6,)
         junk = delay.list2delayfile('.', dftBase, delays)
 
         # Compute gains
@@ -160,7 +156,7 @@ def main(args):
 
         # Save - gains
         import gain
-        gftBase = 'delay_beam_%s_%03i_%iMHz' % (source, (s+1), centralFreq/1e6,)
+        gftBase = 'delay_beam_%s_%03i_%iMHz' % (source, (s+1), central_freq/1e6,)
         junk = gain.list2gainfile('.', gftBase, gains)
         
         # Output script command - step start

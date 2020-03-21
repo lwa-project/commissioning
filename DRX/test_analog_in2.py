@@ -3,10 +3,6 @@
 
 """
 Set DRX beams and start a recording.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import datetime

@@ -4,10 +4,6 @@
 """
 Given two or more DRX files from different beams, check for coherency between the beams
 and make sure that the beams agree with the T_NOM values.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -52,48 +48,48 @@ def main(args):
     # frames per obs, T_NOM, time tag of first frame
     for filename in files:
         fh.append( open(filename, "rb") )
-        nFramesFile.append( os.path.getsize(filename) / drx.FrameSize )
+        nFramesFile.append( os.path.getsize(filename) / drx.FRAME_SIZE )
         
         while True:
-            junkFrame = drx.readFrame(fh[-1])
+            junkFrame = drx.read_frame(fh[-1])
             try:
-                srate = junkFrame.getSampleRate()
+                srate = junkFrame.sample_rate
                 break
             except ZeroDivisionError:
                 pass
-        fh[-1].seek(-drx.FrameSize, 1)
+        fh[-1].seek(-drx.FRAME_SIZE, 1)
     
-        beam, tune, pol = junkFrame.parseID()
+        beam, tune, pol = junkFrame.id
         beams.append( beam )
-        tunepols.append( drx.getFramesPerObs(fh[-1]) )
+        tunepols.append( drx.get_frames_per_obs(fh[-1]) )
         tunepols.append( tunepols[-1][0] + tunepols[-1][1] + tunepols[-1][2] + tunepols[-1][3] )
         beampols.append( tunepols[-1] )
         
-        tnom.append( junkFrame.header.timeOffset )
-        tStart.append( junkFrame.data.timeTag )
+        tnom.append( junkFrame.header.time_offset )
+        tStart.append( junkFrame.data.timetag )
     
     # Align the files as close as possible by the time tags and then make sure that
     # the first frame processed is from tuning 1, pol 0.
     for i in xrange(len(files)):
-        junkFrame = drx.readFrame(fh[i])
-        beam, tune, pol = junkFrame.parseID()
+        junkFrame = drx.read_frame(fh[i])
+        beam, tune, pol = junkFrame.id
         pair = 2*(tune-1) + pol
         j = 0
-        while junkFrame.data.timeTag < max(tStart):
-            junkFrame = drx.readFrame(fh[i])
-            beam, tune, pol = junkFrame.parseID()
+        while junkFrame.data.timetag < max(tStart):
+            junkFrame = drx.read_frame(fh[i])
+            beam, tune, pol = junkFrame.id
             pair = 2*(tune-1) + pol
             j += 1
         while pair != 0:
-            junkFrame = drx.readFrame(fh[i])
-            beam, tune, pol = junkFrame.parseID()
+            junkFrame = drx.read_frame(fh[i])
+            beam, tune, pol = junkFrame.id
             pair = 2*(tune-1) + pol
             j += 1
-        fh[i].seek(-drx.FrameSize, 1)
+        fh[i].seek(-drx.FRAME_SIZE, 1)
         print "Shifted beam %i data by %i frames (%.4f s)" % (i, j, j*4096/srate[i]/4)
             
     # Date
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
     print " "
@@ -111,13 +107,13 @@ def main(args):
     for i in xrange(len(files)):
         for j in xrange(nFrames):
             for k in xrange(4):
-                frame = drx.readFrame(fh[i])
-                beam, tune, pol = frame.parseID()
+                frame = drx.read_frame(fh[i])
+                beam, tune, pol = frame.id
                 pair = 2*(tune-1) + pol
                 
-                data[i,pair,j*4096:(j+1)*4096] = frame.data.iq
-                times[i,pair,j] = frame.data.timeTag
-                #print i, j, k, beam, tune, pol, frame.data.timeTag
+                data[i,pair,j*4096:(j+1)*4096] = frame.payload.data
+                times[i,pair,j] = frame.data.timetag
+                #print i, j, k, beam, tune, pol, frame.data.timetag
     
     # Cross-correlate
     refs = [0,0,0,0]

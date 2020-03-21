@@ -5,10 +5,6 @@
 Read in a SSMIF file and estimate the DRX beam for a given frequency and 
 topocentric pointing center.  The estimate is based off a simple delay-and-sum 
 beam former so it won't be an exact match.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -19,7 +15,7 @@ import numpy
 import argparse
 
 from lsl.common.dp import fS
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 from lsl.misc import beamformer
 from lsl.common.constants import c as vLight
 from lsl.common.paths import data as dataPath
@@ -29,8 +25,8 @@ from matplotlib import pyplot as plt
 
 
 def main(args):
-    station = parseSSMIF(args.filename)
-    antennas = station.getAntennas()
+    station = parse_ssmif(args.filename)
+    antennas = station.antennas
 
     digs    = numpy.array([ant.digitizer  for ant in antennas])
     ants    = numpy.array([ant.id         for ant in antennas])
@@ -50,25 +46,27 @@ def main(args):
     
     # Calculate the beamformer delays in this direction, making sure to
     # do it at 74 MHz and then quantize them.
-    delays =  beamformer.calcDelay(antennas, freq=74e6, azimuth=args.azimuth, elevation=args.elevation)
+    delays =  beamformer.calc_delay(antennas, freq=74e6, azimuth=args.azimuth, elevation=args.elevation)
     delays_int = (delays*fS).astype(numpy.int32)
     delays_fra = (16*(delays*fS - delays_int)).astype(numpy.int16)
     delays_quantized = delays_int / fS + delays_fra / 16.0 / fS
 
-    # Build up an array of antenna positions (xyz) and cable delays (cbl) at
-    # the frequency of interest.  These will be used later to compute the
-    # physical delays through the system
+    # Build up an array of antenna positions (xyz) and cable delays (cbl)/
+    # attenuation (atn) for the frequency of interest.  These will be used 
+    # later to compute the physical delays through the system
     xyz = numpy.array([(a.stand.x, a.stand.y, a.stand.z) for a in antennas]).T
     cbl = numpy.array([a.cable.delay((args.frequency*1e6)) for a in antennas])
+    atn = numpy.array([a.cable.gain((args.frequency*1e6)) for a in antennas])
+    atn = numpy.sqrt(atn / atn.max())
     
     # Apply a uniform weight across the dipoles
     wgt = numpy.ones(len(antennas))
 
     # Build up lists containing indecies of good antennas in both polarizations
     # and then zero out the weights of bad antennas
-    X = [i for i,a in enumerate(antennas) if a.getStatus() == 33 and a.pol == 0]
-    Y = [i for i,a in enumerate(antennas) if a.getStatus() == 33 and a.pol == 1]
-    wgt[[i for i,a in enumerate(antennas) if a.getStatus() != 33]] = 0.0
+    X = [i for i,a in enumerate(antennas) if a.combined_status == 33 and a.pol == 0]
+    Y = [i for i,a in enumerate(antennas) if a.combined_status == 33 and a.pol == 1]
+    wgt[[i for i,a in enumerate(antennas) if a.combined_status != 33]] = 0.0
 
     # Quantize the weights since we may need to do that anyways when we throw 
     # this on the station
@@ -99,7 +97,7 @@ def main(args):
             delays_physical = cbl - numpy.dot(pc, xyz) / vLight
             
             ## Calculate the beamformed signal without summing across antennas
-            sig = wgt_quantized*numpy.exp(-2j*numpy.pi*(args.frequency*1e6)*(delays_physical-delays_quantized))
+            sig = wgt_quantized*atn*numpy.exp(-2j*numpy.pi*(args.frequency*1e6)*(delays_physical-delays_quantized))
             ## Now sum across the right antennas
             pwrX[i,j] = numpy.abs( numpy.sum(sig[X]) )**2
             pwrY[i,j] = numpy.abs( numpy.sum(sig[Y]) )**2

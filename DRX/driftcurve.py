@@ -15,7 +15,6 @@ from lsl.common import stations
 from lsl.common.paths import data as dataPath
 from lsl.misc import parser as aph
 
-__revision__ = "$Revision$"
 __version__  = "0.1"
 __author__    = "D.L.Wood"
 __maintainer__ = "Jayce Dowell"
@@ -47,11 +46,11 @@ def main(args):
         
     # Read in the skymap (GSM or LF map @ 74 MHz)
     if not args.lfsm:
-        smap = skymap.SkyMapGSM(freqMHz=freq/1e6)
+        smap = skymap.SkyMapGSM(freq_MHz=freq/1e6)
         if args.verbose:
             print "Read in GSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
     else:
-        smap = skymap.SkyMapLFSM(freqMHz=freq/1e6)
+        smap = skymap.SkyMapLFSM(freq_MHz=freq/1e6)
         if args.verbose:
             print "Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
             

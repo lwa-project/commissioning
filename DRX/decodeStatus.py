@@ -2,10 +2,6 @@
 
 """
 Given a DP board status code, decode it into its various parts.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import sys

@@ -3,10 +3,6 @@
 """
 Read in a DRX file and look at the time tag difference between tuning 1 and 
 tuning 2 to and if that difference changes throughout a file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -32,17 +28,17 @@ def main(args):
     filename = args[0]
 
     fh = open(filename, "rb")
-    nFramesFile = os.path.getsize(filename) / drx.FrameSize
-    junkFrame = drx.readFrame(fh)
-    beam,tune,pol = junkFrame.parseID()
+    nFramesFile = os.path.getsize(filename) / drx.FRAME_SIZE
+    junkFrame = drx.read_frame(fh)
+    beam,tune,pol = junkFrame.id
     while 2*(tune-1)+pol != 0:
-        junkFrame = drx.readFrame(fh)
-        beam,tune,pol = junkFrame.parseID()
-    fh.seek(fh.tell() - drx.FrameSize)
+        junkFrame = drx.read_frame(fh)
+        beam,tune,pol = junkFrame.id
+    fh.seek(fh.tell() - drx.FRAME_SIZE)
 
-    srate = junkFrame.getSampleRate()
-    beams = drx.getBeamCount(fh)
-    tunepols = drx.getFramesPerObs(fh)
+    srate = junkFrame.sample_rate
+    beams = drx.get_beam_count(fh)
+    tunepols = drx.get_frames_per_obs(fh)
     tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
     beampols = tunepol
 
@@ -67,30 +63,30 @@ def main(args):
             screen.clear()
 
             beamIDs = [0,0,0,0]
-            timeTags = numpy.zeros(4, dtype=numpy.int64) - 1
-            timeOffsets = numpy.zeros(4, dtype=numpy.int64) - 1
+            timetags = numpy.zeros(4, dtype=numpy.int64) - 1
+            time_offsets = numpy.zeros(4, dtype=numpy.int64) - 1
             timeValues = numpy.zeros(4, dtype=numpy.float64)
             for j in xrange(4):
                 # Read in the next frame and anticipate any problems that could occur
                 try:
-                    cFrame = drx.readFrame(fh, Verbose=False)
-                except errors.eofError:
+                    cFrame = drx.read_frame(fh, Verbose=False)
+                except errors.EOFError:
                     break
-                except errors.syncError:
-                    #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+                except errors.SyncError:
+                    #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1)
                     continue
         
                 ## Save the time time, time offset, and computed time values
-                beam,tune,pol = cFrame.parseID()
+                beam,tune,pol = cFrame.id
                 aStand = 2*(tune-1) + pol
-                if timeTags[aStand] == -1:
+                if timetags[aStand] == -1:
                     beamIDs[aStand] = (beam,tune,pol)
-                    timeTags[aStand] = cFrame.data.timeTag
-                    timeOffsets[aStand] = cFrame.header.timeOffset
-                    timeValues[aStand] = cFrame.getTime()
+                    timetags[aStand] = cFrame.data.timetag
+                    time_offsets[aStand] = cFrame.header.time_offset
+                    timeValues[aStand] = cFrame.get_time()
 
             k = 0
-            for id,tt,to,tv in zip(beamIDs, timeTags, timeOffsets, timeValues):
+            for id,tt,to,tv in zip(beamIDs, timetags, time_offsets, timeValues):
                 strdict['b%i' % k] = id[0]
                 strdict['t%i' % k] = id[1]
                 strdict['p%i' % k] = id[2]
@@ -101,8 +97,8 @@ def main(args):
 
                 k += 1
 
-            t1t = timeTags[0] - timeOffsets[0]
-            t2t = timeTags[3] - timeOffsets[3]
+            t1t = timetags[0] - time_offsets[0]
+            t2t = timetags[3] - time_offsets[3]
             tuningOffset[i] = t2t - t1t
 
             strdict['ttd'] = t2t - t1t

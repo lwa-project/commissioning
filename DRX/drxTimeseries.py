@@ -3,10 +3,6 @@
 
 """
 Given a DRX file, plot the time series I and Q data as a function of time.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -25,31 +21,31 @@ import matplotlib.pyplot as plt
 
 def main(args):
     fh = open(args.filename, "rb")
-    nFramesFile = os.path.getsize(args.filename) / drx.FrameSize
+    nFramesFile = os.path.getsize(args.filename) / drx.FRAME_SIZE
     
     while True:
         try:
-            junkFrame = drx.readFrame(fh)
+            junkFrame = drx.read_frame(fh)
             try:
-                srate = junkFrame.getSampleRate()
-                t0 = junkFrame.getTime()
+                srate = junkFrame.sample_rate
+                t0 = junkFrame.get_time()
                 break
             except ZeroDivisionError:
                 pass
-        except errors.syncError:
-            fh.seek(-drx.FrameSize+1, 1)
+        except errors.SyncError:
+            fh.seek(-drx.FRAME_SIZE+1, 1)
             
-    fh.seek(-drx.FrameSize, 1)
+    fh.seek(-drx.FRAME_SIZE, 1)
     
-    beams = drx.getBeamCount(fh)
-    tunepols = drx.getFramesPerObs(fh)
+    beams = drx.get_beam_count(fh)
+    tunepols = drx.get_frames_per_obs(fh)
     tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
     beampols = tunepol
 
     # Offset in frames for beampols beam/tuning/pol. sets
     offset = int(round(args.skip * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
-    fh.seek(offset*drx.FrameSize, 1)
+    fh.seek(offset*drx.FRAME_SIZE, 1)
     
     # Iterate on the offsets until we reach the right point in the file.  This
     # is needed to deal with files that start with only one tuning and/or a 
@@ -57,13 +53,13 @@ def main(args):
     while True:
         ## Figure out where in the file we are and what the current tuning/sample 
         ## rate is
-        junkFrame = drx.readFrame(fh)
-        srate = junkFrame.getSampleRate()
-        t1 = junkFrame.getTime()
-        tunepols = drx.getFramesPerObs(fh)
+        junkFrame = drx.read_frame(fh)
+        srate = junkFrame.sample_rate
+        t1 = junkFrame.get_time()
+        tunepols = drx.get_frames_per_obs(fh)
         tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
         beampols = tunepol
-        fh.seek(-drx.FrameSize, 1)
+        fh.seek(-drx.FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
         tDiff = t1 - (t0 + args.skip)
@@ -78,7 +74,7 @@ def main(args):
         ## and check the location in the file again/
         if cOffset is 0:
             break
-        fh.seek(cOffset*drx.FrameSize, 1)
+        fh.seek(cOffset*drx.FRAME_SIZE, 1)
     
     # Update the offset actually used
     args.skip = t1 - t0
@@ -119,12 +115,12 @@ def main(args):
 
     # Align the file handle so that the first frame read in the
     # main analysis loop is from tuning 1, polarization 0
-    junkFrame = drx.readFrame(fh)
-    b,t,p = junkFrame.parseID()
+    junkFrame = drx.read_frame(fh)
+    b,t,p = junkFrame.id
     while 2*(t-1)+p != 0:
-        junkFrame = drx.readFrame(fh)
-        b,t,p = junkFrame.parseID()
-    fh.seek(-drx.FrameSize, 1)
+        junkFrame = drx.read_frame(fh)
+        b,t,p = junkFrame.id
+    fh.seek(-drx.FRAME_SIZE, 1)
 
     # Master loop over all of the file chuncks
     standMapper = []
@@ -150,21 +146,21 @@ def main(args):
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = drx.read_frame(fh, Verbose=False)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+            except errors.SyncError:
+                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1)
                 continue
                 
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 2*(tune-1) + pol
             
-            tt[aStand, count[aStand]] = cFrame.data.timeTag
+            tt[aStand, count[aStand]] = cFrame.data.timetag
             if args.instantaneous_power:
-                data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
+                data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.payload.data)**2
             else:
-                data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+                data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.payload.data
             
             # Update the counters so that we can average properly later on
             count[aStand] += 1

@@ -5,10 +5,6 @@
 Check the time times in a DRX file for flow.  This script should be immune to the 
 various DRX cross-tuning time tag issues because it does comparisons on a tuning/
 polarization basis.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -32,31 +28,31 @@ def main(args):
     # first frame number is, and what the sample rate it.  From the sample 
     # rate, estimate how the time tag should advance between frames.
     while True:
-        junkFrame = drx.readFrame(fh)
+        junkFrame = drx.read_frame(fh)
         try:
-            sampleRate = junkFrame.getSampleRate()
+            sample_rate = junkFrame.sample_rate
             break
         except ZeroDivisionError:
             pass
-    tagSkip = int(fS / sampleRate * junkFrame.data.iq.shape[0])
-    fh.seek(-drx.FrameSize, 1)
+    tagSkip = int(fS / sample_rate * junkFrame.payload.data.shape[0])
+    fh.seek(-drx.FRAME_SIZE, 1)
 
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevTime = junkFrame.data.timeTag
-    prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
-    prevFrame = junkFrame.header.frameCount
+    prevTime = junkFrame.data.timetag
+    prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
+    prevFrame = junkFrame.header.frame_count
 
     # Skip ahead
-    fh.seek(int(skip*sampleRate/4096)*4*drx.FrameSize)
+    fh.seek(int(skip*sample_rate/4096)*4*drx.FRAME_SIZE)
 
     # Report on the file
     print "Filename: %s" % os.path.basename(args.filename)
     print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "Sample rate: %i Hz" % sampleRate
+    print "Sample rate: %i Hz" % sample_rate
     print "Time tag skip per frame: %i" % tagSkip
     if skip != 0:
-        print "Skipping ahead %i frames (%.6f seconds)" % (int(skip*sampleRate/4096)*4, int(skip*sampleRate/4096)*4096/sampleRate)
+        print "Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/4096)*4, int(skip*sample_rate/4096)*4096/sample_rate)
 
     k = 0
     #k = 1
@@ -64,12 +60,12 @@ def main(args):
     prevDate = ['', '', '', '']
     prevNumb = [0, 0, 0, 0]
     for i in xrange(4):
-        currFrame = drx.readFrame(fh)
-        beam, tune, pol = currFrame.parseID()
+        currFrame = drx.read_frame(fh)
+        beam, tune, pol = currFrame.id
         rID = 2*(tune-1) + pol
 
-        prevTime[rID] = currFrame.data.timeTag
-        prevDate[rID] = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
+        prevTime[rID] = currFrame.data.timetag
+        prevDate[rID] = ephem.Date(astro.unix_to_utcjd(currFrame.get_time()) - astro.DJD_OFFSET)
         prevNumb[rID] = 1 + k / 4
         #prevNumb[rID] = k
         
@@ -77,19 +73,19 @@ def main(args):
     
     while True:
         try:
-            currFrame = drx.readFrame(fh)
-        except errors.eofError:
+            currFrame = drx.read_frame(fh)
+        except errors.EOFError:
             break
-        except errors.syncError:
+        except errors.SyncError:
             currNumb = 1 + k / 4
             
             print "ERROR: invalid frame (sync. word error) @ frame %8i" % currNumb
             continue
         
-        beam, tune, pol = currFrame.parseID()
+        beam, tune, pol = currFrame.id
         rID = 2*(tune-1) + pol
-        currTime = currFrame.data.timeTag
-        currDate = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
+        currTime = currFrame.data.timetag
+        currDate = ephem.Date(astro.unix_to_utcjd(currFrame.get_time()) - astro.DJD_OFFSET)
         currNumb = 1 + k / 4
         #currNumb = k
 

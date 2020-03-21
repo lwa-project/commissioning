@@ -3,10 +3,6 @@
 
 """
 Given a DRX file, look for clip-o-rama (single samples with high instanenous power).
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -94,19 +90,19 @@ def main(args):
     config = parseOptions(args)
     
     fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
+    nFramesFile = os.path.getsize(config['args'][0]) / drx.FRAME_SIZE
     
     while True:
-        junkFrame = drx.readFrame(fh)
+        junkFrame = drx.read_frame(fh)
         try:
-            srate = junkFrame.getSampleRate()
+            srate = junkFrame.sample_rate
             break
         except ZeroDivisionError:
             pass
-    fh.seek(-drx.FrameSize, 1)
+    fh.seek(-drx.FRAME_SIZE, 1)
     
-    beams = drx.getBeamCount(fh)
-    tunepols = drx.getFramesPerObs(fh)
+    beams = drx.get_beam_count(fh)
+    tunepols = drx.get_frames_per_obs(fh)
     tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
     beampols = tunepol
 
@@ -114,7 +110,7 @@ def main(args):
     offset = int(round(config['offset'] * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
     config['offset'] = 1.0 * offset / beampols * 4096 / srate
-    fh.seek(offset*drx.FrameSize)
+    fh.seek(offset*drx.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
@@ -152,12 +148,12 @@ def main(args):
 
     # Align the file handle so that the first frame read in the
     # main analysis loop is from tuning 1, polarization 0
-    junkFrame = drx.readFrame(fh)
-    b,t,p = junkFrame.parseID()
+    junkFrame = drx.read_frame(fh)
+    b,t,p = junkFrame.id
     while 2*(t-1)+p != 0:
-        junkFrame = drx.readFrame(fh)
-        b,t,p = junkFrame.parseID()
-    fh.seek(-drx.FrameSize, 1)
+        junkFrame = drx.read_frame(fh)
+        b,t,p = junkFrame.id
+    fh.seek(-drx.FRAME_SIZE, 1)
 
     # Master loop over all of the file chuncks
     standMapper = []
@@ -182,17 +178,17 @@ def main(args):
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = drx.read_frame(fh, Verbose=False)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+            except errors.SyncError:
+                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1)
                 continue
                 
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 2*(tune-1) + pol
             
-            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
+            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.payload.data)**2
             
             # Update the counters so that we can average properly later on
             count[aStand] += 1
