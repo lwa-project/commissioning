@@ -5,10 +5,6 @@
 Given a binary TBW health check file from PASI/LASI, covnert the data into a 
 .npz file that is comptaible with the output of stationMaster.py.  These files
 can be used with the smGUI.py utility.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -24,7 +20,7 @@ from xml.etree import ElementTree
 from BeautifulSoup import BeautifulSoup
     
 
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 from lsl.common.progress import ProgressBar
 
 
@@ -122,7 +118,7 @@ class DynamicSSMIF(object):
         fh.close()
         
         # Parse the SSMIF
-        station = parseSSMIF(filename)
+        station = parse_ssmif(filename)
         
         # Cleanup
         os.unlink(filename)
@@ -145,7 +141,7 @@ class DynamicSSMIF(object):
         
         return contents
         
-    def getStation(self):
+    def get_station(self):
         try:
             station = self.station
         except AttributeError:
@@ -198,12 +194,12 @@ def loadHealthCheckFile(filename):
     
     # Open the file and parse out the spectra
     fh = open(filename, 'rb')
-    nStands, nChans = struct.unpack('ll', fh.read(16))
-    specs = numpy.fromfile(fh, count=nStands*2*nChans, dtype=numpy.float32)
-    specs = specs.reshape(nStands*2, nChans)
+    nStands, nchans = struct.unpack('ll', fh.read(16))
+    specs = numpy.fromfile(fh, count=nStands*2*nchans, dtype=numpy.float32)
+    specs = specs.reshape(nStands*2, nchans)
     
     # Get the corresponding frequencies
-    freqs = numpy.arange(nChans) / float(nChans - 1) * 196e6 / 2
+    freqs = numpy.arange(nchans) / float(nchans - 1) * 196e6 / 2
     
     return dt, freqs, specs
 
@@ -228,13 +224,13 @@ def main(args):
         beginDate, freq, spec = loadHealthCheckFile(filename)
         masterSpectra = numpy.zeros((1,spec.shape[0],spec.shape[1]), dtype=spec.dtype)
         masterSpectra[0,:,:] = spec
-        antpols, nChan = spec.shape
+        antpols, nchan = spec.shape
         
         ## Report on the file's contents
         if args.verbose:
             print "  Capture Date: %s" % beginDate
             print "  Antenna/pols.: %i" % antpols
-            print "  Channels: %i" % nChan
+            print "  Channels: %i" % nchan
             
         ## Get the SSMIF that we need for this file
         found = False
@@ -250,17 +246,17 @@ def main(args):
             continue
             
         ## Pull out the metadata we need
-        station = ssmif.getStation()
+        station = ssmif.get_station()
         ssmifContents = ssmif.getContents()
-        antennas = station.getAntennas()
+        antennas = station.antennas
         
         ## Compute the 1 ms average power and the data range within each 1 ms window
         ## NOTE:  This is a dummy operation since we can't do this with the health
         ##        check data.
         subSize = 1960
-        nSegments = 2*subSize / subSize
-        avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
-        dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
+        nsegments = 2*subSize / subSize
+        avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
+        dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
         adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
         
         ## Apply the cable loss corrections, if requested

@@ -4,10 +4,6 @@
 """
 Given a TBF file, plot the time averaged spectra for each digitizer input.  Save 
 the data for later review with smGUI as an NPZ file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -30,27 +26,27 @@ import matplotlib.pyplot as plt
 def main(args):
     # Set the station
     if args.metadata is not None:
-        station = stations.parseSSMIF(args.metadata)
+        station = stations.parse_ssmif(args.metadata)
         ssmifContents = open(args.metadata).readlines()
     else:
         station = stations.lwasv
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
-    antennas = station.getAntennas()
+    antennas = station.antennas
     
     fh = open(args.filename, "rb")
-    nFrames = os.path.getsize(args.filename) / tbf.FrameSize
+    nFrames = os.path.getsize(args.filename) / tbf.FRAME_SIZE
     
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbf.readFrame(fh)
+    junkFrame = tbf.read_frame(fh)
     fh.seek(0)
-    beginTime = junkFrame.getTime()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginTime = junkFrame.get_time()
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
     
     # Figure out how many frames there are per observation and the number of
     # channels that are in the file
-    nFramesPerObs = tbf.getFramesPerObs(fh)
-    nChannels = tbf.getChannelCount(fh)
+    nFramesPerObs = tbf.get_frames_per_obs(fh)
+    nchannels = tbf.get_channel_count(fh)
     
     # Figure out how many chunks we need to work with
     nChunks = nFrames / nFramesPerObs
@@ -58,16 +54,16 @@ def main(args):
     # Pre-load the channel mapper
     mapper = []
     for i in xrange(2*nFramesPerObs):
-        cFrame = tbf.readFrame(fh)
-        mapper.append( cFrame.header.firstChan )
-    fh.seek(-2*nFramesPerObs*tbf.FrameSize, 1)
+        cFrame = tbf.read_frame(fh)
+        mapper.append( cFrame.header.first_chan )
+    fh.seek(-2*nFramesPerObs*tbf.FRAME_SIZE, 1)
     mapper.sort()
     
     # File summary
     print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Frames per Observation: %i" % nFramesPerObs
-    print "Channel Count: %i" % nChannels
+    print "Channel Count: %i" % nchannels
     print "Frames: %i" % nFrames
     print "==="
     print "Chunks: %i" % nChunks
@@ -77,46 +73,46 @@ def main(args):
     outfile = "%s.npz" % outfile	
     if (not os.path.exists(outfile)) or args.force:
         # Master loop over all of the file chunks
-        masterSpectra = numpy.zeros((nChunks, 512, nChannels), numpy.float32)
+        masterSpectra = numpy.zeros((nChunks, 512, nchannels), numpy.float32)
         
         for i in range(nChunks):
             # Inner loop that actually reads the frames into the data array
             for j in range(nFramesPerObs):
                 # Read in the next frame and anticipate any problems that could occur
                 try:
-                    cFrame = tbf.readFrame(fh)
-                except errors.eofError:
+                    cFrame = tbf.read_frame(fh)
+                except errors.EOFError:
                     break
-                except errors.syncError:
-                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbf.FrameSize-1)
+                except errors.SyncError:
+                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbf.FRAME_SIZE-1)
                     continue
-                if not cFrame.header.isTBF():
+                if not cFrame.header.is_tbf:
                     continue
                     
-                aStand = mapper.index(cFrame.header.firstChan)
+                aStand = mapper.index(cFrame.header.first_chan)
                 
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
-                if cFrame.header.frameCount % 10000 == 0 and args.verbose:
-                    print "%4i -> %3i  %6.3f  %5i  %i" % (cFrame.header.firstChan, aStand, cFrame.getTime(), cFrame.header.frameCount, cFrame.data.timeTag)
+                if cFrame.header.frame_count % 10000 == 0 and args.verbose:
+                    print "%4i -> %3i  %6.3f  %5i  %i" % (cFrame.header.first_chan, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
                     
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
                 # odd numbers
                 if i == 0 and j == 0:
-                    refCount = cFrame.header.frameCount
-                count = cFrame.header.frameCount - refCount
-                masterSpectra[count,0::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.data.fDomain[:,:,0], 1) )**2
-                masterSpectra[count,1::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.data.fDomain[:,:,1], 1) )**2
+                    refCount = cFrame.header.frame_count
+                count = cFrame.header.frame_count - refCount
+                masterSpectra[count,0::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.payload.data[:,:,0], 1) )**2
+                masterSpectra[count,1::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.payload.data[:,:,1], 1) )**2
 
                 
             # Compute the 1 ms average power and the data range within each 1 ms window
             subSize = 1960
-            nSegments = data.shape[1] / subSize
+            nsegments = data.shape[1] / subSize
             
             print "Computing average power and data range in %i-sample intervals, ADC histogram" % subSize
             pb = ProgressBar(max=data.shape[0])
-            avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
-            dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
+            avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
+            dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
             adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
             histBins = range(-2048, 2049)
             

@@ -4,10 +4,6 @@
 Given a TBF filles created by the on-line triggering system on ADP, combine 
 the files together into a single file that can be used like a standard 
 DR-recorded TBF file
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -28,10 +24,10 @@ class RawTBFFrame(object):
     
     def __init__(self, contents):
         self.contents = bytearray(contents)
-        if len(self.contents) != tbf.FrameSize:
-            raise errors.eofError
+        if len(self.contents) != tbf.FRAME_SIZE:
+            raise errors.EOFError
         if self.contents[0] != 0xDE or self.contents[1] != 0xC0 or self.contents[2] != 0xDE or self.contents[3] != 0x5c:
-            raise errors.syncError
+            raise errors.SyncError
             
     def __getitem__(self, key):
         return self.contents[key]
@@ -40,20 +36,20 @@ class RawTBFFrame(object):
         self.contents[key] = value
         
     @property
-    def timeTag(self):
-        timeTag = 0L
-        timeTag |= self.contents[16] << 56
-        timeTag |= self.contents[17] << 48
-        timeTag |= self.contents[18] << 40
-        timeTag |= self.contents[19] << 32
-        timeTag |= self.contents[20] << 24
-        timeTag |= self.contents[21] << 16
-        timeTag |= self.contents[22] <<  8
-        timeTag |= self.contents[23]
-        return timeTag
+    def timetag(self):
+        timetag = 0L
+        timetag |= self.contents[16] << 56
+        timetag |= self.contents[17] << 48
+        timetag |= self.contents[18] << 40
+        timetag |= self.contents[19] << 32
+        timetag |= self.contents[20] << 24
+        timetag |= self.contents[21] << 16
+        timetag |= self.contents[22] <<  8
+        timetag |= self.contents[23]
+        return timetag
         
     @property
-    def firstChan(self):
+    def first_chan(self):
         chan0 = (self.contents[12] << 8) | self.contents[13]
         return chan0
 
@@ -68,10 +64,10 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
       chans
         list of start channel numbers to expect data for
     
-      nSegments
+      nsegments
         number of ring segments to use for the buffer (default is 25)
     
-      ReorderFrames
+      reorder
         whether or not to reorder frames returned by get() or flush() by 
         start channel (default is False)
     
@@ -94,10 +90,10 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
     
     """
     
-    def __init__(self, chans, nSegments=25, ReorderFrames=False):
-        super(RawTBFFrameBuffer, self).__init__(mode='TBF', chans=chans, nSegments=nSegments, ReorderFrames=ReorderFrames)
+    def __init__(self, chans, nsegments=25, reorder=False):
+        super(RawTBFFrameBuffer, self).__init__(mode='TBF', chans=chans, nsegments=nsegments, reorder=reorder)
         
-    def calcFrames(self):
+    def get_max_frames(self):
         """
         Calculate the maximum number of frames that we expect from 
         the setup of the observations and a list of tuples that describes
@@ -113,20 +109,20 @@ class RawTBFFrameBuffer(buffer.FrameBuffer):
             
         return (nFrames, frameList)
         
-    def figureOfMerit(self, frame):
+    def get_figure_of_merit(self, frame):
         """
         Figure of merit for sorting frames.  For TBF this is:
-        frame.data.timeTag
+        frame.data.timetag
         """
         
-        return frame.timeTag
+        return frame.timetag
         
     def frameID(self, frame):
         """
         ID value or tuple for a given frame.
         """
         
-        return frame.firstChan
+        return frame.first_chan
         
     def createFill(self, key, frameParameters):
         """
@@ -164,7 +160,7 @@ def main(args):
             raise RuntimeError("Unexpected channel increment: %i != 12" % (chans[i]-chans[i-1],))
             
     # Setup the buffer
-    buffer = RawTBFFrameBuffer(chans=chans, ReorderFrames=False)
+    buffer = RawTBFFrameBuffer(chans=chans, reorder=False)
     
     # Setup the output filename
     if args.output is None:
@@ -195,11 +191,11 @@ def main(args):
         rFrames = deque()
         for i,f in enumerate(fh):
             try:
-                rFrames.append( RawTBFFrame(f.read(tbf.FrameSize)) )
-            except errors.eofError:
+                rFrames.append( RawTBFFrame(f.read(tbf.FRAME_SIZE)) )
+            except errors.EOFError:
                 eofFound[i] = True
                 continue
-            except errors.syncError:
+            except errors.SyncError:
                 continue
                 
         ## Add the frames to the buffer
