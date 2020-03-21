@@ -4,10 +4,6 @@
 """
 Given a DRX file, plot the time averaged spectra for each beam output over some 
 period.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -63,7 +59,7 @@ def bestFreqUnits(freq):
     return (newFreq, units)
 
 
-def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, args, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw DRX file into linear polarization 
     products and add the contents to an HDF5 file.
@@ -73,18 +69,18 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, args, da
     LFFT = args.fft_length
     
     # Find the start of the observation
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sampleRate)
+    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
     idf.reset()
     
-    t0 = idf.getInfo('tStart')
+    t0 = idf.get_info('tStart')
     tDiff = tStart - datetime.utcfromtimestamp(t0)
     offset = idf.offset( tDiff.total_seconds() )
-    t0 = idf.getInfo('tStart')
-    srate = idf.getInfo('sampleRate')
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
-        offset = idf.offset( 4096./sampleRate )
-        t0 = idf.getInfo('tStart')
-        srate = idf.getInfo('sampleRate')
+    t0 = idf.get_info('tStart')
+    srate = idf.get_info('sample_rate')
+    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+        offset = idf.offset( 4096./sample_rate )
+        t0 = idf.get_info('tStart')
+        srate = idf.get_info('sample_rate')
         
     print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
     tDiff = datetime.utcfromtimestamp(t0) - tStart
@@ -98,22 +94,22 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, args, da
         
     # Date & Central Frequency
     beginDate = ephem.Date(unix_to_utcjd(t0) - DJD_OFFSET)
-    centralFreq1 = idf.getInfo('freq1')
-    centralFreq2 = idf.getInfo('freq2')
+    central_freq1 = idf.get_info('freq1')
+    central_freq2 = idf.get_info('freq2')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
     
-    dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
-    dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
+    dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
+    dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
     obs = dataSets['obs%i' % obsID]
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nChan'] = LFFT
+    obs.attrs['nchan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
-    dataProducts = ['XX', 'YY']
+    data_products = ['XX', 'YY']
     done = False
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
@@ -138,19 +134,19 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, args, da
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             
             l = 0
             for t in (1,2):
-                for p in dataProducts:
+                for p in data_products:
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,:]
                     l += 1
                     
         else:
-            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
-            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip2)
+            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
             
-            for l,p in enumerate(dataProducts):
+            for l,p in enumerate(data_products):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,:]
                 
@@ -164,7 +160,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sampleRate, args, da
     return True
 
 
-def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, args, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw DRX file into Stokes parameters and 
     add the contents to an HDF5 file.
@@ -174,20 +170,20 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, args, da
     LFFT = args.fft_length
     
     # Find the start of the observation
-    t0 = idf.getInfo('tStart')
+    t0 = idf.get_info('tStart')
     
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sampleRate)
+    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
     idf.reset()
     
-    t0 = idf.getInfo('tStart')
+    t0 = idf.get_info('tStart')
     tDiff = tStart - datetime.utcfromtimestamp(t0)
     offset = idf.offset( tDiff.total_seconds() )
-    t0 = idf.getInfo('tStart')
-    srate = idf.getInfo('sampleRate')
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
-        offset = idf.offset( 4096./sampleRate )
-        t0 = idf.getInfo('tStart')
-        srate = idf.getInfo('sampleRate')
+    t0 = idf.get_info('tStart')
+    srate = idf.get_info('sample_rate')
+    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+        offset = idf.offset( 4096./sample_rate )
+        t0 = idf.get_info('tStart')
+        srate = idf.get_info('sample_rate')
         
     print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
     tDiff = datetime.utcfromtimestamp(t0) - tStart
@@ -207,22 +203,22 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, args, da
         
     # Date & Central Frequency
     beginDate = ephem.Date(unix_to_utcjd(t0) - DJD_OFFSET)
-    centralFreq1 = idf.getInfo('freq1')
-    centralFreq2 = idf.getInfo('freq2')
+    central_freq1 = idf.get_info('freq1')
+    central_freq2 = idf.get_info('freq2')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
     
-    dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
-    dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
+    dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
+    dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
     obs = dataSets['obs%i' % obsID]
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nChan'] = LFFT
+    obs.attrs['nchan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
-    dataProducts = ['I', 'Q', 'U', 'V']
+    data_products = ['I', 'Q', 'U', 'V']
     done = False
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
@@ -247,17 +243,17 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sampleRate, args, da
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             
             for t in (1,2):
-                for l,p in enumerate(dataProducts):
+                for l,p in enumerate(data_products):
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,t-1,:]
                     
         else:
-            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip1)
-            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=LFFT, window=args.window, verbose=args.verbose, SampleRate=srate, ClipLevel=clip2)
+            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
             
-            for l,p in enumerate(dataProducts):
+            for l,p in enumerate(data_products):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,0,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,0,:]
                 
@@ -281,7 +277,7 @@ def main(args):
     elif args.hanning:
         window = numpy.hanning
     else:
-        window = fxc.noWindow
+        window = fxc.null_window
     args.window = window
     
     # Open the file and find good data (not spectrometer data)
@@ -289,20 +285,20 @@ def main(args):
     
     try:
         for i in xrange(5):
-            junkFrame = drspec.readFrame(fh)
+            junkFrame = drspec.read_frame(fh)
         raise RuntimeError("ERROR: '%s' appears to be a DR spectrometer file, not a raw DRX file" % args.filename)
-    except errors.syncError:
+    except errors.SyncError:
         fh.seek(0)
         
     # Good, we seem to have a real DRX file, switch over to the LDP interface
     fh.close()
-    idf = LWA1DataFile(args.filename, ignoreTimeTagErrors=args.ignore_time_errors)
+    idf = LWA1DataFile(args.filename, ignore_timetag_errors=args.ignore_time_errors)
 
     # Metadata
-    nFramesFile = idf.getInfo('nFrames')
-    beam = idf.getInfo('beam')
-    srate = idf.getInfo('sampleRate')
-    beampols = idf.getInfo('beampols')
+    nFramesFile = idf.get_info('nFrames')
+    beam = idf.get_info('beam')
+    srate = idf.get_info('sample_rate')
+    beampols = idf.get_info('beampols')
     beams = max([1, beampols / 4])
     
     # Number of frames to integrate over
@@ -329,10 +325,10 @@ def main(args):
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    t1  = idf.getInfo('tStart')
+    t1  = idf.get_info('tStart')
     beginDate = ephem.Date(unix_to_utcjd(t1) - DJD_OFFSET)
-    centralFreq1 = idf.getInfo('freq1')
-    centralFreq2 = idf.getInfo('freq2')
+    central_freq1 = idf.get_info('freq1')
+    central_freq2 = idf.get_info('freq2')
     
     # File summary
     print "Filename: %s" % args.filename
@@ -340,7 +336,7 @@ def main(args):
     print "Beams: %i" % beams
     print "Tune/Pols: %i" % beampols
     print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
+    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
     print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
     print "---"
     print "Offset: %.3f s (%i frames)" % (args.skip, offset)
@@ -351,7 +347,7 @@ def main(args):
     
     # Estimate clip level (if needed)
     if args.estimate_clip_level:
-        estimate = idf.estimateLevels(fh, Sigma=5.0)
+        estimate = idf.estimate_levels(fh, Sigma=5.0)
         clip1 = (estimate[0] + estimate[1]) / 2.0
         clip2 = (estimate[2] + estimate[3]) / 2.0
     else:
@@ -397,10 +393,10 @@ def main(args):
     obsList = {}
     if args.metadata is not None:
         try:
-            project = metabundle.getSessionDefinition(args.metadata)
+            project = metabundle.get_sdf(args.metadata)
         except Exception as e:
             if adpReady:
-                project = metabundleADP.getSessionDefinition(args.metadata)
+                project = metabundleADP.get_sdf(args.metadata)
             else:
                 raise e
                 
@@ -410,10 +406,10 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
             obsDur   = obs.dur/1000.0
-            obsSR    = drx.filterCodes[obs.filter]
+            obsSR    = drx.FILTER_CODES[obs.filter]
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             
@@ -427,10 +423,10 @@ def main(args):
         
     elif args.sdf is not None:
         try:
-            project = sdf.parseSDF(args.sdf)
+            project = sdf.parse_sdf(args.sdf)
         except Exception as e:
             if adpReady:
-                project = sdfADP.parseSDF(args.sdf)
+                project = sdfADP.parse_sdf(args.sdf)
             else:
                 raise e
                 
@@ -440,10 +436,10 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
             obsDur   = obs.dur/1000.0
-            obsSR    = drx.filterCodes[obs.filter]
+            obsSR    = drx.FILTER_CODES[obs.filter]
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             
@@ -461,13 +457,13 @@ def main(args):
         hdfData.fillMinimum(f, 1, beam, srate, station=site)
         
     if (not args.stokes):
-        dataProducts = ['XX', 'YY']
+        data_products = ['XX', 'YY']
     else:
-        dataProducts = ['I', 'Q', 'U', 'V']
+        data_products = ['I', 'Q', 'U', 'V']
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), int(round(obsList[o][2]/args.average)), dataProducts)
+            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), int(round(obsList[o][2]/args.average)), data_products)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(args.filename)
@@ -481,10 +477,10 @@ def main(args):
         ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/args.average)),), 'f8')
         
         for t in (1,2):
-            ds['obs%i-freq%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'freq')
-            for p in dataProducts:
-                ds["obs%i-%s%i" % (o, p, t)] = hdfData.getDataSet(f, o, t, p)
-            ds['obs%i-Saturation%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'Saturation')
+            ds['obs%i-freq%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'freq')
+            for p in data_products:
+                ds["obs%i-%s%i" % (o, p, t)] = hdfData.get_data_set(f, o, t, p)
+            ds['obs%i-Saturation%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'Saturation')
             
     # Load in the correct analysis function
     if (not args.stokes):

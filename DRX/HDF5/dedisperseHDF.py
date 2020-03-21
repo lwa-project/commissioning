@@ -4,10 +4,6 @@
 """
 Given an HDF5 file, apply incoherent dedispersion to the data at the specified
 DM and save the results to a new file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -50,7 +46,7 @@ def main(args):
         # Load in the information we need to calculate the pseudo-spectral kurtosis (pSK)
         tInt = obs.attrs['tInt']
         LFFT = obs.attrs['LFFT']
-        srate = obs.attrs['sampleRate']
+        srate = obs.attrs['sample_rate']
         
         print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
         print "  Sample Rate: %.1f Hz" % srate

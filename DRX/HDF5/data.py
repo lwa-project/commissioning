@@ -2,10 +2,6 @@
 
 """
 Module to help with manipulating HDF5 beam data files.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -15,7 +11,7 @@ from datetime import datetime
 from collections import defaultdict
 
 from lsl.common import dp, mcs, sdf, metabundle
-from lsl.reader.drx import filterCodes
+from lsl.reader.drx import FILTER_CODES
 try:
     from lsl.common import sdfADP, metabundleADP
     adpReady = True
@@ -24,10 +20,8 @@ except ImportError:
 
 
 __version__ = "0.6"
-__revision__ = "$Rev$"
 __all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF', 
-           'getObservationSet', 'createDataSets', 'getDataSet', 
-           '__version__', '__revision__', '__all__']
+           'getObservationSet', 'createDataSets', 'get_data_set']
 
 
 def _valuetoDelay(value):
@@ -174,12 +168,12 @@ def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
     obs.attrs['ARX_GainS'] = -1.0
     obs.attrs['Beam'] = beam
     obs.attrs['DRX_Gain'] = -1.0
-    obs.attrs['sampleRate'] = srate
-    obs.attrs['sampleRate_Units'] = srateUnits
+    obs.attrs['sample_rate'] = srate
+    obs.attrs['sample_rate_Units'] = srateUnits
     obs.attrs['tInt'] = -1.0
     obs.attrs['tInt_Units'] = 's'
     obs.attrs['LFFT'] = -1
-    obs.attrs['nChan'] = -1
+    obs.attrs['nchan'] = -1
     obs.attrs['RBW'] = -1.0
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -194,14 +188,14 @@ def fillFromMetabundle(f, tarball):
     # Pull out what we need from the tarball
     try:
         mbParser = metabundle
-        project = mbParser.getSessionDefinition(tarball)
-        cds = mbParser.getCommandScript(tarball)
+        project = mbParser.get_sdf(tarball)
+        cds = mbParser.get_command_script(tarball)
         station = 'lwa1'
     except Exception as e:
         if adpReady:
             mbParser = metabundleADP
-            project = mbParser.getSessionDefinition(tarball)
-            cds = mbParser.getCommandScript(tarball)
+            project = mbParser.get_sdf(tarball)
+            cds = mbParser.get_command_script(tarball)
             station = 'lwasv'
         else:
             raise e
@@ -220,13 +214,13 @@ def fillFromMetabundle(f, tarball):
     
     # ARX configuration summary
     try:
-        arx = mbParser.getASPConfigurationSummary(tarball)
+        arx = mbParser.get_asp_configuration_summary(tarball)
     except:
         arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
         
     for i,obsS in enumerate(project.sessions[0].observations):
         # Detailed observation information
-        obsD = mbParser.getObservationSpec(tarball, selectObs=i+1)
+        obsD = mbParser.get_observation_spec(tarball, obs_id=i+1)
         
         # Get the group or create it if it doesn't exist
         grp = f.get('/Observation%i' % (i+1,), None)
@@ -241,7 +235,7 @@ def fillFromMetabundle(f, tarball):
         grp.attrs['Dec'] = obsD['Dec']
         grp.attrs['Dec_Units'] = 'degrees'
         grp.attrs['Epoch'] = 2000.0
-        grp.attrs['TrackingMode'] = mcs.mode2string(obsD['Mode'])
+        grp.attrs['TrackingMode'] = mcs.mode_to_string(obsD['Mode'])
         
         # Observation info
         grp.attrs['ARX_Filter'] = arx['filter']
@@ -250,11 +244,11 @@ def fillFromMetabundle(f, tarball):
         grp.attrs['ARX_GainS'] = arx['atsplit']
         grp.attrs['Beam'] = obsD['drxBeam']
         grp.attrs['DRX_Gain'] = obsD['drxGain']
-        grp.attrs['sampleRate'] = float(filterCodes[obsD['BW']])
-        grp.attrs['sampleRate_Units'] = 'samples/s'
+        grp.attrs['sample_rate'] = float(FILTER_CODES[obsD['BW']])
+        grp.attrs['sample_rate_Units'] = 'samples/s'
         
         # Deal with stepped mode
-        if mcs.mode2string(obsD['Mode']) == 'STEPPED':
+        if mcs.mode_to_string(obsD['Mode']) == 'STEPPED':
             stps = grp.create_group('Pointing')
             stps.attrs['StepType'] = 'RA/Dec' if obsD['StepRADec'] else 'Az/Alt'
             stps.attrs['col0'] = 'StartTime'
@@ -275,8 +269,8 @@ def fillFromMetabundle(f, tarball):
                 data[i,0] = t
                 data[i,1] = s.OBS_STP_C1
                 data[i,2] = s.OBS_STP_C2
-                data[i,3] = dp.word2freq(s.OBS_STP_FREQ1)
-                data[i,4] = dp.word2freq(s.OBS_STP_FREQ2)
+                data[i,3] = dp.word_to_freq(s.OBS_STP_FREQ1)
+                data[i,4] = dp.word_to_freq(s.OBS_STP_FREQ2)
             
                 ## Update the start time for the next step
                 t += s.OBS_STP_T / 1000.0
@@ -345,10 +339,10 @@ def fillFromSDF(f, sdfFilename, station=None):
     
     # Pull out what we need from the tarball
     try:
-        project = sdf.parseSDF(sdfFilename)
+        project = sdf.parse_sdf(sdfFilename)
     except Exception as e:
         if adpReady:
-            project = sdfADP.parseSDF(sdfFilename)
+            project = sdfADP.parse_sdf(sdfFilename)
         else:
             raise e
             
@@ -398,8 +392,8 @@ def fillFromSDF(f, sdfFilename, station=None):
         grp.attrs['ARX_GainS'] = arx['atsplit']
         grp.attrs['Beam'] = project.sessions[0].drxBeam
         grp.attrs['DRX_Gain'] = obsS.gain
-        grp.attrs['sampleRate'] = float(filterCodes[obsS.filter])
-        grp.attrs['sampleRate_Units'] = 'samples/s'
+        grp.attrs['sample_rate'] = float(FILTER_CODES[obsS.filter])
+        grp.attrs['sample_rate_Units'] = 'samples/s'
         
         # Deal with stepped mode
         if obsS.mode == 'STEPPED':
@@ -423,8 +417,8 @@ def fillFromSDF(f, sdfFilename, station=None):
                 data[i,0] = t
                 data[i,1] = s.c1
                 data[i,2] = s.c2
-                data[i,3] = dp.word2freq(s.freq1)
-                data[i,4] = dp.word2freq(s.freq2)
+                data[i,3] = dp.word_to_freq(s.freq1)
+                data[i,4] = dp.word_to_freq(s.freq2)
                 
                 ## Update the start time for the next step
                 t += s.dur / 1000.0
@@ -499,7 +493,7 @@ def getObservationSet(f, observation):
     return obs
 
 
-def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX', 'YY']):
+def createDataSets(f, observation, tuning, frequency, chunks, data_products=['XX', 'YY']):
     """
     Fill in a tuning group with the right set of dummy data sets and 
     attributes.
@@ -526,12 +520,12 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
         obs.attrs['ARX_GainS'] = -1.0
         obs.attrs['Beam'] = -1.0
         obs.attrs['DRX_Gain'] = -1.0
-        obs.attrs['sampleRate'] = -1.0
-        obs.attrs['sampleRate_Units'] = 'samples/s'
+        obs.attrs['sample_rate'] = -1.0
+        obs.attrs['sample_rate_Units'] = 'samples/s'
         obs.attrs['tInt'] = -1.0
         obs.attrs['tInt_Units'] = 's'
         obs.attrs['LFFT'] = -1
-        obs.attrs['nChan'] = -1
+        obs.attrs['nchan'] = -1
         obs.attrs['RBW'] = -1.0
         obs.attrs['RBW_Units'] = 'Hz'
         
@@ -542,7 +536,7 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
         
     grp['freq'] = frequency.astype(numpy.float64)
     grp['freq'].attrs['Units'] = 'Hz'
-    for p in dataProducts:
+    for p in data_products:
         d = grp.create_dataset(p, (chunks, frequency.size), 'f4')
         d.attrs['axis0'] = 'time'
         d.attrs['axis1'] = 'frequency'
@@ -553,7 +547,7 @@ def createDataSets(f, observation, tuning, frequency, chunks, dataProducts=['XX'
     return True
 
 
-def getDataSet(f, observation, tuning, dataProduct):
+def get_data_set(f, observation, tuning, dataProduct):
     """
     Return a reference to the specified data set.
     """

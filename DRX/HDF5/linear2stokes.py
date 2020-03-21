@@ -4,10 +4,6 @@
 """
 Given an HDF5 file with linear polarization products, calculate the Stokes 
 parameters and save the results to a new file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -71,23 +67,23 @@ def main(args):
     for obsName in hIn.keys():
         obs = hIn.get(obsName, None)
         tuning = obs.get('Tuning1', None)
-        dataProducts = list(tuning)
+        data_products = list(tuning)
         for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
             try:
-                ind = dataProducts.index(exclude)
-                del dataProducts[ind]
+                ind = data_products.index(exclude)
+                del data_products[ind]
             except ValueError:
                 pass
                 
         ## Stokes
-        if 'I' in dataProducts or 'Q' in dataProducts or 'U' in dataProducts or 'V' in dataProducts:
-            raise RuntimeError("Input file '%s' contains data products %s" % (args.filename, ', '.join(dataProducts)))
+        if 'I' in data_products or 'Q' in data_products or 'U' in data_products or 'V' in data_products:
+            raise RuntimeError("Input file '%s' contains data products %s" % (args.filename, ', '.join(data_products)))
             
         ## Minimum information
         pairs = 0
-        if 'XX' in dataProducts and 'YY' in dataProducts:
+        if 'XX' in data_products and 'YY' in data_products:
             pairs += 1
-        if 'XY' in dataProducts and 'YX' in dataProducts:
+        if 'XY' in data_products and 'YX' in data_products:
             pairs += 1
         if pairs == 0:
             raise RuntimeError("Input file '%s' contains too few data products to form Stokes parameters" % args.filename)
@@ -122,7 +118,7 @@ def main(args):
         # Load in the information we need
         tInt = obsIn.attrs['tInt']
         LFFT = obsIn.attrs['LFFT']
-        srate = obsIn.attrs['sampleRate']
+        srate = obsIn.attrs['sample_rate']
         
         print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
         print "  Sample Rate: %.1f Hz" % srate
@@ -139,15 +135,15 @@ def main(args):
             baseSKIn = tuningIn.get('SpectralKurtosis', None)
             baseSKOut = tuningOut.get('SpectralKurtosis', None)
             
-            dataProducts = list(tuningIn)
+            data_products = list(tuningIn)
             for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
                 try:
-                    ind = dataProducts.index(exclude)
-                    del dataProducts[ind]
+                    ind = data_products.index(exclude)
+                    del data_products[ind]
                 except ValueError:
                     pass
                     
-            if 'XX' in dataProducts and 'YY' in dataProducts:
+            if 'XX' in data_products and 'YY' in data_products:
                 ## I
                 print "      Computing 'I'"
                 tuningOut.create_dataset('I', tuningIn['XX'].shape, dtype=tuningIn['XX'].dtype.descr[0][1])
@@ -192,7 +188,7 @@ def main(args):
                     for key in baseSKIn['XX'].attrs:
                         baseSKOut['Q'].attrs[key] = baseSKIn['XX'].attrs[key]
                         
-            if 'XY' in dataProducts and 'YX' in dataProducts:
+            if 'XY' in data_products and 'YX' in data_products:
                 ## U
                 print "      Computing 'U'"
                 tuningOut.create_dataset('U', tuningIn['XY'].shape, dtype=tuningIn['XY'].dtype.descr[0][1])

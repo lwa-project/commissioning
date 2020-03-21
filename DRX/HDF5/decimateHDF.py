@@ -4,10 +4,6 @@
 """
 Given an HDF5 file, decimate the data contained in it in both time and 
 frequency, and save the results to a new file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 
@@ -30,7 +26,7 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
     for key in input.attrs:
         if key == 'tInt':
             value = input.attrs[key]*tDecimation
-        elif key == 'nChan':
+        elif key == 'nchan':
             value = input.attrs[key]/sDecimation
         elif key == 'RBW':
             value = input.attrs[key]*sDecimation

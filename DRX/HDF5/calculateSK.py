@@ -13,10 +13,6 @@ Note:  Although the pSK method works reasonable well for short integration times
 
 Usage:
 ./calculateSK.py [OPTIONS] file
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -39,7 +35,7 @@ def main(args):
         # Load in the information we need to calculate the pseudo-spectral kurtosis (pSK)
         tInt = obs.attrs['tInt']
         LFFT = obs.attrs['LFFT']
-        srate = obs.attrs['sampleRate']
+        srate = obs.attrs['sample_rate']
         
         skN = int(tInt*srate / LFFT)
         chunkSize = int(round(args.duration/tInt))
@@ -55,10 +51,10 @@ def main(args):
         tuning2 = obs.get('Tuning2', None)
         
         # Get all of the avaliable data products
-        dataProducts = list(tuning1)
+        data_products = list(tuning1)
         for toRemove in ('Mask', 'Saturation', 'SpectralKurtosis', 'freq'):
             try:
-                del dataProducts[dataProducts.index(toRemove)]
+                del data_products[data_products.index(toRemove)]
             except ValueError:
                 pass
                 
@@ -93,7 +89,7 @@ def main(args):
                     except TypeError:
                         section = data[start:stop,:]
                     for j in xrange(section.shape[1]):
-                        sk[start:stop,j] = kurtosis.spectralPower(section[:,j], N=skN*nAdjust[dp])
+                        sk[start:stop,j] = kurtosis.spectral_power(section[:,j], N=skN*nAdjust[dp])
                         
                 # Report
                 print "  => %s-%i SK Mean: %.3f" % (dp, t+1, numpy.mean(sk))
@@ -105,7 +101,7 @@ def main(args):
                     
                     if args.generate_mask:
                         ## Calculate the expected pSK limits for the threshold
-                        kLow, kHigh = kurtosis.getLimits(args.threshold, chunkSize, N=skN*nAdjust[dp])
+                        kLow, kHigh = kurtosis.get_limits(args.threshold, chunkSize, N=skN*nAdjust[dp])
                         
                         ## Generate the mask arrays
                         maskTable = numpy.where( (sk < kLow) | (sk > kHigh), True, False )
@@ -117,7 +113,7 @@ def main(args):
                         mask = tuning.get('Mask', None)
                         if mask is None:
                             mask = tuning.create_group('Mask')
-                            for p in dataProducts:
+                            for p in data_products:
                                 mask.create_dataset(p, tuning[p].shape, 'bool')
                         maskDP = mask.get(dp, None)
                         if args.merge:
@@ -139,7 +135,7 @@ def main(args):
                         
         if args.generate_mask and args.fill:	
             # Loop over data products - secondary
-            for dp in dataProducts:
+            for dp in data_products:
                 for t,tuning in enumerate((tuning1, tuning2)):
                     ## Jump over the primary polarizations
                     if dp in ('XX', 'YY', 'I', 'RR', 'LL'):

@@ -10,10 +10,6 @@ or the script can be used to just list the observations within an HDF5 file.
 
 Usage:
 ./splitObservations.py [OPTIONS] file
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -36,7 +32,7 @@ def main(args):
             mode = obs.attrs['TrackingMode']
             tInt = obs.attrs['tInt']
             LFFT = obs.attrs['LFFT']
-            srate = obs.attrs['sampleRate']
+            srate = obs.attrs['sample_rate']
             
             print "Observation #%i" % int(obsName.replace('Observation', ''))
             print "  Target: %s" % target
