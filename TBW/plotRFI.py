@@ -3,10 +3,6 @@
 
 """
 Plot the output of rfiCheck.py.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -82,7 +78,7 @@ def main(args):
         polY['kurtosis'].read_direct(skY)
         
         # 4sigma kurtosis limits
-        kl, kh = kurtosis.getLimits(4, h.attrs['SK-M'], h.attrs['SK-N'])
+        kl, kh = kurtosis.get_limits(4, h.attrs['SK-M'], h.attrs['SK-N'])
         
         fig = plt.figure()
         ax1 = fig.add_subplot(2, 1, 1)

@@ -4,10 +4,6 @@
 """
 Given a TBW file, look for the weird RFI bursts that we have been seeing.  The
 bursts are likely 'microsparking' from the powerline.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

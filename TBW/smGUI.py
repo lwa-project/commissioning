@@ -3,10 +3,6 @@
 
 """
 Display NPZ data from stationMaster in an interactive GUI sort of way.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -166,7 +162,7 @@ class TBW_GUI(object):
             if ssmifContents.shape == ():
                 station = stations.lwa1
                 self.station = station.name
-                self.antennas = station.getAntennas()
+                self.antennas = station.antennas
             else:
                 fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
                 fh = open(tempSSMIF, 'w')
@@ -174,15 +170,15 @@ class TBW_GUI(object):
                     fh.write('%s\n' % line)
                 fh.close()
                 
-                station = stations.parseSSMIF(tempSSMIF)
+                station = stations.parse_ssmif(tempSSMIF)
                 self.station = station.name
-                self.antennas = station.getAntennas()
+                self.antennas = station.antennas
                 os.unlink(tempSSMIF)
             
         except KeyError:
             station = stations.lwa1
             self.station = station.name
-            self.antennas = station.getAntennas()
+            self.antennas = station.antennas
 
         # Set default colobars
         self.limits = []
@@ -712,9 +708,9 @@ class MainWindow(wx.Frame):
         
         # Power menu events
         self.Bind(wx.EVT_MENU, self.onHistogram, id=ID_AVG_HIST)
-        self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
+        self.Bind(wx.EVT_MENU, self.onavgPower, id=ID_AVG_POWER)
         self.Bind(wx.EVT_MENU, self.onDataRange, id=ID_AVG_RANGE)
-        self.Bind(wx.EVT_MENU, self.onAvgPowerSummary, id=ID_AVG_SUMMARY)
+        self.Bind(wx.EVT_MENU, self.onavgPowerSummary, id=ID_AVG_SUMMARY)
         
         # Select menu events
         self.Bind(wx.EVT_MENU, self.onSelectAntenna, id=ID_SELECT_ANTENNA)
@@ -1189,7 +1185,7 @@ corrected = %.3f
         if self.data.adcHistogram is not None and self.data.bestX > 0:
             ADCHistogramDisplay(self)
             
-    def onAvgPower(self, event):
+    def onavgPower(self, event):
         """
         Display the average power plots.
         """
@@ -1205,7 +1201,7 @@ corrected = %.3f
         if self.data.dataRange is not None and self.data.bestX > 0:
             DataRangeDisplay(self)
         
-    def onAvgPowerSummary(self, event):
+    def onavgPowerSummary(self, event):
         """
         Display a message box with the average power summary.
         """

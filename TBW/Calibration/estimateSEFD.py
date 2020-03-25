@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
-"""
-
 import os
 import sys
 import time

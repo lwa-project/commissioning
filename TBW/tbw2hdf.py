@@ -6,10 +6,6 @@ Export select stands from a TBW file to HDF5.
 
 Usage:
 ./tbw2hdf.py <TBW_filename> <stand_ID> [<stand_ID> [...]]
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -28,11 +24,11 @@ def main(args):
     filename = args[0]
     stands = [int(i) for i in args[1:]]
 
-    antennas = lwa1.getAntennas()
+    antennas = lwa1.antennas
     
     fh = open(filename, "rb")
-    nFrames = os.path.getsize(filename) / tbw.FrameSize
-    dataBits = tbw.getDataBits(fh)
+    nFrames = os.path.getsize(filename) / tbw.FRAME_SIZE
+    dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
     antpols = len(antennas)
@@ -43,10 +39,10 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginTime = junkFrame.getTime()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginTime = junkFrame.get_time()
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
     
     # Figure out which digitizers to keep
     toKeep = []
@@ -67,22 +63,22 @@ def main(args):
 
     # Skip over any non-TBW frames at the beginning of the file
     i = 0
-    junkFrame = tbw.readFrame(fh)
-    while not junkFrame.header.isTBW():
+    junkFrame = tbw.read_frame(fh)
+    while not junkFrame.header.is_tbw:
         try:
-            junkFrame = tbw.readFrame(fh)
-        except errors.syncError:
+            junkFrame = tbw.read_frame(fh)
+        except errors.SyncError:
             fh.seek(0)
             while True:
                 try:
-                    junkFrame = tbn.readFrame(fh)
+                    junkFrame = tbn.read_frame(fh)
                     i += 1
-                except errors.syncError:
+                except errors.SyncError:
                     break
-            fh.seek(-2*tbn.FrameSize, 1)
-            junkFrame = tbw.readFrame(fh)
+            fh.seek(-2*tbn.FRAME_SIZE, 1)
+            junkFrame = tbw.read_frame(fh)
         i += 1
-    fh.seek(-tbw.FrameSize, 1)
+    fh.seek(-tbw.FRAME_SIZE, 1)
     print "Skipped %i non-TBW frames at the beginning of the file" % i
     
     # Create the HDF5 file
@@ -97,8 +93,8 @@ def main(args):
     f.attrs['startTime'] = beginTime
     f.attrs['startTime_units'] = 's'
     f.attrs['startTime_sys'] = 'unix'
-    f.attrs['sampleRate'] = 196e6
-    f.attrs['sampleRate_units'] = 'Hz'
+    f.attrs['sample_rate'] = 196e6
+    f.attrs['sample_rate_units'] = 'Hz'
     
     ## Create the digitizer to dataset lookup table and the 
     standLookup = {}
@@ -113,7 +109,7 @@ def main(args):
         
         temp = f.create_group('Stand%03i' % s)
         ### Combined status code
-        temp.attrs['statusCode'] = antennas[a-1].getStatus()
+        temp.attrs['statusCode'] = antennas[a-1].combined_status
         
         ### Antenna number
         temp.attrs['antennaID'] = antennas[a-1].id
@@ -143,17 +139,17 @@ def main(args):
     while True:
         # Read in the next frame and anticipate any problems that could occur
         try:
-            cFrame = tbw.readFrame(fh)
-        except errors.eofError:
+            cFrame = tbw.read_frame(fh)
+        except errors.EOFError:
             break
-        except errors.syncError:
-            print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+        except errors.SyncError:
+            print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
             continue
-        if not cFrame.header.isTBW():
+        if not cFrame.header.is_tbw:
             continue
         
         # Get the DP "stand" ID and the digitizer number
-        stand = cFrame.header.parseID()
+        stand = cFrame.header.id
         aStand = 2*(stand-1)
         digitizer = aStand + 1
         
@@ -163,12 +159,12 @@ def main(args):
         
         # Actually load the data.
         ## Frame count
-        count = cFrame.header.frameCount - 1
+        count = cFrame.header.frame_count - 1
         ## Which data set
         dataset = standLookup[digitizer]
         ## Load
-        standData[dataset][0][count*nSamples:(count+1)*nSamples] = cFrame.data.xy[0,:]
-        standData[dataset][1][count*nSamples:(count+1)*nSamples] = cFrame.data.xy[1,:]
+        standData[dataset][0][count*nSamples:(count+1)*nSamples] = cFrame.payload.data[0,:]
+        standData[dataset][1][count*nSamples:(count+1)*nSamples] = cFrame.payload.data[1,:]
         
     fh.close()
     f.close()

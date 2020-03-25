@@ -5,10 +5,6 @@
 Given a TBW file, plot the time averaged spectra for each digitizer input.  Save 
 the data for later review with smGUI as an NPZ file.  Optionally clip the data 
 to remove RFI.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

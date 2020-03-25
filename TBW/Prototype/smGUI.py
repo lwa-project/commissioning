@@ -3,10 +3,6 @@
 
 """
 Display NPZ data from stationMaster in an interactive GUI sort of way.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
