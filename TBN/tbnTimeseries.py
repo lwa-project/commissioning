@@ -3,10 +3,6 @@
 
 """
 Given a TBN file, plot the time series I and Q data as a function of time.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -33,18 +29,18 @@ def main(args):
         station = stations.lwasv
     else:
         station = stations.lwa1
-    antennas = station.getAntennas()
+    antennas = station.antennas
 
     fh = open(args.filename, "rb")
-    nFramesFile = os.path.getsize(args.filename) / tbn.FrameSize
-    srate = tbn.getSampleRate(fh)
+    nFramesFile = os.path.getsize(args.filename) / tbn.FRAME_SIZE
+    srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
 
     # Offset in frames for beampols beam/tuning/pol. sets
     offset = int(round(args.skip * srate / 512 * antpols))
     offset = int(1.0 * offset / antpols) * antpols
     args.skip = 1.0 * offset / antpols * 512 / srate
-    fh.seek(offset*tbn.FrameSize)
+    fh.seek(offset*tbn.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
@@ -67,17 +63,17 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbn.readFrame(fh)
-    fh.seek(-tbn.FrameSize, 1)
-    centralFreq = junkFrame.getCentralFreq()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    junkFrame = tbn.read_frame(fh)
+    fh.seek(-tbn.FRAME_SIZE, 1)
+    central_freq = junkFrame.central_freq
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
     print "Filename: %s" % args.filename
     print "Date of First Frame: %s" % str(beginDate)
     print "Ant/Pols: %i" % antpols
     print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % centralFreq
+    print "Tuning Frequency: %.3f Hz" % central_freq
     print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
     print "---"
     print "Offset: %.3f s (%i frames)" % (args.skip, offset)
@@ -105,7 +101,7 @@ def main(args):
             framesWork = maxFrames
             data = numpy.zeros((antpols, framesWork*512/antpols), dtype=numpy.csingle)
         else:
-            framesWork = framesRemaining + antpols*buffer.nSegments
+            framesWork = framesRemaining + antpols*buffer.nsegments
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.csingle)
             framesWork = framesRemaining
             print "Padding from %i to %i frames" % (framesRemaining, framesWork)
@@ -118,12 +114,12 @@ def main(args):
         # Inner loop that actually reads the frames into the data array
         while j < fillsWork:
             try:
-                cFrame = tbn.readFrame(fh)
+                cFrame = tbn.read_frame(fh)
                 k = k + 1
-            except errors.eofError:
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+            except errors.SyncError:
+                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
                 continue
                     
             buffer.append(cFrame)
@@ -134,16 +130,16 @@ def main(args):
             
             valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
             if valid != antpols:
-                print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frameCount, cFrames[0].data.timeTag, float(antpols - valid)/antpols*100)
+                print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
                 
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 
                 # In the current configuration, stands start at 1 and go up to 260.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)+pol
                 
-                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 # Update the counters so that we can average properly later on
                 count[aStand] = count[aStand] + 1
             
@@ -154,15 +150,15 @@ def main(args):
         # Inner loop that actually reads the frames into the data array
         valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
         if valid != antpols:
-            print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frameCount, cFrames[0].data.timeTag, float(antpols - valid)/antpols*100)
+            print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
         
         for cFrame in cFrames:
-            stand,pol = cFrame.header.parseID()
+            stand,pol = cFrame.header.id
             # In the current configuration, stands start at 1 and go up to 10.  So, we
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)+pol
             
-            data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+            data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
             # Update the counters so that we can average properly later on
             count[aStand] = count[aStand] + 1
     
@@ -211,7 +207,7 @@ def main(args):
                 else:
                     ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.real, label='Real')
                     ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.imag, label='Imag')
-            ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[j].stand.id, antennas[j].pol, antennas[j].digitizer, antennas[j].getStatus()))
+            ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[j].stand.id, antennas[j].pol, antennas[j].digitizer, antennas[j].combined_status))
             ax.set_xlabel('Time [seconds]')
 
             if args.instantaneous_power:

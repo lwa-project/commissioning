@@ -8,10 +8,6 @@ forming coefficients.
 
 Usage:
 ./solveCoeffs.py <refernece source> <NPZ visibility file>
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

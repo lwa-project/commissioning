@@ -10,10 +10,6 @@ multiple TBN captures (frequencies) that are stored in a single file.
 
 Usage:
 ./simpleFringeDemux.py <TBN data file>
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

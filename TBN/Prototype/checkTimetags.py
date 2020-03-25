@@ -4,10 +4,6 @@
 """
 Check the time tags in a TBN file from the prototype system at the
 north arm.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

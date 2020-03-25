@@ -5,10 +5,6 @@
 Example script that reads in TBN data from the prototype system at the north
 arm and runs a cross-correlation on it.  The results are saved in the FITS 
 IDI format.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

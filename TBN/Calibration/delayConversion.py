@@ -4,10 +4,6 @@
 """
 Combine the delay differences from a text file with the a priori knowledge of the
 cable model to make a NPZ file that reflects the fully delay of the system.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import sys

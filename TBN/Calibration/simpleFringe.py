@@ -7,10 +7,6 @@ cross-correlation of TBN data for all stands relative to the outlier (#258).
 
 Usage:
 ./simpleFringe.py <TBN data file>
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

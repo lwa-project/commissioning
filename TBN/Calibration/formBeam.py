@@ -6,10 +6,6 @@ Simple TBN beam forming script based on Steve's "Fun with TBN" memo.
 
 Usage:
 ./formBeam.py <cln_file> <azimuth> <elevation> <TBN_file>
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

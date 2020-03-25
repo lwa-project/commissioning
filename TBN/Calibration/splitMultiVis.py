@@ -7,10 +7,6 @@ single NPZ files, one for each frequency.
 
 Usage:
 ./splitMultiVis.py <NPZ multi-vis. file> [<NPZ multi-vis. file> [...]]
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

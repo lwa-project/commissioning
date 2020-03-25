@@ -6,10 +6,6 @@ Given a TBN file, check for missing frames (or frames considered missing by the
 ring buffer) and plot what the missing packet rate and what packets might be 
 missing.  Rather than do this for a whole file, it is done for some small portion
 of the file that is controlled by the -s/--skip and -a/--average flags.
-
-$Rev$
-$LastChangedBy$
-$LastChagnedDate$
 """
 
 import os
@@ -47,19 +43,19 @@ def main(args):
         station = stations.lwasv
     else:
         station = stations.lwa1
-    antennas = station.getAntennas()
+    antennas = station.antennas
     
     fh = open(args.filename, "rb")
-    nFramesFile = os.path.getsize(args.filename) / tbn.FrameSize
-    srate = tbn.getSampleRate(fh)
-    #antpols = tbn.getFramesPerObs(fh)
+    nFramesFile = os.path.getsize(args.filename) / tbn.FRAME_SIZE
+    srate = tbn.get_sample_rate(fh)
+    #antpols = tbn.get_frames_per_obs(fh)
     antpols = len(antennas)
 
     # Offset in frames for beampols beam/tuning/pol. sets
     offset = int(args.skip * srate / 512 * antpols)
     offset = int(1.0 * offset / antpols) * antpols
     args.skip = 1.0 * offset / antpols * 512 / srate
-    fh.seek(offset*tbn.FrameSize)
+    fh.seek(offset*tbn.FRAME_SIZE)
 
     # Number of frames to integrate over
     nFrames = int(args.average * srate / 512 * antpols)
@@ -70,9 +66,9 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbn.readFrame(fh)
+    junkFrame = tbn.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
     print "Filename: %s" % args.filename
@@ -126,15 +122,15 @@ def main(args):
         # Inner loop that actually reads the frames into the data array
         while j < fillsWork:
             try:
-                cFrame = tbn.readFrame(fh)
+                cFrame = tbn.read_frame(fh)
                 k = k + 1
-            except errors.eofError:
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+            except errors.SyncError:
+                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
                 continue
             
-            #print cFrame.header.frameCount, cFrame.data.timeTag, cFrame.parseID()
+            #print cFrame.header.frame_count, cFrame.data.timetag, cFrame.id
             
             buffer.append(cFrame)
             cFrames = buffer.get()
@@ -143,12 +139,12 @@ def main(args):
                 continue
             
             valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
-            print "Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frameCount, cFrames[0].getTime(), valid, '!' if valid != antpols else '')
+            print "Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid, '!' if valid != antpols else '')
             if valid != antpols:
                 bad = []
                 for cFrame in cFrames:
                     if not cFrame.valid:
-                        bad.append(cFrame.parseID())
+                        bad.append(cFrame.id)
                         
                         missingPackets[2*(bad[-1][0]-1)+bad[-1][1], pc] = 0
                 bad.sort()
@@ -161,7 +157,7 @@ def main(args):
 
                 missing += (antpols-valid)
                 total = (buffer.full + buffer.partial)*antpols
-                #print j, valid, antpols-valid, cFrames[0].header.frameCount, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped
+                #print j, valid, antpols-valid, cFrames[0].header.frame_count, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped
                 #print buffer.status()
                 
                 missingList.append( antpols - valid )
@@ -169,10 +165,10 @@ def main(args):
                 total = (buffer.full + buffer.partial)*antpols
                 missingList.append(0)
                 
-            times = numpy.array([f.data.timeTag for f in cFrames], dtype=numpy.int64)
-            #print cFrames[0].header.frameCount, times.min(), times.max(), times.max()-times.min(), "%6.3f%%" % (1.0*missing/total*100,)
+            times = numpy.array([f.data.timetag for f in cFrames], dtype=numpy.int64)
+            #print cFrames[0].header.frame_count, times.min(), times.max(), times.max()-times.min(), "%6.3f%%" % (1.0*missing/total*100,)
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 
                 # In the current configuration, stands start at 1 and go up to 260.  So, we
                 # can use this little trick to populate the data array
@@ -187,12 +183,12 @@ def main(args):
     # Empty the remaining portion of the buffer and integrate what's left
     for cFrames in buffer.flush():
         valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
-        print "Frame #%5i:  %.4f seconds with %i valid ant/pols" % (cFrames[0].header.frameCount, cFrames[0].getTime(), valid)
+        print "Frame #%5i:  %.4f seconds with %i valid ant/pols" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid)
         if valid != antpols:
             bad = []
             for cFrame in cFrames:
                 if not cFrame.valid:
-                    bad.append(cFrame.parseID())
+                    bad.append(cFrame.id)
                     
                     missingPackets[2*(bad[-1][0]-1)+bad[-1][1], pc] = 0
             bad.sort()
@@ -205,7 +201,7 @@ def main(args):
 
             missing += (antpols-valid)
             total = (buffer.full + buffer.partial)*antpols
-            #print j, valid, antpols-valid, cFrames[0].header.frameCount, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped
+            #print j, valid, antpols-valid, cFrames[0].header.frame_count, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped
             #print buffer.status()
             
             missingList.append( antpols - valid )
@@ -215,7 +211,7 @@ def main(args):
         
         # Inner loop that actually reads the frames into the data array
         for cFrame in cFrames:
-            stand,pol = cFrame.header.parseID()
+            stand,pol = cFrame.header.id
             # In the current configuration, stands start at 1 and go up to 10.  So, we
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)+pol

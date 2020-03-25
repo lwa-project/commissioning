@@ -3,10 +3,6 @@
 
 """
 Look for glitches in a DRX or TBN data by fitting a sine wave to the data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
@@ -122,9 +118,9 @@ def main(args):
     fh = open(filename, 'rb')
 
     # Get the sampel rate and number of stands for each pol
-    sampleRate = rdr.getSampleRate(fh)
-    nFramesFile = sizeB / rdr.FrameSize
-    nFrames = numpy.array(rdr.getFramesPerObs(fh))
+    sample_rate = rdr.get_sample_rate(fh)
+    nFramesFile = sizeB / rdr.FRAME_SIZE
+    nFrames = numpy.array(rdr.get_frames_per_obs(fh))
     nCaptures = nFramesFile / nFrames.sum()
 
     # Number of remaining chunks
@@ -134,11 +130,11 @@ def main(args):
     print "Filename:    %s" % filename
     print "Size:        %.1f MB" % (float(sizeB)/1024/1024)
     print "Captures:    %i" % nCaptures
-    print "Sample Rate: %.2f kHz" % (sampleRate/1000.0)
+    print "Sample Rate: %.2f kHz" % (sample_rate/1000.0)
     print "==="
     print "Chunks: %i" % nChunks
 
-    frame = rdr.readFrame(fh)
+    frame = rdr.read_frame(fh)
     fh.seek(0)
     
     standMapper = []
@@ -154,14 +150,14 @@ def main(args):
         print "Working on chunk %i, %i frames remaining" % (c+1, framesRemaining)
         
         count = {}
-        data = numpy.zeros((nFrames.sum(),framesWork*frame.data.iq.size/nFrames.sum()), dtype=numpy.csingle)
+        data = numpy.zeros((nFrames.sum(),framesWork*frame.payload.data.size/nFrames.sum()), dtype=numpy.csingle)
 
         # Inner loop that actually reads the frames into the data array
-        print "Working on %.1f ms of data" % ((framesWork*frame.data.iq.size/nFrames.sum()/sampleRate)*1000.0)
+        print "Working on %.1f ms of data" % ((framesWork*frame.payload.data.size/nFrames.sum()/sample_rate)*1000.0)
 
         # Go...
-        dtime = numpy.zeros((nFrames.sum(), framesWork*frame.data.iq.size/nFrames.sum()), dtype=numpy.float64)
-        data = numpy.zeros((nFrames.sum(), framesWork*frame.data.iq.size/nFrames.sum()), dtype=numpy.complex64)
+        dtime = numpy.zeros((nFrames.sum(), framesWork*frame.payload.data.size/nFrames.sum()), dtype=numpy.float64)
+        data = numpy.zeros((nFrames.sum(), framesWork*frame.payload.data.size/nFrames.sum()), dtype=numpy.complex64)
         
         count = {}
         masterCount = 0
@@ -170,21 +166,21 @@ def main(args):
         for f in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = rdr.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = rdr.read_frame(fh, Verbose=False)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FrameSize-1)
+            except errors.SyncError:
+                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FRAME_SIZE-1)
                 continue
             
             if f == 0:
-                tStart = cFrame.getTime()
+                tStart = cFrame.get_time()
 
             try:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 aStand = 2*(stand-1)+pol
             except:
-                beam,tune,pol = cFrame.parseID()
+                beam,tune,pol = cFrame.id
                 aStand = 4*(beam-1) + 2*(tune-1) + pol
                 
             if aStand not in standMapper:
@@ -201,8 +197,8 @@ def main(args):
             if aStand not in count.keys():
                 count[aStand] = 0
 
-            dtime[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = cFrame.getTime() + 1.0 / sampleRate * numpy.arange(0.0, cFrame.data.iq.size, dtype=numpy.float64)
-            data[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = cFrame.data.iq
+            dtime[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = cFrame.get_time() + 1.0 / sample_rate * numpy.arange(0.0, cFrame.payload.data.size, dtype=numpy.float64)
+            data[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = cFrame.payload.data
             
             count[aStand] = count[aStand] + 1
             masterCount = masterCount + 1
@@ -214,12 +210,12 @@ def main(args):
         dtime = dtime - dtime.min()
         
         endPt = data.shape[1]/8
-        print endPt / sampleRate / period
+        print endPt / sample_rate / period
     
         from scipy.optimize import fmin, leastsq
         p0 = [data.max(), iFreq-cFreq, 0.0]
         for i in xrange(data.shape[0]):
-            freq = numpy.fft.fftfreq(4096, d=1/sampleRate)
+            freq = numpy.fft.fftfreq(4096, d=1/sample_rate)
             psd = numpy.abs(numpy.fft.fft(data[i,0:4096]))**2
             print freq[numpy.where( psd == psd.max() )[0]]
             #import pylab

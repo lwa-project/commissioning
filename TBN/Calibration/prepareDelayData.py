@@ -11,10 +11,6 @@ Note:  The output of this script is always saved to an NPZ file named
 
 Usage:
 ./prepareDelayData.py <reference source> <NPZ vis. file> [<NPZ vis. file> [...]]
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os

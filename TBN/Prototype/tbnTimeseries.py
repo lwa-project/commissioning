@@ -6,10 +6,6 @@ Given a TBN file, plot the time series I and Q data as a function of time.
 
 .. note::
     This version is for data from the current prototype system.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
 import os
