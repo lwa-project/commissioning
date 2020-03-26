@@ -29,7 +29,8 @@ install:
         numpy \
         matplotlib \
         scipy \
-        h5py
+        h5py \
+        BeautifulSoup
     - pip install git+https://github.com/lwa-project/lsl.git
     - pip install pylint
 

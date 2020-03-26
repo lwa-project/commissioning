@@ -22,11 +22,11 @@ from lsl.common import stations
 from lsl.reader import tbw, tbn
 from lsl.reader import errors
 from lsl.correlator import fx as fxc
-from lsl.correlator._core import FEngineR2
+from lsl.correlator._core import FEngine
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
 from lsl.statistics import kurtosis
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
@@ -204,7 +204,7 @@ def main(args):
         freq = freq[:args.fft_length]
         
         delays = numpy.zeros((data.shape[0], freq.size))
-        signalsF, validF = FEngineR2(data, freq, delays, LFFT=args.fft_length, Overlap=1, sample_rate=196e6, clip_level=0)
+        signalsF, validF = FEngine(data, freq, delays, LFFT=args.fft_length, Overlap=1, sample_rate=196e6, clip_level=0)
         
         # Cleanup to save memory
         del validF, data

@@ -203,11 +203,11 @@ def main(args):
     toWork = numpy.where((freq>=config['freqLimits'][0]) & (freq<=config['freqLimits'][1]))[0]
     
     print "Reading in FITS IDI data"
-    nSets = idi.totalBaselineCount / (nStand*(nStand+1)/2)
+    nSets = idi.total_baseline_count / (nStand*(nStand+1)/2)
     for set in range(1, nSets+1):
         print "Set #%i of %i" % (set, nSets)
         fullDict = idi.get_data_set(set)
-        dataDict = utils.pruneBaselineRange(fullDict, min_uv=14.0)
+        dataDict = idi.get_data_set(set, min_uv=14.0)
         utils.sort_data(dataDict)
         
         # Gather up the polarizations and baselines
