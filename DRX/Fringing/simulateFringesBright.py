@@ -17,7 +17,7 @@ import aipy
 from lsl.reader import drx
 from lsl.common.dp import fS
 from lsl.common import stations
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 from lsl.astro import unix_to_utcjd
 from lsl.sim import vis as simVis
 

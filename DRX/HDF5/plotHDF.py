@@ -18,12 +18,13 @@ from datetime import datetime
 from multiprocessing import Pool
 from scipy.interpolate import interp1d
 from scipy.stats import scoreatpercentile as percentile, skew, kurtosis
+from scipy.signal import savgol_filter as savitzky_golay
 
 import lsl
 from lsl.common import dp
 from lsl.common import stations
 from lsl.reader.drx import FILTER_CODES
-from lsl.misc.mathutil import to_dB, from_dB, savitzky_golay
+from lsl.misc.mathutil import to_dB, from_dB
 from lsl.statistics import robust
 from lsl.statistics.kurtosis import spectral_power, std as skStd
 from lsl.misc import parser as aph

@@ -14,11 +14,13 @@ import time
 import numpy
 import argparse
 
+from astropy.constants import c as speedOfLight
+vLight = speedOfLight.to('m/s').value
+
 from lsl.common.dp import fS
 from lsl.common.stations import parse_ssmif
 from lsl.misc import beamformer
-from lsl.common.constants import c as vLight
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt

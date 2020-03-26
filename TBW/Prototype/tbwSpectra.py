@@ -161,7 +161,8 @@ def main(args):
     print "Skipped %i non-TBW frames at the beginning of the file" % i
 
     # Master loop over all of the file chunks
-    masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
+    masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
+    masterWeight = numpy.zeros((nChunks, antpols, LFFT))
     for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
@@ -208,7 +209,8 @@ def main(args):
         freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
         for stand in xrange(masterSpectra.shape[1]):
             masterSpectra[i,stand,:] = tempSpec[stand,:]
-
+            masterWeight[i,stand,:] = int(readT*srate/LFFT)
+            
         # We don't really need the data array anymore, so delete it
         del(data)
 

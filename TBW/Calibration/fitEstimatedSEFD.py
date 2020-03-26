@@ -12,7 +12,7 @@ from datetime import datetime
 from scipy.optimize import leastsq
 
 from lsl.common.stations import lwa1
-from lsl.sim.vis import srcs as simSrcs
+from lsl.sim.vis import SRCS as simSrcs
 
 from matplotlib import pyplot as plt
 

@@ -107,10 +107,10 @@ def main(args):
                 
             # Compute the 1 ms average power and the data range within each 1 ms window
             subSize = 1960
-            nsegments = data.shape[1] / subSize
+            nsegments = masterSpectra.shape[1] / subSize
             
             print "Computing average power and data range in %i-sample intervals, ADC histogram" % subSize
-            pb = ProgressBar(max=data.shape[0])
+            pb = ProgressBar(max=masterSpectra.shape[0])
             avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
             dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
             adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
