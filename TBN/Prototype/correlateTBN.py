@@ -23,7 +23,7 @@ from lsl.common import dp as dp_common
 from lsl.statistics import robust
 from lsl.reader import tbn
 from lsl.reader import errors
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutil
 from lsl.correlator import fx as fxc
 from lsl.writer import fitsidi
 
@@ -130,7 +130,7 @@ def parseConfig(args):
     return config
 
 
-def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, CentralFreq=49.0e6, SampleRate=dp_common.fS, pols=['xx',], ChunkSize=300):
+def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, central_freq=49.0e6, sample_rate=dp_common.fS, pols=['xx',], ChunkSize=300):
     """
     Given a filehandle pointing to some TBN data and various parameters for
     the cross-correlation, write cross-correlate the data and save it to a file.
@@ -138,13 +138,13 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
 
     # Get antennas
     antennas = []
-    for a in site.getAntennas():
+    for a in site.antennas:
         if a.digitizer != 0:
             antennas.append(a)
 
     # Create the FrameBuffer instance and make sure that the frames coming out of
     # buffer.get() and buffer.flush() are in stand/polariation order
-    buffer = TBNFrameBuffer(stands=range(1,20/2+1), pols=[0, 1], ReorderFrames=False)
+    buffer = TBNFrameBuffer(stands=range(1,20/2+1), pols=[0, 1], reorder=False)
 
     # Create the list of good digitizers and a digitizer to Antenna instance mapping.  
     # These are:
@@ -155,13 +155,13 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
     
     # Find out how many frames to work with at a time.  This number is per stand/pol so
     # it is equivalent to the numper of successful buffer.get() calls that we should get.
-    nFrames = int(intTime*SampleRate/512)
+    nFrames = int(intTime*sample_rate/512)
 
     # Main loop over the input file to read in the data and organize it.  Several control 
     # variables are defined for this:
-    #  refTime -> time (in seconds since the UNIX epoch) for the first data set
+    #  ref_time -> time (in seconds since the UNIX epoch) for the first data set
     #  setTime -> time (in seconds since the UNIX epoch) for the current data set
-    refTime = 0.0
+    ref_time = 0.0
     setTime = 0.0
     wallTime = time.time()
     for s in xrange(ChunkSize):
@@ -177,12 +177,12 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
             cFrames = deque()
             for l in xrange(20):
                 try:
-                    cFrames.append( tbn.readFrame(fh) )
-                except errors.eofError:
+                    cFrames.append( tbn.read_frame(fh) )
+                except errors.EOFError:
                     doFlush = True
                     break
-                except errors.syncError:
-                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+                except errors.SyncError:
+                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
                     continue
 
             buffer.append(cFrames)
@@ -194,17 +194,17 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
     
             # If something comes out, add it to the data array
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 aStand = 2*(stand-1)+pol + 1
                 
                 if i == 0:
-                    setTime = cFrame.getTime()
+                    setTime = cFrame.get_time()
                     if s == 0:
-                        refTime = setTime
+                        ref_time = setTime
                         
                 try:
                     aStand = mapper.index(aStand)
-                    data[aStand,  count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                    data[aStand,  count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                     count[aStand] = count[aStand] + 1
                 except ValueError:
                     pass
@@ -215,13 +215,13 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
         if doFlush:
             for cFrames in buffer.flush():
                 for cFrame in cFrames:
-                    stand,pol = cFrame.header.parseID()
+                    stand,pol = cFrame.header.id
                     aStand = 2*(stand-1)+pol + 1
                     
                     if i == 0:
-                        setTime = cFrame.getTime()
+                        setTime = cFrame.get_time()
                         if s == 0:
-                            refTime = setTime
+                            ref_time = setTime
                     
                     try:
                         aStand = mapper.index(aStand)
@@ -229,7 +229,7 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
                         # need.  Thus, we wrap the unload of the I/Q data into the array with a 
                         # try...expect block to mitigate problems.
                         try:
-                            data[aStand,  count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                            data[aStand,  count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                             count[aStand] = count[aStand] + 1
                         except:
                             pass
@@ -241,12 +241,12 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
         # Setup the set time as a python datetime instance so that it can be easily printed
         setDT = datetime.utcfromtimestamp(setTime)
         setDT.replace(tzinfo=UTC())
-        print "Working on set #%i (%.3f seconds after set #1 = %s)" % ((s+1), (setTime-refTime), setDT.strftime("%Y/%m/%d %H:%M:%S.%f"))
+        print "Working on set #%i (%.3f seconds after set #1 = %s)" % ((s+1), (setTime-ref_time), setDT.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
         # Loop over polarization products
         for pol in pols:
             print "->  %s" % pol
-            blList, freq, vis = fxc.FXMaster(data, mapper2, LFFT=LFFT, Overlap=Overlap, IncludeAuto=True, verbose=False, SampleRate=SampleRate, CentralFreq=CentralFreq, Pol=pol, ReturnBaselines=True, GainCorrect=False)
+            blList, freq, vis = fxc.FXMaster(data, mapper2, LFFT=LFFT, Overlap=Overlap, include_auto=True, verbose=False, sample_rate=sample_rate, central_freq=central_freq, Pol=pol, return_baselines=True, gain_correct=False)
 
             # Select the right range of channels to save
             toUse = numpy.where( (freq>10.0e6) & (freq<93.0e6) )
@@ -255,16 +255,16 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, Cent
             # If we are in the first polarazation product of the first iteration,  setup
             # the FITS IDI file.
             if s  == 0 and pol == pols[0]:
-                pol1, pol2 = fxc.pol2pol(pol)
+                pol1, pol2 = fxc.pol_to_pols(pol)
                 
-                fits = fitsidi.IDI(filename, refTime=refTime)
-                fits.setStokes(pols)
-                fits.setFrequency(freq[toUse])
-                fits.setGeometry(site, [a for a in mapper2 if a.pol == pol1])
+                fits = fitsidi.Idi(filename, ref_time=ref_time)
+                fits.set_stokes(pols)
+                fits.set_frequency(freq[toUse])
+                fits.set_geometry(site, [a for a in mapper2 if a.pol == pol1])
 
             # Convert the setTime to a MJD and save the visibilities to the FITS IDI file
             obsTime = astro.unix_to_taimjd(setTime)
-            fits.addDataSet(obsTime, 512*nFrames/SampleRate, blList, vis[:,toUse], pol=pol)
+            fits.add_data_set(obsTime, 512*nFrames/sample_rate, blList, vis[:,toUse], pol=pol)
         print "->  Cummulative Wall Time: %.3f s (%.3f s per integration)" % ((time.time()-wallTime), (time.time()-wallTime)/(s+1))
 
     # Cleanup after everything is done
@@ -286,37 +286,37 @@ def main(args):
 
     # Setup the LWA station information
     if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
+        station = stations.parse_ssmif(config['SSMIF'])
     else:
         try:
             station = stations.lwana
         except AttributeError:
             station = stations.lwa2
     antennas = []
-    for a in station.getAntennas():
+    for a in station.antennas:
         if a.digitizer != 0:
             antennas.append(a)
     
 
-    fh = open(filename, "rb", buffering=tbn.FrameSize*10000)
-    test = tbn.readFrame(fh)
-    if not test.header.isTBN():
+    fh = open(filename, "rb", buffering=tbn.FRAME_SIZE*10000)
+    test = tbn.read_frame(fh)
+    if not test.header.is_tbn:
         raise errors.notTBNError()
-    centralFreq = test.getCentralFreq()
+    central_freq = test.central_freq
     fh.seek(0)
 
-    jd = astro.unix_to_utcjd(test.getTime())
+    jd = astro.unix_to_utcjd(test.get_time())
     date = str(ephem.Date(jd - astro.DJD_OFFSET))
     nFpO = len(antennas)
-    sampleRate = tbn.getSampleRate(fh)
-    nInts = os.path.getsize(filename) / tbn.FrameSize / nFpO
+    sample_rate = tbn.get_sample_rate(fh)
+    nInts = os.path.getsize(filename) / tbn.FRAME_SIZE / nFpO
 
     # Get valid stands for both polarizations
     goodX = []
     goodY = []
     for i in xrange(len(antennas)):
         ant = antennas[i]
-        if ant.getStatus() != 33:
+        if ant.combined_status != 33:
             continue
         elif ant.pol == 0:
             goodX.append(ant)
@@ -340,23 +340,23 @@ def main(args):
         print "%3i, %i @ %i" % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer)
 
     # Number of frames to read in at once and average
-    nFrames = int(config['avgTime']*sampleRate/512)
-    nSkip = int(config['offset']*sampleRate/512)
-    fh.seek(nSkip*len(antennas)*tbn.FrameSize)
-    nSets = os.path.getsize(filename) / tbn.FrameSize / nFpO / nFrames
+    nFrames = int(config['avgTime']*sample_rate/512)
+    nSkip = int(config['offset']*sample_rate/512)
+    fh.seek(nSkip*len(antennas)*tbn.FRAME_SIZE)
+    nSets = os.path.getsize(filename) / tbn.FRAME_SIZE / nFpO / nFrames
     nSets = nSets - nSkip / nFrames
 
-    print "TBN Data:  %s" % test.header.isTBN()
+    print "TBN Data:  %s" % test.header.is_tbn
     print "Samples per observations: %i per pol." % (nFpO/2)
-    print "Filter code: %i" % tbn.getSampleRate(fh, nFrames=nFpO, FilterCode=True)
-    print "Sampling rate: %i Hz" % sampleRate
-    print "Tuning frequency: %.3f Hz" % centralFreq
-    print "Captures in file: %i (%.1f s)" % (nInts, nInts*512 / sampleRate)
+    print "Filter code: %i" % tbn.get_sample_rate(fh, nFrames=nFpO, FilterCode=True)
+    print "Sampling rate: %i Hz" % sample_rate
+    print "Tuning frequency: %.3f Hz" % central_freq
+    print "Captures in file: %i (%.1f s)" % (nInts, nInts*512 / sample_rate)
     print "=="
     print "Station: %s" % station.name
     print "Date observed: %s" % date
     print "Julian day: %.5f" % jd
-    print "Integration Time: %.3f s" % (512*nFrames/sampleRate)
+    print "Integration Time: %.3f s" % (512*nFrames/sample_rate)
     print "Number of integrations in file: %i" % nSets
 
     # Make sure we don't try to do too many sets
@@ -377,7 +377,7 @@ def main(args):
             chunk = leftToDo
         
         processChunk(fh, station, good, fitsFilename, intTime=config['avgTime'], LFFT=config['LFFT'], 
-                    Overlap=1, CentralFreq=centralFreq, SampleRate=sampleRate, 
+                    Overlap=1, central_freq=central_freq, sample_rate=sample_rate, 
                     pols=config['products'], ChunkSize=chunk)
 
         s += 1

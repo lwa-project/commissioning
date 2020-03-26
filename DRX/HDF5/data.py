@@ -26,18 +26,18 @@ __all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF',
 
 def _valuetoDelay(value):
     try:
-        return mcs.MCSDtodelay(value)
+        return mcs.mcsd_to_delay(value)
     except:
         value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
-        return dp.DPDtodelay(value)
+        return dp.dpd_to_delay(value)
 
 
 def _valuetoGain(value):
     try:
-        return mcs.MCSGtogain(value)
+        return mcs.mcsg_to_gain(value)
     except:
         value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
-        return dp.DPGtogain(value)
+        return dp.dpg_to_gain(value)
 
 
 class _HDFFileRegistry(object):

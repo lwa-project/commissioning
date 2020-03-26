@@ -23,10 +23,12 @@ import tempfile
 from hashlib import md5
 from datetime import datetime
 
+from astropy.constants import c as speedOfLight
+vLight = speedOfLight.to('m/s').value
+
 from scipy.optimize import leastsq, fmin
 from scipy.stats import pearsonr
 
-from lsl.common.constants import c as vLight
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
 from lsl.common.stations import lwa1
 from lsl.correlator.uvutil import compute_uvw

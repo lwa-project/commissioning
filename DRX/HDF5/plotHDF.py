@@ -3723,7 +3723,7 @@ class PowerSpectrumDisplay(wx.Frame):
         
         self.initPlot()
         
-        self.site = stations.lwa1.getObserver()
+        self.site = stations.lwa1.get_observer()
         
     def initUI(self):
         """

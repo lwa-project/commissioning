@@ -11,7 +11,7 @@ import sys
 import numpy
 import struct
 
-from lsl.common.dp import DPGtogain
+from lsl.common.dp import dpg_to_gain
 from lsl.common.stations import lwa1
 
 
@@ -27,7 +27,7 @@ def main(args):
     rawGains = struct.unpack('<1040h', data)
 
     # Convert to delays in ns
-    gains = [DPGtogain(g) for g in rawGains]
+    gains = [dpg_to_gain(g) for g in rawGains]
     
     # Report
     ants = lwa1.antennas[0::2]

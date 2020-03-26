@@ -16,43 +16,43 @@ from lsl.reader import errors
 from lsl.common.dp import fS
 
 def main(args):
-    fh = open(args[0], "rb", buffering=tbn.FrameSize*10000)
+    fh = open(args[0], "rb", buffering=tbn.FRAME_SIZE*10000)
 
     # Get the first frame and find out what the firt time tag is, which the
     # first frame number is, and what the sample rate it.  From the sample 
     # rate, estimate how the time tag should advance between frames.
-    junkFrame = tbn.readFrame(fh)
-    sampleRate = tbn.getSampleRate(fh)
-    tagSkip = fS / sampleRate * junkFrame.data.iq.shape[0]
+    junkFrame = tbn.read_frame(fh)
+    sample_rate = tbn.get_sample_rate(fh)
+    tagSkip = fS / sample_rate * junkFrame.payload.data.shape[0]
     fh.seek(0)
 
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevTime = junkFrame.data.timeTag
-    prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
-    prevFrame = junkFrame.header.frameCount
+    prevTime = junkFrame.data.timetag
+    prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
+    prevFrame = junkFrame.header.frame_count
 
     # Report on the file
     print "Filename: %s" % os.path.basename(args[0])
     print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "Sample rate: %i Hz" % sampleRate
+    print "Sample rate: %i Hz" % sample_rate
     print "Time tag skip per frame: %i" % tagSkip
 
     k = 0
     while True:
         try:
-            currFrame = tbn.readFrame(fh)
-        except errors.eofError:
+            currFrame = tbn.read_frame(fh)
+        except errors.EOFError:
             break
-        except errors.syncError:
+        except errors.SyncError:
             continue
         except errors.numpyError:
             break
         
-        stand, pol = currFrame.parseID()
-        currTime = currFrame.data.timeTag
-        currDate = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
-        currFrame = currFrame.header.frameCount
+        stand, pol = currFrame.id
+        currTime = currFrame.data.timetag
+        currDate = ephem.Date(astro.unix_to_utcjd(currFrame.get_time()) - astro.DJD_OFFSET)
+        currFrame = currFrame.header.frame_count
 
         if k == 0 or (currFrame % 5000 == 0 and stand == 1 and pol == 0):
             print "At stand %i, pol %i:  frame %i -> %s" % (stand, pol, currFrame, currDate)

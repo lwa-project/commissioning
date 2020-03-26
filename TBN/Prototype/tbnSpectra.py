@@ -59,7 +59,7 @@ def parseOptions(args):
     config['average'] = 10.0
     config['LFFT'] = 4096
     config['maxFrames'] = 2*260*1000
-    config['window'] = fxc.noWindow
+    config['window'] = fxc.null_window
     config['applyGain'] = False
     config['output'] = None
     config['displayChunks'] = True
@@ -147,14 +147,14 @@ def main(args):
     
     # Set the station
     if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
+        station = stations.parse_ssmif(config['SSMIF'])
     else:
         try:
             station = stations.lwana
         except AttributeError:
             station = stations.lwa2
     antennas = []
-    for a in station.getAntennas():
+    for a in station.antennas:
         if a.digitizer != 0:
             antennas.append(a)
 
@@ -162,16 +162,16 @@ def main(args):
     LFFT = config['LFFT']
 
     fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / tbn.FrameSize
-    srate = tbn.getSampleRate(fh)
-    #antpols = tbn.getFramesPerObs(fh)
+    nFramesFile = os.path.getsize(config['args'][0]) / tbn.FRAME_SIZE
+    srate = tbn.get_sample_rate(fh)
+    #antpols = tbn.get_frames_per_obs(fh)
     antpols = len(antennas)
 
     # Offset in frames for beampols beam/tuning/pol. sets
     offset = int(config['offset'] * srate / 512 * antpols)
     offset = int(1.0 * offset / antpols) * antpols
     config['offset'] = 1.0 * offset / antpols * 512 / srate
-    fh.seek(offset*tbn.FrameSize)
+    fh.seek(offset*tbn.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped.  This needs to
@@ -189,17 +189,17 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbn.readFrame(fh)
+    junkFrame = tbn.read_frame(fh)
     fh.seek(0)
-    centralFreq = junkFrame.getCentralFreq()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    central_freq = junkFrame.central_freq
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
     print "Filename: %s" % config['args'][0]
     print "Date of First Frame: %s" % str(beginDate)
     print "Ant/Pols: %i" % antpols
     print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % centralFreq
+    print "Tuning Frequency: %.3f Hz" % central_freq
     print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
     print "---"
     print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
@@ -229,7 +229,7 @@ def main(args):
             framesWork = maxFrames
             data = numpy.zeros((antpols, framesWork*512/antpols), dtype=numpy.csingle)
         else:
-            framesWork = framesRemaining + antpols*buffer.nSegments
+            framesWork = framesRemaining + antpols*buffer.nsegments
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.csingle)
             framesWork = framesRemaining
             print "Padding from %i to %i frames" % (framesRemaining, framesWork)
@@ -245,12 +245,12 @@ def main(args):
         # Inner loop that actually reads the frames into the data array
         while j < fillsWork:
             try:
-                cFrame = tbn.readFrame(fh)
+                cFrame = tbn.read_frame(fh)
                 k = k + 1
-            except errors.eofError:
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+            except errors.SyncError:
+                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
                 continue
                     
             buffer.append(cFrame)
@@ -261,23 +261,23 @@ def main(args):
             
             valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
             if valid != antpols:
-                print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frameCount, cFrames[0].data.timeTag, float(antpols - valid)/antpols*100)
+                print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
                 
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 
                 # In the current configuration, stands start at 1 and go up to 260.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)+pol
                 
-                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 count[aStand] += 1
             
             j += 1
         
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
-        freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate)
+        freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate)
         for stand in xrange(len(count)):
             masterSpectra[i,stand,:] = tempSpec[stand,:]
             masterWeight[i,stand,:] = int(count[stand] * 512 / LFFT)
@@ -287,20 +287,20 @@ def main(args):
         # Inner loop that actually reads the frames into the data array
         valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
         if valid != antpols:
-            print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frameCount, cFrames[0].data.timeTag, float(antpols - valid)/antpols*100)
+            print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
         
         for cFrame in cFrames:
-            stand,pol = cFrame.header.parseID()
+            stand,pol = cFrame.header.id
             # In the current configuration, stands start at 1 and go up to 10.  So, we
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)+pol
             
-            data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+            data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
             count[aStand] += 1
             
     # Calculate the spectra for this block of data and then weight the results by 
     # the total number of frames read.  This is needed to keep the averages correct.
-    freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate)
+    freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate)
     for stand in xrange(len(count)):
         masterSpectra[i,stand,:] = tempSpec[stand,:]
         masterWeight[i,stand,:] = int(count[stand] * 512 / LFFT)
@@ -320,7 +320,7 @@ def main(args):
     spec = numpy.squeeze( (masterWeight*masterSpectra).sum(axis=0) / masterWeight.sum(axis=0) )
 
     # Put the frequencies in the best units possible
-    freq += centralFreq
+    freq += central_freq
     freq, units = bestFreqUnits(freq)
     
     # Deal with the `keep` options
@@ -367,7 +367,7 @@ def main(args):
                     diff = subspectra - currSpectra
                     ax.plot(freq, diff)
 
-            ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[j].stand.id, antennas[j].pol, antennas[j].digitizer, antennas[j].getStatus()))
+            ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[j].stand.id, antennas[j].pol, antennas[j].digitizer, antennas[j].combined_status))
             ax.set_xlabel('Frequency [%s]' % units)
             ax.set_ylabel('P.S.D. [dB/RBW]')
             ax.set_ylim([-10, 30])

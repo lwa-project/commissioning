@@ -169,7 +169,7 @@ def main(args):
         for f in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = rdr.read_frame(fh, Verbose=False)
+                cFrame = rdr.read_frame(fh, verbose=False)
             except errors.EOFError:
                 break
             except errors.SyncError:

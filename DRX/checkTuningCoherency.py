@@ -197,7 +197,7 @@ def main(args):
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.read_frame(fh, Verbose=False)
+                cFrame = drx.read_frame(fh, verbose=False)
             except errors.EOFError:
                 break
             except errors.SyncError:

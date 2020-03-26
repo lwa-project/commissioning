@@ -6,6 +6,7 @@ LWA-SV and LWA-1.
 
 import os
 import re
+import struct
 
 from lsl.common.stations import Antenna, Stand, FEE, Cable, ARX, LWAStation, _id2name
 

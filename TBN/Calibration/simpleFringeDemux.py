@@ -23,7 +23,7 @@ from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 
 from matplotlib import pyplot as plt
 

@@ -10,7 +10,7 @@ import sys
 import numpy
 import struct
 
-from lsl.common.dp import DPDtodelay
+from lsl.common.dp import dpd_to_delay
 from lsl.common.stations import lwa1
 
 
@@ -26,7 +26,7 @@ def main(args):
     rawDelays = struct.unpack('<520H', data)
 
     # Convert to delays in ns
-    delays = [DPDtodelay(d) for d in rawDelays]
+    delays = [dpd_to_delay(d) for d in rawDelays]
     
     # Report
     ants = lwa1.antennas[0::2]
