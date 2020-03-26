@@ -9,7 +9,7 @@ import re
 import struct
 
 from lsl.common.stations import Antenna, Stand, FEE, Cable, ARX, LWAStation, _id2name
-from lsl.common import mcs mcsADP
+from lsl.common import mcs, mcsADP
 
 __version__ = "0.1"
 __all__ = ['parse_ssmif',]
