@@ -29,11 +29,13 @@ install:
         numpy \
         matplotlib \
         scipy \
-        h5py \
-        BeautifulSoup
+        h5py 
     - pip install git+https://github.com/lwa-project/lsl.git
     - pip install pylint
 
 script:
+    - cd TBN/Calibration
+    - make
+    - cd ../..
     - cd tests
     - python -m unittest discover

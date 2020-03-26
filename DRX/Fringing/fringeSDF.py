@@ -17,7 +17,7 @@ from lsl.misc import beamformer
 from lsl.common.stations import parse_ssmif
 from lsl.common import sdf
 from lsl.common.mcs import apply_pointing_correction
-from lsl.common.dp import delaytoDPD, gaintoDPG
+from lsl.common.dp import delay_to_dpd, gain_to_dpg
 
 def usage(exitCode=None):
     print """fringeSets.py - Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF
@@ -131,7 +131,7 @@ def parseOptions(args):
 
 def twoByteSwap(i):
     """
-    gaintoDPG and delaytoDPD return values that are ready for big-
+    gain_to_dpg and delay_to_dpd return values that are ready for big-
     endian packing, MCS is expecting little-endian.
     """
 
@@ -224,37 +224,37 @@ def main(args):
         delays = beamformer.calc_delay(antennas, freq=freq, azimuth=az, elevation=el)
         delays *= 1e9
         delays = delays.max() - delays
-        delays = [twoByteSwap(delaytoDPD(d)) for d in delays]
+        delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
         
         print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
         print "-> Using gain setting of %.4f for the beam" % bgain
         
-        gains = [[twoByteSwap(gaintoDPG(g)) for g in baseBeamGain] for i in xrange(260)] # initialize gain list
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(260)] # initialize gain list
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
             i = d - 1
-            gains[i/2] = [twoByteSwap(gaintoDPG(g)) for g in baseEmptyGain]
+            gains[i/2] = [twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain]
             
         for i in xrange(len(stands)/2):
             # Put the reference stand in there all by itself
             if stands[2*i] == config['ref']:
-                gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseDipoleGain]
+                gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
     else:
         print "Setting all delays to zero"
         delays = [0 for i in antennas]
-        delays = [twoByteSwap(delaytoDPD(d)) for d in delays]
+        delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
         
         print "Setting gains for dipoles %i and %i" % (config['dipole'], config['ref'])
         
-        gains = [[twoByteSwap(gaintoDPG(g)) for g in baseEmptyGain] for i in xrange(260)] # initialize gain list
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(260)] # initialize gain list
         for i in xrange(len(stands)/2):
             # Put the fringing stand in there all by itself
             if stands[2*i] == config['dipole']:
-                gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseBeamGain]
+                gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain]
             
             # Put the reference stand in there all by itself
             if stands[2*i] == config['ref']:
-                gains[i] = [twoByteSwap(gaintoDPG(g)) for g in baseDipoleGain]
+                gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
     
     # Resort the gains into a list of 260 2x2 matrices
     newGains = []

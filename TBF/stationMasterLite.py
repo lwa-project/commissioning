@@ -32,6 +32,7 @@ def main(args):
         station = stations.lwasv
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
     antennas = station.antennas
+    antpols = len(antennas)
     
     fh = open(args.filename, "rb")
     nFrames = os.path.getsize(args.filename) / tbf.FRAME_SIZE
@@ -115,9 +116,6 @@ def main(args):
             dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
             adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
             histBins = range(-2048, 2049)
-            
-            # We don't really need the data array anymore, so delete it
-            del(data)
             
         # Apply the cable loss corrections, if requested
         if True:

@@ -87,8 +87,8 @@ def main(args):
         dTimes.append( (times[i]-times[0]).seconds )
         
     # Actually run the simulations
-    simDict1 = simVis.build_sim_data(aa1, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
-    simDict2 = simVis.build_sim_data(aa2, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
+    simDict1 = simVis.build_sim_data(aa1, simVis.SOURCES, jd=jdList, pols=['xx',], verbose=False)
+    simDict2 = simVis.build_sim_data(aa2, simVis.SOURCES, jd=jdList, pols=['xx',], verbose=False)
 
     # Plot
     fig = plt.figure()
