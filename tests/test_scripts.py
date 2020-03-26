@@ -36,7 +36,7 @@ __version__  = "0.1"
 __author__   = "Jayce Dowell"
 
 
-_LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: \[(?P<type>.*?)\] (?P<info>.*)')
+_LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>.*?)[\]\)] (?P<info>.*)')
 
 
 @unittest.skipUnless(run_scripts_tests, "requires the 'pylint' module")
@@ -65,7 +65,6 @@ def _test_generator(script):
                 continue
                 
             mtch = _LINT_RE.match(line)
-            print('LINE:', line.strip().rstrip())
             if mtch is not None:
                 line_no, type, info = mtch.group('line'), mtch.group('type'), mtch.group('info')
                 self.assertEqual(type, None, "%s:%s - %s" % (os.path.basename(script), line_no, info))
