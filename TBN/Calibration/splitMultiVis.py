@@ -81,7 +81,7 @@ def main(args):
         print "Working on file '%s'" % filename
 
         # Load in the data
-        refAnt = dataDict['ref'].item()
+        ref_ant = dataDict['ref'].item()
         refX   = dataDict['refX'].item()
         refY   = dataDict['refY'].item()
         tInt = dataDict['tInt'].item()
@@ -89,13 +89,13 @@ def main(args):
         times = dataDict['times']
         phase = dataDict['simpleVis']
     
-        centralFreqs = dataDict['centralFreqs']
+        central_freqs = dataDict['central_freqs']
 
         # Load in the SSMIF
         ssmifContents = dataDict['ssmifContents']
 
         # Find the unique sets of (non-zero) frequencies and report
-        uFreq = numpy.unique(centralFreqs)
+        uFreq = numpy.unique(central_freqs)
         uFreq = uFreq[numpy.where(uFreq != 0)]
         print "  Found %i unique frequencies from %.3f to %.3f MHz" % (len(uFreq), uFreq.min()/1e6, uFreq.max()/1e6)
     
@@ -108,7 +108,7 @@ def main(args):
         for i,f in enumerate(uFreq):
             ## Select what we need and trim off the last index to deal 
             ## with frequency changes
-            toKeep = numpy.where( centralFreqs == f )[0]
+            toKeep = numpy.where( central_freqs == f )[0]
             toKeep = toKeep[:-1]
             
             tInts.append(len(toKeep))
@@ -121,7 +121,7 @@ def main(args):
         for i,f in enumerate(uFreq):
             ## Select what we need and trim off the last index to deal 
             ## with frequency changes
-            toKeep = numpy.where( centralFreqs == f )[0]
+            toKeep = numpy.where( central_freqs == f )[0]
             toKeep = toKeep[:-1]
         
             ## Sub-sets of `times` and `phase`
@@ -137,7 +137,7 @@ def main(args):
             outname = outname.replace('-multi', '')
             outname = "%s-%03i.npz" % (outname, i+1)
             print "  Saving visibility data for %.3f MHz to '%s'" % (f/1e6, outname)
-            numpy.savez(outname, ref=refAnt, refX=refX, refY=refY, tInt=tInt, centralFreq=f, 
+            numpy.savez(outname, ref=ref_ant, refX=refX, refY=refY, tInt=tInt, central_freq=f, 
                         times=subTimes, simpleVis=subPhase, ssmifContents=ssmifContents)
 
 

@@ -29,14 +29,14 @@ from scipy.stats import pearsonr
 from lsl.common.constants import c as vLight
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
 from lsl.common.stations import lwa1
-from lsl.correlator.uvUtils import computeUVW
+from lsl.correlator.uvutil import compute_uvw
 from lsl.misc.mathutil import to_dB
 from lsl.statistics import robust
 from lsl.common.progress import ProgressBar
 
 import lsl.sim.vis as simVis
 
-from multiStation import parseSSMIF
+from multiStation import parse_ssmif
 
 # List of bright radio sources and pulsars in PyEphem format
 _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
@@ -137,7 +137,7 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
     dec = float(src.dec)*180/numpy.pi
     
     # Get the u,v,w coordinates
-    uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
+    uvw = compute_uvw([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
     #print uvw[0,0,0]
     
     return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
@@ -163,11 +163,11 @@ def main(args):
             fh.write('%s\n' % line)
         fh.close()
         
-        site = parseSSMIF(tempSSMIF)
+        site = parse_ssmif(tempSSMIF)
         os.unlink(tempSSMIF)
     print site.name
-    observer = site.getObserver()
-    antennas = site.getAntennas()
+    observer = site.get_observer()
+    antennas = site.antennas
     nAnts = len(antennas)
     
     #
@@ -198,7 +198,7 @@ def main(args):
     for filename in filenames:
         dataDict = numpy.load(filename)
         
-        refAnt = dataDict['ref'].item()
+        ref_ant = dataDict['ref'].item()
         refX   = dataDict['refX'].item()
         refY   = dataDict['refY'].item()
         tInt = dataDict['tInt'].item()
@@ -206,7 +206,7 @@ def main(args):
         times = dataDict['times']
         phase = dataDict['simpleVis']
         
-        centralFreq = dataDict['centralFreq'].item()
+        central_freq = dataDict['central_freq'].item()
         
         ssmifContents = dataDict['ssmifContents']
         
@@ -215,9 +215,9 @@ def main(args):
         
         # Make sure we aren't mixing reference antennas
         if oldRef is None:
-            oldRef = refAnt
-        if refAnt != oldRef:
-            raise RuntimeError("Dataset has different reference antennas than previous (%i != %i)" % (refAnt, oldRef))
+            oldRef = ref_ant
+        if ref_ant != oldRef:
+            raise RuntimeError("Dataset has different reference antennas than previous (%i != %i)" % (ref_ant, oldRef))
             
         # Make sure we aren't mixing SSMIFs
         ssmifMD5 = md5sum(ssmifContents)
@@ -226,7 +226,7 @@ def main(args):
         if ssmifMD5 != oldMD5:
             raise RuntimeError("Dataset has different SSMIF than previous (%s != %s)" % (ssmifMD5, oldMD5))
             
-        print "Central Frequency: %.3f Hz" % centralFreq
+        print "Central Frequency: %.3f Hz" % central_freq
         print "Start date/time: %s" % beginDate.strftime("%Y/%m/%d %H:%M:%S")
         print "Integration Time: %.3f s" % tInt
         print "Number of time samples: %i (%.3f s)" % (phase.shape[0], phase.shape[0]*tInt)
@@ -235,14 +235,14 @@ def main(args):
         for src in srcs:
             src.compute(observer)
             if src.alt > 0:
-                fRate = getFringeRate(antennas[0], antennas[refX], observer, src, centralFreq)
+                fRate = getFringeRate(antennas[0], antennas[refX], observer, src, central_freq)
                 allRates[src.name] = fRate
         # Calculate the fringe rates of all sources - for display purposes only
         print "Starting Fringe Rates:"
         for name,fRate in allRates.iteritems():
             print " %-4s: %+6.3f mHz" % (name, fRate*1e3)
             
-        freq.append( centralFreq )
+        freq.append( central_freq )
         time.append( numpy.array([unix_to_utcjd(t) for t in times]) )
         data.append( phase )
         
@@ -311,7 +311,7 @@ def main(args):
     #
     nFreq = len(freq)
     
-    print "Reference stand #%i (X: %i, Y: %i)" % (refAnt, refX, refY)
+    print "Reference stand #%i (X: %i, Y: %i)" % (ref_ant, refX, refY)
     print "-> X: %s" % str(antennas[refX])
     print "-> Y: %s" % str(antennas[refY])
     
@@ -412,8 +412,8 @@ def main(args):
     #
     outname = config['output']
     outname, ext = os.path.splitext(outname)
-    outname = "%s-ref%03i%s" % (outname, refAnt, ext)
-    numpy.savez(outname, refAnt=refAnt, refX=refX, refY=refY, freq=freq, time=time, data=data, ssmifContents=ssmifContents)
+    outname = "%s-ref%03i%s" % (outname, ref_ant, ext)
+    numpy.savez(outname, ref_ant=ref_ant, refX=refX, refY=refY, freq=freq, time=time, data=data, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":

@@ -10,8 +10,8 @@ import getopt
 from datetime import datetime
 
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
-from lsl.common.stations import parseSSMIF, lwa1
-from lsl.correlator.uvUtils import computeUVW
+from lsl.common.stations import parse_ssmif, lwa1
+from lsl.correlator.uvutil import compute_uvw
 from lsl.statistics import robust
 from lsl.common.progress import ProgressBar
 
@@ -99,7 +99,7 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
     dec = float(src.dec)*180/numpy.pi
     
     # Get the u,v,w coordinates
-    uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
+    uvw = compute_uvw([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
     
     return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
 
@@ -111,11 +111,11 @@ def main(args):
     # Gather the station meta-data from its various sources
     #
     if config['SSMIF'] is not None:
-        site = parseSSMIF(config['SSMIF'])
+        site = parse_ssmif(config['SSMIF'])
     else:
         site = lwa1
-    observer = site.getObserver()
-    antennas = site.getAntennas()
+    observer = site.get_observer()
+    antennas = site.antennas
     nAnts = len(antennas)
     
     #

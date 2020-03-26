@@ -86,7 +86,7 @@ def main(args):
             fitsname = filename.replace('.sc', '.FITS_CAL_1')
         idi = utils.CorrelatedData(fitsname)
         lo = idi.get_observer()
-        lo.date = idi.dateObs.strftime("%Y/%m/%d %H:%M:%S")
+        lo.date = idi.date_obs.strftime("%Y/%m/%d %H:%M:%S")
         lst = float(lo.sidereal_time()) * 12.0/numpy.pi
         utcs.append(lo.date + DJD_OFFSET)
         lsts.append(lst)

@@ -10,9 +10,9 @@ import getopt
 from datetime import datetime, timedelta
 
 from lsl.common.stations import lwa1
-from lsl.common.mcs import datetime2mjdmpm
-from lsl.reader.tbn import FrameSize as tbnFrameSize
-from lsl.reader.tbn import filterCodes as tbnFilters
+from lsl.common.mcs import datetime_to_mjdmpm
+from lsl.reader.tbn import FRAME_SIZE as tbnFRAME_SIZE
+from lsl.reader.tbn import FILTER_CODES as tbn_filters
 
 
 # Time zones
@@ -102,7 +102,7 @@ def main(args):
     config = parseOptions(args)
     
     # Get LWA-1
-    observer = lwa1.getObserver()
+    observer = lwa1.get_observer()
     print "Current site is %s at lat %s, lon %s" % (lwa1.name, observer.lat, observer.long)
     
     # Set the current time so we can find the "next" transit.  Go ahead
@@ -153,13 +153,13 @@ def main(args):
             
     if found:
         startRec = nT - timedelta(seconds=int(round(config['duration']/2.0)))
-        mjd, mpm = datetime2mjdmpm(startRec)
+        mjd, mpm = datetime_to_mjdmpm(startRec)
         dur = int(round(config['duration']*1000))
         cmd = 'DR5 REC "%i %i %i TBN_FILT_%i"' % (mjd, mpm, dur, config['filter'])
         
         antpols = 520
-        sampleRate = tbnFilters[config['filter']]
-        dataRate = 1.0*sampleRate/512*tbnFrameSize*antpols
+        sample_rate = tbn_filters[config['filter']]
+        dataRate = 1.0*sample_rate/512*tbnFRAME_SIZE*antpols
         
         print "Recording:"
         print " Start: %s" % startRec.strftime("%Y/%m/%d %H:%M:%S %Z")

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Temporary module that implements a parseSSMIF() function that works with
+Temporary module that implements a parse_ssmif() function that works with
 LWA-SV and LWA-1.
 """
 
@@ -10,7 +10,7 @@ import re
 from lsl.common.stations import Antenna, Stand, FEE, Cable, ARX, LWAStation, _id2name
 
 __version__ = "0.1"
-__all__ = ['parseSSMIF',]
+__all__ = ['parse_ssmif',]
 
 def __parseTextSSMIF(filename):
     """
@@ -279,12 +279,12 @@ def __parseTextSSMIF(filename):
             continue
         
         if keyword == 'N_ARBCH':
-            nChanARX = int(value)
+            nchanARX = int(value)
             
-            arxStat = [[3 for c in xrange(nChanARX)] for n in xrange(nARX)]
-            arxAnt = [[n*nChanARX+c+1 for c in xrange(nChanARX)] for n in xrange(nARX)]
-            arxIn = [["UNK" for c in xrange(nChanARX)] for n in xrange(nARX)]
-            arxOut = [["UNK" for c in xrange(nChanARX)] for n in xrange(nARX)]
+            arxStat = [[3 for c in xrange(nchanARX)] for n in xrange(nARX)]
+            arxAnt = [[n*nchanARX+c+1 for c in xrange(nchanARX)] for n in xrange(nARX)]
+            arxIn = [["UNK" for c in xrange(nchanARX)] for n in xrange(nARX)]
+            arxOut = [["UNK" for c in xrange(nchanARX)] for n in xrange(nARX)]
             
             continue
         
@@ -340,12 +340,12 @@ def __parseTextSSMIF(filename):
             continue
         
         if keyword == 'N_DP1CH':
-            nChanDP1 = int(value)
+            nchanDP1 = int(value)
             
-            dp1Stat = [[3 for c in xrange(nChanDP1)] for n in xrange(nDP1)]
-            dp1InR = [["UNK" for c in xrange(nChanDP1)] for n in xrange(nDP1)]
-            dp1InC = [["UNK" for c in xrange(nChanDP1)] for n in xrange(nDP1)]
-            dp1Ant = [[n*nChanDP1+c+1 for c in xrange(nChanDP1)] for n in xrange(nDP1)]
+            dp1Stat = [[3 for c in xrange(nchanDP1)] for n in xrange(nDP1)]
+            dp1InR = [["UNK" for c in xrange(nchanDP1)] for n in xrange(nDP1)]
+            dp1InC = [["UNK" for c in xrange(nchanDP1)] for n in xrange(nDP1)]
+            dp1Ant = [[n*nchanDP1+c+1 for c in xrange(nchanDP1)] for n in xrange(nDP1)]
             
             continue
         
@@ -417,12 +417,12 @@ def __parseTextSSMIF(filename):
             continue
         
         if keyword == 'N_ROACHCH':
-            nChanRoach = int(value)
+            nchanRoach = int(value)
             
-            roachStat = [[3 for c in xrange(nChanRoach)] for n in xrange(nRoach)]
-            roachInR = [["UNK" for c in xrange(nChanRoach)] for n in xrange(nRoach)]
-            roachInC = [["UNK" for c in xrange(nChanRoach)] for n in xrange(nRoach)]
-            roachAnt = [[n*nChanRoach+c+1 for c in xrange(nChanRoach)] for n in xrange(nRoach)]
+            roachStat = [[3 for c in xrange(nchanRoach)] for n in xrange(nRoach)]
+            roachInR = [["UNK" for c in xrange(nchanRoach)] for n in xrange(nRoach)]
+            roachInC = [["UNK" for c in xrange(nchanRoach)] for n in xrange(nRoach)]
+            roachAnt = [[n*nchanRoach+c+1 for c in xrange(nchanRoach)] for n in xrange(nRoach)]
             
             continue
         
@@ -539,8 +539,8 @@ def __parseBinarySSMIF(filename):
     else:
         ## DP
         mode = dpCompatibility
-    bssmif = mode.parseCStruct(mode.SSMIF_STRUCT, charMode='int', endianness='little')
-    bsettings = mode.parseCStruct(mode.STATION_SETTINGS_STRUCT, endianness='little')
+    bssmif = mode.parse_c_struct(mode.SSMIF_STRUCT, char_mode='int', endianness='little')
+    bsettings = mode.parse_c_struct(mode.STATION_SETTINGS_STRUCT, endianness='little')
     
     fh.readinto(bssmif)
     
@@ -567,7 +567,7 @@ def __parseBinarySSMIF(filename):
     #
     # FEE, Cable, & SEP Data
     #
-    feeID   = single2multi([chr(i) for i in bssmif.sFEEID], *bssmif.dims['sFEEID'])
+    feeID   = flat_to_multi([chr(i) for i in bssmif.sFEEID], *bssmif.dims['sFEEID'])
     feeID   = [''.join([k for k in i if k != '\x00']) for i in feeID]
     feeStat = list(bssmif.iFEEStat)
     feeDesi = list(bssmif.eFEEDesi)
@@ -576,7 +576,7 @@ def __parseBinarySSMIF(filename):
     feeAnt1 = list(bssmif.iFEEAnt1)
     feeAnt2 = list(bssmif.iFEEAnt2)
     
-    rpdID   = single2multi([chr(i) for i in bssmif.sRPDID], *bssmif.dims['sRPDID'])
+    rpdID   = flat_to_multi([chr(i) for i in bssmif.sRPDID], *bssmif.dims['sRPDID'])
     rpdID   = [''.join([k for k in i if k != '\x00']) for i in rpdID]
     rpdStat = list(bssmif.iRPDStat)
     rpdDesi = list(bssmif.eRPDDesi)
@@ -589,7 +589,7 @@ def __parseBinarySSMIF(filename):
     rpdStr  = list(bssmif.fRPDStr)
     rpdAnt  = list(bssmif.iRPDAnt)
     
-    sepCbl  = single2multi([chr(i) for i in bssmif.sSEPCabl], *bssmif.dims['sSEPCabl'])
+    sepCbl  = flat_to_multi([chr(i) for i in bssmif.sSEPCabl], *bssmif.dims['sSEPCabl'])
     sepCbl  = [''.join([k for k in i if k != '\x00']) for i in sepCbl]
     sepLeng = list(bssmif.fSEPLeng)
     sepDesi = list(bssmif.eSEPDesi)
@@ -599,39 +599,39 @@ def __parseBinarySSMIF(filename):
     #
     # ARX (ARB) Data
     #
-    nChanARX = bssmif.nARBCH
-    arxID    = single2multi([chr(i) for i in bssmif.sARBID], *bssmif.dims['sARBID'])
+    nchanARX = bssmif.nARBCH
+    arxID    = flat_to_multi([chr(i) for i in bssmif.sARBID], *bssmif.dims['sARBID'])
     arxID    = [''.join([k for k in i if k != '\x00']) for i in arxID]
     arxSlot  = list(bssmif.iARBSlot)
     arxDesi  = list(bssmif.eARBDesi)
     arxRack  = list(bssmif.iARBRack)
     arxPort  = list(bssmif.iARBPort)
-    arxStat  = single2multi(bssmif.eARBStat, *bssmif.dims['eARBStat'])
-    arxAnt   = single2multi(bssmif.iARBAnt, *bssmif.dims['iARBAnt'])
-    arxIn    = single2multi([chr(i) for i in bssmif.sARBIN], *bssmif.dims['sARBIN'])
+    arxStat  = flat_to_multi(bssmif.eARBStat, *bssmif.dims['eARBStat'])
+    arxAnt   = flat_to_multi(bssmif.iARBAnt, *bssmif.dims['iARBAnt'])
+    arxIn    = flat_to_multi([chr(i) for i in bssmif.sARBIN], *bssmif.dims['sARBIN'])
     arxIn    = [[''.join(i) for i in j] for j in arxIn]
-    arxOut   = single2multi([chr(i) for i in bssmif.sARBOUT], *bssmif.dims['sARBOUT'])
+    arxOut   = flat_to_multi([chr(i) for i in bssmif.sARBOUT], *bssmif.dims['sARBOUT'])
     arxOUt   = [[''.join(i) for i in j] for j in arxOut]
     
     try:
         #
         # DP 1 & 2 Data
         #
-        dp1ID   = single2multi([chr(i) for i in bssmif.sDP1ID], *bssmif.dims['sDP1ID'])
+        dp1ID   = flat_to_multi([chr(i) for i in bssmif.sDP1ID], *bssmif.dims['sDP1ID'])
         dp1ID   = [''.join([k for k in i if k != '\x00']) for i in dp1ID]
-        dp1Slot = single2multi([chr(i) for i in bssmif.sDP1Slot], *bssmif.dims['sDP1Slot'])
+        dp1Slot = flat_to_multi([chr(i) for i in bssmif.sDP1Slot], *bssmif.dims['sDP1Slot'])
         dp1Slot = [''.join([k for k in i if k != '\x00']) for i in dp1Slot]
         dp1Desi = list(bssmif.eDP1Desi)
         dp1Stat = list(bssmif.eDP1Stat)
-        dp1InR  = single2multi([chr(i) for i in bssmif.sDP1INR], *bssmif.dims['sDP1INR'])
+        dp1InR  = flat_to_multi([chr(i) for i in bssmif.sDP1INR], *bssmif.dims['sDP1INR'])
         dp1InR  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in dp1InR]
-        dp1InC  = single2multi([chr(i) for i in bssmif.sDP1INC], *bssmif.dims['sDP1INC'])
+        dp1InC  = flat_to_multi([chr(i) for i in bssmif.sDP1INC], *bssmif.dims['sDP1INC'])
         dp1InC  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in dp1InC]
-        dp1Ant  = single2multi(bssmif.iDP1Ant, *bssmif.dims['iDP1Ant'])
+        dp1Ant  = flat_to_multi(bssmif.iDP1Ant, *bssmif.dims['iDP1Ant'])
         
-        dp2ID   = single2multi([chr(i) for i in bssmif.sDP2ID], *bssmif.dims['sDP2ID'])
+        dp2ID   = flat_to_multi([chr(i) for i in bssmif.sDP2ID], *bssmif.dims['sDP2ID'])
         dp2ID   = [''.join([k for k in i if k != '\x00']) for i in dp2ID]
-        dp2Slot = single2multi([chr(i) for i in bssmif.sDP2Slot], *bssmif.dims['sDP2Slot'])
+        dp2Slot = flat_to_multi([chr(i) for i in bssmif.sDP2Slot], *bssmif.dims['sDP2Slot'])
         dp2Slot = [''.join([k for k in i if k != '\x00']) for i in dp2Slot]
         dp2Stat = list(bssmif.eDP2Stat)
         dp2Desi = list(bssmif.eDP2Desi)
@@ -639,21 +639,21 @@ def __parseBinarySSMIF(filename):
         #
         # ROACH & Server Data
         #
-        roachID   = single2multi([chr(i) for i in bssmif.sRoachID], *bssmif.dims['sRoachID'])
+        roachID   = flat_to_multi([chr(i) for i in bssmif.sRoachID], *bssmif.dims['sRoachID'])
         roachID   = [''.join([k for k in i if k != '\x00']) for i in roachID]
-        roachSlot = single2multi([chr(i) for i in bssmif.sRoachSlot], *bssmif.dims['sRoachSlot'])
+        roachSlot = flat_to_multi([chr(i) for i in bssmif.sRoachSlot], *bssmif.dims['sRoachSlot'])
         roachSlot = [''.join([k for k in i if k != '\x00']) for i in roachSlot]
         roachDesi = list(bssmif.eRoachDesi)
         roachStat = list(bssmif.eROoachStat)
-        roachInR  = single2multi([chr(i) for i in bssmif.sRoachINR], *bssmif.dims['sRoachINR'])
+        roachInR  = flat_to_multi([chr(i) for i in bssmif.sRoachINR], *bssmif.dims['sRoachINR'])
         roachInR  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in roachInR]
-        roachInC  = single2multi([chr(i) for i in bssmif.sRoachINC], *bssmif.dims['sRoachINC'])
+        roachInC  = flat_to_multi([chr(i) for i in bssmif.sRoachINC], *bssmif.dims['sRoachINC'])
         roachInC  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in roachInC]
-        roachAnt  = single2multi(bssmif.iRoachAnt, *bssmif.dims['iRoachAnt'])
+        roachAnt  = flat_to_multi(bssmif.iRoachAnt, *bssmif.dims['iRoachAnt'])
         
-        serverID   = single2multi([chr(i) for i in bssmif.sServerID], *bssmif.dims['sServerID'])
+        serverID   = flat_to_multi([chr(i) for i in bssmif.sServerID], *bssmif.dims['sServerID'])
         serverID   = [''.join([k for k in i if k != '\x00']) for i in serverID]
-        serverSlot = single2multi([chr(i) for i in bssmif.sServerSlot], *bssmif.dims['sServerSlot'])
+        serverSlot = flat_to_multi([chr(i) for i in bssmif.sServerSlot], *bssmif.dims['sServerSlot'])
         serverSlot = [''.join([k for k in i if k != '\x00']) for i in serverSlot]
         serverStat = list(bssmif.eServerStat)
         serverDesi = list(bssmif.eServerDesi)
@@ -662,10 +662,10 @@ def __parseBinarySSMIF(filename):
     # DR Data
     #
     drStat = list(bssmif.eDRStat)
-    drID   = single2multi([chr(i) for i in bssmif.sDRID], *bssmif.dims['sDRID'])
+    drID   = flat_to_multi([chr(i) for i in bssmif.sDRID], *bssmif.dims['sDRID'])
     drID   = [''.join([k for k in i if k != '\x00']) for i in drID]
     drShlf = [0 for i in xrange(bssmif.nDR)]
-    drPC   = single2multi([chr(i) for i in bssmif.sDRPC], *bssmif.dims['sDRPC'])
+    drPC   = flat_to_multi([chr(i) for i in bssmif.sDRPC], *bssmif.dims['sDRPC'])
     drPC   = [''.join([k for k in i if k != '\x00']) for i in drPC]
     drDP   = list(bssmif.iDRDP)
     
@@ -676,7 +676,7 @@ def __parseBinarySSMIF(filename):
     return locals()
 
 
-def parseSSMIF(filename):
+def parse_ssmif(filename):
     """
     Given a SSMIF file, return a fully-filled LWAStation instance.  This function
     supports both human-readable files (filenames with '.txt' extensions) or 
@@ -754,7 +754,7 @@ def parseSSMIF(filename):
             
             boardID = arxID[i]
             channel = j + 1
-            antennas[ant-1].arx = ARX(boardID, channel=channel, aspChannel=i*nChanARX + j + 1, input=arxIn[i][j], output=arxOut[i][j])
+            antennas[ant-1].arx = ARX(boardID, channel=channel, aspChannel=i*nchanARX + j + 1, input=arxIn[i][j], output=arxOut[i][j])
             
     try:
         # Associate DP 1 board and digitizer numbers with Antennas - DP1 boards are 2-14 and 16-28 

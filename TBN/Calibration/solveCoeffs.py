@@ -21,7 +21,7 @@ from scipy.signal import triang
 from lsl.common.constants import c as vLight
 from lsl.common.stations import lwa1
 from lsl.common.progress import ProgressBar
-from lsl.correlator.uvUtils import computeUVW
+from lsl.correlator.uvutil import compute_uvw
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -66,14 +66,14 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
     dec = float(src.dec)*180/numpy.pi
     
     # Get the u,v,w coordinates
-    uvw = computeUVW([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
+    uvw = compute_uvw([antenna1, antenna2], HA=HA, dec=dec, freq=freq)
     
     return -(2*numpy.pi/86164.0905)*uvw[0,0,0]*numpy.cos(src.dec)
 
 
 def main(args):
-    observer = lwa1.getObserver()
-    antennas = lwa1.getAntennas()
+    observer = lwa1.get_observer()
+    antennas = lwa1.antennas
     
     reference = args[0]
     filename = args[1]
@@ -82,7 +82,7 @@ def main(args):
     ref  = dataDict['ref'].item()
     refX = dataDict['refX'].item()
     refY = dataDict['refY'].item()
-    centralFreq = dataDict['centralFreq'].item()
+    central_freq = dataDict['central_freq'].item()
     tInt = dataDict['tInt'].item()
     times = dataDict['times']
     phase = dataDict['simpleVis']
@@ -95,7 +95,7 @@ def main(args):
         srcs.append( ephem.readdb(line) )
         
     # Report on the data so far...
-    print "Central Frequency: %.3f Hz" % centralFreq
+    print "Central Frequency: %.3f Hz" % central_freq
     print "Start date/time: %s" % beginDate.strftime("%Y/%m/%d %H:%M:%S")
     print "Integration Time: %.3f s" % tInt
     print "Number of time samples: %i (%.3f s)" % (phase.shape[0], phase.shape[0]*tInt)
@@ -122,7 +122,7 @@ def main(args):
     print "Starting Fringe Rates:"
     for src in srcs:
         if src.alt > 0:
-            fRate = getFringeRate(antennas[0], antennas[refX], observer, src, centralFreq)
+            fRate = getFringeRate(antennas[0], antennas[refX], observer, src, central_freq)
             print " source %-4s: %+6.3f mHz" % (src.name, fRate*1e3)
     
     # Fringe stopping using the reference source
@@ -138,9 +138,9 @@ def main(args):
             observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
         
             if l % 2 == 0:
-                fRate[i] = getFringeRate(antennas[l], antennas[refX], observer, refSrc, centralFreq)
+                fRate[i] = getFringeRate(antennas[l], antennas[refX], observer, refSrc, central_freq)
             else:
-                fRate[i] = getFringeRate(antennas[l], antennas[refY], observer, refSrc, centralFreq)
+                fRate[i] = getFringeRate(antennas[l], antennas[refY], observer, refSrc, central_freq)
         
         # Create the basis rate and the residual rates
         baseRate = fRate[0]
@@ -183,7 +183,7 @@ def main(args):
         el = refSrc.alt
         gd = getGeoDelay(antennas[l], az, el, Degrees=False)
         
-        aln[:,l] = numpy.exp(2j*numpy.pi*centralFreq*gd)
+        aln[:,l] = numpy.exp(2j*numpy.pi*central_freq*gd)
         
         pbar.inc()
         sys.stdout.write("%s\r" % pbar.show())
@@ -207,7 +207,7 @@ def main(args):
     
     # Save
     outname = filename.replace('-vis','-cln')
-    numpy.savez(outname, bln=bln, cln=cln, centralFreq=centralFreq, reference=reference, basefile=filename)
+    numpy.savez(outname, bln=bln, cln=cln, central_freq=central_freq, reference=reference, basefile=filename)
 
 
 if __name__ == "__main__":

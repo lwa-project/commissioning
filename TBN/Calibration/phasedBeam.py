@@ -16,7 +16,7 @@ from scipy.signal import triang
 
 from lsl.common.constants import c as vLight
 from lsl.common.stations import lwa1
-from lsl.correlator.uvUtils import computeUVW
+from lsl.correlator.uvutil import compute_uvw
 
 
 # List of bright radio sources in PyEphem format
@@ -49,8 +49,8 @@ def getGeoDelay(antenna, az, el, Degrees=False):
 
 def main(args):
     # Gather the necessary information to figure out where things are
-    observer = lwa1.getObserver()
-    antennas = lwa1.getAntennas()
+    observer = lwa1.get_observer()
+    antennas = lwa1.antennas
     
     # Divy up the command line arguments
     filename = args[0]
@@ -60,7 +60,7 @@ def main(args):
     # Load the data
     dataDict = numpy.load(filename)
     ## Frequency
-    centralFreq = dataDict['centralFreq']
+    central_freq = dataDict['central_freq']
     ## Integration time
     tInt = dataDict['tInt']
     ## Start times of the integrations
@@ -68,7 +68,7 @@ def main(args):
     ## The visiblity data
     phase = dataDict['simpleVis']
     
-    print "Central frequency: %.3f Hz" % centralFreq
+    print "Central frequency: %.3f Hz" % central_freq
     
     # Build the source list
     beginDate = datetime.utcfromtimestamp(times[0])
@@ -91,7 +91,7 @@ def main(args):
     aln = []
     for i in xrange(phase.shape[1]):
         gd = getGeoDelay(antennas[i], az, el, Degrees=True)
-        aln.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
+        aln.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
     aln = numpy.array(aln)
     
     # Build the c^l_n values from Steve's "Fun with TBN" memo (Eqn. 10)
@@ -107,20 +107,20 @@ def main(args):
     alnPointing = []
     for i in xrange(phase.shape[1]):
         gd = getGeoDelay(antennas[i], pointingAz, pointingEl, Degrees=True)
-        alnPointing.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
+        alnPointing.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
     alnPointing = numpy.array(alnPointing)
     
     # Calculate the beamforming coefficients
     blnPointing = (cln*alnPointing).conj() / numpy.abs(cln*alnPointing)
     
     # Intepret these purely as delays
-    delays = numpy.angle(blnPointing) / (2*numpy.pi*centralFreq)
+    delays = numpy.angle(blnPointing) / (2*numpy.pi*central_freq)
     delays = delays.max() - delays
     
     # Save
     import gain
     import delay
-    dftBase = 'phased_beam_%.2faz_%.2fel_%iMHz' % (pointingAz, pointingEl, centralFreq/1e6,)
+    dftBase = 'phased_beam_%.2faz_%.2fel_%iMHz' % (pointingAz, pointingEl, central_freq/1e6,)
     junk = delay.list2delayfile('.', dftBase, delays[0,:]*1e9)
 
 

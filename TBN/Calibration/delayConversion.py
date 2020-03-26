@@ -14,7 +14,7 @@ from lsl.common.stations import lwa1
 
 
 def main(args):
-    antennas = lwa1.getAntennas()
+    antennas = lwa1.antennas
     
     try:
         filename = args[0]
@@ -39,7 +39,7 @@ def main(args):
         if len(parts) == 3:
             chi2 = float(parts[2])
             if chi2 > 1.0:
-                print "Skipping %3i due to large (%6.3f) Chi2 [status=%i]" % (ant, chi2, antennas[ant].getStatus())
+                print "Skipping %3i due to large (%6.3f) Chi2 [status=%i]" % (ant, chi2, antennas[ant].combined_status)
                 continue
         
         delays[ant].append( delay )

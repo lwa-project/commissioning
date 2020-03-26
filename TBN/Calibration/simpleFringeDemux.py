@@ -30,7 +30,7 @@ from matplotlib import pyplot as plt
 from collections import deque
 
 import fringe
-from multiStation import parseSSMIF
+from multiStation import parse_ssmif
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -70,7 +70,7 @@ def parseOptions(args):
     config['SSMIF'] = None
     config['tInt'] = 10.0
     config['refStand'] = 258
-    config['clipLevel'] = 120.0
+    config['clip_level'] = 120.0
     
     # Read in and process the command line flags
     try:
@@ -91,7 +91,7 @@ def parseOptions(args):
         elif opt in ('-r', '--reference'):
             config['refStand'] = int(value)
         elif opt in ('-c', '--clip'):
-            config['clipLevel'] = float(value)
+            config['clip_level'] = float(value)
         else:
             assert False
             
@@ -104,13 +104,13 @@ def parseOptions(args):
 
 def unitRead(fh, count=520, found={}):
     for i in xrange(count):
-        frame = tbn.readFrame(fh)
+        frame = tbn.read_frame(fh)
         
         try:
-            found[frame.data.timeTag].append(frame)
+            found[frame.data.timetag].append(frame)
         except KeyError:
-            found[frame.data.timeTag] = []
-            found[frame.data.timeTag].append(frame)
+            found[frame.data.timetag] = []
+            found[frame.data.timetag].append(frame)
         
     return found
 
@@ -123,26 +123,26 @@ def main(args):
     
     # The station
     if config['SSMIF'] is not None:
-        site = parseSSMIF(config['SSMIF'])
+        site = parse_ssmif(config['SSMIF'])
         ssmifContents = open(config['SSMIF']).readlines()
     else:
         site = lwa1
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
-    observer = site.getObserver()
-    antennas = site.getAntennas()
+    observer = site.get_observer()
+    antennas = site.antennas
     
     # The file's parameters
     fh = open(filename, 'rb')
     
-    nFramesFile = os.path.getsize(filename) / tbn.FrameSize
-    srate = tbn.getSampleRate(fh)
+    nFramesFile = os.path.getsize(filename) / tbn.FRAME_SIZE
+    srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
     fh.seek(0)
     if srate < 1000:
-        fh.seek(len(antennas)*4*tbn.FrameSize)
-        srate = tbn.getSampleRate(fh)
+        fh.seek(len(antennas)*4*tbn.FRAME_SIZE)
+        srate = tbn.get_sample_rate(fh)
         antpols = len(antennas)
-        fh.seek(len(antennas)*4*tbn.FrameSize)
+        fh.seek(len(antennas)*4*tbn.FRAME_SIZE)
         
     # Reference antenna
     ref = config['refStand']
@@ -168,15 +168,15 @@ def main(args):
     
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbn.readFrame(fh)
-    fh.seek(-tbn.FrameSize, 1)
-    startFC = junkFrame.header.frameCount
+    junkFrame = tbn.read_frame(fh)
+    fh.seek(-tbn.FRAME_SIZE, 1)
+    startFC = junkFrame.header.frame_count
     try:
-        centralFreq = junkFrame.getCentralFreq()
+        central_freq = junkFrame.central_freq
     except AttributeError:
         from lsl.common.dp import fS
-        centralFreq = fS * junkFrame.header.secondsCount / 2**32
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+        central_freq = fS * junkFrame.header.second_count / 2**32
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
     
     observer.date = beginDate
     srcs = [ephem.Sun(),]
@@ -194,7 +194,7 @@ def main(args):
     print "Date of First Frame: %s" % str(beginDate)
     print "Ant/Pols: %i" % antpols
     print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % centralFreq
+    print "Tuning Frequency: %.3f Hz" % central_freq
     print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
     print "---"
     print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols)
@@ -207,7 +207,7 @@ def main(args):
     LFFT = 512
     times = numpy.zeros(nChunks, dtype=numpy.float64)
     simpleVis = numpy.zeros((nChunks, antpols), dtype=numpy.complex64)
-    centralFreqs = numpy.zeros(nChunks, dtype=numpy.float64)
+    central_freqs = numpy.zeros(nChunks, dtype=numpy.float64)
     
     # Go!
     k = 0
@@ -220,7 +220,7 @@ def main(args):
             framesWork = nFrames
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
         else:
-            framesWork = framesRemaining + antpols*buffer.nSegments
+            framesWork = framesRemaining + antpols*buffer.nsegments
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
         print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
         
@@ -234,14 +234,14 @@ def main(args):
             cFrames = deque()
             for l in xrange(len(antennas)):
                 try:
-                    cFrames.append( tbn.readFrame(fh) )
+                    cFrames.append( tbn.read_frame(fh) )
                     k = k + 1
-                except errors.eofError:
+                except errors.EOFError:
                     ## Exit at the EOF
                     done = True
                     break
-                except errors.syncError:
-                    #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+                except errors.SyncError:
+                    #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
                     ## Exit at the first sync error
                     done = True
                     break
@@ -253,7 +253,7 @@ def main(args):
                 continue
                 
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 
                 # In the current configuration, stands start at 1 and go up to 260.  So, we
                 # can use this little trick to populate the data array
@@ -261,16 +261,16 @@ def main(args):
                 
                 # Save the time
                 if j == 0 and aStand == 0:
-                    times[i] = cFrame.getTime()
+                    times[i] = cFrame.get_time()
                     try:
-                        centralFreqs[i] = cFrame.getCentralFreq()
+                        central_freqs[i] = cFrame.central_freq
                     except AttributeError:
-                        centralFreqs[i] = fS * cFrame.header.secondsCount / 2**32
+                        central_freqs[i] = fS * cFrame.header.second_count / 2**32
                     if i > 0:
-                        if centralFreqs[i] != centralFreqs[i-1]:
-                            print "Frequency change from %.3f to %.3f MHz at chunk %i" % (centralFreqs[i-1]/1e6, centralFreqs[i]/1e6, i+1)
+                        if central_freqs[i] != central_freqs[i-1]:
+                            print "Frequency change from %.3f to %.3f MHz at chunk %i" % (central_freqs[i-1]/1e6, central_freqs[i]/1e6, i+1)
                 
-                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 
                 # Update the counters so that we can average properly later on
                 count[aStand] = count[aStand] + 1
@@ -284,7 +284,7 @@ def main(args):
             break
         
         # Time-domain blanking and cross-correlation with the outlier
-        simpleVis[i,:] = fringe.Simple(data, refX, refY, config['clipLevel'])
+        simpleVis[i,:] = fringe.Simple(data, refX, refY, config['clip_level'])
     
     fh.close()
     
@@ -292,7 +292,7 @@ def main(args):
     outname = os.path.split(filename)[1]
     outname = os.path.splitext(outname)[0]
     outname = "%s-ref%03i-multi-vis.npz" % (outname, config['refStand'])
-    numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreqs=centralFreqs, times=times, 
+    numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, central_freqs=central_freqs, times=times, 
             simpleVis=simpleVis, ssmifContents=ssmifContents)
 
 
