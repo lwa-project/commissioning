@@ -54,7 +54,7 @@ def _test_generator(script):
     """
     
     def test(self):
-        out, err = lint.py_run("%s -E --init-hook='import sys; sys.path=[%s]; sys.path.insert(0, \"%s\")'" % (script, ",".join(['"%s"' % p for p in sys.path]), os.path.dirname(MODULE_BUILD)), return_std=True)
+        out, err = lint.py_run("-E %s" % script, return_std=True)
         out_lines = out.read().split('\n')
         err_lines = err.read().split('\n')
         out.close()
@@ -65,6 +65,7 @@ def _test_generator(script):
                 continue
                 
             mtch = _LINT_RE.match(line)
+            print('LINE:', line.strip().rstrip())
             if mtch is not None:
                 line_no, type, info = mtch.group('line'), mtch.group('type'), mtch.group('info')
                 self.assertEqual(type, None, "%s:%s - %s" % (os.path.basename(script), line_no, info))
