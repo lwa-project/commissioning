@@ -163,7 +163,7 @@ class TBW_GUI(object):
                     station = stations.lwana
                 except AttributeError:
                     station = stations.lwa2
-                antennas = station.getAntennas()
+                antennas = station.antennas
             else:
                 fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
                 fh = open(tempSSMIF, 'w')
@@ -171,8 +171,8 @@ class TBW_GUI(object):
                     fh.write('%s\n' % line)
                 fh.close()
                 
-                station = stations.parseSSMIF(tempSSMIF)
-                antennas = station.getAntennas()
+                station = stations.parse_ssmif(tempSSMIF)
+                antennas = station.antennas
                 os.unlink(tempSSMIF)
             
         except KeyError:
@@ -180,7 +180,7 @@ class TBW_GUI(object):
                 station = stations.lwana
             except AttributeError:
                 station = stations.lwa2
-            antennas = station.getAntennas()
+            antennas = station.antennas
         self.antennas = []
         for a in antennas:
             if a.digitizer != 0:

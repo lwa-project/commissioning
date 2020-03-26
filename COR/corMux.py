@@ -68,10 +68,10 @@ class RawCORFrame(object):
         return (self.stand0, self.stand1)
 
 
-class RawCORFrameBuffer(buffer.FrameBuffer):
+class RawCORFrameBuffer(buffer.FrameBufferBase):
     """
-    A sub-type of FrameBuffer specifically for dealing with raw (packed) COR
-    frames.  See :class:`lsl.reader.buffer.FrameBuffer` for a description of 
+    A sub-type of FrameBufferBase specifically for dealing with raw (packed) COR
+    frames.  See :class:`lsl.reader.buffer.FrameBufferBase` for a description of 
     how the buffering is implemented.
     
     Keywords:

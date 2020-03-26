@@ -9,17 +9,16 @@ import pytz
 import ephem
 import numpy
 import getopt
-import pyfits
 from calendar import timegm
 from datetime import datetime
 
 from lsl import astro
 from lsl.common import stations
 from lsl.statistics.robust import *
-from lsl.correlator import uvUtils
-from lsl.writer.fitsidi import NumericStokes
+from lsl.correlator import uvutil
+from lsl.writer.fitsidi import NUMERIC_STOKES
 
-from lsl.imaging import utils, selfCal
+from lsl.imaging import utils, selfcal
 from lsl.sim import vis as simVis
 
 from matplotlib.mlab import griddata
@@ -55,7 +54,7 @@ Options:
 def parseConfig(args):
     config = {}
     # Command line flags - default values
-    config['refAnt'] = 173
+    config['ref_ant'] = 173
     config['freqLimits'] = [35e6, 85e6]
     config['plot'] = False
 
@@ -72,7 +71,7 @@ def parseConfig(args):
         if opt in ('-h', '--help'):
             usage(exitCode=0)
         elif opt in ('-r', '--reference'):
-            config['refAnt'] = int(value)
+            config['ref_ant'] = int(value)
         elif opt in ('-l', '--lower'):
             config['freqLimits'][0] = float(value)
         elif opt in ('-u', '--upper'):
@@ -97,7 +96,7 @@ def graticle(ax, lst, lat, label=True):
     
     .. note::
         LST and latitude values should be passed as radians.  This is the default
-        for lwa1.getObserver.sidereal_time() and lwa1.getObserver().lat.
+        for lwa1.get_observer.sidereal_time() and lwa1.get_observer().lat.
     """
     
     # Lines of constant declination first
@@ -184,19 +183,19 @@ def main(args):
     filename = config['args'][0]
     
     idi = utils.CorrelatedData(filename)
-    aa = idi.getAntennaArray()
-    lo = idi.getObserver()
+    aa = idi.get_antennaarray()
+    lo = idi.get_observer()
     lo.date = idi.dateObs.strftime("%Y/%m/%d %H:%M:%S")
     jd = lo.date + astro.DJD_OFFSET
     lst = str(lo.sidereal_time())
 
     nStand = len(idi.stands)
-    nChan = len(idi.freq)
+    nchan = len(idi.freq)
     freq = idi.freq
     
     print "Raw Stand Count: %i" % nStand
     print "Final Baseline Count: %i" % (nStand*(nStand-1)/2,)
-    print "Spectra Coverage: %.3f to %.3f MHz in %i channels (%.2f kHz/channel)" % (freq[0]/1e6, freq[-1]/1e6, nChan, (freq[-1] - freq[0])/1e3/nChan)
+    print "Spectra Coverage: %.3f to %.3f MHz in %i channels (%.2f kHz/channel)" % (freq[0]/1e6, freq[-1]/1e6, nchan, (freq[-1] - freq[0])/1e3/nchan)
     print "Polarization Products: %i starting with %i" % (len(idi.pols), idi.pols[0])
     print "JD: %.3f" % jd
     
@@ -207,9 +206,9 @@ def main(args):
     nSets = idi.totalBaselineCount / (nStand*(nStand+1)/2)
     for set in range(1, nSets+1):
         print "Set #%i of %i" % (set, nSets)
-        fullDict = idi.getDataSet(set)
-        dataDict = utils.pruneBaselineRange(fullDict, uvMin=14.0)
-        utils.sortDataDict(dataDict)
+        fullDict = idi.get_data_set(set)
+        dataDict = utils.pruneBaselineRange(fullDict, min_uv=14.0)
+        utils.sort_data(dataDict)
         
         # Gather up the polarizations and baselines
         pols = dataDict['jd'].keys()
@@ -224,15 +223,15 @@ def main(args):
                 
         # Build the simulated visibilities
         print "Building Model"
-        simDict = simVis.buildSimData(aa, simVis.srcs, jd=[jdList[0],], pols=pols, baselines=bls)
+        simDict = simVis.build_sim_data(aa, simVis.srcs, jd=[jdList[0],], pols=pols, baselines=bls)
         
         print "Running self cal."
-        simDict  = utils.sortDataDict(simDict)
-        dataDict = utils.sortDataDict(dataDict)
-        fixedDataXX, delaysXX = selfCal.delayOnly(aa, dataDict, simDict, toWork, 'xx', refAnt=config['refAnt'], nIter=60)
-        fixedDataYY, delaysYY = selfCal.delayOnly(aa, dataDict, simDict, toWork, 'yy', refAnt=config['refAnt'], nIter=60)
-        fixedFullXX = simVis.scaleData(fullDict, delaysXX*0+1, delaysXX)
-        fixedFullYY = simVis.scaleData(fullDict, delaysYY*0+1, delaysYY)
+        simDict  = utils.sort_data(simDict)
+        dataDict = utils.sort_data(dataDict)
+        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'xx', ref_ant=config['ref_ant'], max_iter=60)
+        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'yy', ref_ant=config['ref_ant'], max_iter=60)
+        fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
+        fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
         
         print "    Saving results"
         outname = os.path.split(filename)[1]
@@ -258,30 +257,30 @@ def main(args):
             print "    Gridding"
             toWork = numpy.where((freq>=80e6) & (freq<=82e6))[0]
             try:
-                imgXX = utils.buildGriddedImage(fullDict, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
+                imgXX = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='xx', chan=toWork)
             except:
                 imgXX = None
                 
             try:
-                imgYY = utils.buildGriddedImage(fullDict, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
+                imgYY = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='yy', chan=toWork)
             except:
                 imgYY = None
                 
             try:
-                simgXX = utils.buildGriddedImage(simDict, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
+                simgXX = utils.build_gridded_image(simDict, size=80, res=0.5, pol='xx', chan=toWork)
             except:
                 simgXX = None
             try:
-                simgYY = utils.buildGriddedImage(simDict, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
+                simgYY = utils.build_gridded_image(simDict, size=80, res=0.5, pol='yy', chan=toWork)
             except:
                 simgYY = None
                 
             try:
-                fimgXX = utils.buildGriddedImage(fixedFullXX, MapSize=80, MapRes=0.5, pol='xx', chan=toWork)
+                fimgXX = utils.build_gridded_image(fixedFullXX, size=80, res=0.5, pol='xx', chan=toWork)
             except:
                 fimgXX = None
             try:
-                fimgYY = utils.buildGriddedImage(fixedFullYY, MapSize=80, MapRes=0.5, pol='yy', chan=toWork)
+                fimgYY = utils.build_gridded_image(fixedFullYY, size=80, res=0.5, pol='yy', chan=toWork)
             except:
                 fimgYY = None
                 

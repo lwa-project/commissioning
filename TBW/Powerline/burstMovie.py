@@ -91,10 +91,10 @@ def main(args):
     
     # Set the station
     if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
+        station = stations.parse_ssmif(config['SSMIF'])
     else:
         station = stations.lwa1
-    antennas = station.getAntennas()
+    antennas = station.antennas
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped
@@ -106,8 +106,8 @@ def main(args):
     maxFrames = config['maxFrames']
 
     fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbw.FrameSize
-    dataBits = tbw.getDataBits(fh)
+    nFrames = os.path.getsize(config['args'][0]) / tbw.FRAME_SIZE
+    dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
     antpols = len(antennas)
@@ -119,9 +119,9 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
     print "Filename: %s" % config['args'][0]
@@ -136,22 +136,22 @@ def main(args):
 
     # Skip over any non-TBW frames at the beginning of the file
     i = 0
-    junkFrame = tbw.readFrame(fh)
-    while not junkFrame.header.isTBW():
+    junkFrame = tbw.read_frame(fh)
+    while not junkFrame.header.is_tbw:
         try:
-            junkFrame = tbw.readFrame(fh)
-        except errors.syncError:
+            junkFrame = tbw.read_frame(fh)
+        except errors.SyncError:
             fh.seek(0)
             while True:
                 try:
-                    junkFrame = tbn.readFrame(fh)
+                    junkFrame = tbn.read_frame(fh)
                     i += 1
-                except errors.syncError:
+                except errors.SyncError:
                     break
-            fh.seek(-2*tbn.FrameSize, 1)
-            junkFrame = tbw.readFrame(fh)
+            fh.seek(-2*tbn.FRAME_SIZE, 1)
+            junkFrame = tbw.read_frame(fh)
         i += 1
-    fh.seek(-tbw.FrameSize, 1)
+    fh.seek(-tbw.FRAME_SIZE, 1)
     print "Skipped %i non-TBW frames at the beginning of the file" % i
 
     # Master loop over all of the file chunks
@@ -178,31 +178,31 @@ def main(args):
         for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = tbw.readFrame(fh)
-            except errors.eofError:
+                cFrame = tbw.read_frame(fh)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+            except errors.SyncError:
+                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
                 continue
-            if not cFrame.header.isTBW():
+            if not cFrame.header.is_tbw:
                     continue
                     
             # Skip frames over 30,000 on all stands
-            if cFrame.header.frameCount > 30000:
+            if cFrame.header.frame_count > 30000:
                 continue
             
-            stand = cFrame.header.parseID()
+            stand = cFrame.header.id
             # In the current configuration, stands start at 1 and go up to 10.  So, we
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
-            if cFrame.header.frameCount % 5000 == 0 and config['verbose']:
-                print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.getTime(), cFrame.header.frameCount, cFrame.data.timeTag)
+            if cFrame.header.frame_count % 5000 == 0 and config['verbose']:
+                print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
-            count = cFrame.header.frameCount - 1
-            data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.data.xy[0,:]
-            data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.data.xy[1,:]
+            count = cFrame.header.frame_count - 1
+            data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.payload.data[0,:]
+            data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.payload.data[1,:]
             
         # Compute the power
         data = numpy.abs(data)
@@ -222,7 +222,7 @@ def main(args):
             alignedData[s,:] = data[s,delays[s]:(delays[s]+alignedData.shape[1])]
         del(data)
 
-        # Using the good antennas (Antenna.getStatus() == 33), we need to find the 
+        # Using the good antennas (Antenna.combined_status == 33), we need to find the 
         # start of the RFI pulses by looking for "large" data values.  To make sure 
         # that we aren't getting stuck on a first partial burst, skip the first one
         # and use the second set of "large" data values found.
@@ -232,7 +232,7 @@ def main(args):
         #
         inOne = False
         first = 0
-        status = numpy.array([ant.getStatus() for ant in antennas])
+        status = numpy.array([ant.combined_status for ant in antennas])
         good = numpy.where( status == 33 )[0]
         while first < alignedData.shape[1]:
             mv = alignedData[good,first].max()

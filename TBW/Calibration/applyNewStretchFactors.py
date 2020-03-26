@@ -6,7 +6,7 @@ import sys
 import numpy
 import getopt
 
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 
 # List of stands *not* to update
 EXCLUDED_STANDS = []
@@ -79,14 +79,14 @@ def main(args):
     # Load in the data
     #
     ssmifContents = open(config['args'][0], 'r').readlines()
-    site     = parseSSMIF(config['args'][0])
+    site     = parse_ssmif(config['args'][0])
     dataFile = numpy.loadtxt(config['args'][1])
     
     #
     # Gather the station meta-data from its various sources
     #
-    observer = site.getObserver()
-    antennas = site.getAntennas()
+    observer = site.get_observer()
+    antennas = site.antennas
     
     #
     # Match the new stretch factors to the antennas

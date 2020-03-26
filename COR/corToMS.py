@@ -15,10 +15,11 @@ import ephem
 import numpy
 import argparse
 from datetime import datetime
+from astropy.constants import c as speedOfLight
+speedOfLight = speedOfLight.to('m/s').value
 
 from lsl.common import stations
 from lsl.reader.ldp import CORFile
-from lsl.common.constants import c as speedOfLight
 from lsl import astro
 from lsl.imaging import utils
 from lsl.correlator import uvutil
@@ -27,6 +28,8 @@ from lsl.writer import measurementset
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
+
+
 
 
 def main(args):

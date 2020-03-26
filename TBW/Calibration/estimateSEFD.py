@@ -10,7 +10,7 @@ import getopt
 from datetime import datetime, timedelta, tzinfo
 
 from lsl import astro
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 from lsl.reader.ldp import LWA1DataFile
 from lsl.misc import beamformer
 from lsl.common.dp import fS, SoftwareDP
@@ -107,11 +107,11 @@ def main(args):
     filenames = config['args'][1:]
     
     # Setup the LWA station information
-    station = parseSSMIF(ssmif)
-    antennas = station.getAntennas()
+    station = parse_ssmif(ssmif)
+    antennas = station.antennas
     
     # Get an observer reader for calculations
-    obs = station.getObserver()
+    obs = station.get_observer()
     
     # Setup the beamformer gain and delay variables
     course = numpy.zeros(520)
@@ -120,16 +120,16 @@ def main(args):
     gains[:,0] = 1.0
     gains[:,3] = 1.0
     for ant in antennas:
-        if ant.getStatus() != 33:
+        if ant.combined_status != 33:
             stand = (ant.digitizer - 1) / 2
             gains[stand,:] = 0.0
             
     # Setup the beamformer itself
-    dp = SoftwareDP(mode='DRX', filter=7, centralFreq=74e6)
+    dp = SoftwareDP(mode='DRX', filter=7, central_freq=74e6)
     
     # Find the target azimuth/elevation to use
     idf = LWA1DataFile(filenames[0])
-    tStart = datetime.utcfromtimestamp(idf.getInfo('tStart'))
+    tStart = datetime.utcfromtimestamp(idf.get_info('tStart'))
     idf.close()
     
     obs.date = tStart.strftime("%Y/%m/%d %H:%M:%S")
@@ -154,16 +154,16 @@ def main(args):
         idf = LWA1DataFile(filename)
         
         ## Pull out some metadata and update the observer
-        jd = astro.unix_to_utcjd(idf.getInfo('tStart'))
+        jd = astro.unix_to_utcjd(idf.get_info('tStart'))
         obs.date = ephem.Date(jd - astro.DJD_OFFSET)
-        sampleRate = idf.getInfo('sampleRate')
-        nInts = int(round( idf.getInfo('nFrames') / (30000.0 * len(antennas) / 2) ))
+        sample_rate = idf.get_info('sample_rate')
+        nInts = int(round( idf.get_info('nFrames') / (30000.0 * len(antennas) / 2) ))
         transitOffset = (obs.date-tTransit)*86400.0
         
         ## Metadata report
         print "Filename: %s" % os.path.basename(filename)
         print "  Data type:  %s" % type(idf)
-        print "  Captures in file: %i (%.3f s)" % (nInts, nInts*30000*400/sampleRate)
+        print "  Captures in file: %i (%.3f s)" % (nInts, nInts*30000*400/sample_rate)
         print "  Station: %s" % station.name
         print "  Date observed: %s" % str(obs.date)
         print "  MJD: %.5f" % (jd-astro.MJD_OFFSET,)
@@ -172,20 +172,20 @@ def main(args):
         print " "
         
         ## Load in the data
-        readT, t, data = idf.read(timeInSamples=True)
+        readT, t, data = idf.read(time_in_samples=True)
         
         ## Build up a time array
         t = t + numpy.arange(data.shape[1], dtype=numpy.int64)
         
         ## Update the beamformer delays for the pointing center(s)
-        unx.append( idf.getInfo('tStart') )
+        unx.append( idf.get_info('tStart') )
         lst.append( obs.sidereal_time() * 12/numpy.pi )
         pwrX.append( [] )
         pwrY.append( [] )
         
         for offset in (-1, 0, 1):
             ### Compute
-            delays = beamformer.calcDelay(antennas, freq=74.0e6, azimuth=targetAz, elevation=targetEl+offset)
+            delays = beamformer.calc_delay(antennas, freq=74.0e6, azimuth=targetAz, elevation=targetEl+offset)
             delays *= fS*16
             delays = delays.max() - delays
             ### Decompose into FIFO and FIR
@@ -193,7 +193,7 @@ def main(args):
             fine   = (delays % 16)
             
             ## Form the beams for both polarizations
-            beamX, beamY = dp.formBeam(antennas, t, data, course, fine, gains)
+            beamX, beamY = dp.form_beam(antennas, t, data, course, fine, gains)
             
             ## Compute the integrated spectra
             ### Convert to int16
@@ -201,7 +201,7 @@ def main(args):
             beam[0,:] = (numpy.round(beamX)).astype(data.dtype)
             beam[1,:] = (numpy.round(beamY)).astype(data.dtype)
             ### Move into the frequency domain
-            freq, spec = fxc.SpecMaster(beam, LFFT=8192, window=fxc.noWindow, verbose=False, SampleRate=fS, ClipLevel=0)
+            freq, spec = fxc.SpecMaster(beam, LFFT=8192, window=fxc.null_window, verbose=False, sample_rate=fS, clip_level=0)
             
             ## Save
             pwrX[-1].append( spec[0,:] )

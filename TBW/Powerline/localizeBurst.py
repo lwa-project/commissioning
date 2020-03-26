@@ -41,10 +41,10 @@ def main(args):
     ssmif = dataDict['ssmif']
     
     if ssmif != '':
-        station = stations.parseSSMIF(ssmif)
+        station = stations.parse_ssmif(ssmif)
     else:
         station = stations.lwa1
-    antennas = station.getAntennas()
+    antennas = station.antennas
 
     # Find the time of arrival for all of the various pulses relative
     # to ccPoint
@@ -111,7 +111,7 @@ def main(args):
     # Create arrays for the stand ID numbers (ids), combined status codes 
     # (status), polarizations (pols), and stand positions (standPos)
     ids = numpy.array([a.stand.id for a in antennas])
-    status = numpy.array([a.getStatus() for a in antennas])
+    status = numpy.array([a.combined_status for a in antennas])
     pols = numpy.array([a.pol for a in antennas])
     standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in antennas])
 

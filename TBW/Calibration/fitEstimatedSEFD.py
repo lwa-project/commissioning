@@ -312,7 +312,7 @@ def main(args):
         data[name] = {'t':unx, 'f1':freq, 'I1': pwrI[:,i,:]}
         
     # Get LWA-1
-    observer = lwa1.getObserver()
+    observer = lwa1.get_observer()
     
     # Load in the sources and find the right one
     srcs = getSources()

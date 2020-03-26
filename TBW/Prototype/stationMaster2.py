@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 def usage(exitCode=None):
     print """stationMaster2.py - Read in TBW files and create a collection of 
 time-averaged spectra.  This script differs from stationMaster.py in that it uses
-the 'ClipLevel' keyword fx.SpecMaster to mask impulsive RFI events.
+the 'clip_level' keyword fx.SpecMaster to mask impulsive RFI events.
 
 Usage: stationMaster2.py [OPTIONS] file
 
@@ -58,7 +58,7 @@ def parseOptions(args):
     config['force'] = False
     config['LFFT'] = 4096
     config['maxFrames'] = 30000*10
-    config['window'] = fxc.noWindow
+    config['window'] = fxc.null_window
     config['applyGain'] = True
     config['verbose'] = True
     config['clip'] = 750
@@ -107,7 +107,7 @@ def main(args):
     
     # Set the station
     if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
+        station = stations.parse_ssmif(config['SSMIF'])
         ssmifContents = open(config['SSMIF']).readlines()
     else:
         try:
@@ -117,7 +117,7 @@ def main(args):
             station = stations.lwa2
             ssmifContents = open(os.path.join(dataPath, 'lwa2-ssmif.txt')).readlines()
     antennas = []
-    for a in station.getAntennas():
+    for a in station.antennas:
         if a.digitizer != 0:
             antennas.append(a)
 
@@ -134,8 +134,8 @@ def main(args):
     maxFrames = config['maxFrames']
 
     fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbw.FrameSize
-    dataBits = tbw.getDataBits(fh)
+    nFrames = os.path.getsize(config['args'][0]) / tbw.FRAME_SIZE
+    dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
     antpols = len(antennas)
@@ -147,9 +147,9 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
     print "Filename: %s" % config['args'][0]
@@ -164,11 +164,11 @@ def main(args):
 
     # Skip over any non-TBW frames at the beginning of the file
     i = 0
-    junkFrame = tbw.readFrame(fh)
-    while not junkFrame.header.isTBW():
-        junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
+    while not junkFrame.header.is_tbw:
+        junkFrame = tbw.read_frame(fh)
         i += 1
-    fh.seek(-tbw.FrameSize, 1)
+    fh.seek(-tbw.FRAME_SIZE, 1)
     print "Skipped %i non-TBW frames at the beginning of the file" % i
 
     outfile = os.path.split(config['args'][0])[1]
@@ -196,51 +196,51 @@ def main(args):
             for j in range(framesWork):
                 # Read in the next frame and anticipate any problems that could occur
                 try:
-                    cFrame = tbw.readFrame(fh)
-                except errors.eofError:
+                    cFrame = tbw.read_frame(fh)
+                except errors.EOFError:
                     break
-                except errors.syncError:
-                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+                except errors.SyncError:
+                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
                     continue
-                if not cFrame.header.isTBW():
+                if not cFrame.header.is_tbw:
                     continue
                 
-                stand = cFrame.header.parseID()
+                stand = cFrame.header.id
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)
-                if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-                    print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.getTime(), cFrame.header.frameCount, cFrame.data.timeTag)
+                if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
+                    print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
 
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
                 # odd numbers
-                count = cFrame.header.frameCount - 1
-                data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.data.xy[0,:]
-                data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.data.xy[1,:]
+                count = cFrame.header.frame_count - 1
+                data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.payload.data[0,:]
+                data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.payload.data[1,:]
 
             # Calculate the spectra for this block of data and then weight the results by 
             # the total number of frames read.  This is needed to keep the averages correct.
             # NB:  The weighting is the same for the x and y polarizations because of how 
             # the data are packed in TBW
-            freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], ClipLevel=config['clip'])
+            freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'], clip_level=config['clip'])
             for stand in xrange(masterSpectra.shape[1]):
                 masterSpectra[i,stand,:] = tempSpec[stand,:]
 
             # Compute the 1 ms average power and the data range within each 1 ms window
             subSize = 1960
-            nSegments = data.shape[1] / subSize
+            nsegments = data.shape[1] / subSize
             
             print "Computing average power and data range in %i-sample intervals, ADC histogram" % subSize
             pb = ProgressBar(max=data.shape[0])
-            avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
-            dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
+            avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
+            dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
             adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
             histBins = range(-2048, 2049)
             for s in xrange(data.shape[0]):
                 hs, be = numpy.histogram(data[s,:], bins=histBins)
                 adcHistogram[s,:] += hs
                 
-                for p in xrange(nSegments):
+                for p in xrange(nsegments):
                     subData = data[s,(p*subSize):((p+1)*subSize)]
                     avgPower[s,p] = numpy.mean( numpy.abs(subData) )
                     dataRange[s,p,0] = subData.min()
