@@ -130,7 +130,7 @@ def parseConfig(args):
     return config
 
 
-def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, central_freq=49.0e6, sample_rate=dp_common.fS, pols=['xx',], ChunkSize=300):
+def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, overlap=1, central_freq=49.0e6, sample_rate=dp_common.fS, pols=['xx',], ChunkSize=300):
     """
     Given a filehandle pointing to some TBN data and various parameters for
     the cross-correlation, write cross-correlate the data and save it to a file.
@@ -246,7 +246,7 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, Overlap=1, cent
         # Loop over polarization products
         for pol in pols:
             print "->  %s" % pol
-            blList, freq, vis = fxc.FXMaster(data, mapper2, LFFT=LFFT, Overlap=Overlap, include_auto=True, verbose=False, sample_rate=sample_rate, central_freq=central_freq, Pol=pol, return_baselines=True, gain_correct=False)
+            blList, freq, vis = fxc.FXMaster(data, mapper2, LFFT=LFFT, overlap=Overlap, include_auto=True, verbose=False, sample_rate=sample_rate, central_freq=central_freq, Pol=pol, return_baselines=True, gain_correct=False)
 
             # Select the right range of channels to save
             toUse = numpy.where( (freq>10.0e6) & (freq<93.0e6) )

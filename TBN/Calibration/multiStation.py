@@ -9,6 +9,7 @@ import re
 import struct
 
 from lsl.common.stations import Antenna, Stand, FEE, Cable, ARX, LWAStation, _id2name
+from lsl.common import mcs mcsADP
 
 __version__ = "0.1"
 __all__ = ['parse_ssmif',]
@@ -536,10 +537,10 @@ def __parseBinarySSMIF(filename):
     
     if version in (8,):
         ## ADP
-        mode = adpCompatibility
+        mode = mcsADP
     else:
         ## DP
-        mode = dpCompatibility
+        mode = mcs
     bssmif = mode.parse_c_struct(mode.SSMIF_STRUCT, char_mode='int', endianness='little')
     bsettings = mode.parse_c_struct(mode.STATION_SETTINGS_STRUCT, endianness='little')
     

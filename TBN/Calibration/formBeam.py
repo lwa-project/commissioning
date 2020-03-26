@@ -13,7 +13,9 @@ import sys
 import ephem
 import numpy
 
-from lsl.common.constants import c as vLight
+from astropy.constants import c as speedOfLight
+vLight = speedOfLight.to('m/s').value
+
 from lsl.common.stations import lwa1
 from lsl.reader import tbn
 from lsl.reader import errors

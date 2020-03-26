@@ -39,6 +39,19 @@ __author__   = "Jayce Dowell"
 _LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>.*?)[\]\)] (?P<info>.*)')
 
 
+_SAFE_TO_IGNORE = ["Module 'numpy",
+                   "Module 'ephem",
+                   "Module 'datetime",
+                   "Module 'matplotlib'",
+                   "Module 'wx'",
+                   "Unable to import 'wx",
+                   "Module 'BeautifulSoup",
+                   "Unable to import 'BeautifulSoup",
+                   "No name 'c' in module 'astropy.constants'",
+                   "No name 'triang' in module 'scipy.signal'",
+                   "No name 'erf' in module 'scipy.special'",]
+
+
 @unittest.skipUnless(run_scripts_tests, "requires the 'pylint' module")
 class scripts_tests(unittest.TestCase):
     """A unittest.TestCase collection of unit tests for the commissioning scripts."""
@@ -61,11 +74,12 @@ def _test_generator(script):
         err.close()
         
         for line in out_lines:
-            if line.find("Module 'numpy") != -1:
-                continue
-            if line.find("Module 'ephem") != -1:
-                continue
-            if line.find("Module 'datetime") != -1:
+            ignore = False
+            for phrase in _SAFE_TO_IGNORE:
+                if line.find(phrase) != -1:
+                    ignore = True
+                    break
+            if ignore:
                 continue
                 
             mtch = _LINT_RE.match(line)

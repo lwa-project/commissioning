@@ -18,7 +18,9 @@ from datetime import datetime, timedelta
 
 from scipy.signal import triang
 
-from lsl.common.constants import c as vLight
+from astropy.constants import c as speedOfLight
+vLight = speedOfLight.to('m/s').value
+
 from lsl.common.stations import lwa1
 from lsl.common.progress import ProgressBar
 from lsl.correlator.uvutil import compute_uvw

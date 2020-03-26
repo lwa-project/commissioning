@@ -22,6 +22,7 @@ addons:
             - libfftw3-dev
             - libgdbm-dev
             - libhdf5-dev
+            - libatlas-base-dev
 
 install:
     - pip install \

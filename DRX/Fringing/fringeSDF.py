@@ -267,8 +267,8 @@ def main(args):
     observer = sdf.Observer("fringeSDF.py Observer", 99)
     session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
     project = sdf.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
-    obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, config['filter'], RADec=False)
-    stp = sdf.BeamStep(config['az'], config['el'], str(config['duration']), config['freq1'], config['freq2'], RADec=False, SpecDelays=delays, SpecGains=gains)
+    obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, config['filter'], is_radec=False)
+    stp = sdf.BeamStep(config['az'], config['el'], str(config['duration']), config['freq1'], config['freq2'], is_radec=False, spec_delays=delays, spec_gains=gains)
     obs.append(stp)
     obs.gain = 1
     project.sessions[0].observations.append(obs)
