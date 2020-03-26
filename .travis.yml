@@ -22,7 +22,6 @@ addons:
             - libfftw3-dev
             - libgdbm-dev
             - libhdf5-dev
-            - libatlas-base-dev
 
 install:
     - pip install \
@@ -31,8 +30,7 @@ install:
         matplotlib \
         scipy \
         h5py
-    #- pip install git+https://github.com/lwa-project/lsl.git
-    - pip install lsl
+    - pip install git+https://github.com/lwa-project/lsl.git
     - pip install pylint
 
 script:
