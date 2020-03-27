@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Check the time tags in a full 520 antenna stand data set.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -35,7 +40,7 @@ def main(args):
     junkFrame = tbn.read_frame(fh)
     sample_rate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
-    tagSkip = fS / sample_rate * junkFrame.payload.data.shape[0]
+    tagSkip = fS // sample_rate * junkFrame.payload.data.shape[0]
     fh.seek(0)
 
     # Store the information about the first frame and convert the timetag to 
@@ -45,13 +50,13 @@ def main(args):
     prevFrame = junkFrame.header.frame_count
 
     # Report on the file
-    print "Filename: %s" % os.path.basename(args.filename)
-    print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "Sample rate: %i Hz" % sample_rate
-    print "Time tag skip per frame: %i" % tagSkip
+    print("Filename: %s" % os.path.basename(args.filename))
+    print("Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
+    print("Sample rate: %i Hz" % sample_rate)
+    print("Time tag skip per frame: %i" % tagSkip)
 
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
+    buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
     
     j = 0
     k = 0
@@ -62,7 +67,7 @@ def main(args):
         except errors.EOFError:
             break
         except errors.SyncError:
-            #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
+            #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
             continue
                 
         buffer.append(cFrame)
@@ -73,7 +78,7 @@ def main(args):
         
         valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
         if valid != antpols:
-            print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
+            print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
         
         timetags = numpy.zeros(len(cFrames), dtype=numpy.int64) - 1
         for cFrame in cFrames:
@@ -93,18 +98,18 @@ def main(args):
             currFrame = cFrames[0].header.frame_count
             
         if currFrame % 1000 == 0:
-            print "At frame %i t.t. is %i -> %s" % (currFrame, currTime, currDate)
+            print("At frame %i t.t. is %i -> %s" % (currFrame, currTime, currDate))
 
         if currTime < prevTime:
-            print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currFrame, prevTime, prevFrame)
-            print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate))
+            print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currFrame, prevTime, prevFrame))
+            print("       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate)))
         if (currTime-prevTime) > tagSkip:
-            print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currFrame, prevTime, prevFrame)
-            print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate))
+            print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currFrame, prevTime, prevFrame))
+            print("       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate)))
         for i in xrange(timetags.size):
             if timetags[i] != currTime:
-                print "ERROR: t.t. of dig. %i != frame set median of %i" % (i, currTime)
-                print "       -> difference: %i" % (currTime-timetags[i],)
+                print("ERROR: t.t. of dig. %i != frame set median of %i" % (i, currTime))
+                print("       -> difference: %i" % (currTime-timetags[i],))
         
         prevTime  = currTime
         prevData  = currDate

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple TBN beam forming script based on Steve's "Fun with TBN" memo.
@@ -8,6 +7,12 @@ Usage:
 ./form_beam.py <cln_file> <azimuth> <elevation> <TBN_file>
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -122,18 +127,18 @@ def main(args):
         srcs[-1].compute(observer)
         
         if srcs[-1].alt > 0:
-            print "source %s: alt %.1f degrees, az %.1f degrees" % (srcs[-1].name, srcs[-1].alt*180/numpy.pi, srcs[-1].az*180/numpy.pi)
+            print("source %s: alt %.1f degrees, az %.1f degrees" % (srcs[-1].name, srcs[-1].alt*180/numpy.pi, srcs[-1].az*180/numpy.pi))
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % central_freq
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
-    print "---"
-    print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz" % central_freq)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate))
+    print("---")
+    print("Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols))
+    print("Chunks: %i" % nChunks)
     
     junkFrame = tbn.read_frame(fh)
     while junkFrame.header.frame_count < startFC+3:
@@ -194,7 +199,7 @@ def main(args):
         else:
             framesWork = framesRemaining + antpols*buffer.nsegments
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
-        print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = [0 for a in xrange(antpols)]
         
@@ -208,7 +213,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
                 continue
                     
             buffer.append(cFrame)
@@ -219,7 +224,7 @@ def main(args):
             
             valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
             if valid != antpols:
-                print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
+                print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
                 continue
             
             for cFrame in cFrames:
@@ -264,13 +269,13 @@ def main(args):
             else:
                 beam3[i,p] = task.get()
         
-        print '1', beam1[i,0], '2', beam2[i,0], '3', beam3[i,0], '1/2', beam1[i,0]/beam2[i,0], '3/2', beam3[i,0]/beam2[i,0]
+        print('1', beam1[i,0], '2', beam2[i,0], '3', beam3[i,0], '1/2', beam1[i,0]/beam2[i,0], '3/2', beam3[i,0]/beam2[i,0])
         del data
     
     # Plot the data
-    print 'CygA      :', beam1[:,0]
-    print 'Pointing 2:', beam2[:,0]
-    print 'Pointing 1:', beam3[:,0]
+    print('CygA      :', beam1[:,0])
+    print('Pointing 2:', beam2[:,0])
+    print('Pointing 1:', beam3[:,0])
     
     fig = plt.figure()
     ax1 = fig.add_subplot(1, 2, 1)

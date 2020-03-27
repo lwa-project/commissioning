@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Split multi-vis NPZ files that are generated from combined TBN observations into
@@ -9,6 +8,12 @@ Usage:
 ./splitMultiVis.py <NPZ multi-vis. file> [<NPZ multi-vis. file> [...]]
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -20,7 +25,7 @@ from lsl.statistics import robust
 
 
 def usage(exitCode=None):
-    print """splitMultiVis.py - Split multi-vis NPZ files that are generated from combined TBN
+    print("""splitMultiVis.py - Split multi-vis NPZ files that are generated from combined TBN
 observations into single NPZ files, one for each frequency.
 
 Usage: splitMultiVis.py [OPTIONS] file [file [...]]
@@ -31,8 +36,8 @@ Options:
                         less 2 integrations)
 -m, --min-integrations    Minimum number of integrations needed to keep
                         split out a frequency (default = 20)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -48,9 +53,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:a", ["help", "min-integrations=", "auto-integrations"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -78,7 +83,7 @@ def main(args):
     for filename in filenames:
         dataDict = numpy.load(filename)
     
-        print "Working on file '%s'" % filename
+        print("Working on file '%s'" % filename)
 
         # Load in the data
         ref_ant = dataDict['ref'].item()
@@ -97,11 +102,11 @@ def main(args):
         # Find the unique sets of (non-zero) frequencies and report
         uFreq = numpy.unique(central_freqs)
         uFreq = uFreq[numpy.where(uFreq != 0)]
-        print "  Found %i unique frequencies from %.3f to %.3f MHz" % (len(uFreq), uFreq.min()/1e6, uFreq.max()/1e6)
+        print("  Found %i unique frequencies from %.3f to %.3f MHz" % (len(uFreq), uFreq.min()/1e6, uFreq.max()/1e6))
     
         # Report on the start time
         beginDate = datetime.utcfromtimestamp(times[0])
-        print "  Start date/time of data: %s UTC" % beginDate
+        print("  Start date/time of data: %s UTC" % beginDate)
         
         # Gather
         tInts = []
@@ -114,7 +119,7 @@ def main(args):
             tInts.append(len(toKeep))
         cutLength = numpy.median(tInts) - 2
         if config['autoInts']:
-            print "  Setting minimum integration count to %i (%.1f s)" % (cutLength, cutLength*tInt)
+            print("  Setting minimum integration count to %i (%.1f s)" % (cutLength, cutLength*tInt))
             config['minInts'] = cutLength
     
         # Split
@@ -129,14 +134,14 @@ def main(args):
             subPhase = phase[toKeep,:]
         
             if len(toKeep) < config['minInts']:
-                print "  -> Skipping %.3f MHz with only %i integrations (%.1f s)" % (f, len(toKeep), len(toKeep)*tInt)
+                print("  -> Skipping %.3f MHz with only %i integrations (%.1f s)" % (f, len(toKeep), len(toKeep)*tInt))
                 continue
         
             ## Save the split data to its own file
             outname = os.path.splitext(filename)[0]
             outname = outname.replace('-multi', '')
             outname = "%s-%03i.npz" % (outname, i+1)
-            print "  Saving visibility data for %.3f MHz to '%s'" % (f/1e6, outname)
+            print("  Saving visibility data for %.3f MHz to '%s'" % (f/1e6, outname))
             numpy.savez(outname, ref=ref_ant, refX=refX, refY=refY, tInt=tInt, central_freq=f, 
                         times=subTimes, simpleVis=subPhase, ssmifContents=ssmifContents)
 

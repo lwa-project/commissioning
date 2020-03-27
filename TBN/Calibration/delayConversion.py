@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Combine the delay differences from a text file with the a priori knowledge of the
 cable model to make a NPZ file that reflects the fully delay of the system.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import sys
 import numpy
 from matplotlib import pyplot as plt
@@ -39,7 +44,7 @@ def main(args):
         if len(parts) == 3:
             chi2 = float(parts[2])
             if chi2 > 1.0:
-                print "Skipping %3i due to large (%6.3f) Chi2 [status=%i]" % (ant, chi2, antennas[ant].combined_status)
+                print("Skipping %3i due to large (%6.3f) Chi2 [status=%i]" % (ant, chi2, antennas[ant].combined_status))
                 continue
         
         delays[ant].append( delay )
@@ -56,11 +61,11 @@ def main(args):
             continue
         delays2[i] = numpy.median(part)
         delays3[i] = numpy.median(part)
-        print i, delays2[i], part.std()
+        print(i, delays2[i], part.std())
 
     #suspect = numpy.where( numpy.abs(delays3) > 35e-9 )[0]
     #for i in suspect:
-        #print i, delays3[i]*1e9
+        #print(i, delays3[i]*1e9)
 
     fig = plt.figure()
     ax = fig.gca()
@@ -79,3 +84,4 @@ def main(args):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+    

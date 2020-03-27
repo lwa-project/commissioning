@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBN file, check for missing frames (or frames considered missing by the
@@ -8,6 +7,12 @@ missing.  Rather than do this for a whole file, it is done for some small portio
 of the file that is controlled by the -s/--skip and -a/--average flags.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -46,7 +51,7 @@ def main(args):
     antennas = station.antennas
     
     fh = open(args.filename, "rb")
-    nFramesFile = os.path.getsize(args.filename) / tbn.FRAME_SIZE
+    nFramesFile = os.path.getsize(args.filename) // tbn.FRAME_SIZE
     srate = tbn.get_sample_rate(fh)
     #antpols = tbn.get_frames_per_obs(fh)
     antpols = len(antennas)
@@ -71,15 +76,15 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (args.skip, offset)
-    print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (args.average, nFrames, nFrames / antpols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Integration: %.3f s (%i frames; %i frames per stand/pol)" % (args.average, nFrames, nFrames / antpols))
+    print("Chunks: %i" % nChunks)
 
     # Sanity check
     if offset > nFramesFile:
@@ -88,7 +93,7 @@ def main(args):
         raise RuntimeError("Requested integration time+offset is greater than file length")
 
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
+    buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
 
     # Master loop over all of the file chunks
     masterCount = [0 for a in xrange(len(antennas))]
@@ -118,7 +123,7 @@ def main(args):
         count = [0 for a in xrange(len(antennas))]
         
         j = 0
-        fillsWork = framesWork / antpols
+        fillsWork = framesWork // antpols
         # Inner loop that actually reads the frames into the data array
         while j < fillsWork:
             try:
@@ -127,10 +132,10 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
+                print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
                 continue
             
-            #print cFrame.header.frame_count, cFrame.data.timetag, cFrame.id
+            #print(cFrame.header.frame_count, cFrame.data.timetag, cFrame.id)
             
             buffer.append(cFrame)
             cFrames = buffer.get()
@@ -139,7 +144,7 @@ def main(args):
                 continue
             
             valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
-            print "Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid, '!' if valid != antpols else '')
+            print("Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid, '!' if valid != antpols else ''))
             if valid != antpols:
                 bad = []
                 for cFrame in cFrames:
@@ -157,8 +162,8 @@ def main(args):
 
                 missing += (antpols-valid)
                 total = (buffer.full + buffer.partial)*antpols
-                #print j, valid, antpols-valid, cFrames[0].header.frame_count, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped
-                #print buffer.status()
+                #print(j, valid, antpols-valid, cFrames[0].header.frame_count, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped)
+                #print(buffer.status())
                 
                 missingList.append( antpols - valid )
             else:
@@ -166,7 +171,7 @@ def main(args):
                 missingList.append(0)
                 
             times = numpy.array([f.data.timetag for f in cFrames], dtype=numpy.int64)
-            #print cFrames[0].header.frame_count, times.min(), times.max(), times.max()-times.min(), "%6.3f%%" % (1.0*missing/total*100,)
+            #print(cFrames[0].header.frame_count, times.min(), times.max(), times.max()-times.min(), "%6.3f%%" % (1.0*missing/total*100,))
             for cFrame in cFrames:
                 stand,pol = cFrame.header.id
                 
@@ -183,7 +188,7 @@ def main(args):
     # Empty the remaining portion of the buffer and integrate what's left
     for cFrames in buffer.flush():
         valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
-        print "Frame #%5i:  %.4f seconds with %i valid ant/pols" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid)
+        print("Frame #%5i:  %.4f seconds with %i valid ant/pols" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid))
         if valid != antpols:
             bad = []
             for cFrame in cFrames:
@@ -201,8 +206,8 @@ def main(args):
 
             missing += (antpols-valid)
             total = (buffer.full + buffer.partial)*antpols
-            #print j, valid, antpols-valid, cFrames[0].header.frame_count, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped
-            #print buffer.status()
+            #print(j, valid, antpols-valid, cFrames[0].header.frame_count, 1.0*missing / total* 100, bad[0], bad[-1], buffer.dropped)
+            #print(buffer.status())
             
             missingList.append( antpols - valid )
         else:

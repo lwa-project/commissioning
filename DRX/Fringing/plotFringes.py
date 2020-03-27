@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple script to plot up the NPZ files created by fringeDipole.py/fringeBeam.py.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import glob

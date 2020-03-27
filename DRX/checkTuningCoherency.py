@@ -48,7 +48,7 @@ def crossCorrelate(sig, ref):
 
 
 def usage(exitCode=None):
-    print("""checkTuningCoherency.py - Read in DRX files and check for coherency.)
+    print("""checkTuningCoherency.py - Read in DRX files and check for coherency.
 
 Usage: checkTuningCoherency.py [OPTIONS] file
 
@@ -60,8 +60,8 @@ Options:
                             (default = 2)
 -q, --quiet                 Run drxSpectra in silent mode
 -o, --output                Output file name for time series image
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -81,9 +81,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hqo:s:p:", ["help", "quiet", "output=", "skip=", "plot-range="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print(str(err) # will print something like "option -a not recognized")
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts

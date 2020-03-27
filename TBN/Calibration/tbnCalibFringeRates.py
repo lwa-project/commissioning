@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -29,7 +34,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
 
 def usage(exitCode=None):
-    print """tbnCalibFringeRates.py - Calculate fringe rates for a few bright sources
+    print("""tbnCalibFringeRates.py - Calculate fringe rates for a few bright sources
 for baselines with all of the outriggers.
 
 Usage: tbnCalibFringeRates.py [OPTIONS] [YYYY/MM/DD HH:MM:SS.S]
@@ -39,7 +44,7 @@ Options:
 -m, --metadata        Name of SSMIF file to use for mappings
 -f, --frequency       Frequency in MHz (default = 74)
 -e, --elevation-cut   Source elevation cut (default = 10 degrees)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -57,9 +62,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:f:e:", ["help", "metadata=", "frequency=", "elevation-cut="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -138,9 +143,9 @@ def main(args):
     else:
         tNow = datetime.utcnow()
     observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
-    print "Current time is %s" % tNow.strftime("%Y/%m/%d %H:%M:%S UTC")
-    print "Current LST at %s is %s" % (lwa1.name, observer.sidereal_time())
-    print " "
+    print("Current time is %s" % tNow.strftime("%Y/%m/%d %H:%M:%S UTC"))
+    print("Current LST at %s is %s" % (lwa1.name, observer.sidereal_time()))
+    print(" ")
     
     #
     # Load the sources source
@@ -166,23 +171,23 @@ def main(args):
             
         if a.pol == 0:
             outriggers.append(a)
-    print "Outriggers:"
+    print("Outriggers:")
     for outrigger in outriggers:
-        print " %s" % str(outrigger.stand)
-    print " "
-    print "Array Antenna:"
-    print " %s" % str(inside.stand)
-    print " "
+        print(" %s" % str(outrigger.stand))
+    print(" ")
+    print("Array Antenna:")
+    print(" %s" % str(inside.stand))
+    print(" ")
     
     #
     # Calculate the source positions to find what is up
     #
-    print "Visible Sources:"
+    print("Visible Sources:")
     for src in srcs:
         src.compute(observer)
         if src.alt > config['elevCut']:
-            print "  %s at %s degrees elevation" % (src.name, src.alt)
-    print " "
+            print("  %s at %s degrees elevation" % (src.name, src.alt))
+    print(" ")
     
     #
     # Calculate the fringe rates - At the specified time
@@ -228,13 +233,13 @@ def main(args):
     #
     srcNames = allRates.keys()
     stands = [outrigger.stand.id for outrigger in outriggers]
-    print "%-4s  %-s" % ("Src", ''.join(["#%-10i  " % stand for stand in stands]))
-    print "=" * (4+2+(11+2)*len(stands))
+    print("%-4s  %-s" % ("Src", ''.join(["#%-10i  " % stand for stand in stands])))
+    print("=" * (4+2+(11+2)*len(stands)))
     for src in srcNames:
         line = "%-4s  " % src
         for stand in stands:
             line = "%s%-+7.3f mHz  " % (line, allRates[src][stand]*1000.0)
-        print line
+        print(line)
         
     #
     # Plot

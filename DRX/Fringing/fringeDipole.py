@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Script to fringe special DRX files that have one dipole on X pol. and another
 dipole on Y pol.  The visibilites are written to a NPZ file.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -22,7 +27,7 @@ from matplotlib import pyplot as plt
 
 
 def usage(exitCode=None):
-    print """fringeDipole.py - Take a DRX file with a dipole on X pol. and a dipole
+    print("""fringeDipole.py - Take a DRX file with a dipole on X pol. and a dipole
 on the Y pol. and cross correlate it.
 
 Usage: fringeDipole.py [OPTION] <dipole_ID_X> <dipole_ID_Y> <DRX_file>
@@ -34,7 +39,7 @@ Options:
                             default = 4 s)
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -51,9 +56,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hl:t:s:", ["help", "fft-length=", "avg-time=", "skip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -192,7 +197,7 @@ def main(args):
             pair = 2*(tune-1) + pol
             j += 1
         fh.seek(-drx.FRAME_SIZE, 1)
-        print "Shifted beam %i data by %i frames (%.4f s)" % (beam, j, j*4096/srate/4)
+        print("Shifted beam %i data by %i frames (%.4f s)" % (beam, j, j*4096/srate/4))
         
         # Set integration time
         tInt = config['avgTime']
@@ -203,13 +208,13 @@ def main(args):
         tFile = nFramesFile / 4 * 4096 / srate
         
         # Report
-        print "Filename: %s" % filename
-        print "  Sample Rate: %i Hz" % srate
-        print "  Tuning 1: %.1f Hz" % cFreq1
-        print "  Tuning 2: %.1f Hz" % cFreq2
-        print "  ==="
-        print "  Integration Time: %.3f s" % tInt
-        print "  Integrations in File: %i" % int(tFile/tInt)
+        print("Filename: %s" % filename)
+        print("  Sample Rate: %i Hz" % srate)
+        print("  Tuning 1: %.1f Hz" % cFreq1)
+        print("  Tuning 2: %.1f Hz" % cFreq2)
+        print("  ===")
+        print("  Integration Time: %.3f s" % tInt)
+        print("  Integrations in File: %i" % int(tFile/tInt))
         
         nChunks = int(tFile/tInt)
         pb = ProgressBar(max=nChunks)
@@ -273,7 +278,7 @@ def main(args):
             i += 1
             
             coeff = numpy.polyfit(freq1, numpy.unwrap(numpy.angle(vi)), 1)
-            #print coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi
+            #print(coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi)
             
         i = 6
         for bl, vi in zip(blList2, vis2):
@@ -285,7 +290,7 @@ def main(args):
             i += 1
             
             coeff = numpy.polyfit(freq2, numpy.unwrap(numpy.angle(vi)), 1)
-            #print coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi
+            #print(coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi)
             
         #plt.show()
 

@@ -28,8 +28,9 @@ def make_gainfile(path,stand, xx, xy, yx, yy):
         gf_filename = 'gain_all_%s_%s_%s_%s.gf' % (xx, xy, yx, yy)
         gft_filename = gf_filename + 't'
         file = open(path+'/'+gft_filename, 'w')
-    for x in range(1, 260+1):
-            print(>> file, gain[0], gain[1], gain[2], gain[3])
+        for x in range(1, 260+1):
+            file.write("%s %s %s %s\n" % (gain[0], gain[1], gain[2], gain[3]))
+        file.close()
     else:
         gf_filename = 'gain_s%s_%s_%s_%s_%s.gf' % (stand, xx, xy, yx, yy)
         gft_filename = gf_filename + 't'
@@ -37,9 +38,10 @@ def make_gainfile(path,stand, xx, xy, yx, yy):
         stand = int(stand)
         for x in range(1, 260+1):
             if x==stand: 
-                print(>> file, gain[0], gain[1], gain[2], gain[3])
+                file.write("%s %s %s %s\n" % (gain[0], gain[1], gain[2], gain[3]))
             else:
-                print(>> file, zero[0], zero[1], zero[2], zero[3] )
+                file.write("%s %s %s %s" % (zero[0], zero[1], zero[2], zero[3]))
+            file.close()
     return [gft_filename,gf_filename]
 
 #take a list of gain values  and convert to gfile    

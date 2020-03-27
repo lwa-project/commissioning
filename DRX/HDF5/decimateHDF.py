@@ -43,7 +43,7 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
     for ent in list(input):
         ## Get the entity
         entity = input.get(ent, None)
-        print "%sWorking on '%s'..." % (' '*level*2, ent)
+        print("%sWorking on '%s'..." % (' '*level*2, ent))
         
         ## Is it a group?
         if type(entity).__name__ == 'Group':
@@ -115,7 +115,7 @@ def main(args):
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                print "WARNING: output file '%s' already exists, skipping" % outname
+                print("WARNING: output file '%s' already exists, skipping" % outname)
                 continue
                 
         hIn  = h5py.File(filename, mode='r')

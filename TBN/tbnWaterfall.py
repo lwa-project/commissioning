@@ -1,11 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBN file, plot the time averaged spectra for each stand output over some 
 period.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    
 from __future__ import print_function, division
 
 import os

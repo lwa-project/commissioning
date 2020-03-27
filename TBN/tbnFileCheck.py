@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Run through a TBN file and determine if it is bad or not.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -29,7 +34,7 @@ def main(args):
     antennas = station.antennas
 
     fh = open(filename, "rb")
-    nFramesFile = os.path.getsize(filename) / tbn.FRAME_SIZE
+    nFramesFile = os.path.getsize(filename) // tbn.FRAME_SIZE
     srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
 
@@ -41,12 +46,12 @@ def main(args):
     beginDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % central_freq
-    print " "
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz" % central_freq)
+    print(" ")
 
     # Convert chunk length to total frame count
     chunkLength = int(args.length * srate / 512 * antpols)
@@ -57,7 +62,7 @@ def main(args):
     chunkSkip = int(1.0 * chunkSkip / antpols) * antpols
     
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
+    buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
 
     # Output arrays
     clipFraction = []
@@ -73,9 +78,9 @@ def main(args):
     # Go!
     i = 1
     done = False
-    print "   |     Clipping    |        Power      |"
-    print "   |   10X     10Y   |    10X      10Y   |"
-    print "---+-----------------+-------------------+"
+    print("   |     Clipping    |        Power      |")
+    print("   |   10X     10Y   |    10X      10Y   |")
+    print("---+-----------------+-------------------+")
     
     while True:
         count = [0 for j in xrange(antpols)]
@@ -139,7 +144,7 @@ def main(args):
             
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print "%2i | %6.2f%% %6.2f%% | %8.2f %8.2f |" % (i, clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]])
+            print("%2i | %6.2f%% %6.2f%% | %8.2f %8.2f |" % (i, clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]]))
         
             i += 1
             fh.seek(tbn.FRAME_SIZE*chunkSkip, 1)
@@ -150,8 +155,8 @@ def main(args):
     clip = clipFraction.mean(axis=0)
     power = meanPower.mean(axis=0)
     
-    print "---+-----------------+-------------------+"
-    print "%2s | %6.2f%% %6.2f%% | %8.2f %8.2f |" % ('M', clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]])
+    print("---+-----------------+-------------------+")
+    print("%2s | %6.2f%% %6.2f%% | %8.2f %8.2f |" % ('M', clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]]))
 
 
 if __name__ == "__main__":

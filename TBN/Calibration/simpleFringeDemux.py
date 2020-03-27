@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple script for performing time series cross-correlation of TBN data for 
@@ -12,6 +11,12 @@ Usage:
 ./simpleFringeDemux.py <TBN data file>
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -44,7 +49,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 
 
 def usage(exitCode=None):
-    print """simpleFringeDemux.py - Simple script for performing time series cross-correlation 
+    print("""simpleFringeDemux.py - Simple script for performing time series cross-correlation 
 of TBN data for all stands relative to the outlier
 
 Usage: simpleFringeDemux.py [OPTIONS] file
@@ -56,8 +61,8 @@ Options:
 -r, --reference	      Stand to use as a reference (default = 258)
 -c, --clip            Clip level in sqrt(I*I + Q*Q) to use to exclude
                     samples in the time domain (default = 120)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -75,9 +80,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:a:r:c:", ["help", "metadata=", "average=", "reference=", "clip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -134,7 +139,7 @@ def main(args):
     # The file's parameters
     fh = open(filename, 'rb')
     
-    nFramesFile = os.path.getsize(filename) / tbn.FRAME_SIZE
+    nFramesFile = os.path.getsize(filename) // tbn.FRAME_SIZE
     srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
     fh.seek(0)
@@ -187,21 +192,21 @@ def main(args):
         srcs[i].compute(observer)
         
         if srcs[i].alt > 0:
-            print "source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi)
+            print("source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi))
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % central_freq
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
-    print "---"
-    print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz" % central_freq)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate))
+    print("---")
+    print("Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames // antpols))
+    print("Chunks: %i" % nChunks)
     
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
+    buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
     
     # Create the phase average and times
     LFFT = 512
@@ -218,16 +223,16 @@ def main(args):
         framesRemaining = nFramesFile - k
         if framesRemaining > nFrames:
             framesWork = nFrames
-            data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
+            data = numpy.zeros((antpols, framesWork//antpols*512), dtype=numpy.complex64)
         else:
             framesWork = framesRemaining + antpols*buffer.nsegments
-            data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
-        print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
+            data = numpy.zeros((antpols, framesWork//antpols*512), dtype=numpy.complex64)
+        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = [0 for a in xrange(len(antennas))]
         
         j = 0
-        fillsWork = framesWork / antpols
+        fillsWork = framesWork // antpols
         # Inner loop that actually reads the frames into the data array
         done = False
         while j < fillsWork:
@@ -241,7 +246,7 @@ def main(args):
                     done = True
                     break
                 except errors.SyncError:
-                    #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
+                    #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
                     ## Exit at the first sync error
                     done = True
                     break
@@ -268,7 +273,7 @@ def main(args):
                         central_freqs[i] = fS * cFrame.header.second_count / 2**32
                     if i > 0:
                         if central_freqs[i] != central_freqs[i-1]:
-                            print "Frequency change from %.3f to %.3f MHz at chunk %i" % (central_freqs[i-1]/1e6, central_freqs[i]/1e6, i+1)
+                            print("Frequency change from %.3f to %.3f MHz at chunk %i" % (central_freqs[i-1]/1e6, central_freqs[i]/1e6, i+1))
                 
                 data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 

@@ -27,8 +27,9 @@ def make_delayfile(path, ant, coarse, fine):
         dft_filename = df_filename+'t'
         filename = path + '/' + dft_filename
         file = open(path + '/' + dft_filename, 'w')
-    for x in range(1, 520+1):
-            print(>> file, delay[0], delay[1])
+        for x in range(1, 520+1):
+            file.write("%s %s\n" % (delay[0], delay[1]))
+        file.close()
     else:
         df_filename = 'delay_a%s_c%s_f%s.df' % (ant, coarse, fine)
         dft_filename = df_filename+'t'
@@ -36,9 +37,10 @@ def make_delayfile(path, ant, coarse, fine):
         ant = int(ant)
         for x in range(1, 520+1):
             if x==ant: 
-                print(>> file, delay[0], delay[1])
+                file.write("%s %s\n" % (delay[0], delay[1]))
             else:
-                print(>> file, zero[0], zero[1])
+                file.write("%s %s\n" % (zero[0], zero[1]))
+        file.close()
     return [dft_filename,df_filename]
     
 # take a list of delay values in ns and convert to dfile    

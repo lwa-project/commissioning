@@ -1,10 +1,16 @@
 #!/usr/bin/env python
 
 """
-Simple script to read in a MCS binary packed DP delay file (.df) and print 
+Simple script to read in a MCS binary packed DP delay file (.df) and print
 out the delays in ns.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -31,11 +37,11 @@ def main(args):
     # Report
     ants = lwa1.antennas[0::2]
     
-    print "Std   X [ns]    Y [ns]"
-    print "----------------------"
+    print("Std   X [ns]    Y [ns]")
+    print("----------------------")
     for i in xrange(len(ants)):
         dx, dy = delays[2*i+0], delays[2*i+1]
-        print "%3i   %7.2f  %7.2f" % (ants[i].stand.id, dx, dy)
+        print("%3i   %7.2f  %7.2f" % (ants[i].stand.id, dx, dy))
 
 
 if __name__ == "__main__":

@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a reference file for calibration and a pointing azimuth and elevation 
 in degrees, create a set of phase-and-sum beamforming coefficients for DRX.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -70,7 +75,7 @@ def main(args):
     ## The visiblity data
     phase = dataDict['simpleVis']
     
-    print "Central frequency: %.3f Hz" % central_freq
+    print("Central frequency: %.3f Hz" % central_freq)
     
     # Build the source list
     beginDate = datetime.utcfromtimestamp(times[0])

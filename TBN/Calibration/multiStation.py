@@ -1,9 +1,14 @@
-# -*- coding: utf-8 -*-
 """
 Temporary module that implements a parse_ssmif() function that works with
 LWA-SV and LWA-1.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import struct

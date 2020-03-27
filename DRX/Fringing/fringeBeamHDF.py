@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Frank Schinzel's script to fringe special DRX files that have a beam X pol. 
 and a dipole on Y pol.  The visibilities are written to an HDF file.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -27,7 +32,7 @@ import h5py
 
 
 def usage(exitCode=None):
-    print """fringeBeamHDF.py - Take a DRX file with the beam on X pol. and a dipole
+    print("""fringeBeamHDF.py - Take a DRX file with the beam on X pol. and a dipole
 on the Y pol. and cross correlate it.  The results are written out to an 
 HDF5 file rather than a collection of .npz files.
 
@@ -42,7 +47,7 @@ Options:
                             (default = 10)
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -60,9 +65,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hl:t:s:d:", ["help", "fft-length=", "avg-time=", "skip=", "duration="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -224,7 +229,7 @@ def main(args):
             pair = 2*(tune-1) + pol
             j += 1
         fh.seek(-drx.FRAME_SIZE, 1)
-        print "Shifted beam %i data by %i frames (%.4f s)" % (beam, j, j*4096/srate/4)
+        print("Shifted beam %i data by %i frames (%.4f s)" % (beam, j, j*4096/srate/4))
         
         # Set integration time
         tInt = config['avgTime']
@@ -235,22 +240,22 @@ def main(args):
         tFile = nFramesFile / 4 * 4096 / srate
         
         # Report
-        print "Filename: %s" % filename
-        print "  Sample Rate: %i Hz" % srate
-        print "  Tuning 1: %.1f Hz" % cFreq1
-        print "  Tuning 2: %.1f Hz" % cFreq2
-        print "  ==="
-        print "  Integration Time: %.3f s" % tInt
-        print "  Integrations in File: %i" % int(tFile/tInt)
-        print "  Duration of File: %f" % tFile
-        print "  Offset: %f s" % offset
+        print("Filename: %s" % filename)
+        print("  Sample Rate: %i Hz" % srate)
+        print("  Tuning 1: %.1f Hz" % cFreq1)
+        print("  Tuning 2: %.1f Hz" % cFreq2)
+        print("  ===")
+        print("  Integration Time: %.3f s" % tInt)
+        print("  Integrations in File: %i" % int(tFile/tInt))
+        print("  Duration of File: %f" % tFile)
+        print("  Offset: %f s" % offset)
         
         if config['duration']!=0:
             nChunks = int(round(config['duration'] / tInt))
         else:
             nChunks = int(tFile/tInt)
             
-        print "Processing: %i integrations" % nChunks
+        print("Processing: %i integrations" % nChunks)
         
         # Here we start the HDF5 file
         outname = os.path.split(filename)[1]
@@ -341,7 +346,7 @@ def main(args):
             i += 1
             
             coeff = numpy.polyfit(freq1, numpy.unwrap(numpy.angle(vi)), 1)
-            #print coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi
+            #print(coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi)
             
         i = 6
         for bl, vi in zip(blList2, vis2):
@@ -353,7 +358,7 @@ def main(args):
             i += 1
             
             coeff = numpy.polyfit(freq2, numpy.unwrap(numpy.angle(vi)), 1)
-            #print coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi
+            #print(coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi)
             
         #plt.show()
 

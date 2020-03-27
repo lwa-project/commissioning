@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF that puts a 
@@ -7,6 +6,12 @@ single dipole or beam on the X pol and the outlier on the other.  The
 gain files are constructed such that all data is from X pol.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
@@ -20,7 +25,7 @@ from lsl.common.mcs import apply_pointing_correction
 from lsl.common.dp import delay_to_dpd, gain_to_dpg
 
 def usage(exitCode=None):
-    print """fringeSets.py - Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF
+    print("""fringeSets.py - Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF
 that puts a single dipole or beam on the X pol and the outlier on the other.
 
 Usage: fringeSDF.py [OPTIONS] SSMIF YYYY/MM/DD HH:MM:SS.SSS
@@ -42,7 +47,8 @@ Options:
 -s, --spec-setup            Spectrometer setup to use, i.e., "32 6144{Stokes=IV}" 
                             (Default = do not use DR spectrometer)
 -o, --output                Filename to save the SDF to (Default = fringe.sdf)
-"""
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -74,9 +80,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "ha:e:d:yr:b:l:1:2:f:s:o:", ["help", "azimuth=", "elevation=", "dipole=", "y-pol", "reference=", "drx-beam=", "obs-length=", "frequency1=", "frequency2=", "filter=", "spec-setup=", "output="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -189,11 +195,11 @@ def main(args):
     badStands = numpy.where( antStat != 3 )[0]
     badFees   = numpy.where( feeStat != 3 )[0]
     bad = numpy.where( (stands > 256) | (antStat != 3) | (feeStat != 3) )[0]
-    print "Number of bad stands:   %3i" % len(badStands)
-    print "Number of bad FEEs:     %3i" % len(badFees)
-    print "---------------------------"
-    print "Total number bad inputs: %3i" % len(bad)
-    print " "
+    print("Number of bad stands:   %3i" % len(badStands))
+    print("Number of bad FEEs:     %3i" % len(badFees))
+    print("---------------------------")
+    print("Total number bad inputs: %3i" % len(bad))
+    print(" ")
     
     # Adjust the gain so that it matches the outlier better
     if config['beam']:
@@ -215,19 +221,19 @@ def main(args):
         
         # Load in the pointing correction
         pcTerms = getPointingTerms(filename)
-        print "Applying Pointing Correction Terms: theta=%.2f, phi=%.2f, psi=%.2f" % pcTerms
+        print("Applying Pointing Correction Terms: theta=%.2f, phi=%.2f, psi=%.2f" % pcTerms)
         az, el = apply_pointing_correction(config['az'], config['el'], *pcTerms)
-        print "-> az %.2f, el %.2f to az %.2f, el %.2f" % (config['az'], config['el'], az, el)
-        print " "
+        print("-> az %.2f, el %.2f to az %.2f, el %.2f" % (config['az'], config['el'], az, el))
+        print(" ")
         
-        print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (az, el, freq/1e6)
+        print("Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (az, el, freq/1e6))
         delays = beamformer.calc_delay(antennas, freq=freq, azimuth=az, elevation=el)
         delays *= 1e9
         delays = delays.max() - delays
         delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
         
-        print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
-        print "-> Using gain setting of %.4f for the beam" % bgain
+        print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
+        print("-> Using gain setting of %.4f for the beam" % bgain)
         
         gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(260)] # initialize gain list
         for d in digs[bad]:
@@ -240,11 +246,11 @@ def main(args):
             if stands[2*i] == config['ref']:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
     else:
-        print "Setting all delays to zero"
+        print("Setting all delays to zero")
         delays = [0 for i in antennas]
         delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
         
-        print "Setting gains for dipoles %i and %i" % (config['dipole'], config['ref'])
+        print("Setting gains for dipoles %i and %i" % (config['dipole'], config['ref']))
         
         gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(260)] # initialize gain list
         for i in xrange(len(stands)/2):
