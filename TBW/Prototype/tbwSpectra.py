@@ -1,8 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-"""Given a TBW file, plot the time averaged spectra for each digitizer input."""
+"""
+Given a TBW file, plot the time averaged spectra for each digitizer input.
+"""
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -20,7 +27,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-    print """tbwSpectra.py - Read in TBW files and create a collection of 
+    print("""tbwSpectra.py - Read in TBW files and create a collection of 
 time-averaged spectra.
 
 Usage: tbwSpectra.py [OPTIONS] file
@@ -36,8 +43,8 @@ Options:
 -g, --gain-correct          Correct signals for the cable losses
 -s, --stack                 Stack spectra in groups of 6 (if '-g' is enabled only)
 -o, --output                Output file name for spectra image
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -60,9 +67,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:qtbnl:gso:", ["help", "metadata=", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "gain-correct", "stack", "output="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -123,7 +130,7 @@ def main(args):
     maxFrames = config['maxFrames']
 
     fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbw.FRAME_SIZE
+    nFrames = os.path.getsize(config['args'][0]) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -141,13 +148,13 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % config['args'][0])
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
     
@@ -158,7 +165,7 @@ def main(args):
         junkFrame = tbw.read_frame(fh)
         i += 1
     fh.seek(-tbw.FRAME_SIZE, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
 
     # Master loop over all of the file chunks
     masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
@@ -172,9 +179,9 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
-        data = numpy.zeros((antpols, 2*framesWork*nSamples/antpols), dtype=numpy.int16)
+        data = numpy.zeros((antpols, 2*framesWork*nSamples//antpols), dtype=numpy.int16)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < 2*LFFT:
             break
@@ -186,7 +193,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())//tbw.FRAME_SIZE-1))
                 continue
                 
             stand = cFrame.header.id
@@ -194,7 +201,7 @@ def main(args):
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
             if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
-                print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
+                print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
@@ -290,10 +297,10 @@ def main(args):
                 
         plt.draw()
     
-    print "RBW: %.1f Hz" % (freq[1]-freq[0])
+    print("RBW: %.1f Hz" % (freq[1]-freq[0]))
     plt.show()
     
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
+    

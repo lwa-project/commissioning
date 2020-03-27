@@ -246,7 +246,8 @@ def main(args):
                 allRates[src.name] = fRate
         # Calculate the fringe rates of all sources - for display purposes only
         print("Starting Fringe Rates:")
-        for name,fRate in allRates.iteritems():
+        for name in allRates.keys():
+            fRate = allRates[name]
             print(" %-4s: %+6.3f mHz" % (name, fRate*1e3))
             
         freq.append( central_freq )

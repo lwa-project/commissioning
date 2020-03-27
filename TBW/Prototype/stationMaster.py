@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBW file, plot the time averaged spectra for each digitizer input.  Save 
 the data for later review with smGUI as an NPZ file.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -25,7 +30,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-    print """stationMaster.py - Read in TBW files and create a collection of 
+    print("""stationMaster.py - Read in TBW files and create a collection of 
 time-averaged spectra.
 
 Usage: stationMaster.py [OPTIONS] file
@@ -39,8 +44,8 @@ Options:
 -n, --hanning               Apply a Hanning window to the data
 -q, --quiet                 Run tbwSpectra in silent mode
 -l, --fft-length            Set FFT length (default = 4096)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -62,9 +67,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:fqtbnl:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -103,12 +108,8 @@ def main(args):
         station = stations.parse_ssmif(config['SSMIF'])
         ssmifContents = open(config['SSMIF']).readlines()
     else:
-        try:
-            station = stations.lwana
-            ssmifContents = open(os.path.join(dataPath, 'lwana-ssmif.txt')).readlines()
-        except AttributeError:
-            station = stations.lwa2
-            ssmifContents = open(os.path.join(dataPath, 'lwa2-ssmif.txt')).readlines()
+        station = stations.lwana
+        ssmifContents = open(os.path.join(dataPath, 'lwana-ssmif.txt')).readlines()
     antennas = []
     for a in station.antennas:
         if a.digitizer != 0:
@@ -119,7 +120,7 @@ def main(args):
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped
-    maxFrames = int(config['maxFrames']/float(LFFT))*LFFT
+    maxFrames = int(config['maxFrames']//float(LFFT))*LFFT
     # It seems like that would be a good idea, however...  TBW data comes one
     # capture at a time so doing something like this actually truncates data 
     # from the last set of stands for the first integration.  So, we really 
@@ -127,7 +128,7 @@ def main(args):
     maxFrames = config['maxFrames']
 
     fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbw.FRAME_SIZE
+    nFrames = os.path.getsize(config['args'][0]) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -146,13 +147,13 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % config['args'][0])
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
 
@@ -163,14 +164,14 @@ def main(args):
         junkFrame = tbw.read_frame(fh)
         i += 1
     fh.seek(-tbw.FRAME_SIZE, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
 
     outfile = os.path.split(config['args'][0])[1]
     outfile = os.path.splitext(outfile)[0]
     outfile = "%s.npz" % outfile	
     if (not os.path.exists(outfile)) or config['force']:
         # Master loop over all of the file chunks
-        masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
+        masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
         for i in range(nChunks):
             # Find out how many frames remain in the file.  If this number is larger
             # than the maximum of frames we can work with at a time (maxFrames),
@@ -180,9 +181,9 @@ def main(args):
                 framesWork = maxFrames
             else:
                 framesWork = framesRemaining
-            print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+            print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
-            data = numpy.zeros((antpols, 2*30000*10*nSamples/antpols), dtype=numpy.int16)
+            data = numpy.zeros((antpols, 2*30000*10*nSamples//antpols), dtype=numpy.int16)
             # If there are fewer frames than we need to fill an FFT, skip this chunk
             if data.shape[1] < 2*LFFT:
                 break
@@ -194,7 +195,7 @@ def main(args):
                 except errors.EOFError:
                     break
                 except errors.SyncError:
-                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
+                    print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())//tbw.FRAME_SIZE-1))
                     continue
                 if not cFrame.header.is_tbw:
                     continue
@@ -204,7 +205,7 @@ def main(args):
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)
                 if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
-                    print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
+                    print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag))
 
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
                 # odd numbers
@@ -222,9 +223,9 @@ def main(args):
 
             # Compute the 1 ms average power and the data range within each 1 ms window
             subSize = 1960
-            nsegments = data.shape[1] / subSize
+            nsegments = data.shape[1] // subSize
             
-            print "Computing average power and data range in %i-sample intervals, ADC histogram" % subSize
+            print("Computing average power and data range in %i-sample intervals, ADC histogram" % subSize)
             pb = ProgressBar(max=data.shape[0])
             avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
             dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
@@ -247,7 +248,7 @@ def main(args):
                     #if (dataRange[s,p,0] < -1000 or dataRange[s,p,0] > 1000) and antennas[s].stand.id == 14:
                         #subData = data[s,((p-1)*1960):((p+2)*1960)]
                         #satFileName = 'stand-14-pol-%i-%i.npz' % (antennas[s].pol, (p-1)*1960)
-                        #print satFileName
+                        #print(satFileName)
                         #numpy.savez(satFileName, start=(p-1)*1960, data=subData)
                 pb.inc(amount=1)
                 if pb.amount != 0 and pb.amount % 10 == 0:
@@ -273,7 +274,7 @@ def main(args):
         spec = masterSpectra.mean(axis=0)
         
         # Estimate the dipole resonance frequencies
-        print "Computing dipole resonance frequencies"
+        print("Computing dipole resonance frequencies")
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
@@ -319,7 +320,7 @@ def main(args):
     specTemplate = numpy.median(spec, axis=0)
     specDiff = numpy.zeros(spec.shape[0])
     toCompare = numpy.where( (freq>32e6) & (freq<50e6) )[0]
-    print len(toCompare)
+    print(len(toCompare))
     for i in xrange(spec.shape[0]):
         specDiff[i] = (spec[i,toCompare] / specTemplate[toCompare]).mean()
     specDiff = numpy.where( specDiff < 2, specDiff, 2)
@@ -345,7 +346,7 @@ def main(args):
         ax2 = fig.add_subplot(1, 2, 2)
         ax2.plot(freq/1e6, numpy.log10(specTemplate)*10, alpha=0.50)
         
-        print "RBW: %.1f Hz" % (freq[1]-freq[0])
+        print("RBW: %.1f Hz" % (freq[1]-freq[0]))
         plt.show()
 
 

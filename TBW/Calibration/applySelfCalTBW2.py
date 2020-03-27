@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import aipy
@@ -31,7 +36,7 @@ UTC = pytz.UTC
 
 
 def usage(exitCode=None):
-    print """applySelfCalTBW2.py - Self-calibrate a TBW FITS IDI file
+    print("""applySelfCalTBW2.py - Self-calibrate a TBW FITS IDI file
 
 Usage: applySelfCalTBW2.py [OPTIONS] file
 
@@ -43,8 +48,8 @@ Options:
 -u, --upper            Highest frequency to consider in MHz
                     (default = 85 MHz)
 -p, --plot             Plot the results at the end (default = no)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -61,9 +66,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, arg = getopt.getopt(args, "hr:l:u:p", ["help", "reference=", "lower=", "upper=", "plot"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -193,27 +198,27 @@ def main(args):
     nchan = len(idi.freq)
     freq = idi.freq
     
-    print "Raw Stand Count: %i" % nStand
-    print "Final Baseline Count: %i" % (nStand*(nStand-1)/2,)
-    print "Spectra Coverage: %.3f to %.3f MHz in %i channels (%.2f kHz/channel)" % (freq[0]/1e6, freq[-1]/1e6, nchan, (freq[-1] - freq[0])/1e3/nchan)
-    print "Polarization Products: %i starting with %i" % (len(idi.pols), idi.pols[0])
-    print "JD: %.3f" % jd
+    print("Raw Stand Count: %i" % nStand)
+    print("Final Baseline Count: %i" % (nStand*(nStand-1)//2,))
+    print("Spectra Coverage: %.3f to %.3f MHz in %i channels (%.2f kHz/channel)" % (freq[0]/1e6, freq[-1]/1e6, nchan, (freq[-1] - freq[0])/1e3/nchan))
+    print("Polarization Products: %i starting with %i" % (len(idi.pols), idi.pols[0]))
+    print("JD: %.3f" % jd)
     
     # Pull out something reasonable
     toWork = numpy.where((freq>=config['freqLimits'][0]) & (freq<=config['freqLimits'][1]))[0]
     
-    print "Reading in FITS IDI data"
-    nSets = idi.total_baseline_count / (nStand*(nStand+1)/2)
+    print("Reading in FITS IDI data")
+    nSets = idi.total_baseline_count // (nStand*(nStand+1)//2)
     for set in range(1, nSets+1):
-        print "Set #%i of %i" % (set, nSets)
+        print("Set #%i of %i" % (set, nSets))
         fullDict = idi.get_data_set(set)
-        dataDict = idi.get_data_set(set, min_uv=14.0)
-        utils.sort_data(dataDict)
+        dataDict = fullDict.get_uv_range(min_uv=14.0)
+        dataDict.sort()
         
         # Gather up the polarizations and baselines
         pols = dataDict['jd'].keys()
         bls = dataDict['bls'][pols[0]]
-        print "The reduced list has %i baselines and %i channels" % (len(bls), len(toWork))
+        print("The reduced list has %i baselines and %i channels" % (len(bls), len(toWork)))
         
         # Build a list of unique JDs for the data
         jdList = []
@@ -222,10 +227,10 @@ def main(args):
                 jdList.append(jd)
                 
         # Build the simulated visibilities
-        print "Building Model"
+        print("Building Model")
         simDict = simVis.build_sim_data(aa, simVis.srcs, jd=[jdList[0],], pols=pols, baselines=bls)
         
-        print "Running self cal."
+        print("Running self cal.")
         simDict  = utils.sort_data(simDict)
         dataDict = utils.sort_data(dataDict)
         fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'xx', ref_ant=config['ref_ant'], max_iter=60)
@@ -233,7 +238,7 @@ def main(args):
         fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
         fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
         
-        print "    Saving results"
+        print("    Saving results")
         outname = os.path.split(filename)[1]
         outname = os.path.splitext(outname)[0]
         outname = "%s.sc" % outname
@@ -254,7 +259,7 @@ def main(args):
 
         # Build up the images for each polarization
         if config['plot']:
-            print "    Gridding"
+            print("    Gridding")
             toWork = numpy.where((freq>=80e6) & (freq<=82e6))[0]
             try:
                 imgXX = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='xx', chan=toWork)
@@ -285,7 +290,7 @@ def main(args):
                 fimgYY = None
                 
             # Plots
-            print "    Plotting"
+            print("    Plotting")
             fig = plt.figure()
             ax1 = fig.add_subplot(3, 2, 1)
             ax2 = fig.add_subplot(3, 2, 2)
@@ -306,7 +311,7 @@ def main(args):
                 
                 # Display the image and label with the polarization/LST
                 out = img.image(center=(80,80))
-                print pol, out.min(), out.max()
+                print(pol, out.min(), out.max())
                 #if pol == 'scalXX':
                     #out = numpy.rot90(out)
                     #out = numpy.rot90(out)
@@ -338,7 +343,7 @@ def main(args):
                 
             plt.show()
             
-    print "...Done"
+    print("...Done")
 
 
 if __name__ == "__main__":

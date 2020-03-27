@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import aipy
@@ -29,14 +34,14 @@ _srcs = ["TauA,f|J,05:34:32.00,+22:00:52.0,1",
 
 
 def usage(exitCode=None):
-    print """fitEstimatedSEFD.py - Fit a Gaussian to the results of estimateSEFD.py to determine
+    print("""fitEstimatedSEFD.py - Fit a Gaussian to the results of estimateSEFD.py to determine
 the SEFD and pointing error.
 
 Usage: fitEstimatedSEFD.py [OPTIONS] npz
 
 Options:
 -h, --help             Display this help information
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -52,9 +57,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, arg = getopt.getopt(args, "h", ["help",])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -333,7 +338,7 @@ def main(args):
         simSrcs[toUseAIPY]
     except KeyError:
         toUseAIPY = None
-        print "Warning: Cannot find flux for this target"
+        print("Warning: Cannot find flux for this target")
         
     # Find out when the source should have transitted the beam
     tTransit = 0.0
@@ -410,19 +415,19 @@ def main(args):
         fwhmEstimates1[name] = obsFWHM1/3600.*15.*numpy.cos(srcs[toUse]._dec)
         
         # Report
-        print 'Target: %s' % name
-        print '  Tuning 1 @ %.2f MHz' % (f1.mean()/1e6,)
-        print '    FWHM: %.2f s (%.2f deg)' % (obsFWHM1, obsFWHM1/3600.*15.*numpy.cos(srcs[toUse]._dec))
-        print '    Observed Transit: %s' % datetime.utcfromtimestamp(obsTransit1)
-        print '    Expected Transit: %s' % datetime.utcfromtimestamp(tTransit)
-        print '    -> Difference: %.2f s' % diff1
+        print('Target: %s' % name)
+        print('  Tuning 1 @ %.2f MHz' % (f1.mean()/1e6,))
+        print('    FWHM: %.2f s (%.2f deg)' % (obsFWHM1, obsFWHM1/3600.*15.*numpy.cos(srcs[toUse]._dec)))
+        print('    Observed Transit: %s' % datetime.utcfromtimestamp(obsTransit1))
+        print('    Expected Transit: %s' % datetime.utcfromtimestamp(tTransit))
+        print('    -> Difference: %.2f s' % diff1)
         if toUseAIPY is None:
-            print '    1/(P1/P0 - 1): %.3f' % sefdMetric1
+            print('    1/(P1/P0 - 1): %.3f' % sefdMetric1)
         else:
             simSrcs[toUseAIPY].compute(observer, afreqs=f1.mean()/1e9)
             srcFlux = simSrcs[toUseAIPY].jys
             sefd = srcFlux*sefdMetric1 / 1e3
-            print '    S / (P1/P0 - 1): %.3f kJy' % sefd
+            print('    S / (P1/P0 - 1): %.3f kJy' % sefd)
             if name == srcs[toUse].name:
                 sefdEstimate1 = sefd*1e3
                 
@@ -480,7 +485,7 @@ def main(args):
         raOffset = ephem.hours('00:00:%f' % bestOffset)
         decOffset = ephem.degrees('%f' % decOffset)
         fwhmEstimate = ephem.degrees('%f' % bestFWHM)
-        print "%-6s %-19s %6.3f %-10s %-10s %-10s %10.3f %-10s" % (srcs[toUse].name, datetime.utcfromtimestamp(tTransit).strftime("%Y/%m/%d %H:%M:%S"), f/1e6, zenithAngle, raOffset, decOffset, sefdEstimate, fwhmEstimate)
+        print("%-6s %-19s %6.3f %-10s %-10s %-10s %10.3f %-10s" % (srcs[toUse].name, datetime.utcfromtimestamp(tTransit).strftime("%Y/%m/%d %H:%M:%S"), f/1e6, zenithAngle, raOffset, decOffset, sefdEstimate, fwhmEstimate))
         
     plt.show()
 

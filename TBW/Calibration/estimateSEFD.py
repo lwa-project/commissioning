@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import time
@@ -31,7 +36,7 @@ _srcs = ["TauA,f|J,05:34:32.00,+22:00:52.0,1",
 
 
 def usage(exitCode=None):
-    print """estimateSEFD.py - Given an SSMIF and a collection of TBW files, use
+    print("""estimateSEFD.py - Given an SSMIF and a collection of TBW files, use
 the SoftwareDP to form beams at the transit point of a source and estimate the
 system equivalent flux density (SEFD) and pointing error.
 
@@ -41,7 +46,7 @@ Options:
 -h, --help             Display this help information
 -s, --source           Source to use (default = CygA)
 -p, --plots            Show summary plots at the end (default = no)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -59,9 +64,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, arg = getopt.getopt(args, "hs:p", ["help", "source=", "plots"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -140,12 +145,12 @@ def main(args):
     targetEl = config['source'].alt*180/numpy.pi
     
     # Preliminary report
-    print "Working on %i TBW files using SSMIF '%s'" % (len(filenames), os.path.basename(ssmif))
-    print "  Source: '%s'" % config['source'].name
-    print "    Transit time: %s" % str(tTransit)
-    print "    Transit azimuth: %.2f degrees" % targetAz
-    print "    Transet elevation: %.2f degrees" % targetEl
-    print " "
+    print("Working on %i TBW files using SSMIF '%s'" % (len(filenames), os.path.basename(ssmif)))
+    print("  Source: '%s'" % config['source'].name)
+    print("    Transit time: %s" % str(tTransit))
+    print("    Transit azimuth: %.2f degrees" % targetAz)
+    print("    Transet elevation: %.2f degrees" % targetEl)
+    print(" ")
     
     # Loop over input files
     unx, lst, pwrX, pwrY = [], [], [], []
@@ -161,15 +166,15 @@ def main(args):
         transitOffset = (obs.date-tTransit)*86400.0
         
         ## Metadata report
-        print "Filename: %s" % os.path.basename(filename)
-        print "  Data type:  %s" % type(idf)
-        print "  Captures in file: %i (%.3f s)" % (nInts, nInts*30000*400/sample_rate)
-        print "  Station: %s" % station.name
-        print "  Date observed: %s" % str(obs.date)
-        print "  MJD: %.5f" % (jd-astro.MJD_OFFSET,)
-        print "  LST: %s" % str(obs.sidereal_time())
-        print "    %.1f s %s transit" % (abs(transitOffset), 'before' if transitOffset < 0 else 'after')
-        print " "
+        print("Filename: %s" % os.path.basename(filename))
+        print("  Data type:  %s" % type(idf))
+        print("  Captures in file: %i (%.3f s)" % (nInts, nInts*30000*400/sample_rate))
+        print("  Station: %s" % station.name)
+        print("  Date observed: %s" % str(obs.date))
+        print("  MJD: %.5f" % (jd-astro.MJD_OFFSET,))
+        print("  LST: %s" % str(obs.sidereal_time()))
+        print("    %.1f s %s transit" % (abs(transitOffset), 'before' if transitOffset < 0 else 'after'))
+        print(" ")
         
         ## Load in the data
         readT, t, data = idf.read(time_in_samples=True)
@@ -216,15 +221,15 @@ def main(args):
     
     # Save for later (needed for debugging)
     outname = "estimateSEFD-%s-%04i%02i%02i.npz" % (os.path.splitext(os.path.basename(ssmif))[0], tTransit.tuple()[0], tTransit.tuple()[1], tTransit.tuple()[2])
-    print "Saving intermediate data to '%s'" % outname
-    print " "
+    print("Saving intermediate data to '%s'" % outname)
+    print(" ")
     numpy.savez(outname, source=config['source'].name, freq=freq, 
                 unx=unx, lst=lst, pwrX=pwrX, pwrY=pwrY)
                 
     # Report
-    print "%s" % (config['source'].name,)
+    print("%s" % (config['source'].name,))
     for i in xrange(lst.size):
-        print "%s:  %s  %s" % (str(ephem.hours(str(lst[i]))), pwrX[i,:], pwrY[i,:])
+        print("%s:  %s  %s" % (str(ephem.hours(str(lst[i]))), pwrX[i,:], pwrY[i,:]))
         
     # Plot
     if config['showPlots']:

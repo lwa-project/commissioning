@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -13,7 +18,7 @@ EXCLUDED_STANDS = []
 
 
 def usage(exitCode=None):
-    print """applyNewStretchFactors.py - Given an existing SSMIF and new stretch factors, build 
+    print("""applyNewStretchFactors.py - Given an existing SSMIF and new stretch factors, build 
 a new SSMIF.
 
 Usage: applyNewStretchFactors.py [OPTIONS] SSMIF stretchFile
@@ -24,7 +29,7 @@ Options:
                     (default = update all stands)
 -o, --output           Write output to the specified filename 
                     (default = write to screen)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -42,9 +47,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, arg = getopt.getopt(args, "he:o:", ["help", "exclude=", "output="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts

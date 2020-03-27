@@ -72,12 +72,11 @@ def list2delayfile(path, filename, dlylist):
 ########################################################
 
 if __name__ == '__main__':
-
     if len(sys.argv) < 4:
-    print('usage: delay ant coarse fine')
-    print('       where ant = antenna number or ''all'' ')
-    exit()
-
+        print('usage: delay ant coarse fine')
+        print('       where ant = antenna number or ''all'' ')
+        exit()
+        
     filename = make_delayfile('.', sys.argv[1], sys.argv[2], sys.argv[3])
     print(filename)
-
+    

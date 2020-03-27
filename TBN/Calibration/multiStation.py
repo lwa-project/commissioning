@@ -76,7 +76,7 @@ def __parseTextSSMIF(filename):
             nStand = int(value)
             
             stdPos = [[0.0, 0.0, 0.0] for n in xrange(nStand)]
-            stdAnt = [n/2+1 for n in xrange(2*nStand)]
+            stdAnt = [n//2+1 for n in xrange(2*nStand)]
             stdOrie = [n % 2 for n in xrange(2*nStand)]
             stdStat = [3 for n in xrange(2*nStand)]
             stdTheta = [0.0 for n in xrange(2*nStand)]
@@ -574,7 +574,7 @@ def __parseBinarySSMIF(filename):
     #
     # FEE, Cable, & SEP Data
     #
-    feeID   = flat_to_multi([chr(i) for i in bssmif.sFEEID], *bssmif.dims['sFEEID'])
+    feeID   = mode.flat_to_multi([chr(i) for i in bssmif.sFEEID], *bssmif.dims['sFEEID'])
     feeID   = [''.join([k for k in i if k != '\x00']) for i in feeID]
     feeStat = list(bssmif.iFEEStat)
     feeDesi = list(bssmif.eFEEDesi)
@@ -583,7 +583,7 @@ def __parseBinarySSMIF(filename):
     feeAnt1 = list(bssmif.iFEEAnt1)
     feeAnt2 = list(bssmif.iFEEAnt2)
     
-    rpdID   = flat_to_multi([chr(i) for i in bssmif.sRPDID], *bssmif.dims['sRPDID'])
+    rpdID   = mode.flat_to_multi([chr(i) for i in bssmif.sRPDID], *bssmif.dims['sRPDID'])
     rpdID   = [''.join([k for k in i if k != '\x00']) for i in rpdID]
     rpdStat = list(bssmif.iRPDStat)
     rpdDesi = list(bssmif.eRPDDesi)
@@ -596,7 +596,7 @@ def __parseBinarySSMIF(filename):
     rpdStr  = list(bssmif.fRPDStr)
     rpdAnt  = list(bssmif.iRPDAnt)
     
-    sepCbl  = flat_to_multi([chr(i) for i in bssmif.sSEPCabl], *bssmif.dims['sSEPCabl'])
+    sepCbl  = mode.flat_to_multi([chr(i) for i in bssmif.sSEPCabl], *bssmif.dims['sSEPCabl'])
     sepCbl  = [''.join([k for k in i if k != '\x00']) for i in sepCbl]
     sepLeng = list(bssmif.fSEPLeng)
     sepDesi = list(bssmif.eSEPDesi)
@@ -607,38 +607,38 @@ def __parseBinarySSMIF(filename):
     # ARX (ARB) Data
     #
     nchanARX = bssmif.nARBCH
-    arxID    = flat_to_multi([chr(i) for i in bssmif.sARBID], *bssmif.dims['sARBID'])
+    arxID    = mode.flat_to_multi([chr(i) for i in bssmif.sARBID], *bssmif.dims['sARBID'])
     arxID    = [''.join([k for k in i if k != '\x00']) for i in arxID]
     arxSlot  = list(bssmif.iARBSlot)
     arxDesi  = list(bssmif.eARBDesi)
     arxRack  = list(bssmif.iARBRack)
     arxPort  = list(bssmif.iARBPort)
-    arxStat  = flat_to_multi(bssmif.eARBStat, *bssmif.dims['eARBStat'])
-    arxAnt   = flat_to_multi(bssmif.iARBAnt, *bssmif.dims['iARBAnt'])
-    arxIn    = flat_to_multi([chr(i) for i in bssmif.sARBIN], *bssmif.dims['sARBIN'])
+    arxStat  = mode.flat_to_multi(bssmif.eARBStat, *bssmif.dims['eARBStat'])
+    arxAnt   = mode.flat_to_multi(bssmif.iARBAnt, *bssmif.dims['iARBAnt'])
+    arxIn    = mode.flat_to_multi([chr(i) for i in bssmif.sARBIN], *bssmif.dims['sARBIN'])
     arxIn    = [[''.join(i) for i in j] for j in arxIn]
-    arxOut   = flat_to_multi([chr(i) for i in bssmif.sARBOUT], *bssmif.dims['sARBOUT'])
+    arxOut   = mode.flat_to_multi([chr(i) for i in bssmif.sARBOUT], *bssmif.dims['sARBOUT'])
     arxOUt   = [[''.join(i) for i in j] for j in arxOut]
     
     try:
         #
         # DP 1 & 2 Data
         #
-        dp1ID   = flat_to_multi([chr(i) for i in bssmif.sDP1ID], *bssmif.dims['sDP1ID'])
+        dp1ID   = mode.flat_to_multi([chr(i) for i in bssmif.sDP1ID], *bssmif.dims['sDP1ID'])
         dp1ID   = [''.join([k for k in i if k != '\x00']) for i in dp1ID]
-        dp1Slot = flat_to_multi([chr(i) for i in bssmif.sDP1Slot], *bssmif.dims['sDP1Slot'])
+        dp1Slot = mode.flat_to_multi([chr(i) for i in bssmif.sDP1Slot], *bssmif.dims['sDP1Slot'])
         dp1Slot = [''.join([k for k in i if k != '\x00']) for i in dp1Slot]
         dp1Desi = list(bssmif.eDP1Desi)
         dp1Stat = list(bssmif.eDP1Stat)
-        dp1InR  = flat_to_multi([chr(i) for i in bssmif.sDP1INR], *bssmif.dims['sDP1INR'])
+        dp1InR  = mode.flat_to_multi([chr(i) for i in bssmif.sDP1INR], *bssmif.dims['sDP1INR'])
         dp1InR  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in dp1InR]
-        dp1InC  = flat_to_multi([chr(i) for i in bssmif.sDP1INC], *bssmif.dims['sDP1INC'])
+        dp1InC  = mode.flat_to_multi([chr(i) for i in bssmif.sDP1INC], *bssmif.dims['sDP1INC'])
         dp1InC  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in dp1InC]
-        dp1Ant  = flat_to_multi(bssmif.iDP1Ant, *bssmif.dims['iDP1Ant'])
+        dp1Ant  = mode.flat_to_multi(bssmif.iDP1Ant, *bssmif.dims['iDP1Ant'])
         
-        dp2ID   = flat_to_multi([chr(i) for i in bssmif.sDP2ID], *bssmif.dims['sDP2ID'])
+        dp2ID   = mode.flat_to_multi([chr(i) for i in bssmif.sDP2ID], *bssmif.dims['sDP2ID'])
         dp2ID   = [''.join([k for k in i if k != '\x00']) for i in dp2ID]
-        dp2Slot = flat_to_multi([chr(i) for i in bssmif.sDP2Slot], *bssmif.dims['sDP2Slot'])
+        dp2Slot = mode.flat_to_multi([chr(i) for i in bssmif.sDP2Slot], *bssmif.dims['sDP2Slot'])
         dp2Slot = [''.join([k for k in i if k != '\x00']) for i in dp2Slot]
         dp2Stat = list(bssmif.eDP2Stat)
         dp2Desi = list(bssmif.eDP2Desi)
@@ -646,21 +646,21 @@ def __parseBinarySSMIF(filename):
         #
         # ROACH & Server Data
         #
-        roachID   = flat_to_multi([chr(i) for i in bssmif.sRoachID], *bssmif.dims['sRoachID'])
+        roachID   = mode.flat_to_multi([chr(i) for i in bssmif.sRoachID], *bssmif.dims['sRoachID'])
         roachID   = [''.join([k for k in i if k != '\x00']) for i in roachID]
-        roachSlot = flat_to_multi([chr(i) for i in bssmif.sRoachSlot], *bssmif.dims['sRoachSlot'])
+        roachSlot = mode.flat_to_multi([chr(i) for i in bssmif.sRoachSlot], *bssmif.dims['sRoachSlot'])
         roachSlot = [''.join([k for k in i if k != '\x00']) for i in roachSlot]
         roachDesi = list(bssmif.eRoachDesi)
         roachStat = list(bssmif.eROoachStat)
-        roachInR  = flat_to_multi([chr(i) for i in bssmif.sRoachINR], *bssmif.dims['sRoachINR'])
+        roachInR  = mode.flat_to_multi([chr(i) for i in bssmif.sRoachINR], *bssmif.dims['sRoachINR'])
         roachInR  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in roachInR]
-        roachInC  = flat_to_multi([chr(i) for i in bssmif.sRoachINC], *bssmif.dims['sRoachINC'])
+        roachInC  = mode.flat_to_multi([chr(i) for i in bssmif.sRoachINC], *bssmif.dims['sRoachINC'])
         roachInC  = [[''.join([k for k in i if k != '\x00']) for i in j] for j in roachInC]
-        roachAnt  = flat_to_multi(bssmif.iRoachAnt, *bssmif.dims['iRoachAnt'])
+        roachAnt  = mode.flat_to_multi(bssmif.iRoachAnt, *bssmif.dims['iRoachAnt'])
         
-        serverID   = flat_to_multi([chr(i) for i in bssmif.sServerID], *bssmif.dims['sServerID'])
+        serverID   = mode.flat_to_multi([chr(i) for i in bssmif.sServerID], *bssmif.dims['sServerID'])
         serverID   = [''.join([k for k in i if k != '\x00']) for i in serverID]
-        serverSlot = flat_to_multi([chr(i) for i in bssmif.sServerSlot], *bssmif.dims['sServerSlot'])
+        serverSlot = mode.flat_to_multi([chr(i) for i in bssmif.sServerSlot], *bssmif.dims['sServerSlot'])
         serverSlot = [''.join([k for k in i if k != '\x00']) for i in serverSlot]
         serverStat = list(bssmif.eServerStat)
         serverDesi = list(bssmif.eServerDesi)
@@ -669,10 +669,10 @@ def __parseBinarySSMIF(filename):
     # DR Data
     #
     drStat = list(bssmif.eDRStat)
-    drID   = flat_to_multi([chr(i) for i in bssmif.sDRID], *bssmif.dims['sDRID'])
+    drID   = mode.flat_to_multi([chr(i) for i in bssmif.sDRID], *bssmif.dims['sDRID'])
     drID   = [''.join([k for k in i if k != '\x00']) for i in drID]
     drShlf = [0 for i in xrange(bssmif.nDR)]
-    drPC   = flat_to_multi([chr(i) for i in bssmif.sDRPC], *bssmif.dims['sDRPC'])
+    drPC   = mode.flat_to_multi([chr(i) for i in bssmif.sDRPC], *bssmif.dims['sDRPC'])
     drPC   = [''.join([k for k in i if k != '\x00']) for i in drPC]
     drDP   = list(bssmif.iDRDP)
     
@@ -770,7 +770,7 @@ def parse_ssmif(filename):
         j = 1
         for brd,inp in zip(dp1Ant,dp1InR):
             for ant,con in zip(brd,inp):
-                antennas[ant-1].board = i + 1 + (i/14)
+                antennas[ant-1].board = i + 1 + (i//14)
                 antennas[ant-1].digitizer = j
                 antennas[ant-1].input = con
                 j += 1

@@ -126,7 +126,7 @@ def main(args):
         
     outputFile = "driftcurve_%s_%s_%.2f.txt" % (name, pol, freq/1e6)
     print("Writing driftcurve to file '%s'" % outputFile)
-    mf = file(outputFile, "w")
+    mf = open(outputFile, "w")
     for lst,pow in zip(lstList, powListAnt):
         mf.write("%f  %f\n" % (lst,pow))
     mf.close()
