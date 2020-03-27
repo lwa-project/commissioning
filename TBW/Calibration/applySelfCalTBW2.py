@@ -230,8 +230,8 @@ def main(args):
         simDict = simVis.build_sim_data(aa, simVis.SOURCES, jd=[jdList[0],], pols=pols, baselines=bls)
         
         print("Running self cal.")
-        simDict  = utils.sort_data(simDict)
-        dataDict = utils.sort_data(dataDict)
+        simDict  = simDict.sort()
+        dataDict = dataDict.sort()
         fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'xx', ref_ant=config['ref_ant'], max_iter=60)
         fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'yy', ref_ant=config['ref_ant'], max_iter=60)
         fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
