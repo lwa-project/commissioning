@@ -228,7 +228,7 @@ def main(args):
                 
         # Build the simulated visibilities
         print("Building Model")
-        simDict = simVis.build_sim_data(aa, simVis.srcs, jd=[jdList[0],], pols=pols, baselines=bls)
+        simDict = simVis.build_sim_data(aa, simVis.SOURCES, jd=[jdList[0],], pols=pols, baselines=bls)
         
         print("Running self cal.")
         simDict  = utils.sort_data(simDict)

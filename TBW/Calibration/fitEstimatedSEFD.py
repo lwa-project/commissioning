@@ -181,7 +181,8 @@ def getAIPYSources():
     """
     
     newSrcs = {}
-    for name,src in simSrcs.iteritems():
+    for name in simSrcs.keys():
+        src = simSrcs[name]
         if name == 'Sun':
             newSrcs[name] = src
         elif name == 'Jupiter':

@@ -149,7 +149,7 @@ def main(args):
         
         # Save - delays
         import delay
-        dftBase = 'delay_beam_%s_%03i_%iMHz' % (source, (s+1), central_freq/1e6,)
+        dftBase = 'delay_beam_%s_%03i_%0.fMHz' % (source, (s+1), central_freq/1e6,)
         junk = delay.list2delayfile('.', dftBase, delays)
 
         # Compute gains

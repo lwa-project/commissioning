@@ -59,11 +59,14 @@ def main(args):
     
     # Pre-load the channel mapper
     mapper = []
+    freq = []
     for i in xrange(2*nFramesPerObs):
         cFrame = tbf.read_frame(fh)
         mapper.append( cFrame.header.first_chan )
+        freq.extend( list(cFrame.header.channel_freqs) )
     fh.seek(-2*nFramesPerObs*tbf.FRAME_SIZE, 1)
     mapper.sort()
+    freq.sort()
     
     # File summary
     print("Filename: %s" % args.filename)

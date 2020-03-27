@@ -131,7 +131,8 @@ def main(args):
 
             print("  stand %3i, pol. %1i (dig. %3i) @ frame %5i" % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer, f+1))
         print("-> DP1 boards with missing frames:")
-        for k,v in dp1Boards.iteritems():
+        for k in dp1Boards.keys():
+            v = dp1Boards[k]
             print("   %2i %6i (%7.3f%%)" % (k, v, 100.0*v/(30000*10)))
 
     # Check time tags to make sure every ant/pol as the same time as each frame

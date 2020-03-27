@@ -237,7 +237,7 @@ class TBW_GUI(object):
             for i in xrange(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,toCompare] / self.specTemplate[toCompare]).mean()
             
-            cbTitle = '%i to %i MHz Mean Deviation' % (compLow/1e6, compHigh/1e6)
+            cbTitle = '%.0f to %.0f MHz Mean Deviation' % (compLow/1e6, compHigh/1e6)
         elif self.color == 1:
             # Color by the value of the RFI-46 index.  This index is the maximum 
             # ratio of the spectrum and the master template between 45 and 47 MHz.

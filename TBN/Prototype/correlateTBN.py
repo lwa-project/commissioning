@@ -349,7 +349,7 @@ def main(args):
 
     print("TBN Data:  %s" % test.header.is_tbn)
     print("Samples per observations: %i per pol." % (nFpO//2))
-    print("Filter code: %i" % tbn.get_sample_rate(fh, nFrames=nFpO, FilterCode=True))
+    print("Filter code: %i" % tbn.get_sample_rate(fh, nframes=nFpO, filter_code=True))
     print("Sampling rate: %i Hz" % sample_rate)
     print("Tuning frequency: %.3f Hz" % central_freq)
     print("Captures in file: %i (%.1f s)" % (nInts, nInts*512 / sample_rate))

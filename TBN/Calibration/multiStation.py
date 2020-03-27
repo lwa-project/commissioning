@@ -704,7 +704,7 @@ def parse_ssmif(filename):
     # Unpack the dictionary into the current variable scope
     for k in ssmifDataDict.keys():
         exec("%s = ssmifDataDict['%s']" % (k, k))
-    
+        
     # Build up a list of Stand instances and load them with data
     i = 1
     stands = []

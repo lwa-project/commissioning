@@ -143,7 +143,7 @@ def main(args):
             if cFrames is None:
                 continue
             
-            valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
+            valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
             print("Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid, '!' if valid != antpols else ''))
             if valid != antpols:
                 bad = []
@@ -187,7 +187,7 @@ def main(args):
     
     # Empty the remaining portion of the buffer and integrate what's left
     for cFrames in buffer.flush():
-        valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
+        valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
         print("Frame #%5i:  %.4f seconds with %i valid ant/pols" % (cFrames[0].header.frame_count, cFrames[0].get_time(), valid))
         if valid != antpols:
             bad = []

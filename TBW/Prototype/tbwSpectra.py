@@ -216,7 +216,7 @@ def main(args):
         freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
         for stand in xrange(masterSpectra.shape[1]):
             masterSpectra[i,stand,:] = tempSpec[stand,:]
-            masterWeight[i,stand,:] = int(readT*srate/LFFT)
+            masterWeight[i,stand,:] = int(framesWork)
             
         # We don't really need the data array anymore, so delete it
         del(data)
