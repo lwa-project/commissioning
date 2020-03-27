@@ -326,7 +326,8 @@ def main(args):
                 # Compute the positions of major sources and label the images
                 compSrc = {}
                 ax.plot(0, 0, marker='+', markersize=10, markeredgecolor='w')
-                for name,src in simVis.srcs.iteritems():
+                for name in simVis.SOURCES.keys():
+                    src = simVis.SOURCES[name]
                     src.compute(aa)
                     top = src.get_crds(crdsys='top', ncrd=3)
                     az, alt = aipy.coord.top2azalt(top)
