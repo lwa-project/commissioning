@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Check the time times in a DRX file for flow.  This script should be immune to the 
@@ -7,6 +6,12 @@ various DRX cross-tuning time tag issues because it does comparisons on a tuning
 polarization basis.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -47,12 +52,12 @@ def main(args):
     fh.seek(int(skip*sample_rate/4096)*4*drx.FRAME_SIZE)
 
     # Report on the file
-    print "Filename: %s" % os.path.basename(args.filename)
-    print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "Sample rate: %i Hz" % sample_rate
-    print "Time tag skip per frame: %i" % tagSkip
+    print("Filename: %s" % os.path.basename(args.filename))
+    print("Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
+    print("Sample rate: %i Hz" % sample_rate)
+    print("Time tag skip per frame: %i" % tagSkip)
     if skip != 0:
-        print "Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/4096)*4, int(skip*sample_rate/4096)*4096/sample_rate)
+        print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/4096)*4, int(skip*sample_rate/4096)*4096/sample_rate))
 
     k = 0
     #k = 1
@@ -79,7 +84,7 @@ def main(args):
         except errors.SyncError:
             currNumb = 1 + k / 4
             
-            print "ERROR: invalid frame (sync. word error) @ frame %8i" % currNumb
+            print("ERROR: invalid frame (sync. word error) @ frame %8i" % currNumb)
             continue
         
         beam, tune, pol = currFrame.id
@@ -90,20 +95,20 @@ def main(args):
         #currNumb = k
 
         if tune == 1 and pol == 0 and currNumb % 50000 == 0:
-            print "Beam %i, tune %i, pol %i: frame %8i -> %i (%s)" % (beam, tune, pol, currNumb, currTime, currDate)
+            print("Beam %i, tune %i, pol %i: frame %8i -> %i (%s)" % (beam, tune, pol, currNumb, currTime, currDate))
 
         if currTime < prevTime[rID]:
-            print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
-            print "       -> difference: %i (%.3f frames; %.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate))
-            print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
+            print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currNumb, prevTime[rID], prevNumb[rID]))
+            print("       -> difference: %i (%.3f frames; %.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate)))
+            print("       -> beam %i, tuning %i, pol %i" % (beam, tune, pol))
         elif currTime > (prevTime[rID] + tagSkip):
-            print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
-            print "       -> difference: %i (%.3f frames; %.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate))
-            print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
+            print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID]))
+            print("       -> difference: %i (%.3f frames; %.5f seconds); %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate)))
+            print("       -> beam %i, tuning %i, pol %i" % (beam, tune, pol))
         elif currTime < (prevTime[rID] + tagSkip):
-            print "ERROR: t.t %i @ frame %i < t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID])
-            print "       -> difference: %i (%.3f frames; %.5f seconds; %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate))
-            print "       -> beam %i, tuning %i, pol %i" % (beam, tune, pol)
+            print("ERROR: t.t %i @ frame %i < t.t. %i @ frame %i + skip" % (currTime, currNumb, prevTime[rID], prevNumb[rID]))
+            print("       -> difference: %i (%.3f frames; %.5f seconds; %s" % (currTime-prevTime[rID], float(currTime-prevTime[rID])/tagSkip, float(currTime-prevTime[rID])/fS, str(currDate)))
+            print("       -> beam %i, tuning %i, pol %i" % (beam, tune, pol))
         else:
             pass
         

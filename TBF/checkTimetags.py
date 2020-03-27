@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBF file, check the time tags.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -49,13 +54,13 @@ def main(args):
     mapper.sort()
     
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Frames per Observation: %i" % nFramesPerObs
-    print "Channel Count: %i" % nchannels
-    print "Frames: %i" % nFrames
-    print "==="
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Frames per Observation: %i" % nFramesPerObs)
+    print("Channel Count: %i" % nchannels)
+    print("Frames: %i" % nFrames)
+    print("===")
+    print("Chunks: %i" % nChunks)
     
     # Master loop over all of the file chunks
     timetags = numpy.zeros((nFramesPerObs, nChunks), dtype=numpy.int64) - 1
@@ -68,7 +73,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbf.FRAME_SIZE-1)
+                print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbf.FRAME_SIZE-1))
                 continue
             if not cFrame.header.is_tbf:
                 continue
@@ -83,7 +88,7 @@ def main(args):
                 aStand = mapper.index(first_chan)
             
             if cFrame.header.frame_count % 10000 == 0:
-                print "%4i -> %4i  %7i  %i" % (first_chan, aStand, cFrame.header.frame_count, cFrame.data.timetag)
+                print("%4i -> %4i  %7i  %i" % (first_chan, aStand, cFrame.header.frame_count, cFrame.data.timetag))
                 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
@@ -95,9 +100,9 @@ def main(args):
     # Check for missing frames
     missing = numpy.where( timetags < 0 )
     if len(missing) != 0:
-        print "Found %i missing frames.  Missing data from:" % len(missing[0])
+        print("Found %i missing frames.  Missing data from:" % len(missing[0]))
         for i,f in zip(missing[0], missing[1]):
-            print "  channel set %4i @ frame %5i" % (mapper[i], f+1)
+            print("  channel set %4i @ frame %5i" % (mapper[i], f+1))
             
     # Check time tags to make sure every ant/pol as the same time as each frame
     for f in xrange(timetags.shape[1]):
@@ -111,8 +116,8 @@ def main(args):
 
         ## Report any errors
         for m in missing:
-            print "ERROR: t.t. %i @ frame %i != frame median of %i" % (timetags[m,f], f+1, frameTime)
-            print "       -> difference: %i" % (timetags[m,f]-frameTime,)
+            print("ERROR: t.t. %i @ frame %i != frame median of %i" % (timetags[m,f], f+1, frameTime))
+            print("       -> difference: %i" % (timetags[m,f]-frameTime,))
 
     # Check time tags to make sure the times increment correctly between frames
     for i in xrange(timetags.shape[0]):
@@ -125,12 +130,12 @@ def main(args):
             ## is a discrepancy between the two modulo the expected skip.
             if timetags[i,f] > (timetags[i,f-1] + nSamples):
                 ## Too far into the future
-                print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f)
-                print "       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],)
+                print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f))
+                print("       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],))
             elif timetags[i,f] < (timetags[i,f-1] + nSamples):
                 ## Not far enough into the future
-                print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f)
-                print "       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],)
+                print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f))
+                print("       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],))
             else:
                 ## Everything is good if we make it here
                 pass

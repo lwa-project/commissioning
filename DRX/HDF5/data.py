@@ -4,6 +4,12 @@
 Module to help with manipulating HDF5 beam data files.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import h5py
 import numpy

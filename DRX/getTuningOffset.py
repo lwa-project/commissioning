@@ -5,6 +5,12 @@ Read in a DRX file and look at the time tag difference between tuning 1 and
 tuning 2 to and if that difference changes throughout a file.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -49,7 +55,7 @@ def main(args):
     out += "\nSample Rate: %i Hz" % srate
     out += "\nFrames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
     out += "\n==="
-    print out
+    print(out)
 
     tuningOffset = numpy.zeros(nFramesFile/8, dtype=numpy.int64)
     try:
@@ -73,7 +79,7 @@ def main(args):
                 except errors.EOFError:
                     break
                 except errors.SyncError:
-                    #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1)
+                    #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1))
                     continue
         
                 ## Save the time time, time offset, and computed time values
@@ -126,10 +132,10 @@ def main(args):
 
         tuningOffset = tuningOffset[0:i]
 
-    print display.safe_substitute(strdict)
+    print(display.safe_substitute(strdict))
 
-    print "T2-T1 time tag offset range: %i to %i (based on %i sets of frames)" % (tuningOffset.min(), tuningOffset.max(), len(tuningOffset))
+    print("T2-T1 time tag offset range: %i to %i (based on %i sets of frames)" % (tuningOffset.min(), tuningOffset.max(), len(tuningOffset)))
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
+    

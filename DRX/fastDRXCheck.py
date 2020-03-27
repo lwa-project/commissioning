@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Check the time times in a DRX file for flow in a more intellegent fashion.
@@ -7,6 +6,12 @@ This script also allows DRX files to be split at the boundaries of time
 flow problems.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -24,12 +29,12 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
     
     # Report
     if verbose:
-        print "Working on %i to %i of '%s'..." % (start, stop, os.path.basename(fh.name))
+        print("Working on %i to %i of '%s'..." % (start, stop, os.path.basename(fh.name)))
         
     # Make sure this is enough to work with
     if stop-start < drx.FRAME_SIZE*min_frames:
         if verbose:
-            print "  too small for analysis, skipping"
+            print("  too small for analysis, skipping")
         return None
         
     # Align on the start of a Mark5C packet...
@@ -49,7 +54,7 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
     frame_begin = junkFrame.data.timetag
     file_begin = fh.tell()
     if verbose:
-        print "  start @ %i with %i" % (file_begin, frame_begin)
+        print("  start @ %i with %i" % (file_begin, frame_begin))
         
     # Find the last valid Mark5C packet...
     fh.seek(stop-drx.FRAME_SIZE)
@@ -69,7 +74,7 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
     frame_end = junkFrame.data.timetag
     file_end = fh.tell() + drx.FRAME_SIZE
     if verbose:
-        print "  stop  @ %i with %i" % (file_end, frame_end)
+        print("  stop  @ %i with %i" % (file_end, frame_end))
         
     # Get how much the timetags should change and other basic information
     fh.seek(file_begin)
@@ -82,28 +87,28 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
             ids.append(id)
     ttStep = 4096*junkFrame.header.decimation
     if verbose:
-        print "  %i frames with a timetag step of %i" % (len(ids), ttStep)
+        print("  %i frames with a timetag step of %i" % (len(ids), ttStep))
         
     # Difference
     nBytes = file_end - file_begin
-    nFrames = nBytes / drx.FRAME_SIZE
+    nFrames = nBytes // drx.FRAME_SIZE
     ttDiffFound = frame_end - frame_begin
-    ttDiffExpected = nFrames / len(ids) * ttStep
+    ttDiffExpected = nFrames // len(ids) * ttStep
     if verbose:
-        print "  -> found timetag difference of    %i" % ttDiffFound
-        print "  -> expected timetag difference is %i" % ttDiffExpected
+        print("  -> found timetag difference of    %i" % ttDiffFound)
+        print("  -> expected timetag difference is %i" % ttDiffExpected)
         
     # Decide what to do
     if abs(ttDiffFound - ttDiffExpected) > ttStep*(1-strict):
         if verbose:
-            print "  ====> mis-match, subsampling"
-        file_middle = file_begin + (nFrames / 2) * drx.FRAME_SIZE
+            print("  ====> mis-match, subsampling")
+        file_middle = file_begin + (nFrames // 2) * drx.FRAME_SIZE
         parts0 = identify_section(fh, file_begin, file_middle, strict=strict, min_frames=min_frames, verbose=verbose)
         parts1 = identify_section(fh, file_middle, file_end, strict=strict, min_frames=min_frames, verbose=verbose)
         
     else:
         if verbose:
-            print "  ====> good, done"
+            print("  ====> good, done")
         parts0 = [[file_begin, file_end],]
         parts1 = None
         
@@ -134,7 +139,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     
     # Report
     if verbose:
-        print "Tuning boundary at %i of '%s'..." % (start, os.path.basename(fh.name))
+        print("Tuning boundary at %i of '%s'..." % (start, os.path.basename(fh.name)))
         
     # Align on the start of a Mark5C packet...
     while True:
@@ -153,7 +158,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     frame_begin = junkFrame.data.timetag
     file_begin = fh.tell()
     if verbose:
-        print "  start @ %i with %i" % (file_begin, frame_begin)
+        print("  start @ %i with %i" % (file_begin, frame_begin))
         
     # Get how much the timetags should change and other basic information
     fh.seek(file_begin)
@@ -166,7 +171,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
             ids.append(id)
     ttStep = 4096*junkFrame.header.decimation
     if verbose:
-        print "  %i frames with a timetag step of %i" % (len(ids), ttStep)
+        print("  %i frames with a timetag step of %i" % (len(ids), ttStep))
         
     # Load in the times to figure out what to do
     fh.seek(file_begin)
@@ -180,7 +185,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     except ValueError:
         offset = skips.index(0)
     if verbose:
-        print "  -> shifting boundary by %i frame(s)" % offset
+        print("  -> shifting boundary by %i frame(s)" % offset)
     start += drx.FRAME_SIZE*offset
     return start
 
@@ -208,7 +213,7 @@ def main(args):
     # Parse the command line
     filename = args.filename
     
-    # Determine how to print out what we find
+    # Determine how to print(out what we find)
     scale = math.log10(os.path.getsize(filename))
     scale = int(math.ceil(scale))
     fmt = '  %%%ii, %%%ii -> %%7.3f %%sB or %%7.3f %%sframes' % (scale, scale)
@@ -217,7 +222,7 @@ def main(args):
     fh = open(filename, 'rb')
     parts = identify_section(fh, strict=(not args.loose), min_frames=args.min_frames, verbose=args.verbose)
     if parts is None:
-        print "No valid byte ranges found, exiting"
+        print("No valid byte ranges found, exiting")
         sys.exit(1)
         
     # Fine tune the boundaries
@@ -227,23 +232,23 @@ def main(args):
         parts[p][0] = start
     
     # Report
-    print "Valid Byte Ranges:"
+    print("Valid Byte Ranges:")
     valid = 0
     rank = []
     for p,part in enumerate(parts):
         start, stop = part
         size = stop - start
-        frames = size / drx.FRAME_SIZE
+        frames = size // drx.FRAME_SIZE
         valid += size
         rank.append( [size, start, stop, p] )
         
         s,su = getBestSize(size, powerOfTwo=True)
         f,fu = getBestSize(frames, powerOfTwo=False)
-        print fmt % (start, stop, s, su, f, fu)
-    print "-> %.1f%% contiguous in %i frame blocks" % (100.0*valid/os.path.getsize(filename), args.min_frames)
+        print(fmt % (start, stop, s, su, f, fu))
+    print("-> %.1f%% contiguous in %i frame blocks" % (100.0*valid/os.path.getsize(filename), args.min_frames))
     
     if args.split:
-        print " "
+        print(" ")
         
         rank.sort(reverse=True)
         if args.keep >= 1:
@@ -258,8 +263,8 @@ def main(args):
             
         for i,(size,start,stop,section) in enumerate(rank):
             outname = fmt.format(os.path.basename(filename), start, stop, section)
-            print "Working on section #%i..." % (i+1)
-            print "  Filename: %s" % outname
+            print("Working on section #%i..." % (i+1))
+            print("  Filename: %s" % outname)
             
             #size = 4096**2 * 10
             #stop = start + size
@@ -276,7 +281,7 @@ def main(args):
             oh.close()
             t1 = time.time()
             s,su = getBestSize(os.path.getsize(outname), powerOfTwo=True)
-            print "  Copied %.3f %sB in %.3f s (%.3f MB/s)" % (s, su, t1-t0, os.path.getsize(outname)/1024.0**2/(t1-t0))
+            print("  Copied %.3f %sB in %.3f s (%.3f MB/s)" % (s, su, t1-t0, os.path.getsize(outname)/1024.0**2/(t1-t0)))
 
 
 if __name__ == "__main__":

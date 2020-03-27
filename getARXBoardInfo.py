@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Get ARX information about a stand.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import getopt
@@ -14,7 +19,7 @@ from lsl.common import stations
 
 
 def usage(exitCode=None):
-    print """getARXBoardInfo.py - Given a stand, display information about the
+    print("""getARXBoardInfo.py - Given a stand, display information about the
 ARX board and channel.
 
 Usage: getARXBoardInfo.py [OPTIONS] stand [stand [...]]
@@ -22,7 +27,7 @@ Usage: getARXBoardInfo.py [OPTIONS] stand [stand [...]]
 Options:
 -h, --help                  Display this help information
 -m, --metadata              Name of SSMIF file to use for mappings
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -39,9 +44,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:", ["help", "metadata="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -82,12 +87,12 @@ def main(args):
     # Report
     for ant in ants:
         c = ant.arx.aspChannel
-        print "Stand %i, pol. %i" % (ant.stand.id, ant.pol)
-        print "  Antenna: %i" % ant.id
-        print "  ARX Board: %i" % (c/16+1,)
-        print "      SN: %s" % ant.arx.id
-        print "      Channel: %s" % ant.arx.channel
-        print "      Control: %s" % ((c+c%2)/2,)
+        print("Stand %i, pol. %i" % (ant.stand.id, ant.pol))
+        print("  Antenna: %i" % ant.id)
+        print("  ARX Board: %i" % (c/16+1,))
+        print("      SN: %s" % ant.arx.id)
+        print("      Channel: %s" % ant.arx.channel)
+        print("      Control: %s" % ((c+c%2)/2,))
 
 
 if __name__ == "__main__":

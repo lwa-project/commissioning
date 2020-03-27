@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Read in a SSMIF file and estimate the DRX beam for a given frequency and 
@@ -7,6 +6,12 @@ topocentric pointing center.  The estimate is based off a simple delay-and-sum
 beam former so it won't be an exact match.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import aipy
@@ -40,11 +45,11 @@ def main(args):
     badStands = numpy.where( antStat != 3 )[0]
     badFees   = numpy.where( feeStat != 3 )[0]
     bad = numpy.where( (stands > 256) | (antStat != 3) | (feeStat != 3) )[0]
-    print "Number of bad stands:   %3i" % len(badStands)
-    print "Number of bad FEEs:     %3i" % len(badFees)
-    print "---------------------------"
-    print "Total number bad inputs: %3i" % len(bad)
-    print " "
+    print("Number of bad stands:   %3i" % len(badStands))
+    print("Number of bad FEEs:     %3i" % len(badFees))
+    print("---------------------------")
+    print("Total number bad inputs: %3i" % len(bad))
+    print(" ")
     
     # Calculate the beamformer delays in this direction, making sure to
     # do it at 74 MHz and then quantize them.
@@ -84,7 +89,7 @@ def main(args):
     pwrY = az*0.0
     
     # Go!
-    print "Calculating NS/EW beams for az. %.2f, el. %.2f at %.2f MHz - with %i antennas" % (args.azimuth, args.elevation, args.frequency, wgt.sum())
+    print("Calculating NS/EW beams for az. %.2f, el. %.2f at %.2f MHz - with %i antennas" % (args.azimuth, args.elevation, args.frequency, wgt.sum()))
     tStart = time.time()
     for i in xrange(az.shape[0]):
         for j in xrange(az.shape[1]):
@@ -139,7 +144,7 @@ def main(args):
         numpy.savez('%s_%iMHz_%iaz_%iel_%s.npz' % (station.name, args.frequency, args.azimuth, args.elevation, pol), 
                     station=station.name.lower(), beam=beam, freq=(args.frequency*1e6), pol=pol, 
                     az=args.azimuth, el=args.elevation, res=args.resolution)
-    print "-> Finished in %.3f seconds" % (time.time() - tStart)
+    print("-> Finished in %.3f seconds" % (time.time() - tStart))
         
     if not args.no_plots:
         norm = max([pwrX.max(), pwrY.max()])

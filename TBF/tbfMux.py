@@ -6,6 +6,12 @@ the files together into a single file that can be used like a standard
 DR-recorded TBF file
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import copy
@@ -180,7 +186,7 @@ def main(args):
             common = common[1:]
         args.output = common
         
-    print "Writing combined file to '%s'" % os.path.basename(args.output)
+    print("Writing combined file to '%s'" % os.path.basename(args.output))
     oh = open(args.output, 'wb')
     
     # Go!

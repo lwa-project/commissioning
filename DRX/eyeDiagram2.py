@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a DRX file, look for glitches in a DRX or TBN data by fitting a sine wave 
 to the data.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -36,7 +41,7 @@ def qsDiff(B, x, y):
 
 
 def usage(exitCode=None):
-    print """eyeDiagram2.py - Look for glitches in a DRX or TBN data by fitting a 
+    print("""eyeDiagram2.py - Look for glitches in a DRX or TBN data by fitting a 
 sine wave to the data.
 
 Usage:  eyeDiagram2.py [OPTIONS] data_file
@@ -48,8 +53,8 @@ Options:
 -i, --input-freq            Set the frequency of the input sinusoid in MHz (default = 
                             38.25 MHz)
 -k, --keep                  Data array indiece (stands/beams) to keep (default = 1,2,3,4)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -69,9 +74,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hf:i:k:", ["help", "freq=", "input-freq=", "keep="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -130,12 +135,12 @@ def main(args):
     maxFrames = config['maxFrames']
     nChunks = int(numpy.ceil(1.0*(nCaptures*nFrames.sum())/maxFrames))
 
-    print "Filename:    %s" % filename
-    print "Size:        %.1f MB" % (float(sizeB)/1024/1024)
-    print "Captures:    %i" % nCaptures
-    print "Sample Rate: %.2f kHz" % (sample_rate/1000.0)
-    print "==="
-    print "Chunks: %i" % nChunks
+    print("Filename:    %s" % filename)
+    print("Size:        %.1f MB" % (float(sizeB)/1024/1024))
+    print("Captures:    %i" % nCaptures)
+    print("Sample Rate: %.2f kHz" % (sample_rate/1000.0))
+    print("===")
+    print("Chunks: %i" % nChunks)
 
     frame = rdr.read_frame(fh)
     fh.seek(0)
@@ -150,13 +155,13 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % (c+1, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (c+1, framesRemaining))
         
         count = {}
         data = numpy.zeros((nFrames.sum(),framesWork*frame.payload.data.size/nFrames.sum()), dtype=numpy.csingle)
 
         # Inner loop that actually reads the frames into the data array
-        print "Working on %.1f ms of data" % ((framesWork*frame.payload.data.size/nFrames.sum()/sample_rate)*1000.0)
+        print("Working on %.1f ms of data" % ((framesWork*frame.payload.data.size/nFrames.sum()/sample_rate)*1000.0))
 
         # Go...
         dtime = numpy.zeros((nFrames.sum(), framesWork*frame.payload.data.size/nFrames.sum()), dtype=numpy.float64)
@@ -173,7 +178,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FRAME_SIZE-1)
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FRAME_SIZE-1))
                 continue
             
             if f == 0:
@@ -191,9 +196,9 @@ def main(args):
                 oStand = 1*aStand
                 aStand = standMapper.index(aStand)
                 try:
-                    print "Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand)
+                    print("Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand))
                 except:
-                    print "Mapping stand %i, pol. %1i (%2i) to array index %3i" % (stand, pol, oStand, aStand)
+                    print("Mapping stand %i, pol. %1i (%2i) to array index %3i" % (stand, pol, oStand, aStand))
             else:
                 aStand = standMapper.index(aStand)
             
@@ -213,7 +218,7 @@ def main(args):
         dtime = dtime - dtime.min()
         
         endPt = data.shape[1]/8
-        print endPt / sample_rate / period
+        print(endPt / sample_rate / period)
     
         from scipy.optimize import fmin, leastsq
         
@@ -224,7 +229,7 @@ def main(args):
             
             #p0 = [6.0, iFreq-cFreq, numpy.pi/4]
             #p1 = fmin(qsDiff, p0, args=(dtime[i,:], data[i,:].real))
-            #print p1
+            #print(p1)
             
             freq = iFreq - cFreq
             def errFunc(p, x, y):
@@ -239,12 +244,12 @@ def main(args):
                 
             p0 = [6, freq, 0.0]
             p1, success = leastsq(errFunc, p0, args=(dtime[i,:], data[i,:].real), maxfev=100000)
-            #print p0, p1, success
+            #print(p0, p1, success)
             
             xPrime = 2*numpy.pi*p1[1]*dtime[i,:] + p1[2]
             #yFit = quantizedSine(xPrime, scale=p1[0])
             yFit = numpy.sin(xPrime)*numpy.abs(p1[0])
-            print i, standMapper[i], p1, ((data[i,:].real - yFit)**2).sum()
+            print(i, standMapper[i], p1, ((data[i,:].real - yFit)**2).sum())
             
             ax1 = fig.add_subplot(2, 2, i+1)
             ax1.plot(dtime[i,:], data[i,:].real, color='blue')

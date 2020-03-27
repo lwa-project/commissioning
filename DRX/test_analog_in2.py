@@ -5,6 +5,12 @@
 Set DRX beams and start a recording.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import datetime
 import os
 import math
@@ -22,7 +28,7 @@ import getopt
 
 
 def usage(exitCode=None):
-    print """test_analog_in2.py - Set DRX beams and start a recording.
+    print("""test_analog_in2.py - Set DRX beams and start a recording.
     
 Usage: test_analog_in2.py [OPTIONS]
 
@@ -35,8 +41,8 @@ Options:
 -a, --gain2          DRX gain for tuning 2 (default = 5)
 -s, --sub-plot       Sub-slot for when the command will take place (default = 0)
 -t, --time           Observation time in seconds (default = 10.000)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -57,9 +63,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "h1:2:f:g:a:s:t:", ["help", "freq1=", "freq2=", "filter=", "gain1=", "gain2=", "sub-slot=", "time="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -149,7 +155,7 @@ if __name__ == '__main__':
     # Get current time
     #(mjd, mpm) = get_time()
     (mjd, mpm) = wait_til_sec()
-    print 'starting at mjd=%i; mpm=%i' % (int(mjd), int(mpm))
+    print('starting at mjd=%i; mpm=%i' % (int(mjd), int(mpm)))
     
     execpath = '/home/ops/JR5/src/exec' 
     schpath =  '/home/ops/JR5/src/sch'
@@ -205,7 +211,7 @@ if __name__ == '__main__':
     # Assume that DR is launched
     #os.system(execpath + 'mesix DR1 INI')
     #time.sleep(1)
-    print 'Scheduling a recording to start about 40 seconds from current time'
+    print('Scheduling a recording to start about 40 seconds from current time')
     (mjd, mpm) = get_time()
     new_mpm = str(int(mpm) + 40000) # Make sure both DP_MCS and DR are in time sync first. May need to do manual sync on DR
     rec_duration = str(int(round(config['time']*1000))) # time in milliseconds
@@ -216,7 +222,7 @@ if __name__ == '__main__':
     f = subprocess.Popen(schpath + '/ms_mdre DR1 DIRECTORY-COUNT', shell=True, cwd = schpath, stdout=subprocess.PIPE).stdout
     reply = f.read().split()  
     count = reply[0] 
-    print 'count = '+ count
+    print('count = '+ count)
     #os.system(execpath + '/mesix DR1 RPT DIRECTORY-ENTRY-'+ count)
     time.sleep(1)
 
@@ -224,7 +230,7 @@ if __name__ == '__main__':
     reply = f.read().split()  
     fname = reply[0] 
     bytes = reply[6] # number of bytes read
-    print 'fname = %s; bytes read = %s' % (count,bytes)   
+    print('fname = %s; bytes read = %s' % (count,bytes)   )
     ###########################
     #time.sleep(61) # sleep a long time to make sure recording is done before continuing      
     #os.system(execpath + 'mesix DR1 RPT DIRECTORY-ENTRY-'+ count)
@@ -233,10 +239,10 @@ if __name__ == '__main__':
     #reply = f.read().split()  
     #fname = reply[0] 
     #bytes = reply[6] # number of bytes read
-    #print 'fname = %s; bytes read = %s' % (count,bytes)
+    #print('fname = %s; bytes read = %s' % (count,bytes))
     ## Use temp output filename for now. Just copy immediatly
-    #print 'Writing a file to external disk--------------------'
+    #print('Writing a file to external disk--------------------')
     #os.system(execpath + 'mesix DR1 CPY "' + fname + ' 0 ' + bytes + ' /dev/sdg1 drx_temp.dat"')      
         
     #OK
-    print 'Done \n'
+    print('Done \n')

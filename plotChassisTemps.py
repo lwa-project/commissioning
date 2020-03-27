@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a /data/temp.txt file (or one of the rotated backups) plot the temperatures
@@ -8,6 +7,12 @@ temperatures are plotted as color maps for (1) the mean FPGA temperature per boa
 and (2) the maximum FPGA temperature per board.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import sys
 import numpy
 import pytz
@@ -23,23 +28,23 @@ MST7MDT = pytz.timezone('US/Mountain')
 
 # Logical to physical mapping
 LPmapping = { 1:  7, 
-            2:  8, 
-            3:  6, 
-            4:  9, 
-            5:  5, 
-            6: 10, 
-            7:  4, 
-            8: 11, 
-            9:  3, 
-        10: 12, 
-        11:  2, 
-        12: 13, 
-        13:  1, 
-        14: 14,}
+              2:  8, 
+              3:  6, 
+              4:  9, 
+              5:  5, 
+              6: 10, 
+              7:  4, 
+              8: 11, 
+              9:  3, 
+             10: 12, 
+             11:  2, 
+             12: 13, 
+             13:  1, 
+             14: 14,}
 
 def main(args):
     if len(args) < 1:
-        print 'Need a filename to plot.'
+        print('Need a filename to plot.')
         sys.exit(1)
     
     data = []
@@ -55,15 +60,15 @@ def main(args):
                 
             # Skip over lines that are probably wrong
             if len(fields) > 141:
-                print "WARNING: Entry at %s has too many chips" % MST7MDT.localize(datetime.fromtimestamp(float(fields[0])))
+                print("WARNING: Entry at %s has too many chips" % MST7MDT.localize(datetime.fromtimestamp(float(fields[0]))))
                 continue
             
             # Pad if we find less chips than expected and emit a warning
             if len(fields) < 141:
-                print "WARNING: Entry at %s has only %i chips" % (MST7MDT.localize(datetime.fromtimestamp(float(fields[0]))), len(fields)-1)
+                print("WARNING: Entry at %s has only %i chips" % (MST7MDT.localize(datetime.fromtimestamp(float(fields[0]))), len(fields)-1))
                 fields.extend(['0.0']*(141-len(fields)))
             
-            #print len(fields)
+            #print(len(fields))
             # Convert all values to floats
             data.append( [float(f) for f in fields] )
 
@@ -73,7 +78,7 @@ def main(args):
     data = data[order,:]
     
     dates = [MST7MDT.localize(datetime.fromtimestamp(t)) for t in data[:,0]]
-    print 'File spans %s to %s with %i measurements' % (dates[0], dates[-1], len(dates))
+    print('File spans %s to %s with %i measurements' % (dates[0], dates[-1], len(dates)))
     tRange = (data[-1,0] - data[0,0]) / 3600.0
     
     # Split into boards

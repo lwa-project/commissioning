@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Script to generate delay-and-sum beam forming coefficients as well as a 
@@ -9,6 +8,12 @@ Usage:
 trackSource <SSMIF> <source_name> <start date> <start time> <duration in hr>
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import pytz
@@ -91,11 +96,11 @@ def main(args):
     badStands = numpy.where( antStat != 3 )[0]
     badFees   = numpy.where( feeStat != 3 )[0]
     bad = numpy.where( (stands > 256) | (antStat != 3) | (feeStat != 3) )[0]
-    ## print "Number of bad stands:   %3i" % len(badStands)
-    ## print "Number of bad FEEs:     %3i" % len(badFees)
-    ## print "---------------------------"
-    ## print "Total number bad inuts: %3i" % len(bad)
-    ## print " "
+    ## print("Number of bad stands:   %3i" % len(badStands))
+    ## print("Number of bad FEEs:     %3i" % len(badFees))
+    ## print("---------------------------")
+    ## print("Total number bad inuts: %3i" % len(bad))
+    ## print(" ")
     
     # Build the source list
     srcs = [ephem.Sun(), ephem.Jupiter(),]
@@ -111,10 +116,10 @@ def main(args):
     
     # Make sure we have a source to track
     if refSource is None:
-        print "Unknown source '%s', quitting" % source
+        print("Unknown source '%s', quitting" % source)
         sys.exit(1)
     
-    print """#!/bin/bash
+    print("""#!/bin/bash
     
 #
 # Source tracking script for %s starting at %s
@@ -123,7 +128,7 @@ def main(args):
 # -> update interval is %.3f minutes
 #
 
-""" % (source, tStart.astimezone(_MST), central_freq, duration, tStep)
+""" % (source, tStart.astimezone(_MST), central_freq, duration, tStep))
     
     # Create the DFT files and build the script
     nSteps = int(numpy.ceil(duration * 60 / 4))
@@ -160,7 +165,7 @@ def main(args):
         junk = gain.list2gainfile('.', gftBase, gains)
         
         # Output script command - step start
-        print """
+        print("""
 #
 # Begin step #%i at %s
 # -> %s at %.3f az, %.3f el
@@ -178,19 +183,19 @@ done
 ## Send BAM commands
 tString=`date `
 echo "Sending BAM commands for step #%i at $tString"
-""" % ((s+1), tStart.astimezone(_MST), source, pointingAz, pointingEl, tStart.astimezone(_MST).strftime('%s'), (s+1))
+""" % ((s+1), tStart.astimezone(_MST), source, pointingAz, pointingEl, tStart.astimezone(_MST).strftime('%s'), (s+1)))
 
         # Output script command - BAM commands
         for beam in beamsToUse:
-            print """/home/joecraig/MCS/exec/mesix DP_ BAM "%i %s.df %s.gf 1"
-sleep 1""" % (beam, dftBase, gftBase)
+            print("""/home/joecraig/MCS/exec/mesix DP_ BAM "%i %s.df %s.gf 1"
+sleep 1""" % (beam, dftBase, gftBase))
 
         # Output script command - step end
-        print """
+        print("""
 #
 # End step #%i
 #
-""" % ((s+1),)
+""" % ((s+1),))
         
         # Update time
         tStart = tStart + stepSize

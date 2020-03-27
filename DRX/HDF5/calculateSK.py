@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 calculateSK.py - Read in a DRX/HDF5 wataerfall file and calculate the pseudo-
@@ -15,6 +14,12 @@ Usage:
 ./calculateSK.py [OPTIONS] file
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -40,11 +45,11 @@ def main(args):
         skN = int(tInt*srate / LFFT)
         chunkSize = int(round(args.duration/tInt))
         
-        print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
-        print "  Sample Rate: %.1f Hz" % srate
-        print "  LFFT: %i" % LFFT
-        print "  tInt: %.3f s" % tInt
-        print "  Integrations per spectrum: %i" % skN
+        print("Staring Observation #%i" % int(obsName.replace('Observation', '')))
+        print("  Sample Rate: %.1f Hz" % srate)
+        print("  LFFT: %i" % LFFT)
+        print("  tInt: %.3f s" % tInt)
+        print("  Integrations per spectrum: %i" % skN)
         
         time = obs.get('time', None)[:]
         tuning1 = obs.get('Tuning1', None)
@@ -92,8 +97,8 @@ def main(args):
                         sk[start:stop,j] = kurtosis.spectral_power(section[:,j], N=skN*nAdjust[dp])
                         
                 # Report
-                print "  => %s-%i SK Mean: %.3f" % (dp, t+1, numpy.mean(sk))
-                print "     %s-%i SK Std. Dev.: %.3f" % (dp, t+1, numpy.std(sk))
+                print("  => %s-%i SK Mean: %.3f" % (dp, t+1, numpy.mean(sk)))
+                print("     %s-%i SK Std. Dev.: %.3f" % (dp, t+1, numpy.std(sk)))
                 
                 # Save the pSK information to the HDF5 file if we need to
                 if (not args.no_update):
@@ -107,7 +112,7 @@ def main(args):
                         maskTable = numpy.where( (sk < kLow) | (sk > kHigh), True, False )
                         
                         ## Report
-                        print "     => %s-%i Mask Fraction: %.1f%%" % (dp, t+1, 100.0*maskTable.sum()/maskTable.size,)
+                        print("     => %s-%i Mask Fraction: %.1f%%" % (dp, t+1, 100.0*maskTable.sum()/maskTable.size,))
                         
                         ## Pull out the Mask group from the HDF5 file
                         mask = tuning.get('Mask', None)

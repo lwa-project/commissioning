@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given two or more DRX files from different beams, check for coherency between the beams
 and make sure that the beams agree with the T_NOM values.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -86,18 +91,18 @@ def main(args):
             pair = 2*(tune-1) + pol
             j += 1
         fh[i].seek(-drx.FRAME_SIZE, 1)
-        print "Shifted beam %i data by %i frames (%.4f s)" % (i, j, j*4096/srate[i]/4)
+        print("Shifted beam %i data by %i frames (%.4f s)" % (i, j, j*4096/srate[i]/4))
             
     # Date
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print " "
-    print "Filenames: %s" % ' '.join([os.path.split(f)[1] for f in files])
-    print "Date of First Frame: ~%s" % str(beginDate)
-    print "Beams: %s" % ' '.join([str(b) for b in beams])
-    print "Sample Rate: %s Hz" % ' '.join([str(s) for s in srate])
-    print " "
+    print(" ")
+    print("Filenames: %s" % ' '.join([os.path.split(f)[1] for f in files]))
+    print("Date of First Frame: ~%s" % str(beginDate))
+    print("Beams: %s" % ' '.join([str(b) for b in beams]))
+    print("Sample Rate: %s Hz" % ' '.join([str(s) for s in srate]))
+    print(" ")
 
     # Main reader loop - save the data to the `data` list and the raw time tag values
     # to the `times` list.
@@ -113,7 +118,7 @@ def main(args):
                 
                 data[i,pair,j*4096:(j+1)*4096] = frame.payload.data
                 times[i,pair,j] = frame.data.timetag
-                #print i, j, k, beam, tune, pol, frame.data.timetag
+                #print(i, j, k, beam, tune, pol, frame.data.timetag)
     
     # Cross-correlate
     refs = [0,0,0,0]
@@ -133,16 +138,16 @@ def main(args):
                     rtOffset = times[i,k,0] - times[j,k,0]
                     ctOffset = (times[i,k,0] - tnom[i]) - (times[j,k,0] - tnom[j])
                     
-                    print "Beams %i & %i, Tuning %i, Pol. %i" % (beams[i], beams[j], k/2+1, k%2)
-                    print "  T_NOM%i: %i ticks" % (beams[i], tnom[i])
-                    print "  T_NOM%i: %i ticks" % (beams[j], tnom[j])
-                    print "  -> T_NOM%i - T_NOM%i: %i ticks" % (beams[j], beams[i], tnom[j] - tnom[i])
-                    print "  NCM: %.3f" % (cc.max() / refs[k])
-                    print "  CC Offset: %i ticks" % ccOffset
-                    print "  raw time tag Offset: %i ticks" % rtOffset
-                    print "  cor time tag Offset: %i ticks" % ctOffset
-                    print "  -> CC - raw: %i ticks" % (ccOffset - rtOffset)
-                    print "  -> CC - cor: %i ticks" % (ccOffset - ctOffset)
+                    print("Beams %i & %i, Tuning %i, Pol. %i" % (beams[i], beams[j], k/2+1, k%2))
+                    print("  T_NOM%i: %i ticks" % (beams[i], tnom[i]))
+                    print("  T_NOM%i: %i ticks" % (beams[j], tnom[j]))
+                    print("  -> T_NOM%i - T_NOM%i: %i ticks" % (beams[j], beams[i], tnom[j] - tnom[i]))
+                    print("  NCM: %.3f" % (cc.max() / refs[k]))
+                    print("  CC Offset: %i ticks" % ccOffset)
+                    print("  raw time tag Offset: %i ticks" % rtOffset)
+                    print("  cor time tag Offset: %i ticks" % ctOffset)
+                    print("  -> CC - raw: %i ticks" % (ccOffset - rtOffset))
+                    print("  -> CC - cor: %i ticks" % (ccOffset - ctOffset))
                 
                     ax = fig.add_subplot(2, 2, k+1)
                     ax.plot(lag[best-50:best+50], cc[best-50:best+50])

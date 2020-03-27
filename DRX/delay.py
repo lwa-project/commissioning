@@ -1,9 +1,18 @@
 #!/usr/bin/python
-'''Creates delay file for one or all antennas'''
+
+"""
+Creates delay file for one or all antennas
+"""
 # written by Gerald Crichton, Robert Navarro   
 # March 12, 2011                                                        *
 # Copyright 2011, by the California Institute of Technology. ALL RIGHTS RESERVED.
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 
@@ -19,7 +28,7 @@ def make_delayfile(path, ant, coarse, fine):
         filename = path + '/' + dft_filename
         file = open(path + '/' + dft_filename, 'w')
 	for x in range(1, 520+1):
-            print >> file, delay[0], delay[1]
+            print(>> file, delay[0], delay[1])
     else:
         df_filename = 'delay_a%s_c%s_f%s.df' % (ant, coarse, fine)
         dft_filename = df_filename+'t'
@@ -27,9 +36,9 @@ def make_delayfile(path, ant, coarse, fine):
         ant = int(ant)
         for x in range(1, 520+1):
             if x==ant: 
-                print >> file, delay[0], delay[1]
+                print(>> file, delay[0], delay[1])
             else:
-                print >> file, zero[0], zero[1]
+                print(>> file, zero[0], zero[1])
     return [dft_filename,df_filename]
     
 # take a list of delay values in ns and convert to dfile    
@@ -46,14 +55,14 @@ def list2delayfile(path, filename, dlylist):
       coarse = fsamplelist[i] // 16
       fine   = fsamplelist[i] % 16
       if coarse > 1023:
-         print "Warning: Coarse delay greater than 1023"
+         print("Warning: Coarse delay greater than 1023")
       coarselist.append(int(coarse))
       finelist.append(int(fine))
    df_filename = filename + '.df'
    dft_filename = df_filename+'t'
    file = open(path + '/' + dft_filename, 'w')      
    for i in range(520):
-      print >> file, coarselist[i], finelist[i]
+      print(>> file, coarselist[i], finelist[i])
    return [dft_filename,df_filename]   
     
      
@@ -65,10 +74,10 @@ def list2delayfile(path, filename, dlylist):
 if __name__ == '__main__':
 
     if len(sys.argv) < 4:
-	print 'usage: delay ant coarse fine'
-	print '       where ant = antenna number or ''all'' '
+	print('usage: delay ant coarse fine')
+	print('       where ant = antenna number or ''all'' ')
 	exit()
 
     filename = make_delayfile('.', sys.argv[1], sys.argv[2], sys.argv[3])
-    print filename
+    print(filename)
 

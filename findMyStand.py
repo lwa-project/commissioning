@@ -1,9 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-"""Example script to read in the positions of stands at LWA-1 and make a plot
-of the site."""
+"""
+Example script to read in the positions of stands at LWA-1 and make a plot
+of the site.
+"""
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -17,7 +24,7 @@ from matplotlib.ticker import NullFormatter
 
 
 def usage(exitCode=None):
-    print """findMyStand.py - Plot the x, y, and z locations of stands at 
+    print("""findMyStand.py - Plot the x, y, and z locations of stands at 
 LWA-1 and mark and label particular stands.
 
 Usage: findMyStand.py [OPTIONS] stand1 [stand2 [...]]]
@@ -25,8 +32,8 @@ Usage: findMyStand.py [OPTIONS] stand1 [stand2 [...]]]
 Options:
 -h, --help             Display this help information
 -v, --verbose          Run plotStands in verbose mode
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -44,9 +51,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, arg = getopt.getopt(args, "hv", ["help", "verbose"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts

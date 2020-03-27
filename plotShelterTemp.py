@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 plotShelterTemp.py - Script to read in the shelter.txt file and plot up the 
 shelter temperature (in F) as a function of time.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -22,7 +27,7 @@ MST7MDT = pytz.timezone('US/Mountain')
 
 def main(args):
     if len(args) < 1:
-        print 'Need a filename to plot.'
+        print('Need a filename to plot.')
         sys.exit(1)
     
     data = []
@@ -50,7 +55,7 @@ def main(args):
     data = data[order,:]
     
     dates = [MST7MDT.localize(datetime.fromtimestamp(t)) for t in data[:,0]]
-    print 'File spans %s to %s with %i measurements' % (dates[0], dates[-1], len(dates))
+    print('File spans %s to %s with %i measurements' % (dates[0], dates[-1], len(dates)))
     
     # Convert to degree F if needed
     if not inF:

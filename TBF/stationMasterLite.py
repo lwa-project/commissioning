@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBF file, plot the time averaged spectra for each digitizer input.  Save 
 the data for later review with smGUI as an NPZ file.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -61,13 +66,13 @@ def main(args):
     mapper.sort()
     
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Frames per Observation: %i" % nFramesPerObs
-    print "Channel Count: %i" % nchannels
-    print "Frames: %i" % nFrames
-    print "==="
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Frames per Observation: %i" % nFramesPerObs)
+    print("Channel Count: %i" % nchannels)
+    print("Frames: %i" % nFrames)
+    print("===")
+    print("Chunks: %i" % nChunks)
     
     outfile = os.path.split(args.filename)[1]
     outfile = os.path.splitext(outfile)[0]
@@ -85,7 +90,7 @@ def main(args):
                 except errors.EOFError:
                     break
                 except errors.SyncError:
-                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbf.FRAME_SIZE-1)
+                    print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbf.FRAME_SIZE-1))
                     continue
                 if not cFrame.header.is_tbf:
                     continue
@@ -95,7 +100,7 @@ def main(args):
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
                 if cFrame.header.frame_count % 10000 == 0 and args.verbose:
-                    print "%4i -> %3i  %6.3f  %5i  %i" % (cFrame.header.first_chan, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
+                    print("%4i -> %3i  %6.3f  %5i  %i" % (cFrame.header.first_chan, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag))
                     
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
                 # odd numbers
@@ -110,7 +115,7 @@ def main(args):
             subSize = 1960
             nsegments = masterSpectra.shape[1] / subSize
             
-            print "Computing average power and data range in %i-sample intervals, ADC histogram" % subSize
+            print("Computing average power and data range in %i-sample intervals, ADC histogram" % subSize)
             pb = ProgressBar(max=masterSpectra.shape[0])
             avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
             dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
@@ -129,7 +134,7 @@ def main(args):
         spec = masterSpectra.mean(axis=0)
         
         # Estimate the dipole resonance frequencies
-        print "Computing dipole resonance frequencies"
+        print("Computing dipole resonance frequencies")
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
@@ -175,7 +180,7 @@ def main(args):
     specTemplate = numpy.median(spec, axis=0)
     specDiff = numpy.zeros(spec.shape[0])
     toCompare = numpy.where( (freq>32e6) & (freq<50e6) )[0]
-    print len(toCompare)
+    print(len(toCompare))
     for i in xrange(spec.shape[0]):
         specDiff[i] = (spec[i,toCompare] / specTemplate[toCompare]).mean()
     specDiff = numpy.where( specDiff < 2, specDiff, 2)
@@ -196,7 +201,7 @@ def main(args):
         ax2 = fig.add_subplot(1, 2, 2)
         ax2.plot(freq/1e6, numpy.log10(specTemplate)*10, alpha=0.50)
         
-        print "RBW: %.1f Hz" % (freq[1]-freq[0])
+        print("RBW: %.1f Hz" % (freq[1]-freq[0]))
         plt.show()
 
 

@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 For a given MJD value or list of MJD values, return the range of local times 
 associated with that MJD.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import sys
 import pytz
 import getopt
@@ -18,7 +23,7 @@ UTC = pytz.utc
 
 
 def usage(exitCode=None):
-    print """mjd2local.py - For a given MJD value or list of MJD values, return
+    print("""mjd2local.py - For a given MJD value or list of MJD values, return
 the range of local times associated with that MJD.
 
 Usage: mjd2local.py [OPTIONS] MJD [MJD [MJD [...]]]
@@ -27,8 +32,8 @@ Options:
 -h, --help                  Display this help information
 -u, --utc                   Report UTC time rather than local
 -p, --pairs                 Interpret the input as MJD, MPM pairs
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -43,9 +48,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hup", ["help", "utc", "pairs"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -84,8 +89,8 @@ def main(args):
             
             tzname = d1.strftime('%Z')
             
-            print "MJD: %i" % mjd1
-            print "%s: %s to %s" % (tzname, d1.strftime("%B %d, %Y at %H:%M:%S %Z"), d2.strftime("%B %d, %Y at %H:%M:%S %Z"))
+            print("MJD: %i" % mjd1)
+            print("%s: %s to %s" % (tzname, d1.strftime("%B %d, %Y at %H:%M:%S %Z"), d2.strftime("%B %d, %Y at %H:%M:%S %Z")))
     else:
         for arg in zip(config['args'][0::2], config['args'][1::2]):
             mjd, mpm = [int(i) for i in arg]
@@ -95,8 +100,8 @@ def main(args):
             
             tzname = d.strftime('%Z')
             
-            print "MJD: %i, MPM: %i" % (mjd, mpm)
-            print "%s: %s" % (tzname, d.strftime("%B %d, %Y at %H:%M:%S %Z"))
+            print("MJD: %i, MPM: %i" % (mjd, mpm))
+            print("%s: %s" % (tzname, d.strftime("%B %d, %Y at %H:%M:%S %Z")))
 
 
 if __name__ == "__main__":

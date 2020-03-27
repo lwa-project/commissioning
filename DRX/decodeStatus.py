@@ -4,6 +4,12 @@
 Given a DP board status code, decode it into its various parts.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import sys
 import struct
 
@@ -27,29 +33,29 @@ def main(args):
     code = int(args[0])
 
     # Print out the code and its binary representation
-    print "Numeric Code: %i" % code
-    print "Binary Code [MSB to LSB]:  %s" % num2num(code)
-    print ""
+    print("Numeric Code: %i" % code)
+    print("Binary Code [MSB to LSB]:  %s" % num2num(code))
+    print("")
 
     # Decode the four status codes for each of the five FPGAs
     for i,chip in enumerate([1, 2, 3, 4, 5]):
-        print "FPGA #%i" % chip
+        print("FPGA #%i" % chip)
         for j,field in enumerate(['calib', 'temp', 'vccint', 'vccaux']):
             if not (code>>(i*4+j))&1:
                 status = "OK"
             else:
                 status = "FAIL"
-            print "%-10s %s" % (("-> %s:" % field), status)
+            print("%-10s %s" % (("-> %s:" % field), status))
 
     # Decode the overall DP power status code
-    print "DP"
+    print("DP")
     if not (code>>20)&1:
         status = "OK"
     else:
         status = "FAIL"
-    print "%-10s %s" % (("-> %s:" % "power"), status)
+    print("%-10s %s" % (("-> %s:" % "power"), status))
 
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
+    

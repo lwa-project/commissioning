@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-
 """
 Given a COR filles created by ADP, combine the files together into a single 
 file that can be used like a standard DR-recorded COR file
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import copy
