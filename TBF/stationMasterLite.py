@@ -170,7 +170,7 @@ def main(args):
         numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
                     avgPower=avgPower, dataRange=dataRange, adcHistogram=adcHistogram, ssmifContents=ssmifContents)
     else:
-        dataDict = numpy.load("%s.npz" % base)
+        dataDict = numpy.load(outfile)
         freq = dataDict['freq']
         masterSpectra = dataDict['masterSpectra']
         resFreq = dataDict['resFreq']

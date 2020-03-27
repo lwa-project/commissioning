@@ -129,7 +129,7 @@ def get_time():
     p = day + (((153 * m) + 2) // 5) + (365 * y)   
     q = (y // 4) - (y // 100) + (y // 400) - 32045
     mjdi = int(math.floor( (p+q) - 2400000.5))
-    mjd = "%6s" % mdji      
+    mjd = "%6s" % mjdi      
 
     # compute MPM
     mpmi = int(math.floor( (hour*3600 + minute*60 + second)*1000 + millisecond ))

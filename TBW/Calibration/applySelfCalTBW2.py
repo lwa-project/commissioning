@@ -26,7 +26,6 @@ from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.imaging import utils, selfcal
 from lsl.sim import vis as simVis
 
-from matplotlib.mlab import griddata
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 

@@ -161,7 +161,7 @@ def main(args):
 
         # Save - gains
         import gain
-        gftBase = 'delay_beam_%s_%03i_%iMHz' % (source, (s+1), central_freq/1e6,)
+        gftBase = 'delay_beam_%s_%03i_%.0fMHz' % (source, (s+1), central_freq/1e6,)
         junk = gain.list2gainfile('.', gftBase, gains)
         
         # Output script command - step start
