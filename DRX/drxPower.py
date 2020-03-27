@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a DRX file, plot the instantaneous power as a function of time.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -21,7 +26,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-    print """drxPower.py - Read in DRX files and create a collection of 
+    print("""drxPower.py - Read in DRX files and create a collection of 
 timeseries power (I*I + Q*Q) plots.  These power measurements are saved to a NPZ 
 file called <filename>-power.npz.  Also, create a series of polarization and 
 tuning diagnostic plots.
@@ -41,8 +46,8 @@ Options:
 -q, --quiet                 Run drxSpectra in silent mode
 -o, --output                Output file name for average power image
 -w, --write-npz             Write a NPZ file of the averaged power
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -65,9 +70,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hqt:o:s:a:d:w", ["help", "quiet", "trim-level=", "output=", "skip=", "average=", "duration=", "write-npz"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -176,17 +181,17 @@ def main(args):
     prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Beams: %i" % beams
-    print "Tune/Pols: %i %i %i %i" % tunepols
-    print "Sample Rate: %i Hz" % srate
-    print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-    print "Integration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], maxFrames, maxFrames / beampols)
-    print "Duration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols)
-    print " "
+    print("Filename: %s" % config['args'][0])
+    print("Beams: %i" % beams)
+    print("Tune/Pols: %i %i %i %i" % tunepols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
+    print("Integration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], maxFrames, maxFrames / beampols))
+    print("Duration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols))
+    print(" ")
 
     # Sanity check
     if nFrames > (nFramesFile - offset):
@@ -216,14 +221,14 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        #print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
+        #print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
         data  = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
         data2 = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
         
         ## Inner loop that actually reads the frames into the data array
-        #print "Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+        #print("Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
         for j in xrange(framesWork):
@@ -233,7 +238,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1)
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1))
                 continue
                 
             beam,tune,pol = cFrame.id
@@ -271,12 +276,12 @@ def main(args):
         numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, times=masterTimes, trimLevel=config['trimLevel'])
 
     # Report on the clipping
-    print "Summary:"
+    print("Summary:")
     for i in xrange(4):
-        print "  Tuning %i, Pol. %s:" % (i/2+1, 'X' if i%2 else 'Y')
-        print "    Processed: %i samples" % masterProcessed[i]
-        print "    Clipped:   %i samples" % masterRemoved[i]
-        print "      -> %.1f%% blanked" % (100.0*masterRemoved[i]/masterProcessed[i],)
+        print("  Tuning %i, Pol. %s:" % (i/2+1, 'X' if i%2 else 'Y'))
+        print("    Processed: %i samples" % masterProcessed[i])
+        print("    Clipped:   %i samples" % masterRemoved[i])
+        print("      -> %.1f%% blanked" % (100.0*masterRemoved[i]/masterProcessed[i],))
 
     # The plots:  This is setup for the current configuration of 20 beampols
     fig = plt.figure()

@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a DRX file, plot the time averaged spectra for each beam output over some 
 period.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -69,7 +74,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
     LFFT = args.fft_length
     
     # Find the start of the observation
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
+    print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     idf.reset()
     
     t0 = idf.get_info('tStart')
@@ -82,7 +87,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
         t0 = idf.get_info('tStart')
         srate = idf.get_info('sample_rate')
         
-    print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     duration = duration - max([0, tDiff.total_seconds()])
     
@@ -113,12 +118,12 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
     done = False
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
-        print "Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1)
-        print "Working on %.1f ms of data" % (args.average*1000.0,)
+        print("Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1))
+        print("Working on %.1f ms of data" % (args.average*1000.0,))
         
         tInt, cTime, data = idf.read(args.average)
         if i == 0:
-            print "Actual integration time is %.1f ms" % (tInt*1000.0,)
+            print("Actual integration time is %.1f ms" % (tInt*1000.0,))
             
         # Save out some easy stuff
         dataSets['obs%i-time' % obsID][i] = cTime
@@ -172,7 +177,7 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
     # Find the start of the observation
     t0 = idf.get_info('tStart')
     
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
+    print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     idf.reset()
     
     t0 = idf.get_info('tStart')
@@ -185,7 +190,7 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
         t0 = idf.get_info('tStart')
         srate = idf.get_info('sample_rate')
         
-    print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     duration = duration - max([0, tDiff.total_seconds()])
         
@@ -222,12 +227,12 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
     done = False
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
-        print "Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1)
-        print "Working on %.1f ms of data" % (args.average*1000.0,)
+        print("Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1))
+        print("Working on %.1f ms of data" % (args.average*1000.0,))
         
         tInt, cTime, data = idf.read(args.average)
         if i == 0:
-            print "Actual integration time is %.1f ms" % (tInt*1000.0,)
+            print("Actual integration time is %.1f ms" % (tInt*1000.0,))
             
         # Save out some easy stuff
         dataSets['obs%i-time' % obsID][i] = cTime
@@ -331,19 +336,19 @@ def main(args):
     central_freq2 = idf.get_info('freq2')
     
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Beams: %i" % beams
-    print "Tune/Pols: %i" % beampols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (args.skip, offset)
-    print "Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average, nFramesAvg, nFramesAvg / beampols)
-    print "Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average*nChunks, nFrames, nFrames / beampols)
-    print "Chunks: %i" % nChunks
-    print " "
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Beams: %i" % beams)
+    print("Tune/Pols: %i" % beampols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average, nFramesAvg, nFramesAvg / beampols))
+    print("Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average*nChunks, nFrames, nFrames / beampols))
+    print("Chunks: %i" % nChunks)
+    print(" ")
     
     # Estimate clip level (if needed)
     if args.estimate_clip_level:
@@ -413,11 +418,11 @@ def main(args):
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             
-        print "Observations:"
+        print("Observations:")
         for i in sorted(obsList.keys()):
             obs = obsList[i]
-            print " #%i: %s to %s (%.3f s) at %.3f MHz" % (i, obs[0], obs[1], obs[2], obs[3]/1e6)
-        print " "
+            print(" #%i: %s to %s (%.3f s) at %.3f MHz" % (i, obs[0], obs[1], obs[2], obs[3]/1e6))
+        print(" ")
             
         hdfData.fillFromMetabundle(f, args.metadata)
         
@@ -493,7 +498,7 @@ def main(args):
         try:
             processDataBatch(idf, antennas, obsList[o][0], obsList[o][2], obsList[o][3], args, ds, obsID=o, clip1=clip1, clip2=clip2)
         except RuntimeError, e:
-            print "Observation #%i: %s, abandoning this observation" % (o, str(e))
+            print("Observation #%i: %s, abandoning this observation" % (o, str(e)))
 
     # Save the output to a HDF5 file
     f.close()

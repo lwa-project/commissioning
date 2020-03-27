@@ -28,7 +28,7 @@ def make_gainfile(path,stand, xx, xy, yx, yy):
         gf_filename = 'gain_all_%s_%s_%s_%s.gf' % (xx, xy, yx, yy)
         gft_filename = gf_filename + 't'
         file = open(path+'/'+gft_filename, 'w')
-	for x in range(1, 260+1):
+    for x in range(1, 260+1):
             print(>> file, gain[0], gain[1], gain[2], gain[3])
     else:
         gf_filename = 'gain_s%s_%s_%s_%s_%s.gf' % (stand, xx, xy, yx, yy)
@@ -68,9 +68,9 @@ def list2gainfile(path, filename, gainlist):
 if __name__ == '__main__':
 
     if len(sys.argv) < 6:
-	print('usage: gain stand xx xy yx yy')
-	print('       where stand = stand number or ''all'' ')
-	exit()
+    print('usage: gain stand xx xy yx yy')
+    print('       where stand = stand number or ''all'' ')
+    exit()
 
     filename = make_gainfile('.', sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     print(filename)

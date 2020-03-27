@@ -19,7 +19,10 @@ import string
 import struct
 import subprocess
 import sys
-import thread
+try:
+    import thread
+except ImportError:
+    import _thread as thread
 import time
 import gain
 import delay

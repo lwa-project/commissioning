@@ -27,7 +27,7 @@ def make_delayfile(path, ant, coarse, fine):
         dft_filename = df_filename+'t'
         filename = path + '/' + dft_filename
         file = open(path + '/' + dft_filename, 'w')
-	for x in range(1, 520+1):
+    for x in range(1, 520+1):
             print(>> file, delay[0], delay[1])
     else:
         df_filename = 'delay_a%s_c%s_f%s.df' % (ant, coarse, fine)
@@ -74,9 +74,9 @@ def list2delayfile(path, filename, dlylist):
 if __name__ == '__main__':
 
     if len(sys.argv) < 4:
-	print('usage: delay ant coarse fine')
-	print('       where ant = antenna number or ''all'' ')
-	exit()
+    print('usage: delay ant coarse fine')
+    print('       where ant = antenna number or ''all'' ')
+    exit()
 
     filename = make_delayfile('.', sys.argv[1], sys.argv[2], sys.argv[3])
     print(filename)

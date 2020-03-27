@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a DRX file, plot the time series I and Q data as a function of time.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -99,15 +104,15 @@ def main(args):
     nChunks = int(math.ceil(1.0*(nFrames)/maxFrames))
 
     # File summary
-    print "Filename: %s" % args.filename
-    print "Beams: %i" % beams
-    print "Tune/Pols: %i %i %i %i" % tunepols
-    print "Sample Rate: %i Hz" % srate
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (args.skip, offset)
-    print "Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.plot_range, nFrames, nFrames / beampols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % args.filename)
+    print("Beams: %i" % beams)
+    print("Tune/Pols: %i %i %i %i" % tunepols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.plot_range, nFrames, nFrames / beampols))
+    print("Chunks: %i" % nChunks)
 
     # Sanity check
     if nFrames > (nFramesFile - offset):
@@ -133,14 +138,14 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
         tt = numpy.zeros((beampols,framesWork/beampols), dtype=numpy.int64) - 1
         data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
         
         # Inner loop that actually reads the frames into the data array
-        print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+        print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
         for j in xrange(framesWork):
@@ -150,7 +155,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1)
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1))
                 continue
                 
             beam,tune,pol = cFrame.id
@@ -172,7 +177,7 @@ def main(args):
 
         samples = int(oldAverage * srate)
         if toClip:
-            print "Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0)
+            print("Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0))
             
         sortedMapper = sorted(standMapper)
         for i in xrange(data.shape[0]):

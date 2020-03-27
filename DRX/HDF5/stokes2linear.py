@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given an HDF5 file with Stokes parameterss, calculate the linear polarization
 products and save the results to a new file.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -30,7 +35,7 @@ def _cloneStructure(input, output, level=0):
     for ent in list(input):
         ## Get the entity
         entity = input.get(ent, None)
-        print "%sCopying '%s'..." % (' '*level*2, ent)
+        print("%sCopying '%s'..." % (' '*level*2, ent))
         
         ## Is it a group?
         if type(entity).__name__ == 'Group':
@@ -49,7 +54,7 @@ def _cloneStructure(input, output, level=0):
                 
             else:
                 ### Don't copy the spectral data since we want to 'adjust' it
-                print "%sSpectral data - skipping" % (' '*(level+1)*2,)
+                print("%sSpectral data - skipping" % (' '*(level+1)*2,))
                 continue
                 
             ### Update the dataset attributes
@@ -108,7 +113,7 @@ def main(args):
     
     # Copy the basic structure
     _cloneStructure(hIn, hOut)
-    print " "
+    print(" ")
     
     # Loop over the observation sections
     for obsName in hIn.keys():
@@ -120,13 +125,13 @@ def main(args):
         LFFT = obsIn.attrs['LFFT']
         srate = obsIn.attrs['sample_rate']
         
-        print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
-        print "  Sample Rate: %.1f Hz" % srate
-        print "  LFFT: %i" % LFFT
-        print "  tInt: %.3f s" % tInt
+        print("Staring Observation #%i" % int(obsName.replace('Observation', '')))
+        print("  Sample Rate: %.1f Hz" % srate)
+        print("  LFFT: %i" % LFFT)
+        print("  tInt: %.3f s" % tInt)
         
         for tuning in (1, 2):
-            print "    Tuning %i" % tuning
+            print("    Tuning %i" % tuning)
             tuningIn = obsIn.get('Tuning%i' % tuning, None)
             tuningOut = obsOut.get('Tuning%i' % tuning, None)
             
@@ -145,7 +150,7 @@ def main(args):
                     
             if 'I' in data_products and 'Q' in data_products:
                 ## XX
-                print "      Computing 'XX'"
+                print("      Computing 'XX'")
                 tuningOut.create_dataset('XX', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
                 tuningOut['XX'][:] = (tuningIn['I'][:] + tuningIn['Q'])/2.0
                 
@@ -167,7 +172,7 @@ def main(args):
                         baseSKOut['XX'].attrs[key] = baseSKIn['I'].attrs[key]
                         
                 ## YY
-                print "      Computing 'YY'"
+                print("      Computing 'YY'")
                 tuningOut.create_dataset('YY', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
                 tuningOut['YY'][:] = (tuningIn['I'][:] - tuningIn['Q'])/2.0
                 
@@ -190,7 +195,7 @@ def main(args):
                         
             if 'U' in data_products and 'V' in data_products:
                 ## XY
-                print "      Computing 'XY'"
+                print("      Computing 'XY'")
                 tuningOut.create_dataset('XY', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
                 tuningOut['XY'][:] = (tuningIn['U'][:] + tuningIn['V'])/2.0
                 
@@ -212,7 +217,7 @@ def main(args):
                         baseSKOut['XY'].attrs[key] = baseSKIn['U'].attrs[key]
                         
                 ## YX
-                print "      Computing 'YX'"
+                print("      Computing 'YX'")
                 tuningOut.create_dataset('YX', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
                 tuningOut['YX'][:] = (tuningIn['U'][:] - tuningIn['V'])/2.0
                 

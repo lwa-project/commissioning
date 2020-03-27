@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 splitObservations.py - Read in a DRX/HDF5 watefall file and split out various 
@@ -12,6 +11,12 @@ Usage:
 ./splitObservations.py [OPTIONS] file
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -34,12 +39,12 @@ def main(args):
             LFFT = obs.attrs['LFFT']
             srate = obs.attrs['sample_rate']
             
-            print "Observation #%i" % int(obsName.replace('Observation', ''))
-            print "  Target: %s" % target
-            print "  Mode: %s" % mode
-            print "  Sample Rate: %.1f Hz" % srate
-            print "  LFFT: %i" % LFFT
-            print "  tInt: %.3f s" % tInt
+            print("Observation #%i" % int(obsName.replace('Observation', '')))
+            print("  Target: %s" % target)
+            print("  Mode: %s" % mode)
+            print("  Sample Rate: %.1f Hz" % srate)
+            print("  LFFT: %i" % LFFT)
+            print("  tInt: %.3f s" % tInt)
             
     else:
         if args.source:
@@ -69,7 +74,7 @@ def main(args):
                     if yn not in ('n', 'N'):
                         os.unlink(outname)
                     else:
-                        print "WARNING: output file '%s' already exists, skipping" % outname
+                        print("WARNING: output file '%s' already exists, skipping" % outname)
                         continue
                         
                 hOut = h5py.File(outname, mode='a')
@@ -98,7 +103,7 @@ def main(args):
                     if yn not in ('n', 'N'):
                         os.unlink(outname)
                     else:
-                        print "WARNING: output file '%s' already exists, skipping" % outname
+                        print("WARNING: output file '%s' already exists, skipping" % outname)
                         continue
                         
                 hOut = h5py.File(outname, 'a')

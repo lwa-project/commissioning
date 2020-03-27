@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Check the time times in a DR spectrometer file for flow.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -86,27 +91,27 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % beginDate
-    print "Beam: %i" % beam
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
-    print "Data Products: %s" % ','.join(data_products)
-    print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
-    print "---"
-    print "Transform Length: %i" % LFFT
-    print "Integration: %.3f s" % tInt
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % beginDate)
+    print("Beam: %i" % beam)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
+    print("Data Products: %s" % ','.join(data_products))
+    print("Frames: %i (%.3f s)" % (nFrames, nFrames*tInt))
+    print("---")
+    print("Transform Length: %i" % LFFT)
+    print("Integration: %.3f s" % tInt)
     
     for i in xrange(nChunks):
         frame = drspec.read_frame(fh)
         
         cTime = frame.get_time()
         if i % 1000 == 0:
-            print "Frame %i: %s" % (i, datetime.utcfromtimestamp(cTime))		
+            print("Frame %i: %s" % (i, datetime.utcfromtimestamp(cTime))		)
             
         try:
             if cTime > oTime + 1.001*tInt:
-                print 'Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, cTime, oTime, tInt)
+                print('Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, cTime, oTime, tInt))
         except NameError:
             pass
         oTime = frame.get_time()
@@ -115,9 +120,9 @@ def main(args):
         cFreq2 = frame.get_central_freq(2)
         try:
             if cFreq1 != oFreq1:
-                print 'Warning: Tuning 1 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq1, oFreq1)
+                print('Warning: Tuning 1 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq1, oFreq1))
             if cFreq2 != oFreq2:
-                print 'Warning: Tuning 2 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq2, oFreq2)
+                print('Warning: Tuning 2 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq2, oFreq2))
         except NameError:
             pass
         oFreq1 = frame.get_central_freq(1)

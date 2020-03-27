@@ -1,11 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Small script to read in a DR spectrometer binary data file and create a HDF5 in 
 the image of hdfWaterfall.py that can be plotted with plotHDF.py
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    
 import os
 import sys
 import h5py
@@ -47,7 +53,7 @@ def main(args):
     # Interrogate the file to figure out what frames sizes to expect, now many 
     # frames there are, and what the transform length is
     FRAME_SIZE = drspec.get_frame_size(fh)
-    nFrames = os.path.getsize(args.filename) / FRAME_SIZE
+    nFrames = os.path.getsize(args.filename) // FRAME_SIZE
     nChunks = nFrames
     LFFT = drspec.get_transform_size(fh)
 
@@ -90,7 +96,7 @@ def main(args):
         
     # Update the offset actually used
     args.skip = t1 - t0
-    nChunks = (os.path.getsize(args.filename) - fh.tell()) / FRAME_SIZE
+    nChunks = (os.path.getsize(args.filename) - fh.tell()) // FRAME_SIZE
     
     # Update the file contents
     beam = junkFrame.id
@@ -103,21 +109,21 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
-    print "Filename: %s" % args.filename
+    print("Filename: %s" % args.filename)
     if args.metadata is not None:
-        print "Metadata: %s" % args.metadata
+        print("Metadata: %s" % args.metadata)
     elif args.sdf is not None:
-        print "SDF: %s" % args.sdf
-    print "Date of First Frame: %s" % beginDate
-    print "Beam: %i" % beam
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
-    print "Data Products: %s" % ','.join(data_products)
-    print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (args.skip, offset)
-    print "Transform Length: %i" % LFFT
-    print "Integration: %.3f s" % tInt
+        print("SDF: %s" % args.sdf)
+    print("Date of First Frame: %s" % beginDate)
+    print("Beam: %i" % beam)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
+    print("Data Products: %s" % ','.join(data_products))
+    print("Frames: %i (%.3f s)" % (nFrames, nFrames*tInt))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Transform Length: %i" % LFFT)
+    print("Integration: %.3f s" % tInt)
     
     # Setup the output file
     outname = os.path.split(args.filename)[1]
@@ -232,7 +238,7 @@ def main(args):
             except KeyError:
                 sys.stdout.write('%s\r' % (' '*pbar.span))
                 sys.stdout.flush()
-                print "End of observing block according to SDF, exiting"
+                print("End of observing block according to SDF, exiting")
                 break
                 
         if cTime < obsList[o][0]:
@@ -241,7 +247,7 @@ def main(args):
             
         try:
             if frame.get_time() > oTime + 1.001*tInt:
-                print 'Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, frame.get_time(), oTime, tInt)
+                print('Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, frame.get_time(), oTime, tInt))
         except NameError:
             pass
         oTime = frame.get_time()
@@ -258,10 +264,10 @@ def main(args):
             
             sys.stdout.write('%s\r' % (' '*pbar.span))
             sys.stdout.flush()
-            print "Switching to Obs. #%i" % o
-            print "-> Tunings: %.1f Hz, %.1f Hz" % (central_freq1, central_freq2)
-            print "-> Sample Rate: %.1f Hz" % srate
-            print "-> Integration Time: %.3f s" % tInt
+            print("Switching to Obs. #%i" % o)
+            print("-> Tunings: %.1f Hz, %.1f Hz" % (central_freq1, central_freq2))
+            print("-> Sample Rate: %.1f Hz" % srate)
+            print("-> Integration Time: %.3f s" % tInt)
             sys.stdout.write(pbar.show()+'\r')
             sys.stdout.flush()
             

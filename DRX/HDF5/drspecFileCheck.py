@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Run through a DR spectrometer file and determine if it is bad or not.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -52,16 +57,16 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % beginDate
-    print "Beam: %i" % beam
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
-    print "Data Products: %s" % ','.join(data_products)
-    print "Frames: %i (%.3f s)" % (nFrames, nFrames*tInt)
-    print "---"
-    print "Transform Length: %i" % LFFT
-    print "Integration: %.3f s" % tInt
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % beginDate)
+    print("Beam: %i" % beam)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
+    print("Data Products: %s" % ','.join(data_products))
+    print("Frames: %i (%.3f s)" % (nFrames, nFrames*tInt))
+    print("---")
+    print("Transform Length: %i" % LFFT)
+    print("Integration: %.3f s" % tInt)
     
     # Convert chunk length to total frame count
     chunkLength = int(args.length / tInt)
@@ -76,14 +81,14 @@ def main(args):
     # Go!
     i = 1
     done = False
-    print "   |%sClipping%s |%sPower %s |" % (" "*(8*len(data_products)-4), " "*(8*len(data_products)-4), " "*(6*len(data_products)-3), " "*(6*len(data_products)-3))
+    print("   |%sClipping%s |%sPower %s |" % (" "*(8*len(data_products)-4), " "*(8*len(data_products)-4), " "*(6*len(data_products)-3), " "*(6*len(data_products)-3)))
     out = "   |      1X      1Y      2X      2Y |"
     for t in (1, 2):
         for dp in data_products:
             out += "%6s" % ("%i%s" % (t, dp))
     out += " |"
-    print out
-    print "-"*len(out)
+    print(out)
+    print("-"*len(out))
     
     while True:
         count = {0:0, 1:0, 2:0, 3:0}
@@ -120,7 +125,7 @@ def main(args):
                 for p in xrange(len(data_products)):
                     out += " %5.2f" % (power[len(data_products)*(t-1)+p],)
             out += " |"
-            print out
+            print(out)
         
             i += 1
             fh.seek(FRAME_SIZE*chunkSkip, 1)
@@ -131,13 +136,13 @@ def main(args):
     clip = clipFraction.mean(axis=0)
     power = meanPower.mean(axis=0)
     
-    print "-"*len(out)
+    print("-"*len(out))
     out = "%2s | %6.2f%% %6.2f%% %6.2f%% %6.2f%% |" % ('M', clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0)
     for t in (1, 2):
         for p in xrange(len(data_products)):
             out += " %5.2f" % (power[len(data_products)*(t-1)+p],)
     out += " |"
-    print out
+    print(out)
 
 
 if __name__ == "__main__":

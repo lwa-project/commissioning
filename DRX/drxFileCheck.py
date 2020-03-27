@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Run through a DRX file and determine if it is bad or not.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -53,13 +58,13 @@ def main(args):
     fh.seek(-32*drx.FRAME_SIZE, 1)
     
     # Report on the file
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Beam: %i" % beam
-    print "Tune/Pols: %i" % tunepols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
-    print " "
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Beam: %i" % beam)
+    print("Tune/Pols: %i" % tunepols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
+    print(" ")
     
     # Convert chunk length to total frame count
     chunkLength = int(args.length * srate / 4096 * tunepols)
@@ -76,9 +81,9 @@ def main(args):
     # Go!
     i = 1
     done = False
-    print "   |           Clipping              |          Power          |"
-    print "   |      1X      1Y      2X      2Y |    1X    1Y    2X    2Y |"
-    print "---+---------------------------------+-------------------------+"
+    print("   |           Clipping              |          Power          |")
+    print("   |      1X      1Y      2X      2Y |    1X    1Y    2X    2Y |")
+    print("---+---------------------------------+-------------------------+")
     
     while True:
         count = {0:0, 1:0, 2:0, 3:0}
@@ -119,7 +124,7 @@ def main(args):
             
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print "%2i | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % (i, clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3])
+            print("%2i | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % (i, clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3]))
         
             i += 1
             fh.seek(drx.FRAME_SIZE*chunkSkip, 1)
@@ -130,8 +135,8 @@ def main(args):
     clip = clipFraction.mean(axis=0)
     power = meanPower.mean(axis=0)
     
-    print "---+---------------------------------+-------------------------+"
-    print "%2s | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % ('M', clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3])
+    print("---+---------------------------------+-------------------------+")
+    print("%2s | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % ('M', clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3]))
 
 
 if __name__ == "__main__":
