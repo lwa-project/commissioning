@@ -1450,7 +1450,7 @@ class Waterfall_GUI(object):
                             
                             self.draw()
                             self.drawSpectrum(self.spectrumClick, fit=fit, fitLabel='Alpha: %.3f' % coeff[0])
-                        except Exception, e:
+                        except Exception as e:
                             pass
                             
                         self._keyPressCache = []
@@ -3053,7 +3053,7 @@ class TimeRangeAdjust(wx.Frame):
                 self.parent.edited = False
                 self.parent.setSaveButton()
                 
-        except Exception, e:
+        except Exception as e:
             print("ERROR: %s" % str(e))
         else:
             self.Close()
@@ -3134,7 +3134,7 @@ class SwitchObservation(wx.Frame):
                 self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename), obsID=newID)
                 self.parent.data.render()
                 self.parent.data.draw()
-        except Exception, e:
+        except Exception as e:
             print("ERROR: %s" % str(e))
         else:
             self.Close()

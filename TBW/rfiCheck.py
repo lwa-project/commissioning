@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Script to take a single TBW capture and create a RFI-centered HDF5 file for stands 1, 10, 54, 
@@ -8,6 +7,12 @@ center, and the outlier.  The HDF5 contains values for the spectral kurtosis est
 the data and various statistics about the timeseries (mean, std. dev., percentiles, etc.)
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -74,7 +79,7 @@ def main(args):
             if ant.stand.id == g and ant.pol == 0:
                 toKeep.append(i)
     for i,j in enumerate(toKeep):
-        print i, j, antennas[j].stand.id
+        print(i, j, antennas[j].stand.id)
 
     # Length of the FFT
     LFFT = args.fft_length
@@ -89,7 +94,7 @@ def main(args):
     maxFrames = (30000*260)
 
     fh = open(args.filename, "rb")
-    nFrames = os.path.getsize(args.filename) / tbw.FRAME_SIZE
+    nFrames = os.path.getsize(args.filename) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -108,13 +113,13 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
 
@@ -136,7 +141,7 @@ def main(args):
             junkFrame = tbw.read_frame(fh)
         i += 1
     fh.seek(-tbw.FRAME_SIZE, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
 
     # Master loop over all of the file chunks
     masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
@@ -149,7 +154,7 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
         data = numpy.zeros((12, 12000000), dtype=numpy.int16)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
@@ -163,7 +168,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1))
                 continue
             if not cFrame.header.is_tbw:
                 continue
@@ -173,7 +178,7 @@ def main(args):
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
             #if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
-                #print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
+                #print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
@@ -208,7 +213,7 @@ def main(args):
         
         # Cleanup to save memory
         del validF, data
-        print signalsF.shape
+        print(signalsF.shape)
         
         # SK control values
         skM = signalsF.shape[2]
@@ -220,7 +225,7 @@ def main(args):
             for m in xrange(freq.size):
                 k[l,m] = kurtosis.spectral_fft(signalsF[l,m,:])
         kl, kh = kurtosis.get_limits(4, skM, skN)
-        print kl, kh
+        print(kl, kh)
         
         # Integrate the spectra for as long as we can
         masterSpectra = (numpy.abs(signalsF)**2).mean(axis=2)

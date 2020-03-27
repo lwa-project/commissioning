@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBN file, plot the time series I and Q data as a function of time.
@@ -8,6 +7,12 @@ Given a TBN file, plot the time series I and Q data as a function of time.
     This version is for data from the current prototype system.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -26,7 +31,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-    print """tbnTimeseries.py - Read in TBN files created by the prototype
+    print("""tbnTimeseries.py - Read in TBN files created by the prototype
 system at the north arm  and create a collection of timeseries 
 (I/Q) plots.
 
@@ -43,8 +48,8 @@ Options:
 -i, --instantaneous-power   Plot I*I + Q*Q instead of the raw samples
 -q, --quiet                 Run tbnTimeseries in silent mode
 -o, --output                Output file name for time series image
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -66,9 +71,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hqo:s:p:k:i", ["help", "quiet", "output=", "skip=", "plot-range=", "keep=", "instantaneous-power"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -112,7 +117,7 @@ def main(args):
             antennas.append(a)
             
     fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / tbn.FRAME_SIZE
+    nFramesFile = os.path.getsize(config['args'][0]) // tbn.FRAME_SIZE
     srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
 
@@ -134,7 +139,7 @@ def main(args):
         if config['average'] < 512/srate:
             config['average'] = 512/srate
     nFrames = int(round(config['average'] * srate / 512 * antpols))
-    print config['average'], nFrames
+    print(config['average'], nFrames)
     nFrames = int(1.0 * nFrames / antpols) * antpols
     config['average'] = 1.0 * nFrames / antpols * 512 / srate
 
@@ -149,16 +154,16 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % central_freq
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-    print "Plot time: %.3f s (%i frames; %i frames per ant)" % (config['average'], nFrames, nFrames / antpols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % config['args'][0])
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz" % central_freq)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
+    print("Plot time: %.3f s (%i frames; %i frames per ant)" % (config['average'], nFrames, nFrames // antpols))
+    print("Chunks: %i" % nChunks)
 
     # Sanity check
     if offset > nFramesFile:
@@ -167,7 +172,7 @@ def main(args):
         raise RuntimeError("Requested integration time+offset is greater than file length")
 
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
+    buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
 
     # Master loop over all of the file chunks
     k = 0
@@ -179,18 +184,18 @@ def main(args):
         framesRemaining = nFrames - k
         if framesRemaining > maxFrames:
             framesWork = maxFrames
-            data = numpy.zeros((antpols, framesWork*512/antpols), dtype=numpy.csingle)
+            data = numpy.zeros((antpols, framesWork*512//antpols), dtype=numpy.csingle)
         else:
             framesWork = framesRemaining + antpols*buffer.nsegments
-            data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.csingle)
+            data = numpy.zeros((antpols, framesWork//antpols*512), dtype=numpy.csingle)
             framesWork = framesRemaining
-            print "Padding from %i to %i frames" % (framesRemaining, framesWork)
-        print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
+            print("Padding from %i to %i frames" % (framesRemaining, framesWork))
+        print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = [0 for a in xrange(len(antennas))]
         
         j = 0
-        fillsWork = framesWork / antpols
+        fillsWork = framesWork // antpols
         # Inner loop that actually reads the frames into the data array
         while j < fillsWork:
             try:
@@ -199,7 +204,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1)
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
                 continue
                     
             buffer.append(cFrame)
@@ -208,9 +213,9 @@ def main(args):
             if cFrames is None:
                 continue
             
-            valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
+            valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
             if valid != antpols:
-                print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
+                print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
                 
             for cFrame in cFrames:
                 stand,pol = cFrame.header.id
@@ -228,9 +233,9 @@ def main(args):
     # Empty the remaining portion of the buffer and integrate what's left
     for cFrames in buffer.flush():
         # Inner loop that actually reads the frames into the data array
-        valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
+        valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
         if valid != antpols:
-            print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100)
+            print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
         
         for cFrame in cFrames:
             stand,pol = cFrame.header.id
@@ -244,7 +249,7 @@ def main(args):
     
     samples = int(round(oldAverage * srate))
     if toClip:
-        print "Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0)
+        print("Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0))
 
     # Deal with the `keep` options
     if config['keep'] is None:

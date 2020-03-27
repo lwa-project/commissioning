@@ -45,30 +45,28 @@ def make_delayfile(path, ant, coarse, fine):
     
 # take a list of delay values in ns and convert to dfile    
 def list2delayfile(path, filename, dlylist):
-   # convert from delay in ns to delay in fine samples
-   # fine samples have a period of 1/(196000000 * 16) seconds
-   finedelay_period = (1.0/(196000000*16.0)) * 1e9
+    # convert from delay in ns to delay in fine samples
+    # fine samples have a period of 1/(196000000 * 16) seconds
+    finedelay_period = (1.0/(196000000*16.0)) * 1e9
 
-   coarselist = []
-   finelist = []
-   fsamplelist = [0]*520
-   for i in range(520):
-      fsamplelist[i] = round(dlylist[i]/finedelay_period)
-      coarse = fsamplelist[i] // 16
-      fine   = fsamplelist[i] % 16
-      if coarse > 1023:
-         print("Warning: Coarse delay greater than 1023")
-      coarselist.append(int(coarse))
-      finelist.append(int(fine))
-   df_filename = filename + '.df'
-   dft_filename = df_filename+'t'
-   file = open(path + '/' + dft_filename, 'w')      
-   for i in range(520):
-      print(>> file, coarselist[i], finelist[i])
-   return [dft_filename,df_filename]   
-    
-     
-
+    coarselist = []
+    finelist = []
+    fsamplelist = [0]*520
+    for i in range(520):
+        fsamplelist[i] = round(dlylist[i]/finedelay_period)
+        coarse = fsamplelist[i] // 16
+        fine   = fsamplelist[i] % 16
+        if coarse > 1023:
+            print("Warning: Coarse delay greater than 1023")
+        coarselist.append(int(coarse))
+        finelist.append(int(fine))
+    df_filename = filename + '.df'
+    dft_filename = df_filename+'t'
+    file = open(path + '/' + dft_filename, 'w')      
+    for i in range(520):
+        file.write("%s %s\n" % (coarselist[i], finelist[i]))
+    file.close()
+    return [dft_filename,df_filename]   
 
 ########################################################
 ########################################################

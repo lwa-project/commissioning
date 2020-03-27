@@ -46,23 +46,24 @@ def make_gainfile(path,stand, xx, xy, yx, yy):
 
 #take a list of gain values  and convert to gfile    
 def list2gainfile(path, filename, gainlist):
-   gainlist_len = len(gainlist)
-   if gainlist_len < 260:
-      print('Gain list does not cover all 260 stands')
-      # build list up to 260
-      for i in range(260 - gainlist_len):
-         gainlist.append([0,0,0,0])    
-   for i in range(260):
-      if len(gainlist[i]) != 4:
-         print('stand %d does not have all four gain values')
-         gainlist[i] = [0,0,0,0]
-   gf_filename = filename + '.gf'
-   gft_filename = gf_filename+'t'
-   file = open(path + '/' + gft_filename, 'w')      
-   for i in range(260):
-      print(>> file, gainlist[i][0], gainlist[i][1], gainlist[i][2], gainlist[i][3])
-   return [gft_filename,gf_filename]   
-   return  1          
+    gainlist_len = len(gainlist)
+    if gainlist_len < 260:
+        print('Gain list does not cover all 260 stands')
+        # build list up to 260
+        for i in range(260 - gainlist_len):
+            gainlist.append([0,0,0,0])    
+    for i in range(260):
+        if len(gainlist[i]) != 4:
+            print('stand %d does not have all four gain values')
+            gainlist[i] = [0,0,0,0]
+    gf_filename = filename + '.gf'
+    gft_filename = gf_filename+'t'
+    file = open(path + '/' + gft_filename, 'w')      
+    for i in range(260):
+        file.write("%s %s %s %s\n" % (gainlist[i][0], gainlist[i][1], gainlist[i][2], gainlist[i][3]))
+    file.close()
+    return [gft_filename,gf_filename]   
+    return  1          
 
 ########################################################
 ########################################################

@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Display NPZ data from stationMaster in an interactive GUI sort of way.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -288,7 +293,7 @@ class TBW_GUI(object):
                 specDiff[i] = junk.std()
                 specDiff[i] = 17 - int(self.antennas[i].arx.aspChannel % 16) + 1
                 specDiff[i] *= self.antennas[i].cable.length / 10.0
-                print i, specDiff[i]
+                print(i, specDiff[i])
                 
             cbTitle = 'Wiggle Index'
         elif self.color == 5:

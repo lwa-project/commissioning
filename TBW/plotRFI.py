@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Plot the output of rfiCheck.py.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -22,19 +27,19 @@ def main(args):
     h = h5py.File(filename, 'r')
     tStart = datetime.utcfromtimestamp(h.attrs['startTime'])
     
-    print "Filename: %s" % filename
-    print "Date: %s" % tStart
+    print("Filename: %s" % filename)
+    print("Date: %s" % tStart)
     
-    print "Groups Found:"
+    print("Groups Found:")
     stands = list(h)
     for s in stands:
         sn = int(s[-3:])
-        print "  #%i" % sn
-    print " "
+        print("  #%i" % sn)
+    print(" ")
     
     for s in stands:
         sn = int(s[-3:])
-        print "Stand #%i" % sn
+        print("Stand #%i" % sn)
         
         stand = h.get(s, None)
         polX = stand.get('X', None)
@@ -50,16 +55,16 @@ def main(args):
         t90X   = polX.attrs['ts90']
         t90Y   = polY.attrs['ts90']
         
-        print "  X Pol. Timeseries Statistics"
-        print "    Mean:          %.3f" % tMeanX
-        print "    Std. Dev.:     %.3f" % tStdX
-        print "    Saturation:    %i" % tSatX
-        print "    90-percentile: %i" % t90X 
-        print "  Y Pol. Timeseries Statistics"
-        print "    Mean:          %.3f" % tMeanY
-        print "    Std. Dev.:     %.3f" % tStdY
-        print "    Saturation:    %i" % tSatY
-        print "    90-percentile: %i" % t90Y
+        print("  X Pol. Timeseries Statistics")
+        print("    Mean:          %.3f" % tMeanX)
+        print("    Std. Dev.:     %.3f" % tStdX)
+        print("    Saturation:    %i" % tSatX)
+        print("    90-percentile: %i" % t90X )
+        print("  Y Pol. Timeseries Statistics")
+        print("    Mean:          %.3f" % tMeanY)
+        print("    Std. Dev.:     %.3f" % tStdY)
+        print("    Saturation:    %i" % tSatY)
+        print("    90-percentile: %i" % t90Y)
         
         # Get frequency
         freq = numpy.zeros(stand['freq'].shape, dtype=stand['freq'].dtype)
@@ -104,7 +109,7 @@ def main(args):
         ax2.legend(handles[:-1], labels[:-1], loc=0)
         
         fig.suptitle('Stand #%i' % sn)
-        print " "
+        print(" ")
     
     plt.show()
 

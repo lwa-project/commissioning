@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBW file, check the time tags.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -25,7 +30,7 @@ def main(args):
     antennas = station.antennas
 
     fh = open(args.filename, "rb")
-    nFrames = os.path.getsize(args.filename) / tbw.FRAME_SIZE
+    nFrames = os.path.getsize(args.filename) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -44,13 +49,13 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
 
@@ -72,7 +77,7 @@ def main(args):
             junkFrame = tbw.read_frame(fh)
         i += 1
     fh.seek(-tbw.FRAME_SIZE, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
 
     # Master loop over all of the file chunks
     timetags = numpy.zeros((antpols, 30000), dtype=numpy.int64) - 1
@@ -85,7 +90,7 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = nFrames
-        print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
         # Inner loop that actually reads the frames into the data array
         for j in range(framesWork):
@@ -95,7 +100,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
+                print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1))
                 continue
             if not cFrame.header.is_tbw:
                 continue
@@ -105,7 +110,7 @@ def main(args):
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
             if cFrame.header.frame_count % 10000 == 0:
-                print "%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frame_count, cFrame.data.timetag)
+                print("%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frame_count, cFrame.data.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
@@ -117,17 +122,17 @@ def main(args):
     missing = numpy.where( timetags < 0 )
     if len(missing) != 0:
         dp1Boards = {}
-        print "Found %i missing frames (%i missing time tags).  Missing data from:" % (len(missing[0])/2, len(missing[0]))
+        print("Found %i missing frames (%i missing time tags).  Missing data from:" % (len(missing[0])/2, len(missing[0])))
         for i,f in zip(missing[0], missing[1]):
             try:
                 dp1Boards[antennas[i].board] += 1
             except KeyError:
                 dp1Boards[antennas[i].board] = 1
 
-            print "  stand %3i, pol. %1i (dig. %3i) @ frame %5i" % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer, f+1)
-        print "-> DP1 boards with missing frames:"
+            print("  stand %3i, pol. %1i (dig. %3i) @ frame %5i" % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer, f+1))
+        print("-> DP1 boards with missing frames:")
         for k,v in dp1Boards.iteritems():
-            print "   %2i %6i (%7.3f%%)" % (k, v, 100.0*v/(30000*10))
+            print("   %2i %6i (%7.3f%%)" % (k, v, 100.0*v/(30000*10)))
 
     # Check time tags to make sure every ant/pol as the same time as each frame
     for f in xrange(timetags.shape[1]):
@@ -141,8 +146,8 @@ def main(args):
 
         ## Report any errors
         for m in missing:
-            print "ERROR: t.t. %i @ frame %i != frame median of %i" % (timetags[m,f], f+1, frameTime)
-            print "       -> difference: %i" % (timetags[m,f]-frameTime,)
+            print("ERROR: t.t. %i @ frame %i != frame median of %i" % (timetags[m,f], f+1, frameTime))
+            print("       -> difference: %i" % (timetags[m,f]-frameTime,))
 
     # Check time tags to make sure the times increment correctly between frames
     for i in xrange(timetags.shape[0]):
@@ -155,12 +160,12 @@ def main(args):
             ## is a discrepancy between the two modulo the expected skip.
             if timetags[i,f] > (timetags[i,f-1] + nSamples):
                 ## Too far into the future
-                print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f)
-                print "       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],)
+                print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f))
+                print("       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],))
             elif timetags[i,f] < (timetags[i,f-1] + nSamples):
                 ## Not far enough into the future
-                print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f)
-                print "       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],)
+                print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f))
+                print("       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],))
             else:
                 ## Everything is good if we make it here
                 pass

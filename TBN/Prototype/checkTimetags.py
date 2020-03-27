@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Check the time tags in a TBN file from the prototype system at the
 north arm.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -23,7 +28,7 @@ def main(args):
     # rate, estimate how the time tag should advance between frames.
     junkFrame = tbn.read_frame(fh)
     sample_rate = tbn.get_sample_rate(fh)
-    tagSkip = fS / sample_rate * junkFrame.payload.data.shape[0]
+    tagSkip = fS // sample_rate * junkFrame.payload.data.shape[0]
     fh.seek(0)
 
     # Store the information about the first frame and convert the timetag to 
@@ -33,10 +38,10 @@ def main(args):
     prevFrame = junkFrame.header.frame_count
 
     # Report on the file
-    print "Filename: %s" % os.path.basename(args[0])
-    print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "Sample rate: %i Hz" % sample_rate
-    print "Time tag skip per frame: %i" % tagSkip
+    print("Filename: %s" % os.path.basename(args[0]))
+    print("Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
+    print("Sample rate: %i Hz" % sample_rate)
+    print("Time tag skip per frame: %i" % tagSkip)
 
     k = 0
     while True:
@@ -55,14 +60,14 @@ def main(args):
         currFrame = currFrame.header.frame_count
 
         if k == 0 or (currFrame % 5000 == 0 and stand == 1 and pol == 0):
-            print "At stand %i, pol %i:  frame %i -> %s" % (stand, pol, currFrame, currDate)
+            print("At stand %i, pol %i:  frame %i -> %s" % (stand, pol, currFrame, currDate))
 
         if currTime < prevTime:
-            print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currFrame, prevTime, prevFrame)
-            print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate))
+            print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i" % (currTime, currFrame, prevTime, prevFrame))
+            print("       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate)))
         if (currTime-prevTime) > tagSkip:
-            print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currFrame, prevTime, prevFrame)
-            print "       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate))
+            print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currFrame, prevTime, prevFrame))
+            print("       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate)))
         
         prevTime = currTime
         prevFrame = currFrame

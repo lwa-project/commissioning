@@ -10,6 +10,7 @@ from __future__ import print_function, division
 import sys
 if sys.version_info > (3,):
     xrange = range
+    raw_input = input
     
 import os
 import sys
@@ -497,7 +498,7 @@ def main(args):
     for o in sorted(obsList.keys()):
         try:
             processDataBatch(idf, antennas, obsList[o][0], obsList[o][2], obsList[o][3], args, ds, obsID=o, clip1=clip1, clip2=clip2)
-        except RuntimeError, e:
+        except RuntimeError as e:
             print("Observation #%i: %s, abandoning this observation" % (o, str(e)))
 
     # Save the output to a HDF5 file

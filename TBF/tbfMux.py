@@ -43,7 +43,7 @@ class RawTBFFrame(object):
         
     @property
     def timetag(self):
-        timetag = 0L
+        timetag = 0
         timetag |= self.contents[16] << 56
         timetag |= self.contents[17] << 48
         timetag |= self.contents[18] << 40

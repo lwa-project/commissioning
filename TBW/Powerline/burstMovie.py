@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBW file, look for the weird RFI bursts that we have been seeing.  The
 bursts are likely 'microsparking' from the powerline.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -25,7 +30,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-    print """burstMovie.py - Read in TBW files and create a NPZ file of raw time 
+    print("""burstMovie.py - Read in TBW files and create a NPZ file of raw time 
 data centered around saturation events.
 
 Usage: burstMovie.py [OPTIONS] file
@@ -37,8 +42,8 @@ Options:
 -t, --threshold             Minimum digitizer value to consider a burst 
                             (default = 2000)
 -n, --no-movie              Do not create movie frames (burst-*.png)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -58,9 +63,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:qt:n", ["help", "metadata=", "quiet", "threshold=", "no-movie"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -106,7 +111,7 @@ def main(args):
     maxFrames = config['maxFrames']
 
     fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbw.FRAME_SIZE
+    nFrames = os.path.getsize(config['args'][0]) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -124,13 +129,13 @@ def main(args):
     beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % config['args'][0])
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
 
@@ -152,7 +157,7 @@ def main(args):
             junkFrame = tbw.read_frame(fh)
         i += 1
     fh.seek(-tbw.FRAME_SIZE, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
 
     # Master loop over all of the file chunks
     for i in range(nChunks):
@@ -164,7 +169,7 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
         #
         # NOTE
@@ -182,7 +187,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
+                print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())//tbw.FRAME_SIZE-1))
                 continue
             if not cFrame.header.is_tbw:
                     continue
@@ -196,7 +201,7 @@ def main(args):
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
             if cFrame.header.frame_count % 5000 == 0 and config['verbose']:
-                print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag)
+                print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
@@ -244,7 +249,7 @@ def main(args):
                     break
             else:
                 first += 1
-        print "Second burst at %i" % first
+        print("Second burst at %i" % first)
         
         # Keep only what would be interesting (200 samples before and 2,800 samples
         # afterward) around the burst.  This corresponds to a time range from 1 
@@ -259,7 +264,7 @@ def main(args):
         # Make the movie (if needed)
         if config['movie']:
             if config['verbose']:
-                print "Creating movie frames"
+                print("Creating movie frames")
                 pb = ProgressBar(max=alignedData.shape[1]/2)
             else:
                 pb = None
@@ -315,7 +320,7 @@ def main(args):
                 sys.stdout.flush()
             
             if config['verbose']:
-                print "Creating movie"
+                print("Creating movie")
             os.system("mencoder mf://burst-*.png -mf fps=20:type=png -ovc lavc -lavcopts vcodec=mpeg4:aspect=2/1 -o %s-burst.avi -ffourcc DX50 -vf scale=600:1200,expand=600:1200" % shortname)
 
 

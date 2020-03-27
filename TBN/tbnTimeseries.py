@@ -133,7 +133,7 @@ def main(args):
             if cFrames is None:
                 continue
             
-            valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
+            valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
             if valid != antpols:
                 print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
                 
@@ -153,7 +153,7 @@ def main(args):
     # Empty the remaining portion of the buffer and integrate what's left
     for cFrames in buffer.flush():
         # Inner loop that actually reads the frames into the data array
-        valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
+        valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
         if valid != antpols:
             print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
         

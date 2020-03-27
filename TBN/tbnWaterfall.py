@@ -463,7 +463,7 @@ def main(args):
     for o in sorted(obsList.keys()):
         try:
             process_data(idf, antennas, obsList[o][0], obsList[o][2], obsList[o][3], args, ds, obsID=o, clip1=clip1)
-        except RuntimeError, e:
+        except RuntimeError as e:
             print("Observation #%i: %s, abandoning this observation" % (o, str(e)))
 
     # Save the output to a HDF5 file

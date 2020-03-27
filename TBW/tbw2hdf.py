@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Export select stands from a TBW file to HDF5.
@@ -8,6 +7,12 @@ Usage:
 ./tbw2hdf.py <TBW_filename> <stand_ID> [<stand_ID> [...]]
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -27,7 +32,7 @@ def main(args):
     antennas = lwa1.antennas
     
     fh = open(filename, "rb")
-    nFrames = os.path.getsize(filename) / tbw.FRAME_SIZE
+    nFrames = os.path.getsize(filename) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -51,15 +56,15 @@ def main(args):
             toKeep.append( a.digitizer )
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "==="
-    print "Keeping Stands:"
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("===")
+    print("Keeping Stands:")
     for a in toKeep:
-        print " Stand #%3i, pol %i (digitizer %3i)" % (antennas[a-1].stand.id, antennas[a-1].pol, antennas[a-1].digitizer)
+        print(" Stand #%3i, pol %i (digitizer %3i)" % (antennas[a-1].stand.id, antennas[a-1].pol, antennas[a-1].digitizer))
 
     # Skip over any non-TBW frames at the beginning of the file
     i = 0
@@ -79,7 +84,7 @@ def main(args):
             junkFrame = tbw.read_frame(fh)
         i += 1
     fh.seek(-tbw.FRAME_SIZE, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
     
     # Create the HDF5 file
     outname = os.path.splitext(filename)[0]
@@ -143,7 +148,7 @@ def main(args):
         except errors.EOFError:
             break
         except errors.SyncError:
-            print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1)
+            print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1))
             continue
         if not cFrame.header.is_tbw:
             continue

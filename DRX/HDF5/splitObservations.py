@@ -16,6 +16,7 @@ from __future__ import print_function, division
 import sys
 if sys.version_info > (3,):
     xrange = range
+    raw_input = input
     
 import os
 import sys
@@ -60,7 +61,8 @@ def main(args):
                     sources[obs.attrs['TargetName']] = [obsID,]
                     
             # Loop over those sources and create a new HDF5 file for each
-            for source,obsIDs in sources.iteritems():
+            for source in sources.keys():
+                obsIDs = sources[source]
                 outname = os.path.split(args.filename)[1]
                 outname = os.path.splitext(outname)[0]
                 outname = "%s-%s.hdf5" % (outname, source.replace(' ', '').replace('/','').replace('&','and'))

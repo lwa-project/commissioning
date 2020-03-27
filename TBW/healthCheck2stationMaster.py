@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a binary TBW health check file from PASI/LASI, covnert the data into a 
@@ -7,12 +6,21 @@ Given a binary TBW health check file from PASI/LASI, covnert the data into a
 can be used with the smGUI.py utility.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
 import numpy
 import struct
-import urllib
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib import urlopen
 import argparse
 import tempfile
 from datetime import datetime
@@ -37,9 +45,9 @@ def parseIndex(index):
     
     # Clean it up in such a way that ElementTree can parse it
     myMassage = [(re.compile('<!([^--].*)>'), lambda match: '<!--' + match.group(1) + '-->'), 
-            (re.compile('<hr>'), lambda match: ''), 
-            (re.compile('&nbsp;'), lambda match: ' '), 
-            (re.compile('<a.*?>(.*)</a>'), lambda mtch: mtch.group(1))]
+                 (re.compile('<hr>'), lambda match: ''), 
+                 (re.compile('&nbsp;'), lambda match: ' '), 
+                 (re.compile('<a.*?>(.*)</a>'), lambda mtch: mtch.group(1))]
     soup = BeautifulSoup(index, markupMassage=myMassage)
     index = soup.prettify()
     
@@ -106,7 +114,7 @@ class DynamicSSMIF(object):
         """
         
         # Pull the data from the archive
-        ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/%s" % self.filename)
+        ah = urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/%s" % self.filename)
         contents = ah.read()
         ah.close()
         
@@ -157,7 +165,7 @@ def loadSSMIFCache():
     """
     
     # Retrieve the list
-    ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/")
+    ah = urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/")
     index = ah.read()
     ah.close()
     
@@ -210,13 +218,13 @@ def main(args):
     # Go!
     for filename in args.filename:
         ## Report
-        print "Working on '%s'..." % os.path.basename(filename)
+        print("Working on '%s'..." % os.path.basename(filename))
         
         ## Create the output filename and figure out if we need to overwrite if
         outfile = os.path.basename(filename)
         outfile = "%s.npz" % os.path.splitext(outfile)[0]
         if os.path.exists(outfile) and not args.force:
-            print "  ERROR: Output file '%s' already exists, skipping" % outfile
+            print("  ERROR: Output file '%s' already exists, skipping" % outfile)
             continue
             
         ## Get the data from the file and create a masterSpectra array
@@ -227,9 +235,9 @@ def main(args):
         
         ## Report on the file's contents
         if args.verbose:
-            print "  Capture Date: %s" % beginDate
-            print "  Antenna/pols.: %i" % antpols
-            print "  Channels: %i" % nchan
+            print("  Capture Date: %s" % beginDate)
+            print("  Antenna/pols.: %i" % antpols)
+            print("  Channels: %i" % nchan)
             
         ## Get the SSMIF that we need for this file
         found = False
@@ -239,9 +247,9 @@ def main(args):
                 break
         if found:
             if args.verbose:
-                print "  Using SSMIF '%s' for mappings" % ssmif.filename
+                print("  Using SSMIF '%s' for mappings" % ssmif.filename)
         else:
-            print "  ERROR: Cannot find a suitable SSMIF for %s, skipping" % filename
+            print("  ERROR: Cannot find a suitable SSMIF for %s, skipping" % filename)
             continue
             
         ## Pull out the metadata we need
@@ -267,7 +275,7 @@ def main(args):
                     
         ## Estimate the dipole resonance frequencies
         if args.verbose:
-            print "  Computing dipole resonance frequencies"
+            print("  Computing dipole resonance frequencies")
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
@@ -302,7 +310,7 @@ def main(args):
         numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
                     avgPower=avgPower, dataRange=dataRange, adcHistogram=adcHistogram, ssmifContents=ssmifContents)
         if args.verbose:
-            print "  Saved %.1f MB to '%s'" % (os.path.getsize(outfile)/1024.0**2, os.path.basename(outfile))
+            print("  Saved %.1f MB to '%s'" % (os.path.getsize(outfile)/1024.0**2, os.path.basename(outfile)))
 
 
 if __name__ == "__main__":
