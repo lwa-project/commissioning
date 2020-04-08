@@ -51,7 +51,7 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
             fh.seek(-drx.FRAME_SIZE+1, 1)
     fh.seek(-drx.FRAME_SIZE, 1)
     # ... and save that location
-    frame_begin = junkFrame.data.timetag
+    frame_begin = junkFrame.payload.timetag
     file_begin = fh.tell()
     if verbose:
         print("  start @ %i with %i" % (file_begin, frame_begin))
@@ -71,7 +71,7 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
             fh.seek(-drx.FRAME_SIZE-1, 1)
     fh.seek(-drx.FRAME_SIZE, 1)
     # ... and save that location
-    frame_end = junkFrame.data.timetag
+    frame_end = junkFrame.payload.timetag
     file_end = fh.tell() + drx.FRAME_SIZE
     if verbose:
         print("  stop  @ %i with %i" % (file_end, frame_end))
@@ -155,7 +155,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
             fh.seek(-drx.FRAME_SIZE+1, 1)
     fh.seek(-drx.FRAME_SIZE, 1)
     # ... and save that location
-    frame_begin = junkFrame.data.timetag
+    frame_begin = junkFrame.payload.timetag
     file_begin = fh.tell()
     if verbose:
         print("  start @ %i with %i" % (file_begin, frame_begin))
@@ -178,7 +178,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     timetags = []
     for i in xrange(max_frames):
         junkFrame = drx.read_frame(fh)
-        timetags.append( junkFrame.data.timetag )
+        timetags.append( junkFrame.payload.timetag )
     skips = [timetags[i]-timetags[i-1] for i in xrange(1, max_frames)]
     try:
         offset = min([skips.index(0), skips.index(ttStep)])

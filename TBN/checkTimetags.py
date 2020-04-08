@@ -45,7 +45,7 @@ def main(args):
 
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevTime = junkFrame.data.timetag
+    prevTime = junkFrame.payload.timetag
     prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
     prevFrame = junkFrame.header.frame_count
 
@@ -78,12 +78,12 @@ def main(args):
         
         valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
         if valid != antpols:
-            print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
+            print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].payload.timetag, float(antpols - valid)/antpols*100))
         
         timetags = numpy.zeros(len(cFrames), dtype=numpy.int64) - 1
         for cFrame in cFrames:
             stand,pol = cFrame.id
-            timetags[2*(stand-1)+pol] = cFrame.data.timetag
+            timetags[2*(stand-1)+pol] = cFrame.payload.timetag
             
         if j == 0:
             prevTime  = numpy.median(timetags)

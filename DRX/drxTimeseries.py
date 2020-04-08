@@ -161,7 +161,7 @@ def main(args):
             beam,tune,pol = cFrame.id
             aStand = 2*(tune-1) + pol
             
-            tt[aStand, count[aStand]] = cFrame.data.timetag
+            tt[aStand, count[aStand]] = cFrame.payload.timetag
             if args.instantaneous_power:
                 data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.payload.data)**2
             else:

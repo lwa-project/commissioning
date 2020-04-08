@@ -112,10 +112,10 @@ def unitRead(fh, count=520, found={}):
         frame = tbn.read_frame(fh)
         
         try:
-            found[frame.data.timetag].append(frame)
+            found[frame.payload.timetag].append(frame)
         except KeyError:
-            found[frame.data.timetag] = []
-            found[frame.data.timetag].append(frame)
+            found[frame.payload.timetag] = []
+            found[frame.payload.timetag].append(frame)
         
     return found
 

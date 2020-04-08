@@ -118,7 +118,7 @@ class RawTBFFrameBuffer(buffer.FrameBufferBase):
     def get_figure_of_merit(self, frame):
         """
         Figure of merit for sorting frames.  For TBF this is:
-        frame.data.timetag
+        frame.payload.timetag
         """
         
         return frame.timetag

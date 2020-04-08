@@ -110,13 +110,13 @@ def main(args):
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
             if cFrame.header.frame_count % 10000 == 0:
-                print("%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frame_count, cFrame.data.timetag))
+                print("%3i -> %3i  %5i  %i" % (stand, aStand, cFrame.header.frame_count, cFrame.payload.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
             count = cFrame.header.frame_count - 1
-            timetags[aStand,   count] = cFrame.data.timetag
-            timetags[aStand+1, count] = cFrame.data.timetag
+            timetags[aStand,   count] = cFrame.payload.timetag
+            timetags[aStand+1, count] = cFrame.payload.timetag
 
     # Check for missing frames
     missing = numpy.where( timetags < 0 )

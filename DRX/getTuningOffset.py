@@ -87,7 +87,7 @@ def main(args):
                 aStand = 2*(tune-1) + pol
                 if timetags[aStand] == -1:
                     beamIDs[aStand] = (beam,tune,pol)
-                    timetags[aStand] = cFrame.data.timetag
+                    timetags[aStand] = cFrame.payload.timetag
                     time_offsets[aStand] = cFrame.header.time_offset
                     timeValues[aStand] = cFrame.get_time()
 

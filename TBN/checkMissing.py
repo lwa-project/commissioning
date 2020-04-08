@@ -135,7 +135,7 @@ def main(args):
                 print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
                 continue
             
-            #print(cFrame.header.frame_count, cFrame.data.timetag, cFrame.id)
+            #print(cFrame.header.frame_count, cFrame.payload.timetag, cFrame.id)
             
             buffer.append(cFrame)
             cFrames = buffer.get()
@@ -170,7 +170,7 @@ def main(args):
                 total = (buffer.full + buffer.partial)*antpols
                 missingList.append(0)
                 
-            times = numpy.array([f.data.timetag for f in cFrames], dtype=numpy.int64)
+            times = numpy.array([f.payload.timetag for f in cFrames], dtype=numpy.int64)
             #print(cFrames[0].header.frame_count, times.min(), times.max(), times.max()-times.min(), "%6.3f%%" % (1.0*missing/total*100,))
             for cFrame in cFrames:
                 stand,pol = cFrame.header.id

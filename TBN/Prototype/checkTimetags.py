@@ -33,7 +33,7 @@ def main(args):
 
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevTime = junkFrame.data.timetag
+    prevTime = junkFrame.payload.timetag
     prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
     prevFrame = junkFrame.header.frame_count
 
@@ -55,7 +55,7 @@ def main(args):
             break
         
         stand, pol = currFrame.id
-        currTime = currFrame.data.timetag
+        currTime = currFrame.payload.timetag
         currDate = ephem.Date(astro.unix_to_utcjd(currFrame.get_time()) - astro.DJD_OFFSET)
         currFrame = currFrame.header.frame_count
 

@@ -201,7 +201,7 @@ def main(args):
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
             if cFrame.header.frame_count % 5000 == 0 and config['verbose']:
-                print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag))
+                print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.payload.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers

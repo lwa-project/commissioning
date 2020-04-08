@@ -88,14 +88,14 @@ def main(args):
                 aStand = mapper.index(first_chan)
             
             if cFrame.header.frame_count % 10000 == 0:
-                print("%4i -> %4i  %7i  %i" % (first_chan, aStand, cFrame.header.frame_count, cFrame.data.timetag))
+                print("%4i -> %4i  %7i  %i" % (first_chan, aStand, cFrame.header.frame_count, cFrame.payload.timetag))
                 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
             if i == 0 and j == 0:
                 refCount = cFrame.header.frame_count
             count = cFrame.header.frame_count - refCount
-            timetags[aStand,   count] = cFrame.data.timetag
+            timetags[aStand,   count] = cFrame.payload.timetag
             
     # Check for missing frames
     missing = numpy.where( timetags < 0 )

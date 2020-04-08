@@ -223,7 +223,7 @@ def main(args):
             if aStand not in count.keys():
                 count[aStand] = 0
             #if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
-            #	print("%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frame_count, cFrame.data.timetag))
+            #	print("%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frame_count, cFrame.payload.timetag))
 
             #print(data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.payload.data.shape)
             data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.payload.data

@@ -71,7 +71,7 @@ def main(args):
         beampols.append( tunepols[-1] )
         
         tnom.append( junkFrame.header.time_offset )
-        tStart.append( junkFrame.data.timetag )
+        tStart.append( junkFrame.payload.timetag )
     
     # Align the files as close as possible by the time tags and then make sure that
     # the first frame processed is from tuning 1, pol 0.
@@ -80,7 +80,7 @@ def main(args):
         beam, tune, pol = junkFrame.id
         pair = 2*(tune-1) + pol
         j = 0
-        while junkFrame.data.timetag < max(tStart):
+        while junkFrame.payload.timetag < max(tStart):
             junkFrame = drx.read_frame(fh[i])
             beam, tune, pol = junkFrame.id
             pair = 2*(tune-1) + pol
@@ -117,8 +117,8 @@ def main(args):
                 pair = 2*(tune-1) + pol
                 
                 data[i,pair,j*4096:(j+1)*4096] = frame.payload.data
-                times[i,pair,j] = frame.data.timetag
-                #print(i, j, k, beam, tune, pol, frame.data.timetag)
+                times[i,pair,j] = frame.payload.timetag
+                #print(i, j, k, beam, tune, pol, frame.payload.timetag)
     
     # Cross-correlate
     refs = [0,0,0,0]

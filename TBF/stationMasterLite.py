@@ -103,7 +103,7 @@ def main(args):
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
                 if cFrame.header.frame_count % 10000 == 0 and args.verbose:
-                    print("%4i -> %3i  %6.3f  %5i  %i" % (cFrame.header.first_chan, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.data.timetag))
+                    print("%4i -> %3i  %6.3f  %5i  %i" % (cFrame.header.first_chan, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.payload.timetag))
                     
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
                 # odd numbers

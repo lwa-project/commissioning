@@ -265,7 +265,7 @@ def main(args):
             
             valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
             if valid != antpols:
-                print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
+                print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].payload.timetag, float(antpols - valid)/antpols*100))
                 
             for cFrame in cFrames:
                 stand,pol = cFrame.header.id
@@ -291,7 +291,7 @@ def main(args):
         # Inner loop that actually reads the frames into the data array
         valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
         if valid != antpols:
-            print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].data.timetag, float(antpols - valid)/antpols*100))
+            print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].payload.timetag, float(antpols - valid)/antpols*100))
         
         for cFrame in cFrames:
             stand,pol = cFrame.header.id

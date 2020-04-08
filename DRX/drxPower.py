@@ -177,7 +177,7 @@ def main(args):
 
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevTime = junkFrame.data.timetag
+    prevTime = junkFrame.payload.timetag
     prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
 
     # File summary
