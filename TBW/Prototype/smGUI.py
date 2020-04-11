@@ -178,10 +178,7 @@ class TBW_GUI(object):
                 os.unlink(tempSSMIF)
             
         except KeyError:
-            try:
-                station = stations.lwana
-            except AttributeError:
-                station = stations.lwa2
+            station = stations.lwana
             antennas = station.antennas
         self.antennas = []
         for a in antennas:

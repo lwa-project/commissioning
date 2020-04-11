@@ -84,7 +84,7 @@ def main(args):
     
     while True:
         count = [0 for j in xrange(antpols)]
-        data = numpy.zeros((antpols, chunkLength*512/antpols), dtype=numpy.csingle)
+        data = numpy.zeros((antpols, chunkLength*512//antpols), dtype=numpy.csingle)
         for j in xrange(chunkLength):
             try:
                 cFrame = tbn.read_frame(fh)

@@ -301,11 +301,11 @@ def main(args):
     idf = LWA1DataFile(args.filename, ignore_timetag_errors=args.ignore_time_errors)
 
     # Metadata
-    nFramesFile = idf.get_info('nFrames')
+    nFramesFile = idf.get_info('nframe')
     beam = idf.get_info('beam')
     srate = idf.get_info('sample_rate')
     beampols = idf.get_info('beampols')
-    beams = max([1, beampols / 4])
+    beams = max([1, beampols // 4])
     
     # Number of frames to integrate over
     nFramesAvg = int(args.average * srate / 4096 * beampols)
@@ -363,7 +363,7 @@ def main(args):
     # Make the pseudo-antennas for Stokes calculation
     antennas = []
     for i in xrange(4):
-        if i / 2 == 0:
+        if i // 2 == 0:
             newAnt = stations.Antenna(1)
         else:
             newAnt = stations.Antenna(2)
