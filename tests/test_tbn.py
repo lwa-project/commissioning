@@ -43,6 +43,11 @@ class tbn_tests(unittest.TestCase):
                                    '-o', _FILENAME, '--create-dirs'])
             
     def tearDown(self):
+        for filename in glob.glob('*.hdf5'):
+            try:
+                os.unlink(filename)
+            except OSError:
+                pass
         try:
             os.unlink('script.log')
         except OSError:
@@ -80,7 +85,7 @@ def _name_to_name(filename):
 
 
 if run_scripts_tests:
-    _SCRIPTS = ['../TBN/checkTimetags.py', '../TBN/tbnFileCheck.py']
+    _SCRIPTS = ['../TBN/checkTimetags.py', '../TBN/tbnFileCheck.py', '../TBN/tbnWaterfall.py']
     _SCRIPTS.sort()
     for script in _SCRIPTS:
         test = _test_generator(script)

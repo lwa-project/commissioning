@@ -134,7 +134,7 @@ def main(args):
     
     # Find the target azimuth/elevation to use
     idf = LWA1DataFile(filenames[0])
-    tStart = datetime.utcfromtimestamp(idf.get_info('tStart'))
+    tStart = datetime.utcfromtimestamp(idf.get_info('start_time'))
     idf.close()
     
     obs.date = tStart.strftime("%Y/%m/%d %H:%M:%S")
@@ -159,10 +159,10 @@ def main(args):
         idf = LWA1DataFile(filename)
         
         ## Pull out some metadata and update the observer
-        jd = astro.unix_to_utcjd(idf.get_info('tStart'))
+        jd = astro.unix_to_utcjd(idf.get_info('start_time'))
         obs.date = ephem.Date(jd - astro.DJD_OFFSET)
         sample_rate = idf.get_info('sample_rate')
-        nInts = int(round( idf.get_info('nFrames') / (30000.0 * len(antennas) / 2) ))
+        nInts = int(round( idf.get_info('nframe') / (30000.0 * len(antennas) / 2) ))
         transitOffset = (obs.date-tTransit)*86400.0
         
         ## Metadata report
@@ -183,7 +183,7 @@ def main(args):
         t = t + numpy.arange(data.shape[1], dtype=numpy.int64)
         
         ## Update the beamformer delays for the pointing center(s)
-        unx.append( idf.get_info('tStart') )
+        unx.append( idf.get_info('start_time') )
         lst.append( obs.sidereal_time() * 12/numpy.pi )
         pwrX.append( [] )
         pwrY.append( [] )

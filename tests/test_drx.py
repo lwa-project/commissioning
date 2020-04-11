@@ -43,6 +43,11 @@ class drx_tests(unittest.TestCase):
                                    '-o', _FILENAME, '--create-dirs'])
             
     def tearDown(self):
+        for filename in glob.glob('*.hdf5'):
+            try:
+                os.unlink(filename)
+            except OSError:
+                pass
         try:
             os.unlink('script.log')
         except OSError:

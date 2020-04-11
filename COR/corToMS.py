@@ -46,13 +46,13 @@ def main(args):
     for filename in args.filename:
         # Open the file and get ready to go
         idf = CORFile(filename)
-        nBL = idf.get_info('nBaseline')
+        nBL = idf.get_info('nbaseline')
         nchan = idf.get_info('nchan')
-        tInt = idf.get_info('tInt')
+        tInt = idf.get_info('tint')
         nFpO = nBL * nchan / 72
-        nInts = idf.get_info('nFrames') / nFpO
+        nInts = idf.get_info('nframe') / nFpO
         
-        jd = astro.unix_to_utcjd(idf.get_info('tStart'))
+        jd = astro.unix_to_utcjd(idf.get_info('start_time'))
         date = str(ephem.Date(jd - astro.DJD_OFFSET))
         central_freq = idf.get_info('freq1')
         central_freq = central_freq[len(central_freq)/2]

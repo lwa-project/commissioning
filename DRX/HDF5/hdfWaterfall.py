@@ -78,14 +78,14 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     idf.reset()
     
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     tDiff = tStart - datetime.utcfromtimestamp(t0)
     offset = idf.offset( tDiff.total_seconds() )
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         offset = idf.offset( 4096./sample_rate )
-        t0 = idf.get_info('tStart')
+        t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
@@ -176,19 +176,19 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
     LFFT = args.fft_length
     
     # Find the start of the observation
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     idf.reset()
     
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     tDiff = tStart - datetime.utcfromtimestamp(t0)
     offset = idf.offset( tDiff.total_seconds() )
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         offset = idf.offset( 4096./sample_rate )
-        t0 = idf.get_info('tStart')
+        t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
@@ -304,7 +304,7 @@ def main(args):
     nFramesFile = idf.get_info('nframe')
     beam = idf.get_info('beam')
     srate = idf.get_info('sample_rate')
-    beampols = idf.get_info('beampols')
+    beampols = idf.get_info('nbeampol')
     beams = max([1, beampols // 4])
     
     # Number of frames to integrate over
@@ -331,7 +331,7 @@ def main(args):
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    t1  = idf.get_info('tStart')
+    t1  = idf.get_info('start_time')
     beginDate = ephem.Date(unix_to_utcjd(t1) - DJD_OFFSET)
     central_freq1 = idf.get_info('freq1')
     central_freq2 = idf.get_info('freq2')

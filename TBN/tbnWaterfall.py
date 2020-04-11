@@ -80,14 +80,14 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     idf.reset()
     
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     tDiff = tStart - datetime.utcfromtimestamp(t0)
     offset = idf.offset( tDiff.total_seconds() )
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         offset = idf.offset( 512./sample_rate )
-        t0 = idf.get_info('tStart')
+        t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
@@ -168,19 +168,19 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
     LFFT = args.fft_length
     
     # Find the start of the observation
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     idf.reset()
     
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     tDiff = tStart - datetime.utcfromtimestamp(t0)
     offset = idf.offset( tDiff.total_seconds() )
-    t0 = idf.get_info('tStart')
+    t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         offset = idf.offset( 512./sample_rate )
-        t0 = idf.get_info('tStart')
+        t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
@@ -272,9 +272,9 @@ def main(args):
     idf = LWA1DataFile(args.filename, ignore_timetag_errors=args.ignore_time_errors)
     
     # Metadata
-    nFramesFile = idf.get_info('nFrames')
+    nFramesFile = idf.get_info('nframe')
     srate = idf.get_info('sample_rate')
-    antpols = idf.get_info('nAntenna')
+    antpols = idf.get_info('nantenna')
     
     # Number of frames to integrate over
     nFramesAvg = int(args.average * srate / 512 * antpols)
@@ -300,7 +300,7 @@ def main(args):
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    t1  = idf.get_info('tStart')
+    t1  = idf.get_info('start_time')
     beginDate = ephem.Date(unix_to_utcjd(t1) - DJD_OFFSET)
     central_freq1 = idf.get_info('freq1')
     
