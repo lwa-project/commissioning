@@ -37,10 +37,16 @@ class tbn_tests(unittest.TestCase):
         """Make sure we have the comparison files in place."""
         
         # Raw data
-        if not os.path.exists(_FILENAME:
+        if not os.path.exists(_FILENAME):
             subprocess.check_call(['curl', _URL, 
                                    '--range', '0-%i' % (int(_SIZE_MB)*1024*1024), 
                                    '-o', 'data/drx.dat', '--create-dirs')
+            
+    def tearDown(self):
+        try:
+            os.unlink('script.log')
+        except OSError:
+            pass
 
 
 def _test_generator(script):
@@ -51,15 +57,15 @@ def _test_generator(script):
     """
     
     def test(self):
-        with open('logfile', 'w') as logfile:
+        with open('script.log', 'w') as logfile:
             try:
-                status = subprocess.check_call([script, _FILENAME], stdout=logfile)
+                status = subprocess.check_call(['python', script, _FILENAME], stdout=logfile)
             except subprocess.CalledProcessError:
                 status = 1
+                
         if status == 1:
             with open('logfile', 'r') as logfile:
                 print(logfile.read())
-        os.unlink('logfile')
         self.assertEqual(status, 0)
         
     return test
