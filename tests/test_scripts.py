@@ -123,6 +123,14 @@ def _test_generator(script):
     return test
 
 
+def _name_to_name(filename):
+    filename = os.path.splitext(filename)[0]
+    parts = filename.split(os.path.sep)
+    start = parts.index('..')
+    parts = parts[start+1:]
+    return '_'.join(parts)
+
+
 if run_scripts_tests:
     _SCRIPTS = glob.glob(os.path.join(MODULE_BUILD, '..', '*.py'))
     for depth in range(1, 3):
@@ -134,7 +142,7 @@ if run_scripts_tests:
     _SCRIPTS.sort()
     for script in _SCRIPTS:
         test = _test_generator(script)
-        name = 'test_%s' % os.path.splitext(os.path.basename(script))[0]
+        name = 'test_%s' % _name_to_name(script)
         doc = """Static analysis of the '%s' script.""" % os.path.basename(script)
         setattr(test, '__doc__', doc)
         setattr(scripts_tests, name, test)
