@@ -33,7 +33,7 @@ def main(args):
             junkFrame = drx.read_frame(fh)
             try:
                 srate = junkFrame.sample_rate
-                t0 = junkFrame.get_time()
+                t0i, t0f = junkFrame.time
                 break
             except ZeroDivisionError:
                 pass
@@ -60,14 +60,14 @@ def main(args):
         ## rate is
         junkFrame = drx.read_frame(fh)
         srate = junkFrame.sample_rate
-        t1 = junkFrame.get_time()
+        t1i, t1f = junkFrame.time
         tunepols = drx.get_frames_per_obs(fh)
         tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
         beampols = tunepol
         fh.seek(-drx.FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
-        tDiff = t1 - (t0 + args.skip)
+        tDiff = t1i - (t0i + args.skip) + (t1f - t0f)
         
         ## Half that to come up with a new seek parameter
         tCorr = -tDiff / 2.0
@@ -82,7 +82,7 @@ def main(args):
         fh.seek(cOffset*drx.FRAME_SIZE, 1)
     
     # Update the offset actually used
-    args.skip = t1 - t0
+    args.skip = t1i - t0i + t1f - t0f
     offset = int(round(args.skip * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
 

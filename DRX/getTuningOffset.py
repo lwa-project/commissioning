@@ -89,7 +89,7 @@ def main(args):
                     beamIDs[aStand] = (beam,tune,pol)
                     timetags[aStand] = cFrame.payload.timetag
                     time_offsets[aStand] = cFrame.header.time_offset
-                    timeValues[aStand] = cFrame.get_time()
+                    timeValues[aStand] = sum(cFrame.time)
 
             k = 0
             for id,tt,to,tv in zip(beamIDs, timetags, time_offsets, timeValues):

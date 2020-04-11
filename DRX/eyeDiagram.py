@@ -174,7 +174,7 @@ def main(args):
             continue
         
         if f == 0:
-            tStart = cFrame.get_time()
+            tStart = sum(cFrame.time)
 
         try:
             beam,tune,pol = cFrame.id

@@ -114,7 +114,7 @@ def main(args):
         junkFrame = drx.read_frame(fh)
         try:
             srate = junkFrame.sample_rate
-            t0 = junkFrame.get_time()
+            t0i, t0f = junkFrame.time
             break
         except ZeroDivisionError:
             pass
@@ -138,14 +138,14 @@ def main(args):
         ## rate is
         junkFrame = drx.read_frame(fh)
         srate = junkFrame.sample_rate
-        t1 = junkFrame.get_time()
+        t1i, t1f = junkFrame.time
         tunepols = drx.get_frames_per_obs(fh)
         tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
         beampols = tunepol
         fh.seek(-drx.FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
-        tDiff = t1 - (t0 + config['offset'])
+        tDiff = t1i - (t0i + config['offset']) + (t1f - t0f)
         
         ## Half that to come up with a new seek parameter
         tCorr = -tDiff / 2.0
@@ -160,7 +160,7 @@ def main(args):
         fh.seek(cOffset*drx.FRAME_SIZE, 1)
     
     # Update the offset actually used
-    config['offset'] = t1 - t0
+    config['offset'] = t1i - t0i + t1f - t0f
     offset = int(round(config['offset'] * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
 
@@ -178,7 +178,7 @@ def main(args):
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
     prevTime = junkFrame.payload.timetag
-    prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
+    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time)) - astro.DJD_OFFSET)
 
     # File summary
     print("Filename: %s" % config['args'][0])
@@ -245,7 +245,7 @@ def main(args):
             aStand = 2*(tune-1) + pol
             
             if j < 4:
-                masterTimes[i,aStand] = cFrame.get_time()
+                masterTimes[i,aStand] = sum(cFrame.time)
 
             try:
                 framePower = numpy.abs(cFrame.payload.data)**2

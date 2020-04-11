@@ -40,7 +40,7 @@ class tbn_tests(unittest.TestCase):
         if not os.path.exists(_FILENAME):
             subprocess.check_call(['curl', _URL, 
                                    '--range', '0-%i' % (int(_SIZE_MB)*1024*1024), 
-                                   '-o', 'data/drx.dat', '--create-dirs'])
+                                   '-o', _FILENAME, '--create-dirs'])
             
     def tearDown(self):
         try:
@@ -64,7 +64,7 @@ def _test_generator(script):
                 status = 1
                 
         if status == 1:
-            with open('logfile', 'r') as logfile:
+            with open('script.log', 'r') as logfile:
                 print(logfile.read())
         self.assertEqual(status, 0)
         
