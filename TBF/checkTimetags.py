@@ -33,7 +33,7 @@ def main(args):
     # of the frame.  This is needed to get the list of stands.
     junkFrame = tbf.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     
     # Figure out how many frames there are per observation and the number of
     # channels that are in the file

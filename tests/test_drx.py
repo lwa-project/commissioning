@@ -81,7 +81,7 @@ def _name_to_name(filename):
 
 if run_scripts_tests:
     _SCRIPTS = ['../DRX/checkTimetags.py', '../DRX/drxFileCheck.py', '../DRX/fastDRXCheck.py',
-                '../DRX/HDF/hdfWaterfall.py']
+                '../DRX/HDF5/hdfWaterfall.py']
     _SCRIPTS.sort()
     for script in _SCRIPTS:
         test = _test_generator(script)

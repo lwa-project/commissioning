@@ -107,10 +107,7 @@ def main(args):
     config = parseOptions(args)
     
     # Set the station
-    try:
-        station = stations.lwana
-    except AttributeError:
-        station = stations.lwa2
+    station = stations.lwana
     antennas = []
     for a in station.antennas:
         if a.digitizer != 0:
@@ -151,7 +148,7 @@ def main(args):
     junkFrame = tbn.read_frame(fh)
     fh.seek(-tbn.FRAME_SIZE, 1)
     central_freq = junkFrame.central_freq
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
 
     # File summary
     print("Filename: %s" % config['args'][0])

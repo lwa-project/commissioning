@@ -178,7 +178,7 @@ def main(args):
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
     prevTime = junkFrame.payload.timetag
-    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time)) - astro.DJD_OFFSET)
+    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.DJD_OFFSET)
 
     # File summary
     print("Filename: %s" % config['args'][0])
@@ -245,7 +245,7 @@ def main(args):
             aStand = 2*(tune-1) + pol
             
             if j < 4:
-                masterTimes[i,aStand] = sum(cFrame.time)
+                masterTimes[i,aStand] = sum(cFrame.time, 0.0)
 
             try:
                 framePower = numpy.abs(cFrame.payload.data)**2

@@ -182,7 +182,7 @@ def main(args):
                 continue
             
             if f == 0:
-                tStart = sum(cFrame.time)
+                tStart = sum(cFrame.time, 0.0)
 
             try:
                 stand,pol = cFrame.header.id

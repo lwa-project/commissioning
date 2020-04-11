@@ -154,7 +154,7 @@ def main(args):
     except AttributeError:
         from lsl.common.dp import fS
         central_freq = fS * junkFrame.header.second_count / 2**32
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     
     observer.date = beginDate
     srcs = [ephem.Sun(),]
@@ -237,7 +237,7 @@ def main(args):
                 
                 # Save the time
                 if j == 0 and aStand == 0:
-                    times[i] = cFrame.get_time()
+                    times[i] = sum(cFrame.time, 0.0)
                 
                 data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 

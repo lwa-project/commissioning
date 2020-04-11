@@ -46,8 +46,8 @@ def main(args):
     # of the frame.  This is needed to get the list of stands.
     junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginTime = junkFrame.get_time()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginTime = sum(junkFrame.time, 0.0)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     
     # Figure out which digitizers to keep
     toKeep = []

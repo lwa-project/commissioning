@@ -146,7 +146,7 @@ def main(args):
                 junkFrame = drx.read_frame(fh)
                 try:
                     srate = junkFrame.sample_rate
-                    t0 = junkFrame.get_time()
+                    t0 = sum(junkFrame.time, 0.0)
                     break
                 except ZeroDivisionError:
                     pass
@@ -175,7 +175,7 @@ def main(args):
             ## rate is
             junkFrame = drx.read_frame(fh)
             srate = junkFrame.sample_rate
-            t1 = junkFrame.get_time()
+            t1 = sum(junkFrame.time, 0.0)
             tunepols = drx.get_frames_per_obs(fh)
             tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
             beampols = tunepol
@@ -202,7 +202,7 @@ def main(args):
         offset = int(1.0 * offset / beampols) * beampols
         
         tnom = junkFrame.header.time_offset
-        tStart = junkFrame.get_time()
+        tStart = sum(junkFrame.time, 0.0)
         
         # Get the DRX frequencies
         cFreq1 = 0.0
@@ -280,7 +280,7 @@ def main(args):
         tsec = numpy.zeros(1, dtype=numpy.float64)
         for i in xrange(nChunks):
             junkFrame = drx.read_frame(fh)
-            tStart = junkFrame.get_time()
+            tStart = sum(junkFrame.time, 0.0)
             fh.seek(-drx.FRAME_SIZE, 1)
             
             count1 = [0,0]

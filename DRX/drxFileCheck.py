@@ -25,7 +25,7 @@ def main(args):
     filename = args.filename
     
     fh = open(filename, "rb")
-    nFramesFile = os.path.getsize(filename) / drx.FRAME_SIZE
+    nFramesFile = os.path.getsize(filename) // drx.FRAME_SIZE
     while True:
         try:
             junkFrame = drx.read_frame(fh)
@@ -43,7 +43,7 @@ def main(args):
     tunepols = max(drx.get_frames_per_obs(fh))
     
     # Date & Central Frequnecy
-    beginDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time)) - astro.DJD_OFFSET)
+    beginDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.DJD_OFFSET)
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in xrange(32):
@@ -87,7 +87,7 @@ def main(args):
     
     while True:
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.empty((4,chunkLength*4096/tunepols), dtype=numpy.csingle)
+        data = numpy.empty((4,chunkLength*4096//tunepols), dtype=numpy.csingle)
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:

@@ -174,7 +174,7 @@ def main(args):
             continue
         
         if f == 0:
-            tStart = cFrame.get_time()
+            tStart = sum(cFrame.time, 0.0)
 
         try:
             beam,tune,pol = cFrame.id
@@ -197,7 +197,7 @@ def main(args):
         if aStand not in count.keys():
             count[aStand] = 0
 
-        dtime[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = cFrame.get_time() + 1.0 / sample_rate * numpy.arange(0.0, cFrame.payload.data.size)
+        dtime[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = sum(cFrame.time, 0.0) + 1.0 / sample_rate * numpy.arange(0.0, cFrame.payload.data.size)
         data[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = cFrame.payload.data
         
         count[aStand] = count[aStand] + 1

@@ -164,10 +164,7 @@ class TBW_GUI(object):
         try:
             ssmifContents = dataDict['ssmifContents']
             if ssmifContents.shape == ():
-                try:
-                    station = stations.lwana
-                except AttributeError:
-                    station = stations.lwa2
+                station = stations.lwana
                 antennas = station.antennas
             else:
                 fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
@@ -664,9 +661,9 @@ class MainWindow(wx.Frame):
         
         # Power menu events
         self.Bind(wx.EVT_MENU, self.onHistogram, id=ID_AVG_HIST)
-        self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
+        self.Bind(wx.EVT_MENU, self.onavgPower, id=ID_AVG_POWER)
         self.Bind(wx.EVT_MENU, self.onDataRange, id=ID_AVG_RANGE)
-        self.Bind(wx.EVT_MENU, self.onAvgPowerSummary, id=ID_AVG_SUMMARY)
+        self.Bind(wx.EVT_MENU, self.onavgPowerSummary, id=ID_AVG_SUMMARY)
         
         # Select menu events
         self.Bind(wx.EVT_MENU, self.onSelectAntenna, id=ID_SELECT_ANTENNA)
@@ -1099,7 +1096,7 @@ corrected = %.3f
         if self.data.adcHistogram is not None and self.data.bestX > 0:
             ADCHistogramDisplay(self)
             
-    def onAvgPower(self, event):
+    def onavgPower(self, event):
         """
         Display the average power plots.
         """
@@ -1115,7 +1112,7 @@ corrected = %.3f
         if self.data.dataRange is not None and self.data.bestX > 0:
             DataRangeDisplay(self)
         
-    def onAvgPowerSummary(self, event):
+    def onavgPowerSummary(self, event):
         """
         Display a message box with the average power summary.
         """

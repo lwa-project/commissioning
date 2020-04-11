@@ -196,7 +196,7 @@ def main(args):
     junkFrame = tbn.read_frame(fh)
     fh.seek(0)
     central_freq = junkFrame.central_freq
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
 
     # File summary
     print("Filename: %s" % config['args'][0])

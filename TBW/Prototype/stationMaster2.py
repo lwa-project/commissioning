@@ -115,12 +115,8 @@ def main(args):
         station = stations.parse_ssmif(config['SSMIF'])
         ssmifContents = open(config['SSMIF']).readlines()
     else:
-        try:
-            station = stations.lwana
-            ssmifContents = open(os.path.join(dataPath, 'lwana-ssmif.txt')).readlines()
-        except AttributeError:
-            station = stations.lwa2
-            ssmifContents = open(os.path.join(dataPath, 'lwa2-ssmif.txt')).readlines()
+        station = stations.lwana
+        ssmifContents = open(os.path.join(dataPath, 'lwana-ssmif.txt')).readlines()
     antennas = []
     for a in station.antennas:
         if a.digitizer != 0:
@@ -154,7 +150,7 @@ def main(args):
     # of the frame.  This is needed to get the list of stands.
     junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
 
     # File summary
     print("Filename: %s" % config['args'][0])
@@ -215,7 +211,7 @@ def main(args):
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)
                 if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
-                    print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.get_time(), cFrame.header.frame_count, cFrame.payload.timetag))
+                    print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, sum(cFrame.time, 0.0), cFrame.header.frame_count, cFrame.payload.timetag))
 
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
                 # odd numbers

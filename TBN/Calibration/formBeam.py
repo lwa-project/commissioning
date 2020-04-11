@@ -118,7 +118,7 @@ def main(args):
     fh.seek(-tbn.FRAME_SIZE, 1)
     startFC = junkFrame.header.frame_count
     central_freq = junkFrame.central_freq
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     
     observer.date = beginDate
     srcs = []
@@ -236,7 +236,7 @@ def main(args):
                 
                 # Save the time
                 if j == 0 and aStand == 0:
-                    times[i] = cFrame.get_time()
+                    times[i] = sum(cFrame.time, 0.0)
                 
                 data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 

@@ -34,7 +34,7 @@ def main(args):
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
     prevTime = junkFrame.payload.timetag
-    prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
+    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.DJD_OFFSET)
     prevFrame = junkFrame.header.frame_count
 
     # Report on the file
@@ -51,12 +51,10 @@ def main(args):
             break
         except errors.SyncError:
             continue
-        except errors.numpyError:
-            break
         
         stand, pol = currFrame.id
         currTime = currFrame.payload.timetag
-        currDate = ephem.Date(astro.unix_to_utcjd(currFrame.get_time()) - astro.DJD_OFFSET)
+        currDate = ephem.Date(astro.unix_to_utcjd(sum(currFrame.time, 0.0)) - astro.DJD_OFFSET)
         currFrame = currFrame.header.frame_count
 
         if k == 0 or (currFrame % 5000 == 0 and stand == 1 and pol == 0):

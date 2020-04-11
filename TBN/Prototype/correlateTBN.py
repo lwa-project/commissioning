@@ -203,7 +203,7 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, overlap=1, cent
                 aStand = 2*(stand-1)+pol + 1
                 
                 if i == 0:
-                    setTime = cFrame.get_time()
+                    setTime = sum(cFrame.time, 0.0)
                     if s == 0:
                         ref_time = setTime
                         
@@ -224,7 +224,7 @@ def processChunk(fh, site, good, filename, intTime=6.0, LFFT=64, overlap=1, cent
                     aStand = 2*(stand-1)+pol + 1
                     
                     if i == 0:
-                        setTime = cFrame.get_time()
+                        setTime = sum(cFrame.time, 0.0)
                         if s == 0:
                             ref_time = setTime
                     
@@ -306,7 +306,7 @@ def main(args):
     central_freq = test.central_freq
     fh.seek(0)
 
-    jd = astro.unix_to_utcjd(test.get_time())
+    jd = astro.unix_to_utcjd(sum(test.time, 0.0))
     date = str(ephem.Date(jd - astro.DJD_OFFSET))
     nFpO = len(antennas)
     sample_rate = tbn.get_sample_rate(fh)
