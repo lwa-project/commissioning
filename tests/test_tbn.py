@@ -40,7 +40,7 @@ class tbn_tests(unittest.TestCase):
         if not os.path.exists(_FILENAME):
             subprocess.check_call(['curl', _URL, 
                                    '--range', '0-%i' % (int(_SIZE_MB)*1024*1024), 
-                                   '-o', 'data/drx.dat', '--create-dirs')
+                                   '-o', 'data/drx.dat', '--create-dirs'])
             
     def tearDown(self):
         try:
