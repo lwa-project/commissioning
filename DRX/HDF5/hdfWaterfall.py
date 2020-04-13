@@ -127,7 +127,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
             print("Actual integration time is %.1f ms" % (tInt*1000.0,))
             
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = cTime
+        dataSets['obs%i-time' % obsID][i] = float(cTime)
         
         if (not args.without_sats):
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -236,7 +236,7 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
             print("Actual integration time is %.1f ms" % (tInt*1000.0,))
             
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = cTime
+        dataSets['obs%i-time' % obsID][i] = float(cTime)
         
         if (not args.without_sats):
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)

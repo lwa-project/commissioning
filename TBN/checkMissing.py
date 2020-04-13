@@ -144,7 +144,7 @@ def main(args):
                 continue
             
             valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
-            print("Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, cFrames[0].time valid, '!' if valid != antpols else ''))
+            print("Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, cFrames[0].time, valid, '!' if valid != antpols else ''))
             if valid != antpols:
                 bad = []
                 for cFrame in cFrames:
