@@ -135,7 +135,7 @@ def main(args):
                 junkFrame = drx.read_frame(fh)
                 try:
                     srate = junkFrame.sample_rate
-                    t0 = sum(junkFrame.time, 0.0)
+                    t0 =  junkFrame.time
                     break
                 except ZeroDivisionError:
                     pass
@@ -164,7 +164,7 @@ def main(args):
             ## rate is
             junkFrame = drx.read_frame(fh)
             srate = junkFrame.sample_rate
-            t1 = sum(junkFrame.time, 0.0)
+            t1 = junkFrame.time
             tunepols = drx.get_frames_per_obs(fh)
             tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
             beampols = tunepol
@@ -191,7 +191,7 @@ def main(args):
         offset = int(1.0 * offset / beampols) * beampols
         
         tnom = junkFrame.header.time_offset
-        tStart = sum(junkFrame.time, 0.0)
+        tStart = junkFrame.time
         
         # Get the DRX frequencies
         cFreq1 = 0.0
@@ -242,7 +242,7 @@ def main(args):
         pb = ProgressBar(max=nChunks)
         for i in xrange(nChunks):
             junkFrame = drx.read_frame(fh)
-            tStart = sum(junkFrame.time, 0.0)
+            tStart = junkFrame.time
             fh.seek(-drx.FRAME_SIZE, 1)
             
             count1 = [0,0]

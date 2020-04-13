@@ -45,7 +45,7 @@ def main(args):
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
     prevTime = junkFrame.payload.timetag
-    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.DJD_OFFSET)
+    prevDate = junkFrame.time.datetime
     prevFrame = junkFrame.header.frame_count
 
     # Skip ahead
@@ -70,7 +70,7 @@ def main(args):
         rID = 2*(tune-1) + pol
 
         prevTime[rID] = currFrame.payload.timetag
-        prevDate[rID] = ephem.Date(astro.unix_to_utcjd(sum(currFrame.time, 0.0)) - astro.DJD_OFFSET)
+        prevDate[rID] = currFrame.time.datetime
         prevNumb[rID] = 1 + k / 4
         #prevNumb[rID] = k
         
@@ -90,7 +90,7 @@ def main(args):
         beam, tune, pol = currFrame.id
         rID = 2*(tune-1) + pol
         currTime = currFrame.payload.timetag
-        currDate = ephem.Date(astro.unix_to_utcjd(sum(currFrame.time, 0.0)) - astro.DJD_OFFSET)
+        currDate = currFrame.time.datetime
         currNumb = 1 + k / 4
         #currNumb = k
 

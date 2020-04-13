@@ -43,7 +43,7 @@ def main(args):
     junkFrame = drspec.read_frame(fh)
     fh.seek(-FRAME_SIZE, 1)
     srate = junkFrame.sample_rate
-    t0 = sum(junkFrame.time, 0.0)
+    t0 = junkFrame.time
     tInt = junkFrame.header.nInts*LFFT/srate
     
     # Offset in frames for beampols beam/tuning/pol. sets
@@ -58,7 +58,7 @@ def main(args):
         ## rate is
         junkFrame = drspec.read_frame(fh)
         srate = junkFrame.sample_rate
-        t1 = sum(junkFrame.time, 0.0)
+        t1 = junkFrame.time
         tInt = junkFrame.header.nInts*LFFT/srate
         fh.seek(-FRAME_SIZE, 1)
         
@@ -86,9 +86,9 @@ def main(args):
     central_freq2 = junkFrame.get_central_freq(2)
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
-    t0 = sum(junkFrame.time, 0.0)
+    t0 = junkFrame.time
     tInt = junkFrame.header.nInts*LFFT/srate
-    beginDate = datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))
+    beginDate = junkFrame.time.datetime
         
     # Report
     print("Filename: %s" % args.filename)
@@ -105,7 +105,7 @@ def main(args):
     for i in xrange(nChunks):
         frame = drspec.read_frame(fh)
         
-        cTime = sum(frame.time, 0.0)
+        cTime = frame.time
         if i % 1000 == 0:
             print("Frame %i: %s" % (i, datetime.utcfromtimestamp(cTime))		)
             
@@ -114,7 +114,7 @@ def main(args):
                 print('Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, cTime, oTime, tInt))
         except NameError:
             pass
-        oTime = sum(frame.time, 0.0)
+        oTime = frame.time
         
         cFreq1 = frame.get_central_freq(1)
         cFreq2 = frame.get_central_freq(2)

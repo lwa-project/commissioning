@@ -43,7 +43,7 @@ def main(args):
     junkFrame = drspec.read_frame(fh)
     fh.seek(-FRAME_SIZE, 1)
     srate = junkFrame.sample_rate
-    t0 = sum(junkFrame.time, 0.0)
+    t0 = junkFrame.time
     tInt = junkFrame.header.nInts*LFFT/srate
     
     # Update the file contents
@@ -52,9 +52,9 @@ def main(args):
     central_freq2 = junkFrame.get_central_freq(2)
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
-    t0 = sum(junkFrame.time, 0.0)
+    t0 = junkFrame.time
     tInt = junkFrame.header.nInts*LFFT/srate
-    beginDate = datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))
+    beginDate = junkFrame.time.datetime
         
     # Report
     print("Filename: %s" % args.filename)

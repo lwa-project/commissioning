@@ -94,7 +94,7 @@ def main(args):
         print("Shifted beam %i data by %i frames (%.4f s)" % (i, j, j*4096/srate[i]/4))
             
     # Date
-    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
+    beginDate = junkFrame.time.datetime
 
     # File summary
     print(" ")

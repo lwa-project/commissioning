@@ -61,7 +61,7 @@ def main(args):
     junkFrame = drspec.read_frame(fh)
     fh.seek(-FRAME_SIZE, 1)
     srate = junkFrame.sample_rate
-    t0 = sum(junkFrame.time, 0.0)
+    t0 = junkFrame.time
     tInt = junkFrame.header.nInts*LFFT/srate
     
     # Offset in frames for beampols beam/tuning/pol. sets
@@ -76,7 +76,7 @@ def main(args):
         ## rate is
         junkFrame = drspec.read_frame(fh)
         srate = junkFrame.sample_rate
-        t1 = sum(junkFrame.time, 0.0)
+        t1 = junkFrame.time
         tInt = junkFrame.header.nInts*LFFT/srate
         fh.seek(-FRAME_SIZE, 1)
         
@@ -104,9 +104,9 @@ def main(args):
     central_freq2 = junkFrame.get_central_freq(2)
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
-    t0 = sum(junkFrame.time, 0.0)
+    t0 = junkFrame.time
     tInt = junkFrame.header.nInts*LFFT/srate
-    beginDate = datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))
+    beginDate = junkFrame.time.datetime
         
     # Report
     print("Filename: %s" % args.filename)
@@ -225,7 +225,7 @@ def main(args):
     for i in xrange(nChunks):
         frame = drspec.read_frame(fh)
         
-        cTime = datetime.utcfromtimestamp(sum(frame.time, 0.0))
+        cTime = frame.time.datetime
         if cTime > obsList[o][1]:
             # Increment to the next observation
             o += 1
@@ -246,11 +246,11 @@ def main(args):
             continue
             
         try:
-            if sum(frame.time, 0.0) > oTime + 1.001*tInt:
-                print('Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, sum(frame.time, 0.0), oTime, tInt))
+            if frame.time > oTime + 1.001*tInt:
+                print('Warning: Time tag error at frame %i; %.3f > %.3f + %.3f' % (i, frame.time, oTime, tInt))
         except NameError:
             pass
-        oTime = sum(frame.time, 0.0)
+        oTime = frame.time
         
         if firstPass:
             # Otherwise, continue on...
@@ -286,7 +286,7 @@ def main(args):
             firstPass = False
             
         # Load the data from the spectrometer frame into the HDF5 group
-        ds['obs%i-time' % o][j] = sum(frame.time, 0.0)
+        ds['obs%i-time' % o][j] = frame.time
         
         ds['obs%i-Saturation1' % o][j,:] = frame.data.saturations[0:2]
         ds['obs%i-Saturation2' % o][j,:] = frame.data.saturations[2:4]
