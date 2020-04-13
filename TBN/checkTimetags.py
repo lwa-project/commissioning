@@ -47,7 +47,7 @@ def main(args):
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
     prevTime = junkFrame.payload.timetag
-    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.DJD_OFFSET)
+    prevDate = junkFrame.time.datetime
     prevFrame = junkFrame.header.frame_count
 
     # Report on the file
@@ -88,14 +88,14 @@ def main(args):
             
         if j == 0:
             prevTime  = numpy.median(timetags)
-            prevDate  = ephem.Date(astro.unix_to_utcjd(sum(cFrames[0].time, 0.0)) - astro.DJD_OFFSET)
+            prevDate  = cFrames[0].time.datetime
             prevFrame = cFrames[0].header.frame_count
             
             j += 1
             continue
         else:
             currTime = numpy.median(timetags)
-            currDate  = ephem.Date(astro.unix_to_utcjd(sum(cFrames[0].time, 0.0)) - astro.DJD_OFFSET)
+            currDate  = cFrames[0].time.datetime
             currFrame = cFrames[0].header.frame_count
             
         if currFrame % 1000 == 0:

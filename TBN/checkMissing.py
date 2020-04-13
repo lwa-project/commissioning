@@ -73,7 +73,7 @@ def main(args):
     # of the frame.  This is needed to get the list of stands.
     junkFrame = tbn.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
+    beginDate = junkFrame.time.datetime
 
     # File summary
     print("Filename: %s" % args.filename)
@@ -144,7 +144,7 @@ def main(args):
                 continue
             
             valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
-            print("Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, sum(cFrames[0].time, 0.0), valid, '!' if valid != antpols else ''))
+            print("Frame #%5i:  %.4f seconds with %i valid ant/pols%s" % (cFrames[0].header.frame_count, cFrames[0].time valid, '!' if valid != antpols else ''))
             if valid != antpols:
                 bad = []
                 for cFrame in cFrames:
@@ -188,7 +188,7 @@ def main(args):
     # Empty the remaining portion of the buffer and integrate what's left
     for cFrames in buffer.flush():
         valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
-        print("Frame #%5i:  %.4f seconds with %i valid ant/pols" % (cFrames[0].header.frame_count, sum(cFrames[0].time, 0.0), valid))
+        print("Frame #%5i:  %.4f seconds with %i valid ant/pols" % (cFrames[0].header.frame_count, cFrames[0].time, valid))
         if valid != antpols:
             bad = []
             for cFrame in cFrames:
