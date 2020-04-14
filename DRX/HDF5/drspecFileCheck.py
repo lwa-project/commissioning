@@ -107,7 +107,7 @@ def main(args):
                 for p,dp in enumerate(data_products):
                     l = len(data_products)*(t-1) + p
                     data[l,j*LFFT:(j+1)*LFFT] = getattr(cFrame.payload, '%s%i' % (dp,t-1))
-            sats[:,j] = numpy.array(cFrame.data.saturations) / (tInt*srate)
+            sats[:,j] = numpy.array(cFrame.payload.saturations) / (tInt*srate)
                     
         if done:
             break

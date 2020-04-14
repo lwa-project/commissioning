@@ -286,12 +286,12 @@ def main(args):
         # Load the data from the spectrometer frame into the HDF5 group
         ds['obs%i-time' % o][j] = float(frame.time)
         
-        ds['obs%i-Saturation1' % o][j,:] = frame.data.saturations[0:2]
-        ds['obs%i-Saturation2' % o][j,:] = frame.data.saturations[2:4]
+        ds['obs%i-Saturation1' % o][j,:] = frame.payload.saturations[0:2]
+        ds['obs%i-Saturation2' % o][j,:] = frame.payload.saturations[2:4]
         
         for t in (1,2):
             for p in data_products:
-                ds['obs%i-%s%i' % (o, p, t)][j,:] = getattr(frame.data, "%s%i" % (p, t-1), None)
+                ds['obs%i-%s%i' % (o, p, t)][j,:] = getattr(frame.payload, "%s%i" % (p, t-1), None)
         j += 1
         
         # Update the progress bar
