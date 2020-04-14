@@ -35,15 +35,13 @@ from scipy.optimize import leastsq, fmin
 from scipy.stats import pearsonr
 
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
-from lsl.common.stations import lwa1
+from lsl.common.stations import lwa1, parse_ssmif
 from lsl.correlator.uvutil import compute_uvw
 from lsl.misc.mathutil import to_dB
 from lsl.statistics import robust
 from lsl.common.progress import ProgressBar
 
 import lsl.sim.vis as simVis
-
-from multiStation import parse_ssmif
 
 # List of bright radio sources and pulsars in PyEphem format
 _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",

@@ -23,7 +23,7 @@ import ephem
 import numpy
 import getopt
 
-from lsl.common.stations import lwa1
+from lsl.common.stations import lwa1, parse_ssmif
 from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
@@ -35,7 +35,6 @@ from matplotlib import pyplot as plt
 from collections import deque
 
 import fringe
-from multiStation import parse_ssmif
 
 
 # List of bright radio sources and pulsars in PyEphem format
