@@ -48,8 +48,7 @@ def main(args):
     
     # Update the file contents
     beam = junkFrame.id
-    central_freq1 = junkFrame.central_freq[0]
-    central_freq2 = junkFrame.central_freq[1]
+    central_freq1, central_freq2 = junkFrame.central_freq
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
@@ -107,7 +106,7 @@ def main(args):
             for t in (1,2):
                 for p,dp in enumerate(data_products):
                     l = len(data_products)*(t-1) + p
-                    data[l,j*LFFT:(j+1)*LFFT] = getattr(cFrame.data, '%s%i' % (dp,t-1))
+                    data[l,j*LFFT:(j+1)*LFFT] = getattr(cFrame.payload, '%s%i' % (dp,t-1))
             sats[:,j] = numpy.array(cFrame.data.saturations) / (tInt*srate)
                     
         if done:

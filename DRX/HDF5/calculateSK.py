@@ -79,7 +79,7 @@ def main(args):
                 sk = numpy.zeros_like(data)
                 
                 section = numpy.empty((chunkSize,data.shape[1]), dtype=data.dtype)
-                for i in xrange(time.size/chunkSize+1):
+                for i in xrange(time.size//chunkSize+1):
                     start = i*chunkSize
                     stop = start + chunkSize
                     if stop >= time.size:

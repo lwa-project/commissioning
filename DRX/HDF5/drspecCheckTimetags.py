@@ -78,12 +78,11 @@ def main(args):
         
     # Update the offset actually used
     skip = t1 - t0
-    nChunks = (os.path.getsize(args.filename) - fh.tell()) / FRAME_SIZE
+    nChunks = (os.path.getsize(args.filename) - fh.tell()) // FRAME_SIZE
     
     # Update the file contents
     beam = junkFrame.id
-    central_freq1 = junkFrame.central_freq[0]
-    central_freq2 = junkFrame.central_freq[1]
+    central_freq1, central_freq2 = junkFrame.central_freq
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
@@ -116,8 +115,7 @@ def main(args):
             pass
         oTime = frame.time
         
-        cFreq1 = frame.central_freq[0]
-        cFreq2 = frame.central_freq[1]
+        cFreq1, cFreq2 = frame.central_freq
         try:
             if cFreq1 != oFreq1:
                 print('Warning: Tuning 1 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq1, oFreq1))
@@ -125,8 +123,7 @@ def main(args):
                 print('Warning: Tuning 2 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq2, oFreq2))
         except NameError:
             pass
-        oFreq1 = frame.central_freq[0]
-        oFreq2 = frame.central_freq[1]
+        oFreq1, oFreq2 = frame.central_freq
         
         del frame
         if i % 100 == 0:

@@ -100,8 +100,7 @@ def main(args):
     
     # Update the file contents
     beam = junkFrame.id
-    central_freq1 = junkFrame.central_freq[0]
-    central_freq2 = junkFrame.central_freq[1]
+    central_freq1, central_freq2 = junkFrame.central_freq
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
@@ -254,8 +253,7 @@ def main(args):
         
         if firstPass:
             # Otherwise, continue on...
-            central_freq1 = frame.central_freq[0]
-            central_freq2 = frame.central_freq[1]
+            central_freq1, central_freq2 = frame.central_freq
             srate = frame.sample_rate
             tInt  = frame.header.nints*LFFT/srate
             
@@ -286,7 +284,7 @@ def main(args):
             firstPass = False
             
         # Load the data from the spectrometer frame into the HDF5 group
-        ds['obs%i-time' % o][j] = frame.time
+        ds['obs%i-time' % o][j] = float(frame.time)
         
         ds['obs%i-Saturation1' % o][j,:] = frame.data.saturations[0:2]
         ds['obs%i-Saturation2' % o][j,:] = frame.data.saturations[2:4]

@@ -32,7 +32,7 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
         if key == 'tInt':
             value = input.attrs[key]*tDecimation
         elif key == 'nchan':
-            value = input.attrs[key]/sDecimation
+            value = input.attrs[key]//sDecimation
         elif key == 'RBW':
             value = input.attrs[key]*sDecimation
         else:
@@ -61,33 +61,33 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
                 entity0[:] = entity[:]
                 
             elif ent == 'time':
-                newShape = (entity.shape[0]/tDecimation,)
+                newShape = (entity.shape[0]//tDecimation,)
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1)]
                     entityO[i] = data[0]
                     
             elif ent == 'Saturation':
-                newShape = (entity.shape[0]/tDecimation, entity.shape[1])
+                newShape = (entity.shape[0]//tDecimation, entity.shape[1])
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1),:]
                     entityO[i,:] = data.sum(axis=0)
                     
             elif ent == 'freq':
-                newShape = (entity.shape[0]/sDecimation,)
+                newShape = (entity.shape[0]//sDecimation,)
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[sDecimation*i:sDecimation*(i+1)]
                     entityO[i] = data.mean()
                     
             else:
-                newShape = (entity.shape[0]/tDecimation, entity.shape[1]/sDecimation)
+                newShape = (entity.shape[0]//tDecimation, entity.shape[1]//sDecimation)
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1),:newShape[1]*sDecimation]
                     data = data.mean(axis=0)
-                    data.shape = (data.size/sDecimation, sDecimation)
+                    data.shape = (data.size//sDecimation, sDecimation)
                     data = data.mean(axis=1)
                     if data.dtype != entity.dtype:
                         data = data.astype(entity.dtype)
