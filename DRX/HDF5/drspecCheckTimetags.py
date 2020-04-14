@@ -82,8 +82,8 @@ def main(args):
     
     # Update the file contents
     beam = junkFrame.id
-    central_freq1 = junkFrame.get_central_freq(1)
-    central_freq2 = junkFrame.get_central_freq(2)
+    central_freq1 = junkFrame.central_freq[0]
+    central_freq2 = junkFrame.central_freq[1]
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
@@ -116,8 +116,8 @@ def main(args):
             pass
         oTime = frame.time
         
-        cFreq1 = frame.get_central_freq(1)
-        cFreq2 = frame.get_central_freq(2)
+        cFreq1 = frame.central_freq[0]
+        cFreq2 = frame.central_freq[1]
         try:
             if cFreq1 != oFreq1:
                 print('Warning: Tuning 1 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq1, oFreq1))
@@ -125,8 +125,8 @@ def main(args):
                 print('Warning: Tuning 2 frequncy changed at frame %i; %.3f Hz != %.3f Hz' % (i, cFreq2, oFreq2))
         except NameError:
             pass
-        oFreq1 = frame.get_central_freq(1)
-        oFreq2 = frame.get_central_freq(2)
+        oFreq1 = frame.central_freq[0]
+        oFreq2 = frame.central_freq[1]
         
         del frame
         if i % 100 == 0:

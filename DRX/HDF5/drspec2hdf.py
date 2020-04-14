@@ -100,8 +100,8 @@ def main(args):
     
     # Update the file contents
     beam = junkFrame.id
-    central_freq1 = junkFrame.get_central_freq(1)
-    central_freq2 = junkFrame.get_central_freq(2)
+    central_freq1 = junkFrame.central_freq[0]
+    central_freq2 = junkFrame.central_freq[1]
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
@@ -254,8 +254,8 @@ def main(args):
         
         if firstPass:
             # Otherwise, continue on...
-            central_freq1 = frame.get_central_freq(1)
-            central_freq2 = frame.get_central_freq(2)
+            central_freq1 = frame.central_freq[0]
+            central_freq2 = frame.central_freq[1]
             srate = frame.sample_rate
             tInt  = frame.header.nints*LFFT/srate
             
