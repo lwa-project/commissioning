@@ -44,7 +44,7 @@ def main(args):
     fh.seek(-FRAME_SIZE, 1)
     srate = junkFrame.sample_rate
     t0 = junkFrame.time
-    tInt = junkFrame.header.nInts*LFFT/srate
+    tInt = junkFrame.header.nints*LFFT/srate
     
     # Update the file contents
     beam = junkFrame.id
@@ -53,7 +53,7 @@ def main(args):
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
-    tInt = junkFrame.header.nInts*LFFT/srate
+    tInt = junkFrame.header.nints*LFFT/srate
     beginDate = junkFrame.time.datetime
         
     # Report

@@ -44,7 +44,7 @@ def main(args):
     fh.seek(-FRAME_SIZE, 1)
     srate = junkFrame.sample_rate
     t0 = junkFrame.time
-    tInt = junkFrame.header.nInts*LFFT/srate
+    tInt = junkFrame.header.nints*LFFT/srate
     
     # Offset in frames for beampols beam/tuning/pol. sets
     offset = int(round(skip / tInt))
@@ -59,7 +59,7 @@ def main(args):
         junkFrame = drspec.read_frame(fh)
         srate = junkFrame.sample_rate
         t1 = junkFrame.time
-        tInt = junkFrame.header.nInts*LFFT/srate
+        tInt = junkFrame.header.nints*LFFT/srate
         fh.seek(-FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
@@ -87,7 +87,7 @@ def main(args):
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
-    tInt = junkFrame.header.nInts*LFFT/srate
+    tInt = junkFrame.header.nints*LFFT/srate
     beginDate = junkFrame.time.datetime
         
     # Report

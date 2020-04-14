@@ -62,7 +62,7 @@ def main(args):
     fh.seek(-FRAME_SIZE, 1)
     srate = junkFrame.sample_rate
     t0 = junkFrame.time
-    tInt = junkFrame.header.nInts*LFFT/srate
+    tInt = junkFrame.header.nints*LFFT/srate
     
     # Offset in frames for beampols beam/tuning/pol. sets
     offset = int(round(args.skip / tInt))
@@ -77,7 +77,7 @@ def main(args):
         junkFrame = drspec.read_frame(fh)
         srate = junkFrame.sample_rate
         t1 = junkFrame.time
-        tInt = junkFrame.header.nInts*LFFT/srate
+        tInt = junkFrame.header.nints*LFFT/srate
         fh.seek(-FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
@@ -105,7 +105,7 @@ def main(args):
     srate = junkFrame.sample_rate
     data_products = junkFrame.data_products
     t0 = junkFrame.time
-    tInt = junkFrame.header.nInts*LFFT/srate
+    tInt = junkFrame.header.nints*LFFT/srate
     beginDate = junkFrame.time.datetime
         
     # Report
@@ -257,7 +257,7 @@ def main(args):
             central_freq1 = frame.get_central_freq(1)
             central_freq2 = frame.get_central_freq(2)
             srate = frame.sample_rate
-            tInt  = frame.header.nInts*LFFT/srate
+            tInt  = frame.header.nints*LFFT/srate
             
             freq = numpy.fft.fftshift( numpy.fft.fftfreq(LFFT, d=1.0/srate) )
             freq = freq.astype(numpy.float64)

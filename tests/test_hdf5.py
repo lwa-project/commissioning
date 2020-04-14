@@ -44,7 +44,7 @@ class drspec_tests(unittest.TestCase):
         # HDF5 data
         self._HDFNAME = os.path.splitext(_FILENAME)[0]+'-waterfall.hdf5'
         if not os.path.exists(self._HDFNAME):
-            subprocess.check_call(['../../DRX/HDF5/drspec2hdf.py', _FILENAME],
+            subprocess.check_call(['../../DRX/HDF5/drspec2hdf.py', os.path.basename(_FILENAME)],
                                   cwd='data')
             
     def tearDown(self):
