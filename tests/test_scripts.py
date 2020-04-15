@@ -40,17 +40,12 @@ _LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>
 
 
 _SAFE_TO_IGNORE = ["Possible",
-                   "Module 'numpy",
-                   "Module 'ephem",
                    "Module 'datetime",
                    "Module 'matplotlib",
                    "Module 'wx",
                    "Unable to import 'wx",
                    "Module 'BeautifulSoup",
-                   "Unable to import 'BeautifulSoup",
-                   "No name 'c' in module 'astropy.constants'",
-                   "No name 'triang' in module 'scipy.signal'",
-                   "No name 'erf' in module 'scipy.special'",]
+                   "Unable to import 'BeautifulSoup"]
 
 
 def _get_context(filename, line, before=0, after=0):
@@ -80,7 +75,7 @@ def _test_generator(script):
     """
     
     def test(self):
-        out, err = lint.py_run("%s -E --extension-pkg-whitelist=numpy,ephem,lsl" % script, return_std=True)
+        out, err = lint.py_run("%s -E --extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl" % script, return_std=True)
         out_lines = out.read().split('\n')
         err_lines = err.read().split('\n')
         out.close()
