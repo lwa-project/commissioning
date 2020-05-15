@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 """Predict driftcurve for a given site using a given antenna model."""
-
 import os
 import sys
 import math
@@ -28,7 +27,7 @@ def main(args):
     beam = beamDict['beam']
     beam /= beam.max()
     
-    # Station, polarization, and frequency
+    # Station, polarization, frequency, and beam simulation resolution
     name = beamDict['station'].item()
     pol = beamDict['pol'].item()
     freq = beamDict['freq'].item()
@@ -36,6 +35,7 @@ def main(args):
         res = beamDict['res'].item()
     except KeyError:
         res = 1.0
+    ires = 1.0 / (min([1.0, res]))
         
     # Get the site information
     if name == 'lwa1':
@@ -55,21 +55,16 @@ def main(args):
         if args.verbose:
             print "Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
             
-    def BeamPattern(az, alt, beam=beam):
-        iAz  = numpy.round(az).astype(numpy.int32)
-        iAz %= 360
-        iAlt = numpy.round(alt).astype(numpy.int32)
-        iAlt = numpy.where( iAlt < 90, iAlt, 89 )
-        
+    def BeamPattern(az, alt, beam=beam, ires=ires):
+	iAz = (numpy.round(az*ires)).astype(numpy.int32)
+	iAlt = (numpy.round(alt*ires)).astype(numpy.int32)       
+ 
         return beam[iAz,iAlt]
         
     if args.do_plot:
-        az = numpy.zeros((90,360))
-        alt = numpy.zeros((90,360))
-        for i in range(360):
-            az[:,i] = i
-        for i in range(90):
-            alt[i,:] = i
+	az = numpy.arange(0,360*ires+1,1) / float(ires)
+	alt = numpy.arange(0,90*ires+1,1) / float(ires)
+	alt, az = numpy.meshgrid(alt, az)
         pylab.figure(1)
         pylab.title("Beam Response: %s pol. @ %0.2f MHz" % (pol, freq/1e6))
         pylab.imshow(BeamPattern(az, alt), interpolation='nearest', extent=(0,359, 0,89), origin='lower')
