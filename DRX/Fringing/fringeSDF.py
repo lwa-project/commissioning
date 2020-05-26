@@ -278,7 +278,7 @@ def main(args):
     obs.append(stp)
     obs.gain = 1
     project.sessions[0].observations.append(obs)
-    project.sessions[0].drxBeam = config['drxBeam']
+    project.sessions[0].drx_beam = config['drxBeam']
     project.sessions[0].spcSetup = config['spcSetup']
     project.sessions[0].spcMetatag = config['spcMetatag']
     

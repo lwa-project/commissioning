@@ -371,7 +371,7 @@ def main(args):
             else:
                 raise e
                 
-        sdfBeam  = project.sessions[0].drxBeam
+        sdfBeam  = project.sessions[0].drx_beam
         if sdfBeam != 5:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, 5))
             
@@ -400,7 +400,7 @@ def main(args):
             else:
                 raise e
                 
-        sdfBeam  = project.sessions[0].drxBeam
+        sdfBeam  = project.sessions[0].drx_beam
         if sdfBeam != 5:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, 5))
             
