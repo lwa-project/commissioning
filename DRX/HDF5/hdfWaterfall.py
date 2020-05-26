@@ -1,4 +1,4 @@
-/
+#!/usr/bin/env python
 
 """
 Given a DRX file, plot the time averaged spectra for each beam output over some 
