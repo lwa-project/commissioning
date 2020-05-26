@@ -302,7 +302,7 @@ def main(args):
     fh = open(filename, "rb", buffering=tbn.FRAME_SIZE*10000)
     test = tbn.read_frame(fh)
     if not test.header.is_tbn:
-        raise errors.notTBNError()
+        raise RuntimeError("First frame does not contain TBN data")
     central_freq = test.central_freq
     fh.seek(0)
 

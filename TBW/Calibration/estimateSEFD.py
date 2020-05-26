@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, tzinfo
 
 from lsl import astro
 from lsl.common.stations import parse_ssmif
-from lsl.reader.ldp import LWA1DataFile
+from lsl.reader.ldp import TBWFile
 from lsl.misc import beamformer
 from lsl.common.dp import fS, SoftwareDP
 import lsl.correlator.fx as fxc
@@ -133,7 +133,7 @@ def main(args):
     dp = SoftwareDP(mode='DRX', filter=7, central_freq=74e6)
     
     # Find the target azimuth/elevation to use
-    idf = LWA1DataFile(filenames[0])
+    idf = TBWFile(filenames[0])
     tStart = datetime.utcfromtimestamp(idf.get_info('start_time'))
     idf.close()
     
@@ -156,7 +156,7 @@ def main(args):
     unx, lst, pwrX, pwrY = [], [], [], []
     for filename in filenames:
         ## Get the file reader
-        idf = LWA1DataFile(filename)
+        idf = TBWFile(filename)
         
         ## Pull out some metadata and update the observer
         jd = astro.unix_to_utcjd(idf.get_info('start_time'))

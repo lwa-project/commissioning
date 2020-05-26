@@ -318,7 +318,7 @@ def main(args):
     
     # Estimate clip level (if needed)
     if args.estimate_clip_level:
-        estimate = idf.estimate_levels(Sigma=5.0)
+        estimate = idf.estimate_levels(sigma=5.0)
         clip1 = 1.0*sum(estimate) / len(estimate)
     else:
         clip1 = args.clip_level

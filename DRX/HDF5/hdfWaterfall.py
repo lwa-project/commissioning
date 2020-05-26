@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+/
 
 """
 Given a DRX file, plot the time averaged spectra for each beam output over some 
@@ -353,7 +353,7 @@ def main(args):
     
     # Estimate clip level (if needed)
     if args.estimate_clip_level:
-        estimate = idf.estimate_levels(fh, Sigma=5.0)
+        estimate = idf.estimate_levels(fh, sigma=5.0)
         clip1 = (estimate[0] + estimate[1]) / 2.0
         clip2 = (estimate[2] + estimate[3]) / 2.0
     else:
