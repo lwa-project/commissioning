@@ -37,7 +37,7 @@ from scipy.stats import pearsonr
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
 from lsl.common.stations import lwa1, parse_ssmif
 from lsl.correlator.uvutils import compute_uvw
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 from lsl.statistics import robust
 from lsl.common.progress import ProgressBar
 

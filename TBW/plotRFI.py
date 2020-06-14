@@ -16,7 +16,7 @@ import h5py
 import numpy
 from datetime import datetime
 
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 from lsl.statistics import kurtosis
 
 from matplotlib import pyplot as plt

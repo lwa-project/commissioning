@@ -19,7 +19,7 @@ import h5py
 from datetime import datetime
 
 from lsl.statistics import robust
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 
 from matplotlib import pyplot as plt
 

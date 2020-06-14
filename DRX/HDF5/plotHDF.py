@@ -29,7 +29,7 @@ import lsl
 from lsl.common import dp
 from lsl.common import stations
 from lsl.reader.drx import FILTER_CODES
-from lsl.misc.mathutil import to_dB, from_dB
+from lsl.misc.mathutils import to_dB, from_dB
 from lsl.statistics import robust
 from lsl.statistics.kurtosis import spectral_power, std as skStd
 from lsl.misc import parser as aph

@@ -17,7 +17,7 @@ import argparse
 import tempfile
 
 from lsl.common import stations
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 
 import wx
 import matplotlib
