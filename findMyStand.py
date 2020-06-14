@@ -17,7 +17,7 @@ import numpy
 import getopt
 
 from lsl.common import stations
-from lsl.correlator import uvutil
+from lsl.correlator import uvutils
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter

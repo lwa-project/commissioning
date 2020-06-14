@@ -26,7 +26,7 @@ from lsl.common import stations
 from lsl.reader.ldp import CORFile
 from lsl import astro
 from lsl.imaging import utils
-from lsl.correlator import uvutil
+from lsl.correlator import uvutils
 from lsl.sim import vis as simVis
 from lsl.writer import measurementset
 from lsl.misc import parser as aph
@@ -121,7 +121,7 @@ def main(args):
             try:
                 blList
             except NameError:
-                blList = uvutil.get_baselines(ants[0::2], include_auto=True)
+                blList = uvutils.get_baselines(ants[0::2], include_auto=True)
                 
             if args.output is None:
                 outname = os.path.basename(filename)

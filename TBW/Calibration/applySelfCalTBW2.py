@@ -20,7 +20,7 @@ from datetime import datetime
 from lsl import astro
 from lsl.common import stations
 from lsl.statistics.robust import *
-from lsl.correlator import uvutil
+from lsl.correlator import uvutils
 from lsl.writer.fitsidi import NUMERIC_STOKES
 
 from lsl.imaging import utils, selfcal

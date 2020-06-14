@@ -16,7 +16,7 @@ from datetime import datetime
 
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
 from lsl.common.stations import parse_ssmif, lwa1
-from lsl.correlator.uvutil import compute_uvw
+from lsl.correlator.uvutils import compute_uvw
 from lsl.statistics import robust
 from lsl.common.progress import ProgressBar
 

@@ -23,7 +23,7 @@ from astropy.constants import c as speedOfLight
 vLight = speedOfLight.to('m/s').value
 
 from lsl.common.stations import lwa1
-from lsl.correlator.uvutil import compute_uvw
+from lsl.correlator.uvutils import compute_uvw
 
 
 # List of bright radio sources in PyEphem format

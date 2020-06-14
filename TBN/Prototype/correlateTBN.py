@@ -28,7 +28,7 @@ from lsl.common import dp as dp_common
 from lsl.statistics import robust
 from lsl.reader import tbn
 from lsl.reader import errors
-from lsl.correlator import uvutil
+from lsl.correlator import uvutils
 from lsl.correlator import fx as fxc
 from lsl.writer import fitsidi
 

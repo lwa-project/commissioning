@@ -28,7 +28,7 @@ vLight = speedOfLight.to('m/s').value
 
 from lsl.common.stations import lwa1
 from lsl.common.progress import ProgressBar
-from lsl.correlator.uvutil import compute_uvw
+from lsl.correlator.uvutils import compute_uvw
 
 
 # List of bright radio sources and pulsars in PyEphem format
