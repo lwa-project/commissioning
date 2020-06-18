@@ -183,7 +183,10 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     try:
         offset = min([skips.index(0), skips.index(ttStep)])
     except ValueError:
-        offset = skips.index(0)
+        try:
+            offset = skips.index(0)
+        except ValueError:
+            offset = 0
     if verbose:
         print("  -> shifting boundary by %i frame(s)" % offset)
     start += drx.FRAME_SIZE*offset
