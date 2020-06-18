@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Convert a local date/time string in the format of "YYYY/MM/DD HH:MM:SS[.SSS]" into 
 MJD and MPM UTC values.  If no date/time string is supplied, the current local 
 date/time is used.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import sys
 import math
 import pytz
@@ -18,12 +19,12 @@ import getopt
 import datetime
 
 from lsl.common.stations import lwa1
-from lsl.common.mcs import datetime2mjdmpm
+from lsl.common.mcs import datetime_to_mjdmpm
 from lsl.astro import date as astroDate, get_date as astroGetDate
 
 
 def usage(exitCode=None):
-    print """time2time.py - Convert a local date/time string in the format of 
+    print("""time2time.py - Convert a local date/time string in the format of 
 "YYYY-MM-DD HH:MM:SS[.SSS]" into MJD and MPM UTC values.  If no date/time string
 is supplied, the current local date/time is used.
 
@@ -33,8 +34,8 @@ Options:
 -h, --help                  Display this help information
 -s, --sidereal              Input time is in LST, not local
 -u, --utc                   Input time is in UTC, not local
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -48,9 +49,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hsu", ["help", "sidereal", "utc"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -102,7 +103,7 @@ def _getEquinoxEquation(jd):
 def main(args):
     config = parseOptions(args)
     
-    obs = lwa1.getObserver()
+    obs = lwa1.get_observer()
     MST = pytz.timezone('US/Mountain')
     UTC = pytz.utc
     
@@ -181,13 +182,13 @@ def main(args):
         dt = dt.astimezone(UTC)
         
     obs.date = dt.astimezone(UTC).strftime("%Y/%m/%d %H:%M:%S.%f")
-    mjd, mpm = datetime2mjdmpm(dt)
+    mjd, mpm = datetime_to_mjdmpm(dt)
     
-    print "Localtime: %s" % dt.astimezone(MST).strftime("%B %d, %Y at %H:%M:%S %Z")
-    print "UTC: %s" % dt.astimezone(UTC).strftime("%B %d, %Y at %H:%M:%S %Z")
-    print "LST: %s" % obs.sidereal_time()
-    print "MJD: %i" % mjd
-    print "MPM: %i" % mpm
+    print("Localtime: %s" % dt.astimezone(MST).strftime("%B %d, %Y at %H:%M:%S %Z"))
+    print("UTC: %s" % dt.astimezone(UTC).strftime("%B %d, %Y at %H:%M:%S %Z"))
+    print("LST: %s" % obs.sidereal_time())
+    print("MJD: %i" % mjd)
+    print("MPM: %i" % mpm)
     
 
 if __name__ == "__main__":

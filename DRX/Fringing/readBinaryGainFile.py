@@ -1,21 +1,22 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple script to read in a MCS binary packed DP delay file (.df) and print 
 out the delays in ns.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
 import struct
 
-from lsl.common.dp import DPGtogain
+from lsl.common.dp import dpg_to_gain
 from lsl.common.stations import lwa1
 
 
@@ -31,16 +32,16 @@ def main(args):
     rawGains = struct.unpack('<1040h', data)
 
     # Convert to delays in ns
-    gains = [DPGtogain(g) for g in rawGains]
+    gains = [dpg_to_gain(g) for g in rawGains]
     
     # Report
-    ants = lwa1.getAntennas()[0::2]
+    ants = lwa1.antennas[0::2]
     
-    print "Std   X->x   X->y    Y->x   Y->y"
-    print "----------------------------------"
+    print("Std   X->x   X->y    Y->x   Y->y")
+    print("----------------------------------")
     for i in xrange(len(ants)):
         xofx, xofy, yofx, yofy = gains[4*i:4*(i+1)]
-        print "%3i   %6.4f %6.4f  %6.4f %6.4f" % (ants[i].stand.id, xofx, xofy, yofx, yofy)
+        print("%3i   %6.4f %6.4f  %6.4f %6.4f" % (ants[i].stand.id, xofx, xofy, yofx, yofy))
 
 
 if __name__ == "__main__":

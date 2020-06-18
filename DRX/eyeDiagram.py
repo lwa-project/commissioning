@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Create an eye diagram for some portion of a TBN or DRX file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -22,7 +23,7 @@ from matplotlib import pyplot as plt
 
 
 def usage(exitCode=None):
-    print """eyeDiagram.py - Create an eye diagram for some portion of a TBN or
+    print("""eyeDiagram.py - Create an eye diagram for some portion of a TBN or
 DRX file.
 
 Usage:  eyeDiagram.py [OPTIONS] data_file
@@ -38,8 +39,8 @@ Options:
 -t, --time                  Time in seconds for the amount of data to plot (default = 10)
 -k, --keep                  Data array indiece (stands/beams) to keep (default = 1,2,3,4)
 -r, --rectilinear           Do not plot the eye diagram in polar coordinates
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -61,9 +62,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hf:i:s:t:k:r", ["help", "freq=", "input-freq=", "skip=", "time=", "keep=", "rectilinear"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -120,42 +121,42 @@ def main(args):
     fh = open(filename, 'rb')
 
     # Get the sampel rate and number of stands for each pol
-    sampleRate = rdr.getSampleRate(fh)
-    nFrames = numpy.array(rdr.getFramesPerObs(fh))
-    nCaptures = sizeB / rdr.FrameSize / nFrames.sum()
+    sample_rate = rdr.get_sample_rate(fh)
+    nFrames = numpy.array(rdr.get_frames_per_obs(fh))
+    nCaptures = sizeB / rdr.FRAME_SIZE / nFrames.sum()
 
-    print "Filename:    %s" % filename
-    print "Size:        %.1f MB" % (float(sizeB)/1024/1024)
-    print "Captures:    %i" % nCaptures
-    print "Sample Rate: %.2f kHz" % (sampleRate/1000.0)
-    print "==="
+    print("Filename:    %s" % filename)
+    print("Size:        %.1f MB" % (float(sizeB)/1024/1024))
+    print("Captures:    %i" % nCaptures)
+    print("Sample Rate: %.2f kHz" % (sample_rate/1000.0))
+    print("===")
 
-    frame = rdr.readFrame(fh)
+    frame = rdr.read_frame(fh)
     fh.seek(0)
     
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(config['skip'] * sampleRate / frame.data.iq.size * nFrames.sum())
+    offset = int(config['skip'] * sample_rate / frame.payload.data.size * nFrames.sum())
     offset = int(1.0 * offset / nFrames.sum()) * nFrames.sum()
-    config['skip'] = 1.0 * offset / nFrames.sum() * frame.data.iq.size / sampleRate
-    fh.seek(offset*rdr.FrameSize)
+    config['skip'] = 1.0 * offset / nFrames.sum() * frame.payload.data.size / sample_rate
+    fh.seek(offset*rdr.FRAME_SIZE)
     
-    nCaptures = (sizeB - offset*rdr.FrameSize) / rdr.FrameSize / nFrames.sum()
+    nCaptures = (sizeB - offset*rdr.FRAME_SIZE) / rdr.FRAME_SIZE / nFrames.sum()
     
     # Compute the integration time and the number of frames per stand per 
     # integration
-    tInt = int(round( tInt * sampleRate)) / sampleRate
-    fInt = int(tInt * sampleRate / frame.data.iq.size)
+    tInt = int(round( tInt * sample_rate)) / sample_rate
+    fInt = int(tInt * sample_rate / frame.payload.data.size)
     
     # More output
-    print "Keeping only:", config['keep']
-    print "Skipping: %.3f s" % config['skip']
-    print "Integration Time: %.3f s" % tInt
-    print "Number of integrations in file: %i" % (nCaptures/fInt)
-    print " "
+    print("Keeping only:", config['keep'])
+    print("Skipping: %.3f s" % config['skip'])
+    print("Integration Time: %.3f s" % tInt)
+    print("Number of integrations in file: %i" % (nCaptures/fInt))
+    print(" ")
     
     # Go...
-    dtime = numpy.zeros((nFrames.sum(), fInt*frame.data.iq.size), dtype=numpy.float64)
-    data = numpy.zeros((nFrames.sum(), fInt*frame.data.iq.size), dtype=numpy.complex64)
+    dtime = numpy.zeros((nFrames.sum(), fInt*frame.payload.data.size), dtype=numpy.float64)
+    data = numpy.zeros((nFrames.sum(), fInt*frame.payload.data.size), dtype=numpy.complex64)
     
     count = {}
     standMapper = []
@@ -165,21 +166,21 @@ def main(args):
     for f in xrange(fInt*nFrames.sum()):
         # Read in the next frame and anticipate any problems that could occur
         try:
-            cFrame = rdr.readFrame(fh, Verbose=False)
-        except errors.eofError:
+            cFrame = rdr.read_frame(fh, verbose=False)
+        except errors.EOFError:
             break
-        except errors.syncError:
-            #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FrameSize-1)
+        except errors.SyncError:
+            #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/rdr.FRAME_SIZE-1))
             continue
         
         if f == 0:
-            tStart = cFrame.getTime()
+            tStart = cFrame.time
 
         try:
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 4*(beam-1) + 2*(tune-1) + pol
         except:
-            stand,pol = cFrame.header.parseID()
+            stand,pol = cFrame.header.id
             aStand = 2*(stand-1)+pol
         
         if aStand not in standMapper:
@@ -187,17 +188,17 @@ def main(args):
             oStand = 1*aStand
             aStand = standMapper.index(aStand)
             try:
-                print "Mapping stand %i, pol. %1i (%2i) to array index %3i" % (stand, pol, oStand, aStand)
+                print("Mapping stand %i, pol. %1i (%2i) to array index %3i" % (stand, pol, oStand, aStand))
             except:
-                print "Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand)
+                print("Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand))
         else:
             aStand = standMapper.index(aStand)
         
         if aStand not in count.keys():
             count[aStand] = 0
 
-        dtime[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = 4096*count[aStand]/sampleRate + 1.0 / sampleRate * numpy.arange(0.0, cFrame.data.iq.size, dtype=numpy.float64)
-        data[aStand, count[aStand]*cFrame.data.iq.size:(count[aStand]+1)*cFrame.data.iq.size] = cFrame.data.iq
+        dtime[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = 4096*count[aStand]/sample_rate + 1.0 / sample_rate * numpy.arange(0.0, cFrame.payload.data.size, dtype=numpy.float64)
+        data[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = cFrame.payload.data
         
         count[aStand] = count[aStand] + 1
         masterCount = masterCount + 1
@@ -209,7 +210,7 @@ def main(args):
     dtime = (dtime - dtime.min()) % period / period
     
     endPt = data.shape[1]/8
-    print endPt / sampleRate / period
+    print(endPt / sample_rate / period)
     
     fig = plt.figure()
     if config['polar']:

@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given an HDF5 file, apply incoherent dedispersion to the data at the specified
 DM and save the results to a new file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    
 import os
 import sys
 import h5py
@@ -50,13 +52,13 @@ def main(args):
         # Load in the information we need to calculate the pseudo-spectral kurtosis (pSK)
         tInt = obs.attrs['tInt']
         LFFT = obs.attrs['LFFT']
-        srate = obs.attrs['sampleRate']
+        srate = obs.attrs['sample_rate']
         
-        print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
-        print "  Sample Rate: %.1f Hz" % srate
-        print "  LFFT: %i" % LFFT
-        print "  tInt: %.3f s" % tInt
-        print "  DM: %.3f pc/cm^3" % args.DM
+        print("Staring Observation #%i" % int(obsName.replace('Observation', '')))
+        print("  Sample Rate: %.1f Hz" % srate)
+        print("  LFFT: %i" % LFFT)
+        print("  tInt: %.3f s" % tInt)
+        print("  DM: %.3f pc/cm^3" % args.DM)
         
         time = obs.get('time', None)[:]
         tuning1 = obs.get('Tuning1', None)
@@ -76,7 +78,7 @@ def main(args):
         if args.correct_time:
             maxFreq = max( [max(freq1), max(freq2)] )
             infDelay = delay(numpy.array([maxFreq, numpy.inf]), args.DM)
-            print "  Infinite Time Delay: %.3f s" % max(infDelay)
+            print("  Infinite Time Delay: %.3f s" % max(infDelay))
             
             time = time - max(infDelay)
             obs['time'][:] = time

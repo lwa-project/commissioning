@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-
 """
 Basic script to take a COR file, apply the station delay model, and write the
 data out as a CASA measurement set.
-
-$Rev$
-$Last$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import aipy
@@ -19,13 +19,14 @@ import ephem
 import numpy
 import argparse
 from datetime import datetime
+from astropy.constants import c as speedOfLight
+speedOfLight = speedOfLight.to('m/s').value
 
 from lsl.common import stations
 from lsl.reader.ldp import CORFile
-from lsl.common.constants import c as speedOfLight
 from lsl import astro
 from lsl.imaging import utils
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutils
 from lsl.sim import vis as simVis
 from lsl.writer import measurementset
 from lsl.misc import parser as aph
@@ -33,31 +34,33 @@ from lsl.misc import parser as aph
 from matplotlib import pyplot as plt
 
 
+
+
 def main(args):
     # Setup the site information
     station = stations.lwasv
-    ants = station.getAntennas()
+    ants = station.antennas
     nAnt = len([a for a in ants if a.pol == 0])
     
     phase_freq_range = [0, 0]
     for filename in args.filename:
         # Open the file and get ready to go
         idf = CORFile(filename)
-        nBL = idf.getInfo('nBaseline')
-        nChan = idf.getInfo('nChan')
-        tInt = idf.getInfo('tInt')
-        nFpO = nBL * nChan / 72
-        nInts = idf.getInfo('nFrames') / nFpO
+        nBL = idf.get_info('nbaseline')
+        nchan = idf.get_info('nchan')
+        tInt = idf.get_info('tint')
+        nFpO = nBL * nchan / 72
+        nInts = idf.get_info('nframe') / nFpO
         
-        jd = astro.unix_to_utcjd(idf.getInfo('tStart'))
+        jd = astro.unix_to_utcjd(idf.get_info('start_time'))
         date = str(ephem.Date(jd - astro.DJD_OFFSET))
-        centralFreq = idf.getInfo('freq1')
-        centralFreq = centralFreq[len(centralFreq)/2]
+        central_freq = idf.get_info('freq1')
+        central_freq = central_freq[len(central_freq)/2]
         
         print("Data type:  %s" % type(idf))
         print("Samples per observations: %i" % (nFpO,))
         print("Integration Time: %.3f s" % tInt)
-        print("Tuning frequency: %.3f Hz" % centralFreq)
+        print("Tuning frequency: %.3f Hz" % central_freq)
         print("Captures in file: %i (%.1f s)" % (nInts, nInts*tInt))
         print("==")
         print("Station: %s" % station.name)
@@ -83,7 +86,7 @@ def main(args):
                 print("ERROR: %s" % str(e))
                 break
                 
-            freqs = idf.getInfo('freq1')
+            freqs = idf.get_info('freq1')
             beginJD = astro.unix_to_utcjd( tStart )
             beginTime = datetime.utcfromtimestamp( tStart )
             
@@ -93,7 +96,7 @@ def main(args):
                 phase_freq_range[1] = freqs[-1]
                 
                 k = 0
-                phase = numpy.zeros((nBL, nChan, 2, 2), dtype=numpy.complex64)
+                phase = numpy.zeros((nBL, nchan, 2, 2), dtype=numpy.complex64)
                 gaix = [a.cable.gain(freqs) for a in ants if a.pol == 0]
                 gaiy = [a.cable.gain(freqs) for a in ants if a.pol == 1]
                 dlyx = [a.cable.delay(freqs) - a.stand.z / speedOfLight for a in ants if a.pol == 0]
@@ -118,7 +121,7 @@ def main(args):
             try:
                 blList
             except NameError:
-                blList = uvUtils.getBaselines(ants[0::2], IncludeAuto=True)
+                blList = uvutils.get_baselines(ants[0::2], include_auto=True)
                 
             if args.output is None:
                 outname = os.path.basename(filename)
@@ -130,16 +133,16 @@ def main(args):
                     ext = '.ms'
                 outname = "%s_%i_%s%s" % (base, int(beginJD-astro.MJD_OFFSET), beginTime.strftime("%H_%M_%S"), ext)
                 
-            fits = measurementset.MS(outname, refTime=tStart)
-            fits.setStokes(['xx', 'xy', 'yx', 'yy'])
-            fits.setFrequency(freqs)
-            fits.setGeometry(station, ants[0::2])
+            fits = measurementset.Ms(outname, ref_time=tStart)
+            fits.set_stokes(['xx', 'xy', 'yx', 'yy'])
+            fits.set_frequency(freqs)
+            fits.set_geometry(station, ants[0::2])
             
             obsTime = astro.unix_to_taimjd(tStart)
-            fits.addDataSet(obsTime, tInt, blList, data[:,:,0,0,0], pol='xx')
-            fits.addDataSet(obsTime, tInt, blList, data[:,:,0,1,0], pol='xy')
-            fits.addDataSet(obsTime, tInt, blList, data[:,:,1,0,0], pol='yx')
-            fits.addDataSet(obsTime, tInt, blList, data[:,:,1,1,0], pol='yy')
+            fits.add_data_set(obsTime, tInt, blList, data[:,:,0,0,0], pol='xx')
+            fits.add_data_set(obsTime, tInt, blList, data[:,:,0,1,0], pol='xy')
+            fits.add_data_set(obsTime, tInt, blList, data[:,:,1,0,0], pol='yx')
+            fits.add_data_set(obsTime, tInt, blList, data[:,:,1,1,0], pol='yy')
             fits.write()
             fits.close()
             fileCount += 1

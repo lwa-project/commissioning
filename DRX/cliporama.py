@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a DRX file, look for clip-o-rama (single samples with high instanenous power).
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -26,7 +27,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-    print """cliporama.py - Read in DRX files and create a collection of 
+    print("""cliporama.py - Read in DRX files and create a collection of
 timeseries (I/Q) plots.
 
 Usage: cliporama.py [OPTIONS] file
@@ -39,8 +40,8 @@ Options:
                             (default = 0.0001)
 -s, --stats                 Power statistics for the first 0.5 seconds after offset
 -n, --no-plot               Do not plot, only identify clip-o-rama events
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -60,9 +61,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hqo:sp:n", ["help", "quiet", "offset=", "stats", "plot-range=", "no-plot"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -94,19 +95,19 @@ def main(args):
     config = parseOptions(args)
     
     fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
+    nFramesFile = os.path.getsize(config['args'][0]) / drx.FRAME_SIZE
     
     while True:
-        junkFrame = drx.readFrame(fh)
+        junkFrame = drx.read_frame(fh)
         try:
-            srate = junkFrame.getSampleRate()
+            srate = junkFrame.sample_rate
             break
         except ZeroDivisionError:
             pass
-    fh.seek(-drx.FrameSize, 1)
+    fh.seek(-drx.FRAME_SIZE, 1)
     
-    beams = drx.getBeamCount(fh)
-    tunepols = drx.getFramesPerObs(fh)
+    beams = drx.get_beam_count(fh)
+    tunepols = drx.get_frames_per_obs(fh)
     tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
     beampols = tunepol
 
@@ -114,7 +115,7 @@ def main(args):
     offset = int(round(config['offset'] * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
     config['offset'] = 1.0 * offset / beampols * 4096 / srate
-    fh.seek(offset*drx.FrameSize)
+    fh.seek(offset*drx.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
@@ -134,15 +135,15 @@ def main(args):
     nChunks = int(math.ceil(1.0*(nFrames)/maxFrames))
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Beams: %i" % beams
-    print "Tune/Pols: %i %i %i %i" % tunepols
-    print "Sample Rate: %i Hz" % srate
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-    print "Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % config['args'][0])
+    print("Beams: %i" % beams)
+    print("Tune/Pols: %i %i %i %i" % tunepols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
+    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols))
+    print("Chunks: %i" % nChunks)
 
     # Sanity check
     if offset > nFramesFile:
@@ -152,12 +153,12 @@ def main(args):
 
     # Align the file handle so that the first frame read in the
     # main analysis loop is from tuning 1, polarization 0
-    junkFrame = drx.readFrame(fh)
-    b,t,p = junkFrame.parseID()
+    junkFrame = drx.read_frame(fh)
+    b,t,p = junkFrame.id
     while 2*(t-1)+p != 0:
-        junkFrame = drx.readFrame(fh)
-        b,t,p = junkFrame.parseID()
-    fh.seek(-drx.FrameSize, 1)
+        junkFrame = drx.read_frame(fh)
+        b,t,p = junkFrame.id
+    fh.seek(-drx.FRAME_SIZE, 1)
 
     # Master loop over all of the file chuncks
     standMapper = []
@@ -170,50 +171,50 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
         data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
         
         # Inner loop that actually reads the frames into the data array
-        print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+        print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = drx.read_frame(fh, verbose=False)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+            except errors.SyncError:
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1))
                 continue
                 
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 2*(tune-1) + pol
             
-            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.data.iq)**2
+            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = numpy.abs(cFrame.payload.data)**2
             
             # Update the counters so that we can average properly later on
             count[aStand] += 1
         
         # Statistics
-        print "Running robust statistics"
+        print("Running robust statistics")
         means = [robust.mean(data[i,:]) for i in xrange(data.shape[0])]
         stds  = [robust.std(data[i,:])  for i in xrange(data.shape[0])]
         
         if config['stats']:
             ## Report statistics
-            print "Mean: %s" % ' '.join(["%.3f" % m for m in means])
-            print "StdD: %s" % ' '.join(["%.3f" % s for s in stds ])
-            print "Levels:"
+            print("Mean: %s" % ' '.join(["%.3f" % m for m in means]))
+            print("StdD: %s" % ' '.join(["%.3f" % s for s in stds ]))
+            print("Levels:")
             
             ## Count'em up
             j = 0
             counts = [1,]*data.shape[0]
             while (means[i]+j*stds[i] <= 98) and max(counts) != 0:
                 counts =[len(numpy.where( numpy.abs(data[i,:] - means[i]) >= j*stds[i] )[0]) for i in xrange(data.shape[0])]
-                print " %2isigma (%5.1f%%): %s" % (j, 100.0*(1-erf(j/numpy.sqrt(2))), ' '.join(["%7i (%5.1f%%)" % (c, 100.0*c/data.shape[1]) for c in counts]))
+                print(" %2isigma (%5.1f%%): %s" % (j, 100.0*(1-erf(j/numpy.sqrt(2))), ' '.join(["%7i (%5.1f%%)" % (c, 100.0*c/data.shape[1]) for c in counts])))
                 j += 1
             
             ## Why j-2?  Well, j is 1 more than the last iteration.  So, that last iteration 
@@ -227,9 +228,9 @@ def main(args):
                         break
                 
                 if counts[i] == 1:
-                    print " -> Clip-o-rama likely occuring with %i %i-sigma detection on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2)
+                    print(" -> Clip-o-rama likely occuring with %i %i-sigma detection on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2))
                 else:
-                    print " -> Clip-o-rama likely occuring with %i %i-sigma detections on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2)
+                    print(" -> Clip-o-rama likely occuring with %i %i-sigma detections on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2))
         
         else:
             outfile = os.path.splitext(config['args'][0])[0]
@@ -237,13 +238,13 @@ def main(args):
             fh = open(outfile, 'w')
             
             # Plot possible clip-o-rama and flag it
-            print "Computing power derivatives w.r.t. time"
+            print("Computing power derivatives w.r.t. time")
             deriv = numpy.zeros_like(data)
             for i in xrange(data.shape[0]):
                 deriv[i,:] = numpy.roll(data[i,:], -1) - data[i,:]
             
             # The plots:  This is setup for the current configuration of 20 beampols
-            print "Plotting"
+            print("Plotting")
             fig = plt.figure()
             figsX = int(round(math.sqrt(beampols)))
             figsY = beampols / figsX
@@ -256,14 +257,14 @@ def main(args):
                 bad = numpy.where( deriv[i,:] > 20*stds[i]*numpy.sqrt(2) )[0]
                 for j in bad:
                     fh.write("Clip-o-rama on tuning %i, pol. %i at %.6f seconds\n" % (i/2+1, i%2, config['offset'] + j/srate))
-                    print "Clip-o-rama on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate)
+                    print("Clip-o-rama on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate))
                     ax.vlines(config['offset'] + j/srate, -10, 100, linestyle='--', color='red', linewidth=2.0)
                 
                 ## Mark areas of crazy power levels
                 bad = numpy.where( data[i,:] == 98 )[0]
                 for j in bad:
                     fh.write("Saturation on tuning %i, pol. %i at %.6f seconds\n" % (i/2+1, i%2, config['offset'] + j/srate))
-                    print "Saturation on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate)
+                    print("Saturation on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate))
                     ax.vlines(config['offset'] + j/srate, -10, 100, linestyle='-.', color='red')
                 
                 ax.set_ylim([-10, 100])

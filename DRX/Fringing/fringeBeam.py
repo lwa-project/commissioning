@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Script to fringe special DRX files that have a beam X pol. and a dipole 
 on Y pol.  The visibilites are written to a NPZ file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -27,7 +28,7 @@ from matplotlib import pyplot as plt
 
 
 def usage(exitCode=None):
-    print """fringeBeam.py - Take a DRX file with the beam on X pol. and a dipole
+    print("""fringeBeam.py - Take a DRX file with the beam on X pol. and a dipole
 on the Y pol. and cross correlate it.
 
 Usage: fringeBeam.py [OPTION] <dipole_ID_Y> <DRX_file>
@@ -39,7 +40,7 @@ Options:
                             default = 4 s)
 -s, --skip                  Skip the specified number of seconds at the beginning
                             of the file (default = 0)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -56,9 +57,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hl:t:s:", ["help", "fft-length=", "avg-time=", "skip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -94,7 +95,7 @@ def main(args):
     site = stations.lwa1
     
     # Get the antennas we need (and a fake one for the beam)
-    rawAntennas = site.getAntennas()
+    rawAntennas = site.antennas
     
     dipole = None
     for ant in rawAntennas:
@@ -126,34 +127,34 @@ def main(args):
     # Loop over the input files...
     for filename in filenames:
         fh = open(filename, "rb")
-        nFramesFile = os.path.getsize(filename) / drx.FrameSize
-        #junkFrame = drx.readFrame(fh)
+        nFramesFile = os.path.getsize(filename) / drx.FRAME_SIZE
+        #junkFrame = drx.read_frame(fh)
         #fh.seek(0)
         while True:
             try:
-                junkFrame = drx.readFrame(fh)
+                junkFrame = drx.read_frame(fh)
                 try:
-                    srate = junkFrame.getSampleRate()
-                    t0 = junkFrame.getTime()
+                    srate = junkFrame.sample_rate
+                    t0 =  junkFrame.time
                     break
                 except ZeroDivisionError:
                     pass
-            except errors.syncError:
-                fh.seek(-drx.FrameSize+1, 1)
+            except errors.SyncError:
+                fh.seek(-drx.FRAME_SIZE+1, 1)
                     
-        fh.seek(-drx.FrameSize, 1)
+        fh.seek(-drx.FRAME_SIZE, 1)
         
-        beam, tune, pol = junkFrame.parseID()
-        srate = junkFrame.getSampleRate()
+        beam, tune, pol = junkFrame.id
+        srate = junkFrame.sample_rate
         
-        tunepols = drx.getFramesPerObs(fh)
+        tunepols = drx.get_frames_per_obs(fh)
         tunepols = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
         beampols = tunepols
         
         # Offset in frames for beampols beam/tuning/pol. sets
         offset = int(config['offset'] * srate / 4096 * beampols)
         offset = int(1.0 * offset / beampols) * beampols
-        fh.seek(offset*drx.FrameSize, 1)
+        fh.seek(offset*drx.FRAME_SIZE, 1)
         
         # Iterate on the offsets until we reach the right point in the file.  This
         # is needed to deal with files that start with only one tuning and/or a 
@@ -161,13 +162,13 @@ def main(args):
         while True:
             ## Figure out where in the file we are and what the current tuning/sample 
             ## rate is
-            junkFrame = drx.readFrame(fh)
-            srate = junkFrame.getSampleRate()
-            t1 = junkFrame.getTime()
-            tunepols = drx.getFramesPerObs(fh)
+            junkFrame = drx.read_frame(fh)
+            srate = junkFrame.sample_rate
+            t1 = junkFrame.time
+            tunepols = drx.get_frames_per_obs(fh)
             tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
             beampols = tunepol
-            fh.seek(-drx.FrameSize, 1)
+            fh.seek(-drx.FRAME_SIZE, 1)
             
             ## See how far off the current frame is from the target
             tDiff = t1 - (t0 + config['offset'])
@@ -182,43 +183,43 @@ def main(args):
             ## and check the location in the file again/
             if cOffset is 0:
                     break
-            fh.seek(cOffset*drx.FrameSize, 1)
+            fh.seek(cOffset*drx.FRAME_SIZE, 1)
             
         # Update the offset actually used
         config['offset'] = t1 - t0
         offset = int(round(config['offset'] * srate / 4096 * beampols))
         offset = int(1.0 * offset / beampols) * beampols
         
-        tnom = junkFrame.header.timeOffset
-        tStart = junkFrame.getTime()
+        tnom = junkFrame.header.time_offset
+        tStart = junkFrame.time
         
         # Get the DRX frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
         for i in xrange(4):
-            junkFrame = drx.readFrame(fh)
-            b,t,p = junkFrame.parseID()
+            junkFrame = drx.read_frame(fh)
+            b,t,p = junkFrame.id
             if p == 0 and t == 1:
-                cFreq1 = junkFrame.getCentralFreq()
+                cFreq1 = junkFrame.central_freq
             elif p == 0 and t == 2:
-                cFreq2 = junkFrame.getCentralFreq()
+                cFreq2 = junkFrame.central_freq
             else:
                 pass
-        fh.seek(-4*drx.FrameSize, 1)
+        fh.seek(-4*drx.FRAME_SIZE, 1)
         
         # Align the files as close as possible by the time tags and then make sure that
         # the first frame processed is from tuning 1, pol 0.
-        junkFrame = drx.readFrame(fh)
-        beam, tune, pol = junkFrame.parseID()
+        junkFrame = drx.read_frame(fh)
+        beam, tune, pol = junkFrame.id
         pair = 2*(tune-1) + pol
         j = 0
         while pair != 0:
-            junkFrame = drx.readFrame(fh)
-            beam, tune, pol = junkFrame.parseID()
+            junkFrame = drx.read_frame(fh)
+            beam, tune, pol = junkFrame.id
             pair = 2*(tune-1) + pol
             j += 1
-        fh.seek(-drx.FrameSize, 1)
-        print "Shifted beam %i data by %i frames (%.4f s)" % (beam, j, j*4096/srate/4)
+        fh.seek(-drx.FRAME_SIZE, 1)
+        print("Shifted beam %i data by %i frames (%.4f s)" % (beam, j, j*4096/srate/4))
         
         # Set integration time
         tInt = config['avgTime']
@@ -229,20 +230,20 @@ def main(args):
         tFile = nFramesFile / 4 * 4096 / srate
         
         # Report
-        print "Filename: %s" % filename
-        print "  Sample Rate: %i Hz" % srate
-        print "  Tuning 1: %.1f Hz" % cFreq1
-        print "  Tuning 2: %.1f Hz" % cFreq2
-        print "  ==="
-        print "  Integration Time: %.3f s" % tInt
-        print "  Integrations in File: %i" % int(tFile/tInt)
+        print("Filename: %s" % filename)
+        print("  Sample Rate: %i Hz" % srate)
+        print("  Tuning 1: %.1f Hz" % cFreq1)
+        print("  Tuning 2: %.1f Hz" % cFreq2)
+        print("  ===")
+        print("  Integration Time: %.3f s" % tInt)
+        print("  Integrations in File: %i" % int(tFile/tInt))
         
         nChunks = int(tFile/tInt)
         pb = ProgressBar(max=nChunks)
         for i in xrange(nChunks):
-            junkFrame = drx.readFrame(fh)
-            tStart = junkFrame.getTime()
-            fh.seek(-drx.FrameSize, 1)
+            junkFrame = drx.read_frame(fh)
+            tStart = junkFrame.time
+            fh.seek(-drx.FRAME_SIZE, 1)
             
             count1 = [0,0]
             data1 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
@@ -250,21 +251,21 @@ def main(args):
             data2 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
             for j in xrange(nFrames):
                 for k in xrange(4):
-                    cFrame = drx.readFrame(fh)
-                    beam, tune, pol = cFrame.parseID()
+                    cFrame = drx.read_frame(fh)
+                    beam, tune, pol = cFrame.id
                     pair = 2*(tune-1) + pol
                     
                     if tune == 1:
-                        data1[pol, count1[pol]*4096:(count1[pol]+1)*4096] = cFrame.data.iq
+                        data1[pol, count1[pol]*4096:(count1[pol]+1)*4096] = cFrame.payload.data
                         count1[pol] += 1
                     else:
-                        data2[pol, count2[pol]*4096:(count2[pol]+1)*4096] = cFrame.data.iq
+                        data2[pol, count2[pol]*4096:(count2[pol]+1)*4096] = cFrame.payload.data
                         count2[pol] += 1
                     
             # Correlate
-            blList1, freq1, vis1 = fxc.FXMaster(data1, antennas, LFFT=LFFT, Overlap=1, IncludeAuto=True, verbose=False, SampleRate=srate, CentralFreq=cFreq1, Pol='XX', ReturnBaselines=True, GainCorrect=False, ClipLevel=0)
+            blList1, freq1, vis1 = fxc.FXMaster(data1, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
         
-            blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, Overlap=1, IncludeAuto=True, verbose=False, SampleRate=srate, CentralFreq=cFreq2, Pol='XX', ReturnBaselines=True, GainCorrect=False, ClipLevel=0)
+            blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
             
             if nChunks != 1:
                 outfile = os.path.split(filename)[1]
@@ -299,7 +300,7 @@ def main(args):
             i += 1
             
             coeff = numpy.polyfit(freq1, numpy.unwrap(numpy.angle(vi)), 1)
-            #print coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi
+            #print(coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi)
             
         i = 6
         for bl, vi in zip(blList2, vis2):
@@ -311,7 +312,7 @@ def main(args):
             i += 1
             
             coeff = numpy.polyfit(freq2, numpy.unwrap(numpy.angle(vi)), 1)
-            #print coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi
+            #print(coeff[0]/2/numpy.pi*1e9, coeff[1]*180/numpy.pi)
             
         #plt.show()
 

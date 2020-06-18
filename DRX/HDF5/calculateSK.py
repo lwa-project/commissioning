@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 calculateSK.py - Read in a DRX/HDF5 wataerfall file and calculate the pseudo-
@@ -13,12 +12,14 @@ Note:  Although the pSK method works reasonable well for short integration times
 
 Usage:
 ./calculateSK.py [OPTIONS] file
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -39,26 +40,26 @@ def main(args):
         # Load in the information we need to calculate the pseudo-spectral kurtosis (pSK)
         tInt = obs.attrs['tInt']
         LFFT = obs.attrs['LFFT']
-        srate = obs.attrs['sampleRate']
+        srate = obs.attrs['sample_rate']
         
         skN = int(tInt*srate / LFFT)
         chunkSize = int(round(args.duration/tInt))
         
-        print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
-        print "  Sample Rate: %.1f Hz" % srate
-        print "  LFFT: %i" % LFFT
-        print "  tInt: %.3f s" % tInt
-        print "  Integrations per spectrum: %i" % skN
+        print("Staring Observation #%i" % int(obsName.replace('Observation', '')))
+        print("  Sample Rate: %.1f Hz" % srate)
+        print("  LFFT: %i" % LFFT)
+        print("  tInt: %.3f s" % tInt)
+        print("  Integrations per spectrum: %i" % skN)
         
         time = obs.get('time', None)[:]
         tuning1 = obs.get('Tuning1', None)
         tuning2 = obs.get('Tuning2', None)
         
         # Get all of the avaliable data products
-        dataProducts = list(tuning1)
+        data_products = list(tuning1)
         for toRemove in ('Mask', 'Saturation', 'SpectralKurtosis', 'freq'):
             try:
-                del dataProducts[dataProducts.index(toRemove)]
+                del data_products[data_products.index(toRemove)]
             except ValueError:
                 pass
                 
@@ -78,7 +79,7 @@ def main(args):
                 sk = numpy.zeros_like(data)
                 
                 section = numpy.empty((chunkSize,data.shape[1]), dtype=data.dtype)
-                for i in xrange(time.size/chunkSize+1):
+                for i in xrange(time.size//chunkSize+1):
                     start = i*chunkSize
                     stop = start + chunkSize
                     if stop >= time.size:
@@ -93,11 +94,11 @@ def main(args):
                     except TypeError:
                         section = data[start:stop,:]
                     for j in xrange(section.shape[1]):
-                        sk[start:stop,j] = kurtosis.spectralPower(section[:,j], N=skN*nAdjust[dp])
+                        sk[start:stop,j] = kurtosis.spectral_power(section[:,j], N=skN*nAdjust[dp])
                         
                 # Report
-                print "  => %s-%i SK Mean: %.3f" % (dp, t+1, numpy.mean(sk))
-                print "     %s-%i SK Std. Dev.: %.3f" % (dp, t+1, numpy.std(sk))
+                print("  => %s-%i SK Mean: %.3f" % (dp, t+1, numpy.mean(sk)))
+                print("     %s-%i SK Std. Dev.: %.3f" % (dp, t+1, numpy.std(sk)))
                 
                 # Save the pSK information to the HDF5 file if we need to
                 if (not args.no_update):
@@ -105,19 +106,19 @@ def main(args):
                     
                     if args.generate_mask:
                         ## Calculate the expected pSK limits for the threshold
-                        kLow, kHigh = kurtosis.getLimits(args.threshold, chunkSize, N=skN*nAdjust[dp])
+                        kLow, kHigh = kurtosis.get_limits(args.threshold, chunkSize, N=skN*nAdjust[dp])
                         
                         ## Generate the mask arrays
                         maskTable = numpy.where( (sk < kLow) | (sk > kHigh), True, False )
                         
                         ## Report
-                        print "     => %s-%i Mask Fraction: %.1f%%" % (dp, t+1, 100.0*maskTable.sum()/maskTable.size,)
+                        print("     => %s-%i Mask Fraction: %.1f%%" % (dp, t+1, 100.0*maskTable.sum()/maskTable.size,))
                         
                         ## Pull out the Mask group from the HDF5 file
                         mask = tuning.get('Mask', None)
                         if mask is None:
                             mask = tuning.create_group('Mask')
-                            for p in dataProducts:
+                            for p in data_products:
                                 mask.create_dataset(p, tuning[p].shape, 'bool')
                         maskDP = mask.get(dp, None)
                         if args.merge:
@@ -139,7 +140,7 @@ def main(args):
                         
         if args.generate_mask and args.fill:	
             # Loop over data products - secondary
-            for dp in dataProducts:
+            for dp in data_products:
                 for t,tuning in enumerate((tuning1, tuning2)):
                     ## Jump over the primary polarizations
                     if dp in ('XX', 'YY', 'I', 'RR', 'LL'):

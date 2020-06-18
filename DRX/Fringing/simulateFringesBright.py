@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
-Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.buildSimData()
+Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.build_sim_data()
 function and the bright sources listed in lsl.sim.vis.srcs.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -21,7 +22,7 @@ import aipy
 from lsl.reader import drx
 from lsl.common.dp import fS
 from lsl.common import stations
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 from lsl.astro import unix_to_utcjd
 from lsl.sim import vis as simVis
 
@@ -48,22 +49,22 @@ def main(args):
 
         times.append( tStart)
 
-    print "Got %i files from %s to %s (%s)" % (len(filenames), times[0].strftime("%Y/%m/%d %H:%M:%S"), times[-1].strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0]))
+    print("Got %i files from %s to %s (%s)" % (len(filenames), times[0].strftime("%Y/%m/%d %H:%M:%S"), times[-1].strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = []
     for i in xrange(1, len(times)):
         dt = times[i] - times[i-1]
         iTimes.append(dt.days*24*3600 + dt.seconds + dt.microseconds/1e6)
     iTimes = numpy.array(iTimes)
-    print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max())
+    print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
     
-    print "Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq1)+1, freq1[1]-freq1[0])
+    print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq1)+1, freq1[1]-freq1[0]))
 
     
     # Build up the station
     site = stations.lwa1
     
-    rawAntennas = site.getAntennas()
+    rawAntennas = site.antennas
     
     antennas = []
     for ant in rawAntennas:
@@ -77,8 +78,8 @@ def main(args):
 
     # Create the simulated array
     refJD = unix_to_utcjd(timegm(times[0].timetuple()))
-    aa1 = simVis.buildSimArray(site, antennas, freq1/1e9, jd=refJD)
-    aa2 = simVis.buildSimArray(site, antennas, freq2/1e9, jd=refJD)
+    aa1 = simVis.build_sim_array(site, antennas, freq1/1e9, jd=refJD)
+    aa2 = simVis.build_sim_array(site, antennas, freq2/1e9, jd=refJD)
 
     # Build the model times and range.
     jdList = []
@@ -91,8 +92,8 @@ def main(args):
         dTimes.append( (times[i]-times[0]).seconds )
         
     # Actually run the simulations
-    simDict1 = simVis.buildSimData(aa1, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
-    simDict2 = simVis.buildSimData(aa2, simVis.srcs, jd=jdList, pols=['xx',], verbose=False)
+    simDict1 = simVis.build_sim_data(aa1, simVis.SOURCES, jd=jdList, pols=['xx',], verbose=False)
+    simDict2 = simVis.build_sim_data(aa2, simVis.SOURCES, jd=jdList, pols=['xx',], verbose=False)
 
     # Plot
     fig = plt.figure()
@@ -116,14 +117,14 @@ def main(args):
     data.sort()
     vmin1 = data[int(round(0.15*len(data)))]
     vmax1 = data[int(round(0.85*len(data)))]
-    print 'Plot range for tuning 1:', vmin1, vmax1
+    print('Plot range for tuning 1:', vmin1, vmax1)
     
     data = numpy.abs(vis2)
     data = data.ravel()
     data.sort()
     vmin2 = data[int(round(0.15*len(data)))]
     vmax2 = data[int(round(0.85*len(data)))]
-    print 'Plot range for tuning 2:', vmin2, vmax2
+    print('Plot range for tuning 2:', vmin2, vmax2)
 
     ax1.imshow(numpy.abs(vis1), extent=(freq1[0], freq1[-1], dTimes[0], dTimes[-1]), origin='lower', 
             vmin=vmin1, vmax=vmax1)

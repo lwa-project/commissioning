@@ -1,23 +1,26 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple TBN beam forming script based on Steve's "Fun with TBN" memo.
 
 Usage:
-./formBeam.py <cln_file> <azimuth> <elevation> <TBN_file>
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+./form_beam.py <cln_file> <azimuth> <elevation> <TBN_file>
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
 import numpy
 
-from lsl.common.constants import c as vLight
+from astropy.constants import c as speedOfLight
+vLight = speedOfLight.to('m/s').value
+
 from lsl.common.stations import lwa1
 from lsl.reader import tbn
 from lsl.reader import errors
@@ -39,7 +42,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
         
         
-def formBeam(data, bln):
+def form_beam(data, bln):
     """
     Apply the beam forming coefficients to a section of TBN data, sum across
     the various inputs, and intergrate.
@@ -81,13 +84,13 @@ def main(args):
     filename = args[3]
     
     # The station
-    observer = lwa1.getObserver()
-    antennas = lwa1.getAntennas()
+    observer = lwa1.get_observer()
+    antennas = lwa1.antennas
     
     # The file's parameters
     fh = open(filename, 'rb')
-    nFramesFile = os.path.getsize(filename) / tbn.FrameSize
-    srate = tbn.getSampleRate(fh)
+    nFramesFile = os.path.getsize(filename) / tbn.FRAME_SIZE
+    srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
     
     # Reference antenna
@@ -111,11 +114,11 @@ def main(args):
     
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbn.readFrame(fh)
-    fh.seek(-tbn.FrameSize, 1)
-    startFC = junkFrame.header.frameCount
-    centralFreq = junkFrame.getCentralFreq()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    junkFrame = tbn.read_frame(fh)
+    fh.seek(-tbn.FRAME_SIZE, 1)
+    startFC = junkFrame.header.frame_count
+    central_freq = junkFrame.central_freq
+    beginDate = junkFrame.time.datetime
     
     observer.date = beginDate
     srcs = []
@@ -124,23 +127,23 @@ def main(args):
         srcs[-1].compute(observer)
         
         if srcs[-1].alt > 0:
-            print "source %s: alt %.1f degrees, az %.1f degrees" % (srcs[-1].name, srcs[-1].alt*180/numpy.pi, srcs[-1].az*180/numpy.pi)
+            print("source %s: alt %.1f degrees, az %.1f degrees" % (srcs[-1].name, srcs[-1].alt*180/numpy.pi, srcs[-1].az*180/numpy.pi))
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % centralFreq
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
-    print "---"
-    print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz" % central_freq)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate))
+    print("---")
+    print("Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols))
+    print("Chunks: %i" % nChunks)
     
-    junkFrame = tbn.readFrame(fh)
-    while junkFrame.header.frameCount < startFC+3:
-        junkFrame = tbn.readFrame(fh)
-    fh.seek(-tbn.FrameSize, 1)
+    junkFrame = tbn.read_frame(fh)
+    while junkFrame.header.frame_count < startFC+3:
+        junkFrame = tbn.read_frame(fh)
+    fh.seek(-tbn.FRAME_SIZE, 1)
     
     # Get the beamformer coefficients - three sets:
     #  (1) at the requested az, el
@@ -152,14 +155,14 @@ def main(args):
     aln2 = []
     aln3 = []
     for i in xrange(cln.shape[1]):
-        gd = getGeoDelay(antennas[i], az, el, centralFreq, Degrees=True)
-        aln1.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
+        gd = getGeoDelay(antennas[i], az, el, central_freq, Degrees=True)
+        aln1.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
         
-        gd = getGeoDelay(antennas[i], az, el-15, centralFreq, Degrees=True)
-        aln2.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
+        gd = getGeoDelay(antennas[i], az, el-15, central_freq, Degrees=True)
+        aln2.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
         
-        gd = getGeoDelay(antennas[i], 0.5, 83.3, centralFreq, Degrees=True)
-        aln3.append( numpy.exp(2j*numpy.pi*centralFreq*gd) )
+        gd = getGeoDelay(antennas[i], 0.5, 83.3, central_freq, Degrees=True)
+        aln3.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
         
     aln1 = numpy.array(aln1)
     aln2 = numpy.array(aln2)
@@ -169,13 +172,13 @@ def main(args):
     bln2 = (cln*aln2).conj() / numpy.abs(cln*aln2)
     bln3 = (cln*aln3).conj() / numpy.abs(cln*aln3)
     for i in xrange(cln.shape[1]):
-        if antennas[i].getStatus() != 33 or antennas[i].stand.id == ref:
+        if antennas[i].combined_status != 33 or antennas[i].stand.id == ref:
             bln1[:,i] = 0.0
             bln2[:,i] = 0.0
             bln3[:,i] = 0.0
     
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1], ReorderFrames=False)
+    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1], reorder=False)
     
     # Create the beam
     times = numpy.zeros(nChunks, dtype=numpy.float64)
@@ -194,9 +197,9 @@ def main(args):
             framesWork = nFrames
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
         else:
-            framesWork = framesRemaining + antpols*buffer.nSegments
+            framesWork = framesRemaining + antpols*buffer.nsegments
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
-        print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = [0 for a in xrange(antpols)]
         
@@ -205,12 +208,12 @@ def main(args):
         # Inner loop that actually reads the frames into the data array
         while j < fillsWork:
             try:
-                cFrame = tbn.readFrame(fh)
+                cFrame = tbn.read_frame(fh)
                 k = k + 1
-            except errors.eofError:
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+            except errors.SyncError:
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
                 continue
                     
             buffer.append(cFrame)
@@ -219,13 +222,13 @@ def main(args):
             if cFrames is None:
                 continue
             
-            valid = reduce(lambda x,y: x+int(y.valid), cFrames, 0)
+            valid = sum(lambda x,y: x+int(y.valid), cFrames, 0)
             if valid != antpols:
-                print "WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frameCount, cFrames[0].data.timeTag, float(antpols - valid)/antpols*100)
+                print("WARNING: frame count %i at %i missing %.2f%% of frames" % (cFrames[0].header.frame_count, cFrames[0].payload.timetag, float(antpols - valid)/antpols*100))
                 continue
             
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 
                 # In the current configuration, stands start at 1 and go up to 260.  So, we
                 # can use this little trick to populate the data array
@@ -233,9 +236,9 @@ def main(args):
                 
                 # Save the time
                 if j == 0 and aStand == 0:
-                    times[i] = cFrame.getTime()
+                    times[i] = cFrame.time
                 
-                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 
                 # Update the counters so that we can average properly later on
                 count[aStand] = count[aStand] + 1
@@ -249,12 +252,12 @@ def main(args):
         # Beam forming
         taskPool = Pool(processes=6)
         taskList = []
-        taskList.append( (i,1,0,taskPool.apply_async(formBeam, args=(data[0::2,:], bln1[0,0::2]))) )
-        taskList.append( (i,1,1,taskPool.apply_async(formBeam, args=(data[1::2,:], bln1[0,1::2]))) )
-        taskList.append( (i,2,0,taskPool.apply_async(formBeam, args=(data[0::2,:], bln2[0,0::2]))) )
-        taskList.append( (i,2,1,taskPool.apply_async(formBeam, args=(data[1::2,:], bln2[0,1::2]))) )
-        taskList.append( (i,3,0,taskPool.apply_async(formBeam, args=(data[0::2,:], bln3[0,0::2]))) )
-        taskList.append( (i,3,1,taskPool.apply_async(formBeam, args=(data[1::2,:], bln3[0,1::2]))) )
+        taskList.append( (i,1,0,taskPool.apply_async(form_beam, args=(data[0::2,:], bln1[0,0::2]))) )
+        taskList.append( (i,1,1,taskPool.apply_async(form_beam, args=(data[1::2,:], bln1[0,1::2]))) )
+        taskList.append( (i,2,0,taskPool.apply_async(form_beam, args=(data[0::2,:], bln2[0,0::2]))) )
+        taskList.append( (i,2,1,taskPool.apply_async(form_beam, args=(data[1::2,:], bln2[0,1::2]))) )
+        taskList.append( (i,3,0,taskPool.apply_async(form_beam, args=(data[0::2,:], bln3[0,0::2]))) )
+        taskList.append( (i,3,1,taskPool.apply_async(form_beam, args=(data[1::2,:], bln3[0,1::2]))) )
         taskPool.close()
         taskPool.join()
         
@@ -266,13 +269,13 @@ def main(args):
             else:
                 beam3[i,p] = task.get()
         
-        print '1', beam1[i,0], '2', beam2[i,0], '3', beam3[i,0], '1/2', beam1[i,0]/beam2[i,0], '3/2', beam3[i,0]/beam2[i,0]
+        print('1', beam1[i,0], '2', beam2[i,0], '3', beam3[i,0], '1/2', beam1[i,0]/beam2[i,0], '3/2', beam3[i,0]/beam2[i,0])
         del data
     
     # Plot the data
-    print 'CygA      :', beam1[:,0]
-    print 'Pointing 2:', beam2[:,0]
-    print 'Pointing 1:', beam3[:,0]
+    print('CygA      :', beam1[:,0])
+    print('Pointing 2:', beam2[:,0])
+    print('Pointing 1:', beam3[:,0])
     
     fig = plt.figure()
     ax1 = fig.add_subplot(1, 2, 1)

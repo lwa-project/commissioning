@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Run through a TBN file and determine if it is bad or not.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -30,27 +31,27 @@ def main(args):
         station = stations.lwasv
     else:
         station = stations.lwa1
-    antennas = station.getAntennas()
+    antennas = station.antennas
 
     fh = open(filename, "rb")
-    nFramesFile = os.path.getsize(filename) / tbn.FrameSize
-    srate = tbn.getSampleRate(fh)
+    nFramesFile = os.path.getsize(filename) // tbn.FRAME_SIZE
+    srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbn.readFrame(fh)
-    fh.seek(-tbn.FrameSize, 1)
-    centralFreq = junkFrame.getCentralFreq()
-    beginDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
+    junkFrame = tbn.read_frame(fh)
+    fh.seek(-tbn.FRAME_SIZE, 1)
+    central_freq = junkFrame.central_freq
+    beginDate = junkFrame.time.datetime
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % centralFreq
-    print " "
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz" % central_freq)
+    print(" ")
 
     # Convert chunk length to total frame count
     chunkLength = int(args.length * srate / 512 * antpols)
@@ -61,7 +62,7 @@ def main(args):
     chunkSkip = int(1.0 * chunkSkip / antpols) * antpols
     
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
+    buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
 
     # Output arrays
     clipFraction = []
@@ -77,20 +78,20 @@ def main(args):
     # Go!
     i = 1
     done = False
-    print "   |     Clipping    |        Power      |"
-    print "   |   10X     10Y   |    10X      10Y   |"
-    print "---+-----------------+-------------------+"
+    print("   |     Clipping    |        Power      |")
+    print("   |   10X     10Y   |    10X      10Y   |")
+    print("---+-----------------+-------------------+")
     
     while True:
         count = [0 for j in xrange(antpols)]
-        data = numpy.zeros((antpols, chunkLength*512/antpols), dtype=numpy.csingle)
+        data = numpy.zeros((antpols, chunkLength*512//antpols), dtype=numpy.csingle)
         for j in xrange(chunkLength):
             try:
-                cFrame = tbn.readFrame(fh)
-            except errors.eofError:
+                cFrame = tbn.read_frame(fh)
+            except errors.EOFError:
                 done = True
                 break
-            except errors.syncError:
+            except errors.SyncError:
                 continue
                     
             buffer.append(cFrame)
@@ -100,14 +101,14 @@ def main(args):
                 continue
             
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 
                 # In the current configuration, stands start at 1 and go up to 260.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)+pol
                 
                 try:
-                    data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                    data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                     # Update the counters so that we can average properly later on
                     count[aStand] = count[aStand] + 1
                 except ValueError:
@@ -116,13 +117,13 @@ def main(args):
         for cFrames in buffer.flush():
             # Inner loop that actually reads the frames into the data array
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)+pol
             
                 try:
-                    data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                    data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                     # Update the counters so that we can average properly later on
                     count[aStand] = count[aStand] + 1
                 except ValueError:
@@ -143,10 +144,10 @@ def main(args):
             
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print "%2i | %6.2f%% %6.2f%% | %8.2f %8.2f |" % (i, clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]])
+            print("%2i | %6.2f%% %6.2f%% | %8.2f %8.2f |" % (i, clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]]))
         
             i += 1
-            fh.seek(tbn.FrameSize*chunkSkip, 1)
+            fh.seek(tbn.FRAME_SIZE*chunkSkip, 1)
 
     clipFraction = numpy.array(clipFraction)
     meanPower = numpy.array(meanPower)
@@ -154,8 +155,8 @@ def main(args):
     clip = clipFraction.mean(axis=0)
     power = meanPower.mean(axis=0)
     
-    print "---+-----------------+-------------------+"
-    print "%2s | %6.2f%% %6.2f%% | %8.2f %8.2f |" % ('M', clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]])
+    print("---+-----------------+-------------------+")
+    print("%2s | %6.2f%% %6.2f%% | %8.2f %8.2f |" % ('M', clip[toUse[0]]*100.0, clip[toUse[1]]*100.0, power[toUse[0]], power[toUse[1]]))
 
 
 if __name__ == "__main__":

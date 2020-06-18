@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import pytz
@@ -10,9 +15,9 @@ import getopt
 from datetime import datetime, timedelta
 
 from lsl.common.stations import lwa1
-from lsl.common.mcs import datetime2mjdmpm
-from lsl.reader.tbn import FrameSize as tbnFrameSize
-from lsl.reader.tbn import filterCodes as tbnFilters
+from lsl.common.mcs import datetime_to_mjdmpm
+from lsl.reader.tbn import FRAME_SIZE as tbnFRAME_SIZE
+from lsl.reader.tbn import FILTER_CODES as tbn_filters
 
 
 # Time zones
@@ -38,7 +43,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 
 
 def usage(exitCode=None):
-    print """tbnCalibRecordCommand.py - Get a DR REC command to record 100 kS/s 
+    print("""tbnCalibRecordCommand.py - Get a DR REC command to record 100 kS/s 
 TBN (filter #7) for two hours centered on the transit of Cyg A.
 
 Note:  Input dates are in UTC.
@@ -51,7 +56,7 @@ Options:
 -d, --duration         Duration of recording in seconds 
                     (default = 7200)
 -f, --filter           TBN filter (default = 7)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -68,9 +73,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hs:d:f:", ["help", "source=", "duration=", "filter="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -102,8 +107,8 @@ def main(args):
     config = parseOptions(args)
     
     # Get LWA-1
-    observer = lwa1.getObserver()
-    print "Current site is %s at lat %s, lon %s" % (lwa1.name, observer.lat, observer.long)
+    observer = lwa1.get_observer()
+    print("Current site is %s at lat %s, lon %s" % (lwa1.name, observer.lat, observer.long))
     
     # Set the current time so we can find the "next" transit.  Go ahead
     # and report the time and the current LST (for reference)
@@ -118,8 +123,8 @@ def main(args):
     else:
         tNow = _UTC.localize(datetime.utcnow())
     observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
-    print "Current time is %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z")
-    print "Current LST at %s is %s" % (lwa1.name, observer.sidereal_time())
+    print("Current time is %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z"))
+    print("Current LST at %s is %s" % (lwa1.name, observer.sidereal_time()))
     
     # Load in the sources and compute
     srcs = [ephem.Sun(), ephem.Jupiter()]
@@ -133,9 +138,9 @@ def main(args):
     #
     
     # Header
-    print ""
-    print "%-10s  %-23s" % ("Source", "Next Transit", )
-    print "="*(10+2+23)
+    print("")
+    print("%-10s  %-23s" % ("Source", "Next Transit", ))
+    print("="*(10+2+23))
     
     # List
     found = False
@@ -146,32 +151,32 @@ def main(args):
             nT = str(observer.next_transit(src, start=tNow.strftime("%Y/%m/%d %H:%M:%S")))
             nT = _UTC.localize( datetime.strptime(nT, "%Y/%m/%d %H:%M:%S") )
             
-            print "%-10s %-23s" % (src.name, nT.strftime("%Y/%m/%d %H:%M:%S %Z"))
-            print "%-10s %-23s" % ("", nT.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z"))
-            print " "
+            print("%-10s %-23s" % (src.name, nT.strftime("%Y/%m/%d %H:%M:%S %Z")))
+            print("%-10s %-23s" % ("", nT.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z")))
+            print(" ")
             break
             
     if found:
         startRec = nT - timedelta(seconds=int(round(config['duration']/2.0)))
-        mjd, mpm = datetime2mjdmpm(startRec)
+        mjd, mpm = datetime_to_mjdmpm(startRec)
         dur = int(round(config['duration']*1000))
         cmd = 'DR5 REC "%i %i %i TBN_FILT_%i"' % (mjd, mpm, dur, config['filter'])
         
         antpols = 520
-        sampleRate = tbnFilters[config['filter']]
-        dataRate = 1.0*sampleRate/512*tbnFrameSize*antpols
+        sample_rate = tbn_filters[config['filter']]
+        dataRate = 1.0*sample_rate/512*tbnFRAME_SIZE*antpols
         
-        print "Recording:"
-        print " Start: %s" % startRec.strftime("%Y/%m/%d %H:%M:%S %Z")
-        print "        %s" % startRec.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z")
-        print " Duration: %.3f s" % (dur/1000.0,)
-        print " TBN Filter Code: %i" % config['filter']
-        print " Data rate: %.2f MB/s" % (dataRate/1024**2,)
-        print " Data volume: %.2f GB" % (dataRate*dur/1000.0/1024**3,)
-        print " "
+        print("Recording:")
+        print(" Start: %s" % startRec.strftime("%Y/%m/%d %H:%M:%S %Z"))
+        print("        %s" % startRec.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z"))
+        print(" Duration: %.3f s" % (dur/1000.0,))
+        print(" TBN Filter Code: %i" % config['filter'])
+        print(" Data rate: %.2f MB/s" % (dataRate/1024**2,))
+        print(" Data volume: %.2f GB" % (dataRate*dur/1000.0/1024**3,))
+        print(" ")
         
-        print "Data Recorder Command:"
-        print " %s" % cmd
+        print("Data Recorder Command:")
+        print(" %s" % cmd)
     else:
         raise RuntimeError("Unknown source '%s'" % config['source'])
 

@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a DRX file with both tunings set to the same parameters, check for coherency.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -47,7 +48,7 @@ def crossCorrelate(sig, ref):
 
 
 def usage(exitCode=None):
-    print """checkTuningCoherency.py - Read in DRX files and check for coherency.
+    print("""checkTuningCoherency.py - Read in DRX files and check for coherency.
 
 Usage: checkTuningCoherency.py [OPTIONS] file
 
@@ -59,8 +60,8 @@ Options:
                             (default = 2)
 -q, --quiet                 Run drxSpectra in silent mode
 -o, --output                Output file name for time series image
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -80,9 +81,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hqo:s:p:", ["help", "quiet", "output=", "skip=", "plot-range="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -112,20 +113,20 @@ def main(args):
     config = parseOptions(args)
     
     fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / drx.FrameSize
+    nFramesFile = os.path.getsize(config['args'][0]) / drx.FRAME_SIZE
     
     while True:
-        junkFrame = drx.readFrame(fh)
+        junkFrame = drx.read_frame(fh)
         try:
-            srate = junkFrame.getSampleRate()
+            srate = junkFrame.sample_rate
             break
         except ZeroDivisionError:
             pass
-    fh.seek(-drx.FrameSize, 1)
+    fh.seek(-drx.FRAME_SIZE, 1)
     
-    print junkFrame.header.timeOffset
-    beams = drx.getBeamCount(fh)
-    tunepols = drx.getFramesPerObs(fh)
+    print(junkFrame.header.time_offset)
+    beams = drx.get_beam_count(fh)
+    tunepols = drx.get_frames_per_obs(fh)
     tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
     beampols = tunepol
 
@@ -133,7 +134,7 @@ def main(args):
     offset = int(round(config['offset'] * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
     config['offset'] = 1.0 * offset / beampols * 4096 / srate
-    fh.seek(offset*drx.FrameSize)
+    fh.seek(offset*drx.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
@@ -153,15 +154,15 @@ def main(args):
     nChunks = int(math.ceil(1.0*(nFrames)/maxFrames))
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Beams: %i" % beams
-    print "Tune/Pols: %i %i %i %i" % tunepols
-    print "Sample Rate: %i Hz" % srate
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-    print "Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % config['args'][0])
+    print("Beams: %i" % beams)
+    print("Tune/Pols: %i %i %i %i" % tunepols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
+    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols))
+    print("Chunks: %i" % nChunks)
 
     # Sanity check
     if offset > nFramesFile:
@@ -169,14 +170,14 @@ def main(args):
     if nFrames > (nFramesFile - offset):
         raise RuntimeError("Requested integration time+offset is greater than file length")
 
-    junkFrame = drx.readFrame(fh)
-    b,t,p = junkFrame.parseID()
+    junkFrame = drx.read_frame(fh)
+    b,t,p = junkFrame.id
     while 2*(t-1)+p != 0:
-        junkFrame = drx.readFrame(fh)
-        b,t,p = junkFrame.parseID()
-        print b,t,p
-    print fh.tell()
-    fh.seek(-drx.FrameSize, 1)
+        junkFrame = drx.read_frame(fh)
+        b,t,p = junkFrame.id
+        print(b,t,p)
+    print(fh.tell())
+    fh.seek(-drx.FRAME_SIZE, 1)
 
     # Master loop over all of the file chuncks
     standMapper = []
@@ -189,43 +190,43 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % (i, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {}
         data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
         
         # Inner loop that actually reads the frames into the data array
-        print "Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0)
+        print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = drx.read_frame(fh, verbose=False)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FrameSize-1)
+            except errors.SyncError:
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1))
                 continue
                 
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 4*(beam-1) + 2*(tune-1) + pol
-            #print aStand, beam, tune, pol
+            #print(aStand, beam, tune, pol)
             if aStand not in standMapper:
                 standMapper.append(aStand)
                 oStand = 1*aStand
                 aStand = standMapper.index(aStand)
-                print "Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand)
+                print("Mapping beam %i, tune. %1i, pol. %1i (%2i) to array index %3i" % (beam, tune, pol, oStand, aStand))
             else:
                 aStand = standMapper.index(aStand)
 
             if aStand not in count.keys():
                 count[aStand] = 0
-            #if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-            #	print "%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frameCount, cFrame.data.timeTag)
+            #if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
+            #	print("%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frame_count, cFrame.payload.timetag))
 
-            #print data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.data.iq.shape
-            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+            #print(data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.payload.data.shape)
+            data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.payload.data
             # Update the counters so that we can average properly later on
             count[aStand] += 1
             
@@ -241,7 +242,7 @@ def main(args):
         samples = 65536
         for sec in xrange(data.shape[1]/samples):
             if toClip:
-                print "Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0)
+                print("Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0))
 
             sortedMapper = sorted(standMapper)
             for k, aStand in enumerate(sortedMapper):
@@ -258,9 +259,9 @@ def main(args):
                                     ref[offset+sec*samples:offset+(sec+1)*samples])
                 best = numpy.where( cc == cc.max() )[0][0]
                 if config['verbose']:
-                    print 'tune %i pol. %s' % (standMapper[i]%4/2+1, standMapper[i]%2)
-                    print ' -> best peak of %.0f at a lag of %i samples' % (cc.max(), lag[best])
-                    print ' -> NCM with tuning 1 of %.3f' % (cc.max()/t1R)
+                    print('tune %i pol. %s' % (standMapper[i]%4/2+1, standMapper[i]%2))
+                    print(' -> best peak of %.0f at a lag of %i samples' % (cc.max(), lag[best]))
+                    print(' -> NCM with tuning 1 of %.3f' % (cc.max()/t1R))
                 
                 # Plot
                 ax = fig.add_subplot(figsX,figsY,k+1)

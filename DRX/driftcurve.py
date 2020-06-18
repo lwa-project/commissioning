@@ -1,7 +1,15 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
-"""Predict driftcurve for a given site using a given antenna model."""
+"""
+Predict driftcurve for a given site using a given antenna model.
+"""
+
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -11,10 +19,9 @@ import argparse
 
 from lsl import skymap, astro
 from lsl.common import stations
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 from lsl.misc import parser as aph
 
-__revision__ = "$Revision$"
 __version__  = "0.1"
 __author__    = "D.L.Wood"
 __maintainer__ = "Jayce Dowell"
@@ -47,13 +54,13 @@ def main(args):
         
     # Read in the skymap (GSM or LF map @ 74 MHz)
     if not args.lfsm:
-        smap = skymap.SkyMapGSM(freqMHz=freq/1e6)
+        smap = skymap.SkyMapGSM(freq_MHz=freq/1e6)
         if args.verbose:
-            print "Read in GSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
+            print("Read in GSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max()))
     else:
-        smap = skymap.SkyMapLFSM(freqMHz=freq/1e6)
+        smap = skymap.SkyMapLFSM(freq_MHz=freq/1e6)
         if args.verbose:
-            print "Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max())
+            print("Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max()))
             
     def BeamPattern(az, alt, beam=beam, ires=ires):
 	iAz = (numpy.round(az*ires)).astype(numpy.int32)
@@ -114,8 +121,8 @@ def main(args):
         pylab.show()
         
     outputFile = "driftcurve_%s_%s_%.2f.txt" % (name, pol, freq/1e6)
-    print "Writing driftcurve to file '%s'" % outputFile
-    mf = file(outputFile, "w")
+    print("Writing driftcurve to file '%s'" % outputFile)
+    mf = open(outputFile, "w")
     for lst,pow in zip(lstList, powListAnt):
         mf.write("%f  %f\n" % (lst,pow))
     mf.close()

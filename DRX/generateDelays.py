@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Read in SSMIF file and create a set of DRX gain and delay files for a given 
 frequency and topogentric pointing center.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import sys
 import numpy
 import getopt
@@ -17,10 +18,10 @@ import getopt
 import gain
 import delay
 from lsl.misc import beamformer
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 
 def usage(exitCode=None):
-    print """generateDelays.py - Read in a SSMIF file and create a set of DRX
+    print("""generateDelays.py - Read in a SSMIF file and create a set of DRX
 gain and delay files for a given frequency and topogentric pointing center.
 
 Usage: generateDelays.py [OPTIONS] file
@@ -34,7 +35,8 @@ Options:
 -e, --elevation             Elevation above the horizon in degrees for the pointing
                             center (Default = 90 degrees)
 -g, --gain                  DRX antenna gain (Default = 1.0000)
-"""
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -53,9 +55,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hf:a:e:g:", ["help", "frequency=", "azimuth=", "elevation=", "gain="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -83,8 +85,8 @@ def main(args):
     config = parseOptions(args)
     filename = config['args'][0]
 
-    station = parseSSMIF(filename)
-    antennas = station.getAntennas()
+    station = parse_ssmif(filename)
+    antennas = station.antennas
 
     digs    = numpy.array([ant.digitizer  for ant in antennas])
     ants    = numpy.array([ant.id         for ant in antennas])
@@ -96,22 +98,22 @@ def main(args):
     badStands = numpy.where( antStat != 3 )[0]
     badFees   = numpy.where( feeStat != 3 )[0]
     bad = numpy.where( (stands > 256) | (antStat != 3) | (feeStat != 3) )[0]
-    print "Number of bad stands:   %3i" % len(badStands)
-    print "Number of bad FEEs:     %3i" % len(badFees)
-    print "---------------------------"
-    print "Total number bad inuts: %3i" % len(bad)
-    print " "
+    print("Number of bad stands:   %3i" % len(badStands))
+    print("Number of bad FEEs:     %3i" % len(badFees))
+    print("---------------------------")
+    print("Total number bad inuts: %3i" % len(bad))
+    print(" ")
 
     dftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
     gftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
 
-    print "Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6)
-    delays = beamformer.calcDelay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
+    print("Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6))
+    delays = beamformer.calc_delay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
     delays *= 1e9
     delays = delays.max() - delays
     junk = delay.list2delayfile('.', dftBase, delays)
 
-    print "Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad))
+    print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
     bgain = config['gain']
     bgain_cross = 0.0000
     gains = [[bgain, bgain_cross, bgain_cross, bgain]]*260 # initialize gain list
@@ -121,7 +123,7 @@ def main(args):
         gains[i/2] = [0,0,0,0]
     junk = gain.list2gainfile('.', gftBase, gains)
 
-    print "\nDelay and gain files are:\n %s.dft\n %s.gft" % (dftBase, gftBase)
+    print("\nDelay and gain files are:\n %s.dft\n %s.gft" % (dftBase, gftBase))
 
 
 if __name__ == "__main__":

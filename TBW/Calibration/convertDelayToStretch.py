@@ -1,22 +1,21 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-"""
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
-"""
-
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
 import getopt
 
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 
 
 def usage(exitCode=None):
-    print """convertDelayToStretch.py - Given a file containing additional delays 
+    print("""convertDelayToStretch.py - Given a file containing additional delays 
 over the current SSMIF, convert the delays to new stretch factors.  These 
 stretch factors can then be used the applyNewStretchFactors.py to generate an
 updated SSMIF.
@@ -30,7 +29,7 @@ Options:
 -h, --help             Display this help information
 -o, --output           Write output to the specified filename 
                     (default = write to screen)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -46,9 +45,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, arg = getopt.getopt(args, "ho:", ["help", "output="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -80,14 +79,14 @@ def main(args):
     #
     # Load in the data
     #
-    site     = parseSSMIF(config['args'][0])
+    site     = parse_ssmif(config['args'][0])
     dataFile = numpy.loadtxt(config['args'][1])
     
     #
     # Gather the station meta-data from its various sources
     #
-    observer = site.getObserver()
-    antennas = site.getAntennas()
+    observer = site.get_observer()
+    antennas = site.antennas
     
     #
     # Calculate the new stretch factors

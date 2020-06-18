@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a TBW file, plot the time averaged spectra for each digitizer input.  Save 
 the data for later review with smGUI as an NPZ file.  Optionally clip the data 
 to remove RFI.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -24,7 +25,7 @@ from lsl.reader import errors
 from lsl.correlator import fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
@@ -33,12 +34,12 @@ import matplotlib.pyplot as plt
 def main(args):
     # Set the station
     if args.metadata is not None:
-        station = stations.parseSSMIF(args.metadata)
+        station = stations.parse_ssmif(args.metadata)
         ssmifContents = open(args.metadata).readlines()
     else:
         station = stations.lwa1
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
-    antennas = station.getAntennas()
+    antennas = station.antennas
 
     # Length of the FFT
     LFFT = args.fft_length
@@ -53,8 +54,8 @@ def main(args):
     maxFrames = (30000*260)
 
     fh = open(args.filename, "rb")
-    nFrames = os.path.getsize(args.filename) / tbw.FrameSize
-    dataBits = tbw.getDataBits(fh)
+    nFrames = os.path.getsize(args.filename) // tbw.FRAME_SIZE
+    dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
     antpols = len(antennas)
@@ -66,44 +67,44 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginDate = junkFrame.time.datetime
 
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
 
     # Skip over any non-TBW frames at the beginning of the file
     i = 0
-    junkFrame = tbw.readFrame(fh)
-    while not junkFrame.header.isTBW():
+    junkFrame = tbw.read_frame(fh)
+    while not junkFrame.header.is_tbw:
         try:
-            junkFrame = tbw.readFrame(fh)
-        except errors.syncError:
+            junkFrame = tbw.read_frame(fh)
+        except errors.SyncError:
             fh.seek(0)
             while True:
                 try:
-                    junkFrame = tbn.readFrame(fh)
+                    junkFrame = tbn.read_frame(fh)
                     i += 1
-                except errors.syncError:
+                except errors.SyncError:
                     break
-            fh.seek(-2*tbn.FrameSize, 1)
-            junkFrame = tbw.readFrame(fh)
+            fh.seek(-2*tbn.FRAME_SIZE, 1)
+            junkFrame = tbw.read_frame(fh)
         i += 1
-    fh.seek(-tbw.FrameSize, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    fh.seek(-tbw.FRAME_SIZE, 1)
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
     
     # Setup the window function to use
     if args.pfb:
-        window = fxc.noWindow
+        window = fxc.null_window
     elif args.bartlett:
         window = numpy.bartlett
     elif args.blackman:
@@ -111,7 +112,7 @@ def main(args):
     elif args.hanning:
         window = numpy.hanning
     else:
-        window = fxc.noWindow
+        window = fxc.null_window
         
     base, ext = os.path.splitext(args.filename)
     base = os.path.basename(base)
@@ -127,9 +128,9 @@ def main(args):
                 framesWork = maxFrames
             else:
                 framesWork = framesRemaining
-            print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+            print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
-            data = numpy.memmap('temp.mmap', dtype=numpy.int16, mode='w+', shape=(antpols, 2*30000*260*nSamples/antpols))
+            data = numpy.memmap('temp.mmap', dtype=numpy.int16, mode='w+', shape=(antpols, 2*30000*260*nSamples//antpols))
             # If there are fewer frames than we need to fill an FFT, skip this chunk
             if data.shape[1] < 2*LFFT:
                 break
@@ -137,27 +138,27 @@ def main(args):
             for j in range(framesWork):
                 # Read in the next frame and anticipate any problems that could occur
                 try:
-                    cFrame = tbw.readFrame(fh)
-                except errors.eofError:
+                    cFrame = tbw.read_frame(fh)
+                except errors.EOFError:
                     break
-                except errors.syncError:
-                    print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+                except errors.SyncError:
+                    print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())//tbw.FRAME_SIZE-1))
                     continue
-                if not cFrame.header.isTBW():
+                if not cFrame.header.is_tbw:
                     continue
                 
-                stand = cFrame.header.parseID()
+                stand = cFrame.header.id
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)
-                if cFrame.header.frameCount % 10000 == 0 and args.verbose:
-                    print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.getTime(), cFrame.header.frameCount, cFrame.data.timeTag)
+                if cFrame.header.frame_count % 10000 == 0 and args.verbose:
+                    print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.time, cFrame.header.frame_count, cFrame.payload.timetag))
 
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
                 # odd numbers
-                count = cFrame.header.frameCount - 1
-                data[aStand,   count*nSamples:(count+1)*nSamples] = 1*cFrame.data.xy[0,:]
-                data[aStand+1, count*nSamples:(count+1)*nSamples] = 1*cFrame.data.xy[1,:]
+                count = cFrame.header.frame_count - 1
+                data[aStand,   count*nSamples:(count+1)*nSamples] = 1*cFrame.payload.data[0,:]
+                data[aStand+1, count*nSamples:(count+1)*nSamples] = 1*cFrame.payload.data[1,:]
                 del cFrame
 
             # Calculate the spectra for this block of data and then weight the results by 
@@ -168,19 +169,19 @@ def main(args):
                 tempData = numpy.zeros((4, data.shape[1]), dtype=data.dtype)
                 tempData = data[j:j+4,:]
                 
-                freq, tempSpec = fxc.SpecMaster(tempData, LFFT=LFFT, window=window, verbose=args.verbose, ClipLevel=args.clip_level)
+                freq, tempSpec = fxc.SpecMaster(tempData, LFFT=LFFT, window=window, verbose=args.verbose, clip_level=args.clip_level)
                 masterSpectra[i,j:j+4,:] = tempSpec
 
             # Compute the 1 ms average power and the data range within each 1 ms window
             subSize = 1960
-            nSegments = data.shape[1] / subSize
+            nsegments = data.shape[1] // subSize
             
-            print "Computing average power and data range in %i-sample intervals" % subSize
+            print("Computing average power and data range in %i-sample intervals" % subSize)
             pb = ProgressBar(max=data.shape[0])
-            avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
-            dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
+            avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
+            dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
             for s in xrange(data.shape[0]):
-                for p in xrange(nSegments):
+                for p in xrange(nsegments):
                     subData = data[s,(p*subSize):((p+1)*subSize)]
                     avgPower[s,p] = numpy.mean( numpy.abs(subData) )
                     dataRange[s,p,0] = subData.min()
@@ -193,7 +194,7 @@ def main(args):
                     #if (dataRange[s,p,0] < -1000 or dataRange[s,p,0] > 1000) and antennas[s].stand.id == 14:
                         #subData = data[s,((p-1)*1960):((p+2)*1960)]
                         #satFileName = 'stand-14-pol-%i-%i.npz' % (antennas[s].pol, (p-1)*1960)
-                        #print satFileName
+                        #print(satFileName)
                         #numpy.savez(satFileName, start=(p-1)*1960, data=subData)
                 pb.inc(amount=1)
                 if pb.amount != 0 and pb.amount % 10 == 0:
@@ -220,7 +221,7 @@ def main(args):
         spec = masterSpectra.mean(axis=0)
         
         # Estimate the dipole resonance frequencies
-        print "Computing dipole resonance frequencies"
+        print("Computing dipole resonance frequencies")
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
@@ -266,7 +267,7 @@ def main(args):
     specTemplate = numpy.median(spec, axis=0)
     specDiff = numpy.zeros(spec.shape[0])
     toCompare = numpy.where( (freq>32e6) & (freq<50e6) )[0]
-    print len(toCompare)
+    print(len(toCompare))
     for i in xrange(spec.shape[0]):
         specDiff[i] = (spec[i,toCompare] / specTemplate[toCompare]).mean()
     specDiff = numpy.where( specDiff < 2, specDiff, 2)
@@ -292,7 +293,7 @@ def main(args):
         ax2 = fig.add_subplot(1, 2, 2)
         ax2.plot(freq/1e6, numpy.log10(specTemplate)*10, alpha=0.50)
         
-        print "RBW: %.1f Hz" % (freq[1]-freq[0])
+        print("RBW: %.1f Hz" % (freq[1]-freq[0]))
         plt.show()
 
 

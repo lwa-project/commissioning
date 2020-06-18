@@ -1,12 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-"""
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
-"""
-
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import time
@@ -16,8 +15,8 @@ import getopt
 from datetime import datetime, timedelta, tzinfo
 
 from lsl import astro
-from lsl.common.stations import parseSSMIF
-from lsl.reader.ldp import LWA1DataFile
+from lsl.common.stations import parse_ssmif
+from lsl.reader.ldp import TBWFile
 from lsl.misc import beamformer
 from lsl.common.dp import fS, SoftwareDP
 import lsl.correlator.fx as fxc
@@ -37,7 +36,7 @@ _srcs = ["TauA,f|J,05:34:32.00,+22:00:52.0,1",
 
 
 def usage(exitCode=None):
-    print """estimateSEFD.py - Given an SSMIF and a collection of TBW files, use
+    print("""estimateSEFD.py - Given an SSMIF and a collection of TBW files, use
 the SoftwareDP to form beams at the transit point of a source and estimate the
 system equivalent flux density (SEFD) and pointing error.
 
@@ -47,7 +46,7 @@ Options:
 -h, --help             Display this help information
 -s, --source           Source to use (default = CygA)
 -p, --plots            Show summary plots at the end (default = no)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -65,9 +64,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, arg = getopt.getopt(args, "hs:p", ["help", "source=", "plots"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -113,11 +112,11 @@ def main(args):
     filenames = config['args'][1:]
     
     # Setup the LWA station information
-    station = parseSSMIF(ssmif)
-    antennas = station.getAntennas()
+    station = parse_ssmif(ssmif)
+    antennas = station.antennas
     
     # Get an observer reader for calculations
-    obs = station.getObserver()
+    obs = station.get_observer()
     
     # Setup the beamformer gain and delay variables
     course = numpy.zeros(520)
@@ -126,16 +125,16 @@ def main(args):
     gains[:,0] = 1.0
     gains[:,3] = 1.0
     for ant in antennas:
-        if ant.getStatus() != 33:
+        if ant.combined_status != 33:
             stand = (ant.digitizer - 1) / 2
             gains[stand,:] = 0.0
             
     # Setup the beamformer itself
-    dp = SoftwareDP(mode='DRX', filter=7, centralFreq=74e6)
+    dp = SoftwareDP(mode='DRX', filter=7, central_freq=74e6)
     
     # Find the target azimuth/elevation to use
-    idf = LWA1DataFile(filenames[0])
-    tStart = datetime.utcfromtimestamp(idf.getInfo('tStart'))
+    idf = TBWFile(filenames[0])
+    tStart = datetime.utcfromtimestamp(idf.get_info('start_time'))
     idf.close()
     
     obs.date = tStart.strftime("%Y/%m/%d %H:%M:%S")
@@ -146,52 +145,52 @@ def main(args):
     targetEl = config['source'].alt*180/numpy.pi
     
     # Preliminary report
-    print "Working on %i TBW files using SSMIF '%s'" % (len(filenames), os.path.basename(ssmif))
-    print "  Source: '%s'" % config['source'].name
-    print "    Transit time: %s" % str(tTransit)
-    print "    Transit azimuth: %.2f degrees" % targetAz
-    print "    Transet elevation: %.2f degrees" % targetEl
-    print " "
+    print("Working on %i TBW files using SSMIF '%s'" % (len(filenames), os.path.basename(ssmif)))
+    print("  Source: '%s'" % config['source'].name)
+    print("    Transit time: %s" % str(tTransit))
+    print("    Transit azimuth: %.2f degrees" % targetAz)
+    print("    Transet elevation: %.2f degrees" % targetEl)
+    print(" ")
     
     # Loop over input files
     unx, lst, pwrX, pwrY = [], [], [], []
     for filename in filenames:
         ## Get the file reader
-        idf = LWA1DataFile(filename)
+        idf = TBWFile(filename)
         
         ## Pull out some metadata and update the observer
-        jd = astro.unix_to_utcjd(idf.getInfo('tStart'))
+        jd = astro.unix_to_utcjd(idf.get_info('start_time'))
         obs.date = ephem.Date(jd - astro.DJD_OFFSET)
-        sampleRate = idf.getInfo('sampleRate')
-        nInts = int(round( idf.getInfo('nFrames') / (30000.0 * len(antennas) / 2) ))
+        sample_rate = idf.get_info('sample_rate')
+        nInts = int(round( idf.get_info('nframe') / (30000.0 * len(antennas) / 2) ))
         transitOffset = (obs.date-tTransit)*86400.0
         
         ## Metadata report
-        print "Filename: %s" % os.path.basename(filename)
-        print "  Data type:  %s" % type(idf)
-        print "  Captures in file: %i (%.3f s)" % (nInts, nInts*30000*400/sampleRate)
-        print "  Station: %s" % station.name
-        print "  Date observed: %s" % str(obs.date)
-        print "  MJD: %.5f" % (jd-astro.MJD_OFFSET,)
-        print "  LST: %s" % str(obs.sidereal_time())
-        print "    %.1f s %s transit" % (abs(transitOffset), 'before' if transitOffset < 0 else 'after')
-        print " "
+        print("Filename: %s" % os.path.basename(filename))
+        print("  Data type:  %s" % type(idf))
+        print("  Captures in file: %i (%.3f s)" % (nInts, nInts*30000*400/sample_rate))
+        print("  Station: %s" % station.name)
+        print("  Date observed: %s" % str(obs.date))
+        print("  MJD: %.5f" % (jd-astro.MJD_OFFSET,))
+        print("  LST: %s" % str(obs.sidereal_time()))
+        print("    %.1f s %s transit" % (abs(transitOffset), 'before' if transitOffset < 0 else 'after'))
+        print(" ")
         
         ## Load in the data
-        readT, t, data = idf.read(timeInSamples=True)
+        readT, t, data = idf.read(time_in_samples=True)
         
         ## Build up a time array
         t = t + numpy.arange(data.shape[1], dtype=numpy.int64)
         
         ## Update the beamformer delays for the pointing center(s)
-        unx.append( idf.getInfo('tStart') )
+        unx.append( idf.get_info('start_time') )
         lst.append( obs.sidereal_time() * 12/numpy.pi )
         pwrX.append( [] )
         pwrY.append( [] )
         
         for offset in (-1, 0, 1):
             ### Compute
-            delays = beamformer.calcDelay(antennas, freq=74.0e6, azimuth=targetAz, elevation=targetEl+offset)
+            delays = beamformer.calc_delay(antennas, freq=74.0e6, azimuth=targetAz, elevation=targetEl+offset)
             delays *= fS*16
             delays = delays.max() - delays
             ### Decompose into FIFO and FIR
@@ -199,7 +198,7 @@ def main(args):
             fine   = (delays % 16)
             
             ## Form the beams for both polarizations
-            beamX, beamY = dp.formBeam(antennas, t, data, course, fine, gains)
+            beamX, beamY = dp.form_beam(antennas, t, data, course, fine, gains)
             
             ## Compute the integrated spectra
             ### Convert to int16
@@ -207,7 +206,7 @@ def main(args):
             beam[0,:] = (numpy.round(beamX)).astype(data.dtype)
             beam[1,:] = (numpy.round(beamY)).astype(data.dtype)
             ### Move into the frequency domain
-            freq, spec = fxc.SpecMaster(beam, LFFT=8192, window=fxc.noWindow, verbose=False, SampleRate=fS, ClipLevel=0)
+            freq, spec = fxc.SpecMaster(beam, LFFT=8192, window=fxc.null_window, verbose=False, sample_rate=fS, clip_level=0)
             
             ## Save
             pwrX[-1].append( spec[0,:] )
@@ -222,15 +221,15 @@ def main(args):
     
     # Save for later (needed for debugging)
     outname = "estimateSEFD-%s-%04i%02i%02i.npz" % (os.path.splitext(os.path.basename(ssmif))[0], tTransit.tuple()[0], tTransit.tuple()[1], tTransit.tuple()[2])
-    print "Saving intermediate data to '%s'" % outname
-    print " "
+    print("Saving intermediate data to '%s'" % outname)
+    print(" ")
     numpy.savez(outname, source=config['source'].name, freq=freq, 
                 unx=unx, lst=lst, pwrX=pwrX, pwrY=pwrY)
                 
     # Report
-    print "%s" % (config['source'].name,)
+    print("%s" % (config['source'].name,))
     for i in xrange(lst.size):
-        print "%s:  %s  %s" % (str(ephem.hours(str(lst[i]))), pwrX[i,:], pwrY[i,:])
+        print("%s:  %s  %s" % (str(ephem.hours(str(lst[i]))), pwrX[i,:], pwrY[i,:]))
         
     # Plot
     if config['showPlots']:

@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given an HDF5 file with Stokes parameterss, calculate the linear polarization
 products and save the results to a new file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
 import os
 import sys
 import h5py
@@ -34,7 +35,7 @@ def _cloneStructure(input, output, level=0):
     for ent in list(input):
         ## Get the entity
         entity = input.get(ent, None)
-        print "%sCopying '%s'..." % (' '*level*2, ent)
+        print("%sCopying '%s'..." % (' '*level*2, ent))
         
         ## Is it a group?
         if type(entity).__name__ == 'Group':
@@ -53,7 +54,7 @@ def _cloneStructure(input, output, level=0):
                 
             else:
                 ### Don't copy the spectral data since we want to 'adjust' it
-                print "%sSpectral data - skipping" % (' '*(level+1)*2,)
+                print("%sSpectral data - skipping" % (' '*(level+1)*2,))
                 continue
                 
             ### Update the dataset attributes
@@ -71,23 +72,23 @@ def main(args):
     for obsName in hIn.keys():
         obs = hIn.get(obsName, None)
         tuning = obs.get('Tuning1', None)
-        dataProducts = list(tuning)
+        data_products = list(tuning)
         for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
             try:
-                ind = dataProducts.index(exclude)
-                del dataProducts[ind]
+                ind = data_products.index(exclude)
+                del data_products[ind]
             except ValueError:
                 pass
                 
         ## Linear
-        if 'XX' in dataProducts or 'YY' in dataProducts or 'XY' in dataProducts or 'YX' in dataProducts:
-            raise RuntimeError("Input file '%s' contains data products %s" % (args.filename, ', '.join(dataProducts)))
+        if 'XX' in data_products or 'YY' in data_products or 'XY' in data_products or 'YX' in data_products:
+            raise RuntimeError("Input file '%s' contains data products %s" % (args.filename, ', '.join(data_products)))
             
         ## Minimum information
         pairs = 0
-        if 'I' in dataProducts and 'Q' in dataProducts:
+        if 'I' in data_products and 'Q' in data_products:
             pairs += 1
-        if 'U' in dataProducts and 'V' in dataProducts:
+        if 'U' in data_products and 'V' in data_products:
             pairs += 1
         if pairs == 0:
             raise RuntimeError("Input file '%s' contains too few data products to form linear products" % args.filename)
@@ -112,7 +113,7 @@ def main(args):
     
     # Copy the basic structure
     _cloneStructure(hIn, hOut)
-    print " "
+    print(" ")
     
     # Loop over the observation sections
     for obsName in hIn.keys():
@@ -122,15 +123,15 @@ def main(args):
         # Load in the information we need
         tInt = obsIn.attrs['tInt']
         LFFT = obsIn.attrs['LFFT']
-        srate = obsIn.attrs['sampleRate']
+        srate = obsIn.attrs['sample_rate']
         
-        print "Staring Observation #%i" % int(obsName.replace('Observation', ''))
-        print "  Sample Rate: %.1f Hz" % srate
-        print "  LFFT: %i" % LFFT
-        print "  tInt: %.3f s" % tInt
+        print("Staring Observation #%i" % int(obsName.replace('Observation', '')))
+        print("  Sample Rate: %.1f Hz" % srate)
+        print("  LFFT: %i" % LFFT)
+        print("  tInt: %.3f s" % tInt)
         
         for tuning in (1, 2):
-            print "    Tuning %i" % tuning
+            print("    Tuning %i" % tuning)
             tuningIn = obsIn.get('Tuning%i' % tuning, None)
             tuningOut = obsOut.get('Tuning%i' % tuning, None)
             
@@ -139,17 +140,17 @@ def main(args):
             baseSKIn = tuningIn.get('SpectralKurtosis', None)
             baseSKOut = tuningOut.get('SpectralKurtosis', None)
             
-            dataProducts = list(tuningIn)
+            data_products = list(tuningIn)
             for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
                 try:
-                    ind = dataProducts.index(exclude)
-                    del dataProducts[ind]
+                    ind = data_products.index(exclude)
+                    del data_products[ind]
                 except ValueError:
                     pass
                     
-            if 'I' in dataProducts and 'Q' in dataProducts:
+            if 'I' in data_products and 'Q' in data_products:
                 ## XX
-                print "      Computing 'XX'"
+                print("      Computing 'XX'")
                 tuningOut.create_dataset('XX', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
                 tuningOut['XX'][:] = (tuningIn['I'][:] + tuningIn['Q'])/2.0
                 
@@ -171,7 +172,7 @@ def main(args):
                         baseSKOut['XX'].attrs[key] = baseSKIn['I'].attrs[key]
                         
                 ## YY
-                print "      Computing 'YY'"
+                print("      Computing 'YY'")
                 tuningOut.create_dataset('YY', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
                 tuningOut['YY'][:] = (tuningIn['I'][:] - tuningIn['Q'])/2.0
                 
@@ -192,9 +193,9 @@ def main(args):
                     for key in baseSKIn['I'].attrs:
                         baseSKOut['YY'].attrs[key] = baseSKIn['I'].attrs[key]
                         
-            if 'U' in dataProducts and 'V' in dataProducts:
+            if 'U' in data_products and 'V' in data_products:
                 ## XY
-                print "      Computing 'XY'"
+                print("      Computing 'XY'")
                 tuningOut.create_dataset('XY', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
                 tuningOut['XY'][:] = (tuningIn['U'][:] + tuningIn['V'])/2.0
                 
@@ -216,7 +217,7 @@ def main(args):
                         baseSKOut['XY'].attrs[key] = baseSKIn['U'].attrs[key]
                         
                 ## YX
-                print "      Computing 'YX'"
+                print("      Computing 'YX'")
                 tuningOut.create_dataset('YX', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
                 tuningOut['YX'][:] = (tuningIn['U'][:] - tuningIn['V'])/2.0
                 

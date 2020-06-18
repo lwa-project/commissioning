@@ -1,22 +1,26 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a binary TBW health check file from PASI/LASI, covnert the data into a 
 .npz file that is comptaible with the output of stationMaster.py.  These files
 can be used with the smGUI.py utility.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
 import numpy
 import struct
-import urllib
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib import urlopen
 import argparse
 import tempfile
 from datetime import datetime
@@ -24,7 +28,7 @@ from xml.etree import ElementTree
 from BeautifulSoup import BeautifulSoup
     
 
-from lsl.common.stations import parseSSMIF
+from lsl.common.stations import parse_ssmif
 from lsl.common.progress import ProgressBar
 
 
@@ -41,9 +45,9 @@ def parseIndex(index):
     
     # Clean it up in such a way that ElementTree can parse it
     myMassage = [(re.compile('<!([^--].*)>'), lambda match: '<!--' + match.group(1) + '-->'), 
-            (re.compile('<hr>'), lambda match: ''), 
-            (re.compile('&nbsp;'), lambda match: ' '), 
-            (re.compile('<a.*?>(.*)</a>'), lambda mtch: mtch.group(1))]
+                 (re.compile('<hr>'), lambda match: ''), 
+                 (re.compile('&nbsp;'), lambda match: ' '), 
+                 (re.compile('<a.*?>(.*)</a>'), lambda mtch: mtch.group(1))]
     soup = BeautifulSoup(index, markupMassage=myMassage)
     index = soup.prettify()
     
@@ -110,7 +114,7 @@ class DynamicSSMIF(object):
         """
         
         # Pull the data from the archive
-        ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/%s" % self.filename)
+        ah = urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/%s" % self.filename)
         contents = ah.read()
         ah.close()
         
@@ -121,7 +125,7 @@ class DynamicSSMIF(object):
         fh.close()
         
         # Parse the SSMIF
-        station = parseSSMIF(filename)
+        station = parse_ssmif(filename)
         
         # Cleanup
         os.unlink(filename)
@@ -144,7 +148,7 @@ class DynamicSSMIF(object):
         
         return contents
         
-    def getStation(self):
+    def get_station(self):
         try:
             station = self.station
         except AttributeError:
@@ -161,7 +165,7 @@ def loadSSMIFCache():
     """
     
     # Retrieve the list
-    ah = urllib.urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/")
+    ah = urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/")
     index = ah.read()
     ah.close()
     
@@ -197,12 +201,12 @@ def loadHealthCheckFile(filename):
     
     # Open the file and parse out the spectra
     fh = open(filename, 'rb')
-    nStands, nChans = struct.unpack('ll', fh.read(16))
-    specs = numpy.fromfile(fh, count=nStands*2*nChans, dtype=numpy.float32)
-    specs = specs.reshape(nStands*2, nChans)
+    nStands, nchans = struct.unpack('ll', fh.read(16))
+    specs = numpy.fromfile(fh, count=nStands*2*nchans, dtype=numpy.float32)
+    specs = specs.reshape(nStands*2, nchans)
     
     # Get the corresponding frequencies
-    freqs = numpy.arange(nChans) / float(nChans - 1) * 196e6 / 2
+    freqs = numpy.arange(nchans) / float(nchans - 1) * 196e6 / 2
     
     return dt, freqs, specs
 
@@ -214,26 +218,26 @@ def main(args):
     # Go!
     for filename in args.filename:
         ## Report
-        print "Working on '%s'..." % os.path.basename(filename)
+        print("Working on '%s'..." % os.path.basename(filename))
         
         ## Create the output filename and figure out if we need to overwrite if
         outfile = os.path.basename(filename)
         outfile = "%s.npz" % os.path.splitext(outfile)[0]
         if os.path.exists(outfile) and not args.force:
-            print "  ERROR: Output file '%s' already exists, skipping" % outfile
+            print("  ERROR: Output file '%s' already exists, skipping" % outfile)
             continue
             
         ## Get the data from the file and create a masterSpectra array
         beginDate, freq, spec = loadHealthCheckFile(filename)
         masterSpectra = numpy.zeros((1,spec.shape[0],spec.shape[1]), dtype=spec.dtype)
         masterSpectra[0,:,:] = spec
-        antpols, nChan = spec.shape
+        antpols, nchan = spec.shape
         
         ## Report on the file's contents
         if args.verbose:
-            print "  Capture Date: %s" % beginDate
-            print "  Antenna/pols.: %i" % antpols
-            print "  Channels: %i" % nChan
+            print("  Capture Date: %s" % beginDate)
+            print("  Antenna/pols.: %i" % antpols)
+            print("  Channels: %i" % nchan)
             
         ## Get the SSMIF that we need for this file
         found = False
@@ -243,23 +247,23 @@ def main(args):
                 break
         if found:
             if args.verbose:
-                print "  Using SSMIF '%s' for mappings" % ssmif.filename
+                print("  Using SSMIF '%s' for mappings" % ssmif.filename)
         else:
-            print "  ERROR: Cannot find a suitable SSMIF for %s, skipping" % filename
+            print("  ERROR: Cannot find a suitable SSMIF for %s, skipping" % filename)
             continue
             
         ## Pull out the metadata we need
-        station = ssmif.getStation()
+        station = ssmif.get_station()
         ssmifContents = ssmif.getContents()
-        antennas = station.getAntennas()
+        antennas = station.antennas
         
         ## Compute the 1 ms average power and the data range within each 1 ms window
         ## NOTE:  This is a dummy operation since we can't do this with the health
         ##        check data.
         subSize = 1960
-        nSegments = 2*subSize / subSize
-        avgPower = numpy.zeros((antpols, nSegments), dtype=numpy.float32)
-        dataRange = numpy.zeros((antpols, nSegments, 3), dtype=numpy.int16)
+        nsegments = 2*subSize / subSize
+        avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
+        dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
         adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
         
         ## Apply the cable loss corrections, if requested
@@ -271,7 +275,7 @@ def main(args):
                     
         ## Estimate the dipole resonance frequencies
         if args.verbose:
-            print "  Computing dipole resonance frequencies"
+            print("  Computing dipole resonance frequencies")
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
@@ -306,7 +310,7 @@ def main(args):
         numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
                     avgPower=avgPower, dataRange=dataRange, adcHistogram=adcHistogram, ssmifContents=ssmifContents)
         if args.verbose:
-            print "  Saved %.1f MB to '%s'" % (os.path.getsize(outfile)/1024.0**2, os.path.basename(outfile))
+            print("  Saved %.1f MB to '%s'" % (os.path.getsize(outfile)/1024.0**2, os.path.basename(outfile)))
 
 
 if __name__ == "__main__":

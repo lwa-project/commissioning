@@ -1,21 +1,22 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Display NPZ data from stationMaster in an interactive GUI sort of way.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
 import tempfile
 
 from lsl.common import stations
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 
 import wx
 import matplotlib
@@ -163,11 +164,8 @@ class TBW_GUI(object):
         try:
             ssmifContents = dataDict['ssmifContents']
             if ssmifContents.shape == ():
-                try:
-                    station = stations.lwana
-                except AttributeError:
-                    station = stations.lwa2
-                antennas = station.getAntennas()
+                station = stations.lwana
+                antennas = station.antennas
             else:
                 fh, tempSSMIF = tempfile.mkstemp(suffix='.txt', prefix='ssmif-')
                 fh = open(tempSSMIF, 'w')
@@ -175,16 +173,13 @@ class TBW_GUI(object):
                     fh.write('%s\n' % line)
                 fh.close()
                 
-                station = stations.parseSSMIF(tempSSMIF)
-                antennas = station.getAntennas()
+                station = stations.parse_ssmif(tempSSMIF)
+                antennas = station.antennas
                 os.unlink(tempSSMIF)
             
         except KeyError:
-            try:
-                station = stations.lwana
-            except AttributeError:
-                station = stations.lwa2
-            antennas = station.getAntennas()
+            station = stations.lwana
+            antennas = station.antennas
         self.antennas = []
         for a in antennas:
             if a.digitizer != 0:
@@ -241,7 +236,7 @@ class TBW_GUI(object):
             for i in xrange(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,toCompare] / self.specTemplate[toCompare]).mean()
             
-            cbTitle = '%i to %i MHz Mean Deviation' % (compLow/1e6, compHigh/1e6)
+            cbTitle = '%.0f to %.0f MHz Mean Deviation' % (compLow/1e6, compHigh/1e6)
         elif self.color == 1:
             # Color by the value of the RFI-46 index.  This index is the maximum 
             # ratio of the spectrum and the master template between 45 and 47 MHz.
@@ -663,9 +658,9 @@ class MainWindow(wx.Frame):
         
         # Power menu events
         self.Bind(wx.EVT_MENU, self.onHistogram, id=ID_AVG_HIST)
-        self.Bind(wx.EVT_MENU, self.onAvgPower, id=ID_AVG_POWER)
+        self.Bind(wx.EVT_MENU, self.onavgPower, id=ID_AVG_POWER)
         self.Bind(wx.EVT_MENU, self.onDataRange, id=ID_AVG_RANGE)
-        self.Bind(wx.EVT_MENU, self.onAvgPowerSummary, id=ID_AVG_SUMMARY)
+        self.Bind(wx.EVT_MENU, self.onavgPowerSummary, id=ID_AVG_SUMMARY)
         
         # Select menu events
         self.Bind(wx.EVT_MENU, self.onSelectAntenna, id=ID_SELECT_ANTENNA)
@@ -1098,7 +1093,7 @@ corrected = %.3f
         if self.data.adcHistogram is not None and self.data.bestX > 0:
             ADCHistogramDisplay(self)
             
-    def onAvgPower(self, event):
+    def onavgPower(self, event):
         """
         Display the average power plots.
         """
@@ -1114,7 +1109,7 @@ corrected = %.3f
         if self.data.dataRange is not None and self.data.bestX > 0:
             DataRangeDisplay(self)
         
-    def onAvgPowerSummary(self, event):
+    def onavgPowerSummary(self, event):
         """
         Display a message box with the average power summary.
         """

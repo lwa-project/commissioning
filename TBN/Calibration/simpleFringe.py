@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple script (with hard coded integration times) for performing time series
@@ -7,24 +6,26 @@ cross-correlation of TBN data for all stands relative to the outlier (#258).
 
 Usage:
 ./simpleFringe.py <TBN data file>
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
 import numpy
 import getopt
 
-from lsl.common.stations import parseSSMIF, lwa1
+from lsl.common.stations import parse_ssmif, lwa1
 from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 
 from matplotlib import pyplot as plt
 
@@ -40,7 +41,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 
 
 def usage(exitCode=None):
-    print """simpleFringe.py - Simple script for performing time series cross-correlation 
+    print("""simpleFringe.py - Simple script for performing time series cross-correlation 
 of TBN data for all stands relative to the outlier
 
 Usage: simpleFringe.py [OPTIONS] file
@@ -53,8 +54,8 @@ Options:
 -c, --clip            Clip level in sqrt(I*I + Q*Q) to use to exclude
                     samples in the time domain (default = 0 = no 
                     excision)
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -67,14 +68,14 @@ def parseOptions(args):
     config['SSMIF'] = None
     config['tInt'] = 10.0
     config['refStand'] = 258
-    config['clipLevel'] = 0
+    config['clip_level'] = 0
     
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:a:r:c:", ["help", "metadata=", "average=", "reference=", "clip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -88,7 +89,7 @@ def parseOptions(args):
         elif opt in ('-r', '--reference'):
             config['refStand'] = int(value)
         elif opt in ('-c', '--clip'):
-            config['clipLevel'] = float(value)
+            config['clip_level'] = float(value)
         else:
             assert False
     
@@ -107,18 +108,18 @@ def main(args):
     
     # The station
     if config['SSMIF'] is not None:
-        site = parseSSMIF(config['SSMIF'])
+        site = parse_ssmif(config['SSMIF'])
         ssmifContents = open(config['SSMIF']).readlines()
     else:
         site = lwa1
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
-    observer = site.getObserver()
-    antennas = site.getAntennas()
+    observer = site.get_observer()
+    antennas = site.antennas
     
     # The file's parameters
     fh = open(filename, 'rb')
-    nFramesFile = os.path.getsize(filename) / tbn.FrameSize
-    srate = tbn.getSampleRate(fh)
+    nFramesFile = os.path.getsize(filename) // tbn.FRAME_SIZE
+    srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
     
     # Reference antenna
@@ -145,15 +146,15 @@ def main(args):
     
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbn.readFrame(fh)
-    fh.seek(-tbn.FrameSize, 1)
-    startFC = junkFrame.header.frameCount
+    junkFrame = tbn.read_frame(fh)
+    fh.seek(-tbn.FRAME_SIZE, 1)
+    startFC = junkFrame.header.frame_count
     try:
-        centralFreq = junkFrame.getCentralFreq()
+        central_freq = junkFrame.central_freq
     except AttributeError:
         from lsl.common.dp import fS
-        centralFreq = fS * junkFrame.header.secondsCount / 2**32
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+        central_freq = fS * junkFrame.header.second_count / 2**32
+    beginDate = junkFrame.time.datetime
     
     observer.date = beginDate
     srcs = [ephem.Sun(),]
@@ -164,26 +165,26 @@ def main(args):
         srcs[i].compute(observer)
         
         if srcs[i].alt > 0:
-            print "source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi)
+            print("source %s: alt %.1f degrees, az %.1f degrees" % (srcs[i].name, srcs[i].alt*180/numpy.pi, srcs[i].az*180/numpy.pi))
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz" % centralFreq
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate)
-    print "---"
-    print "Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames / antpols)
-    print "Chunks: %i" % nChunks
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz" % central_freq)
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate))
+    print("---")
+    print("Integration: %.3f s (%i frames; %i frames per stand/pol)" % (tInt, nFrames, nFrames // antpols))
+    print("Chunks: %i" % nChunks)
     
-    junkFrame = tbn.readFrame(fh)
-    while junkFrame.header.frameCount < startFC+3:
-        junkFrame = tbn.readFrame(fh)
-    fh.seek(-tbn.FrameSize, 1)
+    junkFrame = tbn.read_frame(fh)
+    while junkFrame.header.frame_count < startFC+3:
+        junkFrame = tbn.read_frame(fh)
+    fh.seek(-tbn.FRAME_SIZE, 1)
     
     # Create the FrameBuffer instance
-    buffer = TBNFrameBuffer(stands=range(1,antpols/2+1), pols=[0, 1])
+    buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
     
     # Create the phase average and times
     LFFT = 512
@@ -200,25 +201,25 @@ def main(args):
         framesRemaining = nFramesFile - k
         if framesRemaining > nFrames:
             framesWork = nFrames
-            data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
+            data = numpy.zeros((antpols, framesWork//antpols*512), dtype=numpy.complex64)
         else:
-            framesWork = framesRemaining + antpols*buffer.nSegments
-            data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
-        print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
+            framesWork = framesRemaining + antpols*buffer.nsegments
+            data = numpy.zeros((antpols, framesWork//antpols*512), dtype=numpy.complex64)
+        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = [0 for a in xrange(len(antennas))]
         
         j = 0
-        fillsWork = framesWork / antpols
+        fillsWork = framesWork // antpols
         # Inner loop that actually reads the frames into the data array
         while j < fillsWork:
             try:
-                cFrame = tbn.readFrame(fh)
+                cFrame = tbn.read_frame(fh)
                 k = k + 1
-            except errors.eofError:
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FrameSize-1)
+            except errors.SyncError:
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbn.FRAME_SIZE-1))
                 continue
                     
             buffer.append(cFrame)
@@ -228,7 +229,7 @@ def main(args):
                 continue
                 
             for cFrame in cFrames:
-                stand,pol = cFrame.header.parseID()
+                stand,pol = cFrame.header.id
                 
                 # In the current configuration, stands start at 1 and go up to 260.  So, we
                 # can use this little trick to populate the data array
@@ -236,9 +237,9 @@ def main(args):
                 
                 # Save the time
                 if j == 0 and aStand == 0:
-                    times[i] = cFrame.getTime()
+                    times[i] = cFrame.time
                 
-                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.data.iq
+                data[aStand, count[aStand]*512:(count[aStand]+1)*512] = cFrame.payload.data
                 
                 # Update the counters so that we can average properly later on
                 count[aStand] = count[aStand] + 1
@@ -246,8 +247,8 @@ def main(args):
             j += 1
             
         # Mask
-        if config['clipLevel'] > 0:
-            bad = numpy.where( numpy.abs(data) >= config['clipLevel'] )
+        if config['clip_level'] > 0:
+            bad = numpy.where( numpy.abs(data) >= config['clip_level'] )
             data[bad] *= 0.0
         
         # Simple correlation
@@ -261,7 +262,7 @@ def main(args):
     outname = os.path.split(filename)[1]
     outname = os.path.splitext(outname)[0]
     outname = "%s-ref%03i-vis.npz" % (outname, config['refStand'])
-    numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, centralFreq=centralFreq, times=times, 
+    numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, central_freq=central_freq, times=times, 
             fullVis=fullVis, simpleVis=simpleVis, ssmifContents=ssmifContents)
 
 

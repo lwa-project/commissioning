@@ -1,17 +1,18 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Script to take a single TBW capture and create a RFI-centered HDF5 file for stands 1, 10, 54, 
 248, 251, and 258 (the outlier).  These stands correspond to the four corners of the array, the
 center, and the outlier.  The HDF5 contains values for the spectral kurtosis estimated from
 the data and various statistics about the timeseries (mean, std. dev., percentiles, etc.)
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -26,11 +27,11 @@ from lsl.common import stations
 from lsl.reader import tbw, tbn
 from lsl.reader import errors
 from lsl.correlator import fx as fxc
-from lsl.correlator._core import FEngineR2
+from lsl.correlator._core import FEngine
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
 from lsl.statistics import kurtosis
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
@@ -65,12 +66,12 @@ def expandMask(mask, radius=2, merge=False):
 def main(args):
     # Set the station
     if args.metadata is not None:
-        station = stations.parseSSMIF(args.metadata)
+        station = stations.parse_ssmif(args.metadata)
         ssmifContents = open(args.metadata).readlines()
     else:
         station = stations.lwa1
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
-    antennas = station.getAntennas()
+    antennas = station.antennas
     
     toKeep = []
     for g in (1, 10, 54, 248, 251, 258):
@@ -78,7 +79,7 @@ def main(args):
             if ant.stand.id == g and ant.pol == 0:
                 toKeep.append(i)
     for i,j in enumerate(toKeep):
-        print i, j, antennas[j].stand.id
+        print(i, j, antennas[j].stand.id)
 
     # Length of the FFT
     LFFT = args.fft_length
@@ -93,8 +94,8 @@ def main(args):
     maxFrames = (30000*260)
 
     fh = open(args.filename, "rb")
-    nFrames = os.path.getsize(args.filename) / tbw.FrameSize
-    dataBits = tbw.getDataBits(fh)
+    nFrames = os.path.getsize(args.filename) // tbw.FRAME_SIZE
+    dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
     antpols = len(antennas)
@@ -106,41 +107,41 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginTime = junkFrame.getTime()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginTime = junkFrame.time
+    beginDate = junkFrame.time.datetime
 
     # File summary
-    print "Filename: %s" % args.filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % args.filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
 
     # Skip over any non-TBW frames at the beginning of the file
     i = 0
-    junkFrame = tbw.readFrame(fh)
-    while not junkFrame.header.isTBW():
+    junkFrame = tbw.read_frame(fh)
+    while not junkFrame.header.is_tbw:
         try:
-            junkFrame = tbw.readFrame(fh)
-        except errors.syncError:
+            junkFrame = tbw.read_frame(fh)
+        except errors.SyncError:
             fh.seek(0)
             while True:
                 try:
-                    junkFrame = tbn.readFrame(fh)
+                    junkFrame = tbn.read_frame(fh)
                     i += 1
-                except errors.syncError:
+                except errors.SyncError:
                     break
-            fh.seek(-2*tbn.FrameSize, 1)
-            junkFrame = tbw.readFrame(fh)
+            fh.seek(-2*tbn.FRAME_SIZE, 1)
+            junkFrame = tbw.read_frame(fh)
         i += 1
-    fh.seek(-tbw.FrameSize, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    fh.seek(-tbw.FRAME_SIZE, 1)
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
 
     # Master loop over all of the file chunks
     masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
@@ -153,7 +154,7 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
         data = numpy.zeros((12, 12000000), dtype=numpy.int16)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
@@ -163,33 +164,33 @@ def main(args):
         for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = tbw.readFrame(fh)
-            except errors.eofError:
+                cFrame = tbw.read_frame(fh)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+            except errors.SyncError:
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FRAME_SIZE-1))
                 continue
-            if not cFrame.header.isTBW():
+            if not cFrame.header.is_tbw:
                 continue
             
-            stand = cFrame.header.parseID()
+            stand = cFrame.header.id
             # In the current configuration, stands start at 1 and go up to 10.  So, we
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
-            #if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-                #print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.getTime(), cFrame.header.frameCount, cFrame.data.timeTag)
+            #if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
+                #print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.time, cFrame.header.frame_count, cFrame.payload.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
-            count = cFrame.header.frameCount - 1
+            count = cFrame.header.frame_count - 1
             if aStand not in toKeep:
                 continue
             
             # Convert to reduced index
             aStand = 2*toKeep.index(aStand)
             
-            data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.data.xy[0,:]
-            data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.data.xy[1,:]
+            data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.payload.data[0,:]
+            data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.payload.data[1,:]
     
         # Time series analysis - mean, std. dev, saturation count
         tsMean = data.mean(axis=1)
@@ -208,11 +209,11 @@ def main(args):
         freq = freq[:args.fft_length]
         
         delays = numpy.zeros((data.shape[0], freq.size))
-        signalsF, validF = FEngineR2(data, freq, delays, LFFT=args.fft_length, Overlap=1, SampleRate=196e6, ClipLevel=0)
+        signalsF, validF = FEngine(data, freq, delays, LFFT=args.fft_length, Overlap=1, sample_rate=196e6, clip_level=0)
         
         # Cleanup to save memory
         del validF, data
-        print signalsF.shape
+        print(signalsF.shape)
         
         # SK control values
         skM = signalsF.shape[2]
@@ -222,9 +223,9 @@ def main(args):
         k = numpy.zeros((signalsF.shape[0], signalsF.shape[1]))
         for l in xrange(signalsF.shape[0]):
             for m in xrange(freq.size):
-                k[l,m] = kurtosis.spectralFFT(signalsF[l,m,:])
-        kl, kh = kurtosis.getLimits(4, skM, skN)
-        print kl, kh
+                k[l,m] = kurtosis.spectral_fft(signalsF[l,m,:])
+        kl, kh = kurtosis.get_limits(4, skM, skN)
+        print(kl, kh)
         
         # Integrate the spectra for as long as we can
         masterSpectra = (numpy.abs(signalsF)**2).mean(axis=2)
@@ -248,8 +249,8 @@ def main(args):
         f.attrs['startTime'] = beginTime
         f.attrs['startTime_units'] = 's'
         f.attrs['startTime_sys'] = 'unix'
-        f.attrs['sampleRate'] = 196e6
-        f.attrs['sampleRate_units'] = 'Hz'
+        f.attrs['sample_rate'] = 196e6
+        f.attrs['sample_rate_units'] = 'Hz'
         f.attrs['RBW'] = freq[1]-freq[0]
         f.attrs['RBW_Units'] = 'Hz'
         

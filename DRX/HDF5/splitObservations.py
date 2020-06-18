@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 splitObservations.py - Read in a DRX/HDF5 watefall file and split out various 
@@ -10,12 +9,15 @@ or the script can be used to just list the observations within an HDF5 file.
 
 Usage:
 ./splitObservations.py [OPTIONS] file
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    
 import os
 import sys
 import h5py
@@ -36,14 +38,14 @@ def main(args):
             mode = obs.attrs['TrackingMode']
             tInt = obs.attrs['tInt']
             LFFT = obs.attrs['LFFT']
-            srate = obs.attrs['sampleRate']
+            srate = obs.attrs['sample_rate']
             
-            print "Observation #%i" % int(obsName.replace('Observation', ''))
-            print "  Target: %s" % target
-            print "  Mode: %s" % mode
-            print "  Sample Rate: %.1f Hz" % srate
-            print "  LFFT: %i" % LFFT
-            print "  tInt: %.3f s" % tInt
+            print("Observation #%i" % int(obsName.replace('Observation', '')))
+            print("  Target: %s" % target)
+            print("  Mode: %s" % mode)
+            print("  Sample Rate: %.1f Hz" % srate)
+            print("  LFFT: %i" % LFFT)
+            print("  tInt: %.3f s" % tInt)
             
     else:
         if args.source:
@@ -59,7 +61,8 @@ def main(args):
                     sources[obs.attrs['TargetName']] = [obsID,]
                     
             # Loop over those sources and create a new HDF5 file for each
-            for source,obsIDs in sources.iteritems():
+            for source in sources.keys():
+                obsIDs = sources[source]
                 outname = os.path.split(args.filename)[1]
                 outname = os.path.splitext(outname)[0]
                 outname = "%s-%s.hdf5" % (outname, source.replace(' ', '').replace('/','').replace('&','and'))
@@ -73,7 +76,7 @@ def main(args):
                     if yn not in ('n', 'N'):
                         os.unlink(outname)
                     else:
-                        print "WARNING: output file '%s' already exists, skipping" % outname
+                        print("WARNING: output file '%s' already exists, skipping" % outname)
                         continue
                         
                 hOut = h5py.File(outname, mode='a')
@@ -102,7 +105,7 @@ def main(args):
                     if yn not in ('n', 'N'):
                         os.unlink(outname)
                     else:
-                        print "WARNING: output file '%s' already exists, skipping" % outname
+                        print("WARNING: output file '%s' already exists, skipping" % outname)
                         continue
                         
                 hOut = h5py.File(outname, 'a')

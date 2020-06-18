@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 New take on astroevents using PyEphem for calculations.  It can also take a
 date in the form of YYYY/MM/DD from the command line to use a as base for 
 its calculations.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import pytz
@@ -38,7 +39,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 
 
 def usage(exitCode=None):
-    print """astroevents2.py - New take on the astroevents.py script included in LSL 0.5.0+
+    print("""astroevents2.py - New take on the astroevents.py script included in LSL 0.5.0+
 that uses PyEphem for its calculations and can make calculations for a different day.
 
 Usage: astroevents2.py [OPTIONS] [YYYY/MM/DD [HH:MM:SS]]
@@ -49,7 +50,7 @@ Options:
 -p, --position-mode         Display the azimuth and elevation of sources above the
                             horizon.
 -s, --lwassv                Compute for LWA-SV instead of LWA-1
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -66,9 +67,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hups", ["help", "utc", "position-mode", "lwasv"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -102,8 +103,8 @@ def main(args):
         station = stations.lwasv
     else:
         raise RuntimeError("Unknown site name: %s" % config['site'])
-    observer = station.getObserver()
-    print "Current site is %s at lat %s, lon %s" % (station.name, observer.lat, observer.long)
+    observer = station.get_observer()
+    print("Current site is %s at lat %s, lon %s" % (station.name, observer.lat, observer.long))
     
     # Set the current time so we can find the "next" transit.  Go ahead
     # and report the time and the current LST (for reference)
@@ -134,9 +135,9 @@ def main(args):
     else:
         tNow = _UTC.localize(datetime.utcnow())
     observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
-    print "Current time is %s" % tNow.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z")
-    print "                %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z")
-    print "Current LST at %s is %s" % (station.name, observer.sidereal_time())
+    print("Current time is %s" % tNow.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z"))
+    print("                %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z"))
+    print("Current LST at %s is %s" % (station.name, observer.sidereal_time()))
     
     # Load in the sources and compute
     srcs = [ephem.Sun(), ephem.Jupiter()]
@@ -151,9 +152,9 @@ def main(args):
         #
         
         # Header
-        print ""
-        print "%-10s  %-23s  %-23s  %-23s  %-7s" % ("Source", "Next Rise", "Next Transit", "Next Set", "Up Now?")
-        print "="*(10+2+23+2+23+2+23+2+7)
+        print("")
+        print("%-10s  %-23s  %-23s  %-23s  %-7s" % ("Source", "Next Rise", "Next Transit", "Next Set", "Up Now?"))
+        print("="*(10+2+23+2+23+2+23+2+7))
         
         # List
         for src in srcs:		
@@ -184,18 +185,18 @@ def main(args):
                 
                 
             try:
-                print "%-10s  %-23s  %-23s  %-23s  %-7s" % (src.name, nR.strftime("%Y/%m/%d %H:%M:%S %Z"), nT.strftime("%Y/%m/%d %H:%M:%S %Z"), nS.strftime("%Y/%m/%d %H:%M:%S %Z"), "*" if isUp else "")
+                print("%-10s  %-23s  %-23s  %-23s  %-7s" % (src.name, nR.strftime("%Y/%m/%d %H:%M:%S %Z"), nT.strftime("%Y/%m/%d %H:%M:%S %Z"), nS.strftime("%Y/%m/%d %H:%M:%S %Z"), "*" if isUp else ""))
             except AttributeError:
-                print "%-10s  %-23s  %-23s  %-23s  %-7s" % (src.name, '---', nT.strftime("%Y/%m/%d %H:%M:%S %Z"), '---', "*" if isUp else "")
+                print("%-10s  %-23s  %-23s  %-23s  %-7s" % (src.name, '---', nT.strftime("%Y/%m/%d %H:%M:%S %Z"), '---', "*" if isUp else ""))
     else:
         #
         # Position mode
         #
         
         # Header
-        print ""
-        print "%-10s  %-9s  %-9s  %-7s" % ("Source", "  Azimuth", "Elevation", "Rising?")
-        print "="*(10+2+9+2+9+2+7)
+        print("")
+        print("%-10s  %-9s  %-9s  %-7s" % ("Source", "  Azimuth", "Elevation", "Rising?"))
+        print("="*(10+2+9+2+9+2+7))
         
         # List
         for src in srcs:		
@@ -206,7 +207,7 @@ def main(args):
             if src.az < math.pi:
                 isRising = True
                 
-            print "%-10s  %9.2f  %9.2f  %7s" % (src.name, src.az*180/math.pi, src.alt*180/math.pi, "Yes" if isRising else "")
+            print("%-10s  %9.2f  %9.2f  %7s" % (src.name, src.az*180/math.pi, src.alt*180/math.pi, "Yes" if isRising else ""))
 
 
 if __name__ == "__main__":

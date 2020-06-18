@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Run through a DRX file and determine if it is bad or not.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -24,46 +25,46 @@ def main(args):
     filename = args.filename
     
     fh = open(filename, "rb")
-    nFramesFile = os.path.getsize(filename) / drx.FrameSize
+    nFramesFile = os.path.getsize(filename) // drx.FRAME_SIZE
     while True:
         try:
-            junkFrame = drx.readFrame(fh)
+            junkFrame = drx.read_frame(fh)
             try:
-                srate = junkFrame.getSampleRate()
+                srate = junkFrame.sample_rate
                 break
             except ZeroDivisionError:
                 pass
-        except errors.syncError:
-            fh.seek(-drx.FrameSize+1, 1)
+        except errors.SyncError:
+            fh.seek(-drx.FRAME_SIZE+1, 1)
             
-    fh.seek(-drx.FrameSize, 1)
+    fh.seek(-drx.FRAME_SIZE, 1)
     
-    beam, tune, pol = junkFrame.parseID()
-    tunepols = max(drx.getFramesPerObs(fh))
+    beam, tune, pol = junkFrame.id
+    tunepols = max(drx.get_frames_per_obs(fh))
     
     # Date & Central Frequnecy
-    beginDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
-    centralFreq1 = 0.0
-    centralFreq2 = 0.0
-    for i in xrange(tunepols):
-        junkFrame = drx.readFrame(fh)
-        b,t,p = junkFrame.parseID()
+    beginDate = junkFrame.time.datetime
+    central_freq1 = 0.0
+    central_freq2 = 0.0
+    for i in xrange(32):
+        junkFrame = drx.read_frame(fh)
+        b,t,p = junkFrame.id
         if p == 0 and t == 1:
-            centralFreq1 = junkFrame.getCentralFreq()
+            central_freq1 = junkFrame.central_freq
         elif p == 0 and t == 2:
-            centralFreq2 = junkFrame.getCentralFreq()
+            central_freq2 = junkFrame.central_freq
         else:
             pass
-    fh.seek(-tunepols*drx.FrameSize, 1)
+    fh.seek(-32*drx.FRAME_SIZE, 1)
     
     # Report on the file
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Beam: %i" % beam
-    print "Tune/Pols: %i" % tunepols
-    print "Sample Rate: %i Hz" % srate
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
-    print " "
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Beam: %i" % beam)
+    print("Tune/Pols: %i" % tunepols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
+    print(" ")
     
     # Convert chunk length to total frame count
     chunkLength = int(args.length * srate / 4096 * tunepols)
@@ -80,28 +81,28 @@ def main(args):
     # Go!
     i = 1
     done = False
-    print "   |           Clipping              |          Power          |"
-    print "   |      1X      1Y      2X      2Y |    1X    1Y    2X    2Y |"
-    print "---+---------------------------------+-------------------------+"
+    print("   |           Clipping              |          Power          |")
+    print("   |      1X      1Y      2X      2Y |    1X    1Y    2X    2Y |")
+    print("---+---------------------------------+-------------------------+")
     
     while True:
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.empty((4,chunkLength*4096/tunepols), dtype=numpy.csingle)
+        data = numpy.empty((4,chunkLength*4096//tunepols), dtype=numpy.csingle)
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = drx.read_frame(fh, verbose=False)
+            except errors.EOFError:
                 done = True
                 break
-            except errors.syncError:
+            except errors.SyncError:
                 continue
             
-            beam,tune,pol = cFrame.parseID()
+            beam,tune,pol = cFrame.id
             aStand = 2*(tune-1) + pol
             
             try:
-                data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.data.iq
+                data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.payload.data
                 
                 # Update the counters so that we can average properly later on
                 count[aStand] += 1
@@ -123,10 +124,10 @@ def main(args):
             
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print "%2i | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % (i, clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3])
+            print("%2i | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % (i, clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3]))
         
             i += 1
-            fh.seek(drx.FrameSize*chunkSkip, 1)
+            fh.seek(drx.FRAME_SIZE*chunkSkip, 1)
             
     clipFraction = numpy.array(clipFraction)
     meanPower = numpy.array(meanPower)
@@ -134,8 +135,8 @@ def main(args):
     clip = clipFraction.mean(axis=0)
     power = meanPower.mean(axis=0)
     
-    print "---+---------------------------------+-------------------------+"
-    print "%2s | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % ('M', clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3])
+    print("---+---------------------------------+-------------------------+")
+    print("%2s | %6.2f%% %6.2f%% %6.2f%% %6.2f%% | %5.2f %5.2f %5.2f %5.2f |" % ('M', clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0, power[0], power[1], power[2], power[3]))
 
 
 if __name__ == "__main__":

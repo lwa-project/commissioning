@@ -1,8 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-"""Given a TBW file, plot the time averaged spectra for each digitizer input."""
+"""
+Given a TBW file, plot the time averaged spectra for each digitizer input.
+"""
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import math
@@ -20,7 +27,7 @@ import matplotlib.pyplot as plt
 
 
 def usage(exitCode=None):
-    print """tbwSpectra.py - Read in TBW files and create a collection of 
+    print("""tbwSpectra.py - Read in TBW files and create a collection of 
 time-averaged spectra.
 
 Usage: tbwSpectra.py [OPTIONS] file
@@ -36,8 +43,8 @@ Options:
 -g, --gain-correct          Correct signals for the cable losses
 -s, --stack                 Stack spectra in groups of 6 (if '-g' is enabled only)
 -o, --output                Output file name for spectra image
-"""
-
+""")
+    
     if exitCode is not None:
         sys.exit(exitCode)
     else:
@@ -50,7 +57,7 @@ def parseOptions(args):
     config['SSMIF'] = ''
     config['LFFT'] = 4096
     config['maxFrames'] = 30000*20
-    config['window'] = fxc.noWindow
+    config['window'] = fxc.null_window
     config['applyGain'] = False
     config['stack'] = False
     config['output'] = None
@@ -60,9 +67,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hm:qtbnl:gso:", ["help", "metadata=", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "gain-correct", "stack", "output="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
     
     # Work through opts
@@ -102,14 +109,11 @@ def main(args):
 
     # Set the station
     if config['SSMIF'] != '':
-        station = stations.parseSSMIF(config['SSMIF'])
+        station = stations.parse_ssmif(config['SSMIF'])
     else:
-        try:
-            station = stations.lwana
-        except AttributeError:
-            station = stations.lwa2
+        station = stations.lwana
     antennas = []
-    for a in station.getAntennas():
+    for a in station.antennas:
         if a.digitizer != 0:
             antennas.append(a)
 
@@ -126,8 +130,8 @@ def main(args):
     maxFrames = config['maxFrames']
 
     fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) / tbw.FrameSize
-    dataBits = tbw.getDataBits(fh)
+    nFrames = os.path.getsize(config['args'][0]) // tbw.FRAME_SIZE
+    dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
     antpols = len(antennas)
@@ -139,32 +143,33 @@ def main(args):
 
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
+    beginDate = junkFrame.time.datetime
 
     # File summary
-    print "Filename: %s" % config['args'][0]
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Ant/Pols: %i" % antpols
-    print "Sample Length: %i-bit" % dataBits
-    print "Frames: %i" % nFrames
-    print "Chunks: %i" % nChunks
-    print "==="
+    print("Filename: %s" % config['args'][0])
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Ant/Pols: %i" % antpols)
+    print("Sample Length: %i-bit" % dataBits)
+    print("Frames: %i" % nFrames)
+    print("Chunks: %i" % nChunks)
+    print("===")
 
     nChunks = 1
     
     # Skip over any non-TBW frames at the beginning of the file
     i = 0
-    junkFrame = tbw.readFrame(fh)
-    while not junkFrame.header.isTBW():
-        junkFrame = tbw.readFrame(fh)
+    junkFrame = tbw.read_frame(fh)
+    while not junkFrame.header.is_tbw:
+        junkFrame = tbw.read_frame(fh)
         i += 1
-    fh.seek(-tbw.FrameSize, 1)
-    print "Skipped %i non-TBW frames at the beginning of the file" % i
+    fh.seek(-tbw.FRAME_SIZE, 1)
+    print("Skipped %i non-TBW frames at the beginning of the file" % i)
 
     # Master loop over all of the file chunks
-    masterSpectra = numpy.zeros((nChunks, antpols, LFFT-1 if float(fxc.__version__) < 0.8 else LFFT))
+    masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
+    masterWeight = numpy.zeros((nChunks, antpols, LFFT))
     for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
@@ -174,9 +179,9 @@ def main(args):
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
-        data = numpy.zeros((antpols, 2*framesWork*nSamples/antpols), dtype=numpy.int16)
+        data = numpy.zeros((antpols, 2*framesWork*nSamples//antpols), dtype=numpy.int16)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < 2*LFFT:
             break
@@ -184,25 +189,25 @@ def main(args):
         for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = tbw.readFrame(fh)
-            except errors.eofError:
+                cFrame = tbw.read_frame(fh)
+            except errors.EOFError:
                 break
-            except errors.syncError:
-                #print "WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbw.FrameSize-1)
+            except errors.SyncError:
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())//tbw.FRAME_SIZE-1))
                 continue
                 
-            stand = cFrame.header.parseID()
+            stand = cFrame.header.id
             # In the current configuration, stands start at 1 and go up to 10.  So, we
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
-            if cFrame.header.frameCount % 10000 == 0 and config['verbose']:
-                print "%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.getTime(), cFrame.header.frameCount, cFrame.data.timeTag)
+            if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
+                print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.time, cFrame.header.frame_count, cFrame.payload.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
-            count = cFrame.header.frameCount - 1
-            data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.data.xy[0,:]
-            data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.data.xy[1,:]
+            count = cFrame.header.frame_count - 1
+            data[aStand,   count*nSamples:(count+1)*nSamples] = cFrame.payload.data[0,:]
+            data[aStand+1, count*nSamples:(count+1)*nSamples] = cFrame.payload.data[1,:]
 
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
@@ -211,7 +216,8 @@ def main(args):
         freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
         for stand in xrange(masterSpectra.shape[1]):
             masterSpectra[i,stand,:] = tempSpec[stand,:]
-
+            masterWeight[i,stand,:] = int(framesWork)
+            
         # We don't really need the data array anymore, so delete it
         del(data)
 
@@ -277,7 +283,7 @@ def main(args):
                         diff = subspectra - currSpectra
                         ax.plot(freq/1e6, diff)
 
-                ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer, antennas[i].getStatus()))
+                ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[i].stand.id, antennas[i].pol, antennas[i].digitizer, antennas[i].combined_status))
                 ax.set_xlabel('Frequency [MHz]')
                 ax.set_ylabel('P.S.D. [dB/RBW]')
                 ax.set_xlim([10,90])
@@ -291,10 +297,10 @@ def main(args):
                 
         plt.draw()
     
-    print "RBW: %.1f Hz" % (freq[1]-freq[0])
+    print("RBW: %.1f Hz" % (freq[1]-freq[0]))
     plt.show()
     
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
+    

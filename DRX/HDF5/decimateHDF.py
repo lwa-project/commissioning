@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given an HDF5 file, decimate the data contained in it in both time and 
 frequency, and save the results to a new file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
-
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    
 import os
 import sys
 import h5py
@@ -30,8 +31,8 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
     for key in input.attrs:
         if key == 'tInt':
             value = input.attrs[key]*tDecimation
-        elif key == 'nChan':
-            value = input.attrs[key]/sDecimation
+        elif key == 'nchan':
+            value = input.attrs[key]//sDecimation
         elif key == 'RBW':
             value = input.attrs[key]*sDecimation
         else:
@@ -42,7 +43,7 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
     for ent in list(input):
         ## Get the entity
         entity = input.get(ent, None)
-        print "%sWorking on '%s'..." % (' '*level*2, ent)
+        print("%sWorking on '%s'..." % (' '*level*2, ent))
         
         ## Is it a group?
         if type(entity).__name__ == 'Group':
@@ -60,33 +61,33 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
                 entity0[:] = entity[:]
                 
             elif ent == 'time':
-                newShape = (entity.shape[0]/tDecimation,)
+                newShape = (entity.shape[0]//tDecimation,)
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1)]
                     entityO[i] = data[0]
                     
             elif ent == 'Saturation':
-                newShape = (entity.shape[0]/tDecimation, entity.shape[1])
+                newShape = (entity.shape[0]//tDecimation, entity.shape[1])
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1),:]
                     entityO[i,:] = data.sum(axis=0)
                     
             elif ent == 'freq':
-                newShape = (entity.shape[0]/sDecimation,)
+                newShape = (entity.shape[0]//sDecimation,)
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[sDecimation*i:sDecimation*(i+1)]
                     entityO[i] = data.mean()
                     
             else:
-                newShape = (entity.shape[0]/tDecimation, entity.shape[1]/sDecimation)
+                newShape = (entity.shape[0]//tDecimation, entity.shape[1]//sDecimation)
                 entityO = output.create_dataset(ent, newShape, entity.dtype.descr[0][1])
                 for i in xrange(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1),:newShape[1]*sDecimation]
                     data = data.mean(axis=0)
-                    data.shape = (data.size/sDecimation, sDecimation)
+                    data.shape = (data.size//sDecimation, sDecimation)
                     data = data.mean(axis=1)
                     if data.dtype != entity.dtype:
                         data = data.astype(entity.dtype)
@@ -114,7 +115,7 @@ def main(args):
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                print "WARNING: output file '%s' already exists, skipping" % outname
+                print("WARNING: output file '%s' already exists, skipping" % outname)
                 continue
                 
         hIn  = h5py.File(filename, mode='r')

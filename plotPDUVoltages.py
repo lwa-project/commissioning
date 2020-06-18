@@ -1,16 +1,17 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a /data/rack##.txt file (or one of the rotated backups) plot the PDU input
 voltage over time.  This script is designed to accept multiple files from multiple
 rack if needed.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
@@ -30,7 +31,7 @@ filenameRE = re.compile(r'rack(?P<rack>\d{1,2}).txt')
 
 def main(args):
     if len(args) < 1:
-        print 'Need a filename to plot.'
+        print('Need a filename to plot.')
         sys.exit(1)
     
     data = {}
@@ -62,7 +63,7 @@ def main(args):
     
         dates[k] = [MST7MDT.localize(datetime.fromtimestamp(t)) for t in data[k][:,0]]
         if i == 0:
-            print 'File spans %s to %s with %i measurements' % (dates[k][0], dates[k][-1], len(dates[k]))
+            print('File spans %s to %s with %i measurements' % (dates[k][0], dates[k][-1], len(dates[k])))
     
     # Plot all of the inputs
     fig = plt.figure()
