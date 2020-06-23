@@ -111,7 +111,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nchan'] = LFFT
+    obs.attrs['nChan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -220,7 +220,7 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nchan'] = LFFT
+    obs.attrs['nChan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     

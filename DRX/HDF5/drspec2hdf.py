@@ -277,7 +277,7 @@ def main(args):
             obs.attrs['tInt'] = tInt
             obs.attrs['tInt_Units'] = 's'
             obs.attrs['LFFT'] = LFFT
-            obs.attrs['nchan'] = LFFT
+            obs.attrs['nChan'] = LFFT
             obs.attrs['RBW'] = freq[1]-freq[0]
             obs.attrs['RBW_Units'] = 'Hz'
             

@@ -52,7 +52,7 @@ def main(args):
         # Load in the information we need to calculate the pseudo-spectral kurtosis (pSK)
         tInt = obs.attrs['tInt']
         LFFT = obs.attrs['LFFT']
-        srate = obs.attrs['sample_rate']
+        srate = obs.attrs['sampleRate']
         
         print("Staring Observation #%i" % int(obsName.replace('Observation', '')))
         print("  Sample Rate: %.1f Hz" % srate)

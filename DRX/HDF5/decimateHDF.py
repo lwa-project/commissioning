@@ -31,7 +31,7 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
     for key in input.attrs:
         if key == 'tInt':
             value = input.attrs[key]*tDecimation
-        elif key == 'nchan':
+        elif key == 'nChan':
             value = input.attrs[key]//sDecimation
         elif key == 'RBW':
             value = input.attrs[key]*sDecimation

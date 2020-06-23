@@ -124,7 +124,7 @@ def main(args):
         # Load in the information we need
         tInt = obsIn.attrs['tInt']
         LFFT = obsIn.attrs['LFFT']
-        srate = obsIn.attrs['sample_rate']
+        srate = obsIn.attrs['sampleRate']
         
         print("Staring Observation #%i" % int(obsName.replace('Observation', '')))
         print("  Sample Rate: %.1f Hz" % srate)

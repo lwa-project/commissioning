@@ -318,7 +318,7 @@ class Waterfall_GUI(object):
         except KeyError:
             pass
         self.beam  = obs.attrs['Beam']
-        self.srate = obs.attrs['sample_rate']
+        self.srate = obs.attrs['sampleRate']
         self.tInt  = obs.attrs['tInt']
         self.time  = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
         obs['time'].read_direct(self.time)

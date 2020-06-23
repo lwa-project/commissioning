@@ -172,12 +172,12 @@ def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
     obs.attrs['ARX_GainS'] = -1.0
     obs.attrs['Beam'] = beam
     obs.attrs['DRX_Gain'] = -1.0
-    obs.attrs['sample_rate'] = srate
-    obs.attrs['sample_rate_Units'] = srateUnits
+    obs.attrs['sampleRate'] = srate
+    obs.attrs['sampleRate_Units'] = srateUnits
     obs.attrs['tInt'] = -1.0
     obs.attrs['tInt_Units'] = 's'
     obs.attrs['LFFT'] = -1
-    obs.attrs['nchan'] = -1
+    obs.attrs['nChan'] = -1
     obs.attrs['RBW'] = -1.0
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -248,8 +248,8 @@ def fillFromMetabundle(f, tarball):
         grp.attrs['ARX_GainS'] = arx['atsplit']
         grp.attrs['Beam'] = obsD['drxBeam']
         grp.attrs['DRX_Gain'] = obsD['drxGain']
-        grp.attrs['sample_rate'] = float(FILTER_CODES[obsD['BW']])
-        grp.attrs['sample_rate_Units'] = 'samples/s'
+        grp.attrs['sampleRate'] = float(FILTER_CODES[obsD['BW']])
+        grp.attrs['sampleRate_Units'] = 'samples/s'
         
         # Deal with stepped mode
         if mcs.mode_to_string(obsD['Mode']) == 'STEPPED':
@@ -396,8 +396,8 @@ def fillFromSDF(f, sdfFilename, station=None):
         grp.attrs['ARX_GainS'] = arx['atsplit']
         grp.attrs['Beam'] = project.sessions[0].drx_beam
         grp.attrs['DRX_Gain'] = obsS.gain
-        grp.attrs['sample_rate'] = float(FILTER_CODES[obsS.filter])
-        grp.attrs['sample_rate_Units'] = 'samples/s'
+        grp.attrs['sampleRate'] = float(FILTER_CODES[obsS.filter])
+        grp.attrs['sampleRate_Units'] = 'samples/s'
         
         # Deal with stepped mode
         if obsS.mode == 'STEPPED':
@@ -524,12 +524,12 @@ def createDataSets(f, observation, tuning, frequency, chunks, data_products=['XX
         obs.attrs['ARX_GainS'] = -1.0
         obs.attrs['Beam'] = -1.0
         obs.attrs['DRX_Gain'] = -1.0
-        obs.attrs['sample_rate'] = -1.0
-        obs.attrs['sample_rate_Units'] = 'samples/s'
+        obs.attrs['sampleRate'] = -1.0
+        obs.attrs['sampleRate_Units'] = 'samples/s'
         obs.attrs['tInt'] = -1.0
         obs.attrs['tInt_Units'] = 's'
         obs.attrs['LFFT'] = -1
-        obs.attrs['nchan'] = -1
+        obs.attrs['nChan'] = -1
         obs.attrs['RBW'] = -1.0
         obs.attrs['RBW_Units'] = 'Hz'
         
