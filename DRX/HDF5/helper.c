@@ -15,6 +15,8 @@
 
 #include "numpy/arrayobject.h"
 
+#include "py3_compat.h"
+
 
 static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
@@ -572,15 +574,27 @@ parallel.  See the individual functions for more details.");
   Module Setup - Initialization
 */
 
-PyMODINIT_FUNC init_helper(void) {
-	PyObject *m;
+MOD_INIT(_helper) {
+        PyObject *m, *all;
 
-	// Module definitions and functions
-	m = Py_InitModule3("_helper", HelperMethods, helper_doc);
-	import_array();
-	
-	// Version and revision information
-	PyModule_AddObject(m, "__version__", PyString_FromString("0.1"));
-	PyModule_AddObject(m, "__revision__", PyString_FromString("$Rev$"));
-	
+        // Module definitions and functions
+        MOD_DEF(m, "_helper", HelperMethods, helper_doc);
+        if( m == NULL ) {
+        return MOD_ERROR_VAL;
+    }
+        import_array();
+        
+        // Version information
+        PyModule_AddObject(m, "__version__", PyString_FromString("0.1"));
+        
+        // Function listings
+        all = PyList_New(0);
+        PyList_Append(all, PyString_FromString("FastAxis0Mean"));
+        PyList_Append(all, PyString_FromString("FastAxis1MinMax"));
+        PyList_Append(all, PyString_FromString("FastAxis0Bandpass"));
+        PyList_Append(all, PyString_FromString("FastAxis0Median"));
+        PyList_Append(all, PyString_FromString("FastAxis1Percentiles5And99"));
+        PyModule_AddObject(m, "__all__", all);
+        
+        return MOD_SUCCESS_VAL(m);
 }
