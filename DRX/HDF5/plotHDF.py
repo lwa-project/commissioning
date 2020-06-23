@@ -482,7 +482,7 @@ class Waterfall_GUI(object):
         try:
             from _helper import FastAxis1MinMax
             limits0 = FastAxis1MinMax(self.spec)
-            limits1 = FastAxis1MinMax(self.specBandpass, chanMin=self.spec.shape[2]/10, chanMax=9*self.spec.shape[2]/10)
+            limits1 = FastAxis1MinMax(self.specBandpass, chanMin=self.spec.shape[2]//10, chanMax=9*self.spec.shape[2]//10)
             if self.usedB:
                 limits0 = to_dB(limits0)
                 limits1 = to_dB(limits1)
@@ -490,7 +490,7 @@ class Waterfall_GUI(object):
                 self.limits[i] = list(limits0[i,:])
                 self.limitsBandpass[i] = list(limits1[i,:])
         except ImportError:
-            toUse = range(self.spec.shape[2]/10, 9*self.spec.shape[2]/10+1)
+            toUse = range(self.spec.shape[2]//10, 9*self.spec.shape[2]//10+1)
             for i in xrange(self.spec.shape[1]):
                 self.limits[i] = findLimits(self.spec[:,i,:], usedB=self.usedB)
             for i in xrange(self.spec.shape[1]):
@@ -619,7 +619,7 @@ class Waterfall_GUI(object):
             
         bpm2 = []
         for i in xrange(self.spec.shape[1]):
-            if i / (self.spec.shape[1]/2) == 0:
+            if i // (self.spec.shape[1]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
@@ -644,9 +644,9 @@ class Waterfall_GUI(object):
             except KeyError:
                 self._bpCache[('ARX', freq[0], freq[-1], freq.size)] = getARXResponse(freq, filter=self.arxFilter)
                 rARXX, rARXY = self._bpCache[('ARX', freq[0], freq[-1], freq.size)]
-            if self.linear and i % (self.spec.shape[1]/2) == 0:
+            if self.linear and i % (self.spec.shape[1]//2) == 0:
                 rARX = rARXX
-            elif self.linear and i % (self.spec.shape[1]/2) == 3:
+            elif self.linear and i % (self.spec.shape[1]//2) == 3:
                 rARX = rARXY
             else:
                 rARX = 0.5*rARXX + 0.5*rARXY
@@ -680,7 +680,7 @@ class Waterfall_GUI(object):
         Draw the waterfall diagram and the total power with time.
         """
         
-        if self.index / (self.spec.shape[1]/2) == 0:
+        if self.index // (self.spec.shape[1]//2) == 0:
             freq = self.freq1
         else:
             freq = self.freq2
@@ -719,12 +719,12 @@ class Waterfall_GUI(object):
         self.ax1a.set_xlabel('Frequency [MHz]')
         self.ax1a.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
         if self.linear:
-            tun = self.index / 4 + 1
+            tun = self.index // 4 + 1
             ind = self.index % 4
             mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
             self.ax1a.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
-            tun = self.index / 4 + 1
+            tun = self.index // 4 + 1
             ind = self.index % 4
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
             self.ax1a.set_title('Tuning %i, %s' % (tun, mapper[ind]))
@@ -759,7 +759,7 @@ class Waterfall_GUI(object):
         self.frame.canvas1b.draw()
         
         # Plot 1(c) - Drift
-        self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].mean(axis=2)
+        self.drift = spec[:,:,spec.shape[2]//8:7*spec.shape[2]//8].mean(axis=2)
         
         self.frame.figure1c.clf()
         self.ax1c = self.frame.figure1c.gca()
@@ -797,7 +797,7 @@ class Waterfall_GUI(object):
         except TypeError:
             return False
             
-        if self.index / (self.spec.shape[1]/2) == 0:
+        if self.index // (self.spec.shape[1]//2) == 0:
             freq = self.freq1
         else:
             freq = self.freq2
@@ -923,11 +923,11 @@ class Waterfall_GUI(object):
         nAdjust = {'XX': 1, 'YY': 1, 'XY': 2, 'YX': 2, 
                 'I': 2, 'Q': 2, 'U': 2, 'V': 2}
                 
-        if self.index / (self.spec.shape[1]/2) == 0:
+        if self.index // (self.spec.shape[1]//2) == 0:
             freq = self.freq1
         else:
             freq = self.freq2
-        freqP = freq - freq[len(freq)/2]
+        freqP = freq - freq[len(freq)//2]
         
         bad = numpy.where( (freqP < -self.srate/2*self.bandpassCut) | (freqP > self.srate/2*self.bandpassCut) )[0]
         for b in bad:
@@ -958,10 +958,10 @@ class Waterfall_GUI(object):
             mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
         else:
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
-        N = self.srate/freq.size*self.tIntActual*nAdjust[mapper[index % 4]]
+        N = self.srate//freq.size*self.tIntActual*nAdjust[mapper[index % 4]]
         kurtosis = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
         
-        secSize = self.spec.shape[0]/self.kurtosisSec
+        secSize = self.spec.shape[0]//self.kurtosisSec
         for k in xrange(self.kurtosisSec):
             tStart = k*secSize
             tStop  = (k+1)*secSize
@@ -1041,7 +1041,7 @@ class Waterfall_GUI(object):
             clickX = event.xdata
             clickY = event.ydata
             
-            if self.index / (self.spec.shape[1]/2) == 0:
+            if self.index // (self.spec.shape[1]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
@@ -1093,7 +1093,7 @@ class Waterfall_GUI(object):
             clickX = event.xdata
             clickY = event.ydata
             
-            if self.index / (self.spec.shape[1]/2) == 0:
+            if self.index // (self.spec.shape[1]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
@@ -1145,7 +1145,7 @@ class Waterfall_GUI(object):
             clickX = event.xdata
             clickY = event.ydata
             
-            if self.index / (self.spec.shape[1]/2) == 0:
+            if self.index // (self.spec.shape[1]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
@@ -1224,7 +1224,7 @@ class Waterfall_GUI(object):
             clickX = event.xdata
             clickY = event.ydata
             
-            if self.index / (self.spec.shape[1]/2) == 0:
+            if self.index // (self.spec.shape[1]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
@@ -1275,7 +1275,7 @@ class Waterfall_GUI(object):
             clickX = event.xdata
             clickY = event.ydata
             
-            if self.index / (self.spec.shape[1]/2) == 0:
+            if self.index // (self.spec.shape[1]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
@@ -1330,12 +1330,12 @@ class Waterfall_GUI(object):
                 if len(fn) > 33:
                     fn = fn[:30]+"..."
                 if self.linear:
-                    tun = self.index / 4 + 1
+                    tun = self.index // 4 + 1
                     ind = self.index % 4
                     mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
                     pol = mapper[ind]
                 else:
-                    tun = self.index / 4 + 1
+                    tun = self.index // 4 + 1
                     ind = self.index % 4
                     mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
                     pol = mapper[ind]
@@ -1477,7 +1477,7 @@ class Waterfall_GUI(object):
             clickX = event.xdata
             clickY = event.ydata
             
-            if self.index / (self.spec.shape[1]/2) == 0:
+            if self.index // (self.spec.shape[1]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
@@ -2127,12 +2127,12 @@ class MainWindow(wx.Frame):
         wx.Yield()
         
         i = self.data.index
-        toUse = numpy.arange(self.data.spec.shape[2]/10, 9*self.data.spec.shape[2]/10)
+        toUse = numpy.arange(self.data.spec.shape[2]//10, 9*self.data.spec.shape[2]//10)
         
         try:
             from _helper import FastAxis1Percentiles5And99
             if self.data.bandpass:
-                self.data.limitsBandpass[i] = list(FastAxis1Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]/10, chanMax=9*self.data.spec.shape[2]/10))
+                self.data.limitsBandpass[i] = list(FastAxis1Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]//10, chanMax=9*self.data.spec.shape[2]//10))
             else:
                 self.data.limits[i] = list(FastAxis1Percentiles5And99(self.data.spec.data, i))
         except ImportError:
@@ -2759,9 +2759,9 @@ class ContrastAdjust(wx.Frame):
         sizer = wx.GridBagSizer(5, 5)
         
         if self.parent.data.bandpass:
-            typ = wx.StaticText(panel, label='Tuning %i, Pol. %i - Bandpass' % (self.parent.data.index/2+1, self.parent.data.index%2))
+            typ = wx.StaticText(panel, label='Tuning %i, Pol. %i - Bandpass' % (self.parent.data.index//2+1, self.parent.data.index%2))
         else:
-            typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index/2+1, self.parent.data.index%2))
+            typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index//2+1, self.parent.data.index%2))
         sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         
         row += 1
@@ -3404,7 +3404,7 @@ class WaterfallDisplay(wx.Frame):
         once for this type of window.
         """
 
-        if self.parent.data.index / (self.parent.data.spec.shape[1]/2) == 0:
+        if self.parent.data.index // (self.parent.data.spec.shape[1]//2) == 0:
             freq = self.parent.data.freq1
         else:
             freq = self.parent.data.freq2
@@ -3443,12 +3443,12 @@ class WaterfallDisplay(wx.Frame):
         self.ax1.set_xlabel('Frequency [MHz]')
         self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
         if self.parent.data.linear:
-            tun = self.parent.data.index / 4 + 1
+            tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
             mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
-            tun = self.parent.data.index / 4 + 1
+            tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
@@ -3471,7 +3471,7 @@ class WaterfallDisplay(wx.Frame):
         as the stand number of the selected stand (if any).
         """
 
-        if self.parent.data.index / (self.parent.data.spec.shape[1]/2) == 0:
+        if self.parent.data.index // (self.parent.data.spec.shape[1]//2) == 0:
             freq = self.parent.data.freq1
         else:
             freq = self.parent.data.freq2
@@ -3602,7 +3602,7 @@ class DriftCurveDisplay(wx.Frame):
         self.figure.clf()
         self.ax1 = self.figure.gca()
         
-        self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].mean(axis=2)
+        self.drift = spec[:,:,spec.shape[2]//8:7*spec.shape[2]//8].mean(axis=2)
         
         if self.parent.data.usedB:
             z = to_dB(self.drift[:,self.parent.data.index])
@@ -3627,12 +3627,12 @@ class DriftCurveDisplay(wx.Frame):
         self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
         self.ax1.set_xlabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
         if self.parent.data.linear:
-            tun = self.parent.data.index / 4 + 1
+            tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
             mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
-            tun = self.parent.data.index / 4 + 1
+            tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
@@ -3784,7 +3784,7 @@ class PowerSpectrumDisplay(wx.Frame):
         self.figure.clf()
         self.ax1 = self.figure.gca()
         
-        self.drift = spec[:,:,spec.shape[2]/8:7*spec.shape[2]/8].mean(axis=2)
+        self.drift = spec[:,:,spec.shape[2]//8:7*spec.shape[2]//8].mean(axis=2)
         self.fft = numpy.abs(numpy.fft.fft(self.drift, axis=0))**2
         self.fft_freq = numpy.fft.fftfreq(self.fft.shape[0],
                                           d=(self.parent.data.time[1]-self.parent.data.time[0]))
@@ -3816,12 +3816,12 @@ class PowerSpectrumDisplay(wx.Frame):
         self.ax1.set_xlim((self.fft_freq[0], self.fft_freq[-1]))
         self.ax1.set_xlabel('Frequency [%s]' % self.fft_units)
         if self.parent.data.linear:
-            tun = self.parent.data.index / 4 + 1
+            tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
             mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
-            tun = self.parent.data.index / 4 + 1
+            tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
