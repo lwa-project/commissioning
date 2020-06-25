@@ -40,7 +40,7 @@ def main(args):
         # Load in the information we need to calculate the pseudo-spectral kurtosis (pSK)
         tInt = obs.attrs['tInt']
         LFFT = obs.attrs['LFFT']
-        srate = obs.attrs['sample_rate']
+        srate = obs.attrs['sampleRate']
         
         skN = int(tInt*srate / LFFT)
         chunkSize = int(round(args.duration/tInt))
