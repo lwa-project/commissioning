@@ -1995,7 +1995,7 @@ class MainWindow(wx.Frame):
                 
             h.close()
             
-            self.EndBusyCursor()
+            wx.EndBusyCursor()
             
             self.edited = False
             self.setSaveButton()
@@ -2072,7 +2072,7 @@ class MainWindow(wx.Frame):
             
             hNew.close()
             
-            self.EndBusyCursor()
+            wx.EndBusyCursor()
             
             self.edited = False
             self.setSaveButton()
