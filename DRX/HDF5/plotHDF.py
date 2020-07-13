@@ -1747,7 +1747,7 @@ class MainWindow(wx.Frame):
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         self.figure1a = Figure(figsize=(2,2))
         self.canvas1a = FigureCanvasWxAgg(panel1, -1, self.figure1a)
-        hbox1.Add(self.canvas1a, 3, wx.ALIGN_LEFT | wx.EXPAND)
+        hbox1.Add(self.canvas1a, 3, wx.ALIGN_CENTER | wx.EXPAND)
         
         # Add a saturation fraction plot
         self.figure1b = Figure(figsize=(1,2))
@@ -1757,9 +1757,9 @@ class MainWindow(wx.Frame):
         # Add a total power with time plot
         self.figure1c = Figure(figsize=(2,2))
         self.canvas1c = FigureCanvasWxAgg(panel1, -1, self.figure1c)
-        hbox1.Add(self.canvas1c, 3, wx.ALIGN_RIGHT | wx.EXPAND)
+        hbox1.Add(self.canvas1c, 3, wx.ALIGN_CENTER | wx.EXPAND)
         panel1.SetSizer(hbox1)
-        vbox.Add(panel1, 1, wx.EXPAND)
+        vbox.Add(panel1, 1, wx.ALIGN_LEFT | wx.EXPAND)
         self.panel1 = panel1
         
         # Add a spectrum plot (with toolbar)
@@ -1769,10 +1769,10 @@ class MainWindow(wx.Frame):
         self.canvas2 = FigureCanvasWxAgg(panel3, -1, self.figure2)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
         self.toolbar.Realize()
-        hbox3.Add(self.canvas2, 1, wx.EXPAND)
-        hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
+        hbox3.Add(self.canvas2, 1, wx.ALIGN_LEFT | wx.EXPAND)
+        hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT)
         panel3.SetSizer(hbox3)
-        vbox.Add(panel3, 1, wx.EXPAND)
+        vbox.Add(panel3, 1, wx.ALIGN_LEFT | wx.EXPAND)
         self.panel3 = panel3
         
         # Use some sizers to see layout options
@@ -3375,12 +3375,12 @@ class WaterfallDisplay(wx.Frame):
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure(figsize=(4,4))
+        self.figure = Figure()
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
+        vbox1.Add(self.canvas,  1, wx.ALIGN_LEFT | wx.EXPAND)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
         self.panel1 = panel1
@@ -3518,10 +3518,7 @@ class WaterfallDisplay(wx.Frame):
         newW = 1.0*w/dpi
         newH = 1.0*(h-ht)/dpi
         self.figure.set_size_inches((newW, newH))
-        try:
-            self.figure.tight_layout()
-        except:
-            pass
+        self.figure.tight_layout()
         self.figure.canvas.draw()
         
         self.panel1.Refresh()
@@ -3562,12 +3559,12 @@ class DriftCurveDisplay(wx.Frame):
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure(figsize=(4,4))
+        self.figure = Figure()
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
+        vbox1.Add(self.canvas,  1, wx.ALIGN_LEFT | wx.EXPAND)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
         self.panel1 = panel1
@@ -3700,10 +3697,7 @@ class DriftCurveDisplay(wx.Frame):
         newW = 1.0*w/dpi
         newH = 1.0*(h-ht)/dpi
         self.figure.set_size_inches((newW, newH))
-        try:
-            self.figure.tight_layout()
-        except:
-            pass
+        self.figure.tight_layout()
         self.figure.canvas.draw()
         
         self.panel1.Refresh()
@@ -3744,12 +3738,12 @@ class PowerSpectrumDisplay(wx.Frame):
         # Add plots to panel 1
         panel1 = wx.Panel(self, -1)
         vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure(figsize=(4,4))
+        self.figure = Figure()
         self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
         self.toolbar = NavigationToolbar2WxAgg(self.canvas)
         self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
+        vbox1.Add(self.canvas,  1, wx.ALIGN_LEFT | wx.EXPAND)
+        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT)
         panel1.SetSizer(vbox1)
         hbox.Add(panel1, 1, wx.EXPAND)
         self.panel1 = panel1
@@ -3882,10 +3876,7 @@ class PowerSpectrumDisplay(wx.Frame):
         newW = 1.0*w/dpi
         newH = 1.0*(h-ht)/dpi
         self.figure.set_size_inches((newW, newH))
-        try:
-            self.figure.tight_layout()
-        except:
-            pass
+        self.figure.tight_layout()
         self.figure.canvas.draw()
         
         self.panel1.Refresh()
