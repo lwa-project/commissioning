@@ -1588,7 +1588,6 @@ class MainWindow(wx.Frame):
         self.initUI()
         self.initEvents()
         self.Show()
-        self.SetClientSize((1000,600))
         
         self.cAdjust = None
         
@@ -1747,17 +1746,17 @@ class MainWindow(wx.Frame):
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         self.figure1a = Figure(figsize=(2,2))
         self.canvas1a = FigureCanvasWxAgg(panel1, -1, self.figure1a)
-        hbox1.Add(self.canvas1a, 3, wx.ALIGN_CENTER | wx.EXPAND)
+        hbox1.Add(self.canvas1a, 3, wx.EXPAND)
         
         # Add a saturation fraction plot
         self.figure1b = Figure(figsize=(1,2))
         self.canvas1b = FigureCanvasWxAgg(panel1, -1, self.figure1b)
-        hbox1.Add(self.canvas1b, 1, wx.ALIGN_CENTER | wx.EXPAND)
+        hbox1.Add(self.canvas1b, 1, wx.EXPAND)
         
         # Add a total power with time plot
         self.figure1c = Figure(figsize=(2,2))
         self.canvas1c = FigureCanvasWxAgg(panel1, -1, self.figure1c)
-        hbox1.Add(self.canvas1c, 3, wx.ALIGN_CENTER | wx.EXPAND)
+        hbox1.Add(self.canvas1c, 3, wx.EXPAND)
         panel1.SetSizer(hbox1)
         vbox.Add(panel1, 1, wx.ALIGN_LEFT | wx.EXPAND)
         self.panel1 = panel1
@@ -3037,7 +3036,7 @@ class TimeRangeAdjust(wx.Frame):
                 self.parent.data.draw()
                 
                 for menuItem in self.parent.fileMenu.GetMenuItems():
-                    if menuItem.GetLabel().find('Save') != -1:
+                    if menuItem.GetItemLabel().find('Save') != -1:
                         menuItem.Enable(True)
                 for menu in (self.parent.colorMenu, self.parent.dataMenu, self.parent.maskMenu, self.parent.bandpassMenu, self.parent.detailsMenu):
                     for menuItem in menu.GetMenuItems():
@@ -4059,7 +4058,7 @@ def main(args):
         frame.data.draw()
         
         for menuItem in frame.fileMenu.GetMenuItems():
-            if menuItem.GetLabel().find('Save') != -1:
+            if menuItem.GetItemLabel().find('Save') != -1:
                 menuItem.Enable(True)
         for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
             for menuItem in menu.GetMenuItems():
@@ -4081,7 +4080,7 @@ def main(args):
         ## Otherwise, disable the various menus that only do something if there is 
         ## a file to look at
         for menuItem in frame.fileMenu.GetMenuItems():
-            if menuItem.GetLabel().find('Save') != -1:
+            if menuItem.GetLabelText().find('Save') != -1:
                 menuItem.Enable(False)
         for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
             for menuItem in menu.GetMenuItems():
