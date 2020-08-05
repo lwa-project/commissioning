@@ -16,7 +16,6 @@ import math
 import time
 import numpy
 import getopt
-import ephem
 
 from lsl import astro
 import lsl.reader.drx as drx
@@ -175,8 +174,7 @@ def main(args):
     nChunks = int(round(config['duration'] / config['average']))
     nFrames = maxFrames * nChunks
 
-    # Store the information about the first frame and convert the timetag to 
-    # an ephem.Date object.
+    # Store the information about the first frame.
     prevTime = junkFrame.payload.timetag
     prevDate = junkFrame.time.datetime
 
