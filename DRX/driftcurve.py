@@ -63,15 +63,15 @@ def main(args):
             print("Read in LFSM map at %.2f MHz of %s pixels; min=%f, max=%f" % (freq/1e6, len(smap.ra), smap._power.min(), smap._power.max()))
             
     def BeamPattern(az, alt, beam=beam, ires=ires):
-	iAz = (numpy.round(az*ires)).astype(numpy.int32)
-	iAlt = (numpy.round(alt*ires)).astype(numpy.int32)       
- 
+        iAz = (numpy.round(az*ires)).astype(numpy.int32)
+        iAlt = (numpy.round(alt*ires)).astype(numpy.int32) 
+        
         return beam[iAz,iAlt]
         
     if args.do_plot:
-	az = numpy.arange(0,360*ires+1,1) / float(ires)
-	alt = numpy.arange(0,90*ires+1,1) / float(ires)
-	alt, az = numpy.meshgrid(alt, az)
+        az = numpy.arange(0,360*ires+1,1) / float(ires)
+        alt = numpy.arange(0,90*ires+1,1) / float(ires)
+        alt, az = numpy.meshgrid(alt, az)
         pylab.figure(1)
         pylab.title("Beam Response: %s pol. @ %0.2f MHz" % (pol, freq/1e6))
         pylab.imshow(BeamPattern(az, alt), interpolation='nearest', extent=(0,359, 0,89), origin='lower')
