@@ -17,7 +17,6 @@ import sys
 import h5py
 import math
 import numpy
-import ephem
 import argparse
 from datetime import datetime
 
@@ -99,7 +98,7 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
         nChunks = 1
         
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(t0) - DJD_OFFSET)
+    beginDate = t0.datetime
     central_freq1 = idf.get_info('freq1')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
     
@@ -198,7 +197,7 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
         nChunks = 1
         
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(t0) - DJD_OFFSET)
+    beginDate = t0.datetime
     central_freq1 = idf.get_info('freq1')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
     
@@ -299,7 +298,7 @@ def main(args):
     
     # Date & Central Frequency
     t1  = idf.get_info('start_time')
-    beginDate = ephem.Date(unix_to_utcjd(t1) - DJD_OFFSET)
+    beginDate = t1.datetime
     central_freq1 = idf.get_info('freq1')
     
     # File summary
