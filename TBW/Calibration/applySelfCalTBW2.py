@@ -11,7 +11,6 @@ import sys
 import aipy
 import copy
 import pytz
-import ephem
 import numpy
 import getopt
 from calendar import timegm

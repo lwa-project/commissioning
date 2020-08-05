@@ -18,7 +18,6 @@ import sys
 import math
 import h5py
 import numpy
-import ephem
 import argparse
 
 from scipy.stats import scoreatpercentile as percentile
