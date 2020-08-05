@@ -15,7 +15,6 @@ import os
 import sys
 import aipy
 import time
-import ephem
 import numpy
 import argparse
 from datetime import datetime
@@ -53,7 +52,7 @@ def main(args):
         nInts = idf.get_info('nframe') / nFpO
         
         jd = astro.unix_to_utcjd(idf.get_info('start_time'))
-        date = str(ephem.Date(jd - astro.DJD_OFFSET))
+        date = idf.get_info('start_time').datetime
         central_freq = idf.get_info('freq1')
         central_freq = central_freq[len(central_freq)/2]
         
