@@ -4,3 +4,4 @@ TBN/_data.py
 # Python stuff
 *.pyc
 *.so
+*.o
