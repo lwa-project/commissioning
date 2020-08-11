@@ -13,77 +13,17 @@ if sys.version_info > (3,):
     
 import sys
 import numpy
-import getopt
+import argparse
 
 import gain
 import delay
 from lsl.misc import beamformer
 from lsl.common.stations import parse_ssmif
+from lsl.misc import parser as aph
 
-def usage(exitCode=None):
-    print("""generateDelays.py - Read in a SSMIF file and create a set of DRX
-gain and delay files for a given frequency and topogentric pointing center.
-
-Usage: generateDelays.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--f, --frequency             Frequency in MHz to calculate the gain/delays for 
-                            (Default = 65 MHz)
--a, --azimuth               Azimuth east of north in degrees for the pointing center
-                            (Default = 90 degrees)
--e, --elevation             Elevation above the horizon in degrees for the pointing
-                            center (Default = 90 degrees)
--g, --gain                  DRX antenna gain (Default = 1.0000)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['freq'] = 65.0e6
-    config['az'] = 90.0
-    config['el'] = 90.0
-    config['gain'] = 1.0000
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hf:a:e:g:", ["help", "frequency=", "azimuth=", "elevation=", "gain="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-f', '--frequency'):
-            config['freq'] = float(value)*1e6
-        elif opt in ('-a', '--azimuth'):
-            config['az'] = float(value)
-        elif opt in ('-e', '--elevation'):
-            config['el'] = float(value)
-        elif opt in ('-g', '--gain'):
-            config['gain'] = float(value)
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
 
 def main(args):
-    config = parseOptions(args)
-    filename = config['args'][0]
+    filename = args.filename
 
     station = parse_ssmif(filename)
     antennas = station.antennas
@@ -104,17 +44,17 @@ def main(args):
     print("Total number bad inuts: %3i" % len(bad))
     print(" ")
 
-    dftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
-    gftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (config['freq']/1e6, config['az'], config['el'], config['gain']*100)
+    dftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (args.frequency/1e6, args.azimuth, args.elevation, args.gain*100)
+    gftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (args.frequency/1e6, args.azimuth, args.elevation, args.gain*100)
 
-    print("Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (config['az'], config['el'], config['freq']/1e6))
-    delays = beamformer.calc_delay(antennas, freq=config['freq'], azimuth=config['az'], elevation=config['el'])
+    print("Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (args.azimuth, args.elevation, args.frequency/1e6))
+    delays = beamformer.calc_delay(antennas, freq=args.frequency, azimuth=args.azimuth, elevation=args.elevation)
     delays *= 1e9
     delays = delays.max() - delays
     junk = delay.list2delayfile('.', dftBase, delays)
 
     print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
-    bgain = config['gain']
+    bgain = args.gain
     bgain_cross = 0.0000
     gains = [[bgain, bgain_cross, bgain_cross, bgain]]*260 # initialize gain list
     for d in digs[bad]:
@@ -127,5 +67,21 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-
+    parser = argparse.ArgumentParser(
+        description="read in a SSMIF file and create a set of DRX gain and delay files for a given frequency and topogentric pointing center",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename of SSMIF to use')
+    parser.add_argument('-f', '--frequency', type=aph.positive_float, default=65.0,
+                        help='frequency in MHz to calculate the gain/delays for')
+    parser.add_argument('-a', '--azimuth', type=float, default=90.0,
+                        help='azimuth east of north in degrees for the pointing center')
+    parser.add_argument('-e', '--elevation', type=aph.positive_or_zero_float, default=90.0,
+                        help='elevation above the horizon in degrees for the pointing')
+    parser.add_argument('-g', '--gain', type=float, default=1.0,
+                        help='DRX antenna gain')
+    args = parser.parse_args()
+    args.frequency *= 1e6
+    main(args)
+    

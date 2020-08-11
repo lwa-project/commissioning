@@ -14,10 +14,10 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-
-import getopt
+import argparse
 
 from lsl.reader import errors, tbn, drx
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
@@ -39,81 +39,16 @@ def qsDiff(B, x, y):
     return ((yFit - y)**2).sum()
 
 
-
-def usage(exitCode=None):
-    print("""eyeDiagram2.py - Look for glitches in a DRX or TBN data by fitting a 
-sine wave to the data.
-
-Usage:  eyeDiagram2.py [OPTIONS] data_file
-
-Options:
--h, --help                  Display this help information
--f, --freq                  Set the frequency of the observations in MHz (default = 
-                            38.00 MHz)
--i, --input-freq            Set the frequency of the input sinusoid in MHz (default = 
-                            38.25 MHz)
--k, --keep                  Data array indiece (stands/beams) to keep (default = 1,2,3,4)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['reader'] = drx
-    config['maxFrames'] = 1936*10
-    config['freq'] = 38.00e6
-    config['ifreq'] = 38.25e6
-    config['keep'] = [1,2,3,4]
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hf:i:k:", ["help", "freq=", "input-freq=", "keep="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-n', '--tbn'):
-            config['reader'] = tbn
-        elif opt in ('-f', '--freq'):
-            config['freq'] = float(value)*1e6
-        elif opt in ('-i', '--input-freq'):
-            config['ifreq'] = float(value)*1e6
-        elif opt in ('-k', '--keep'):
-            config['keep'] = value.split(',')
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Filename
-    filename = config['args'][0]
+    filename = args.filename
     
     # The observation and sinusoid frequencies as well as the plotting time
-    cFreq = config['freq']
-    iFreq = config['ifreq']
+    cFreq = args.freq
+    iFreq = args.input_freq
     
     # Reader
-    rdr = config['reader']
+    rdr = drx
     
     #
     # Step 1:  Read in the file and process it
@@ -132,7 +67,7 @@ def main(args):
     nCaptures = nFramesFile / nFrames.sum()
 
     # Number of remaining chunks
-    maxFrames = config['maxFrames']
+    maxFrames = (1936*10)
     nChunks = int(numpy.ceil(1.0*(nCaptures*nFrames.sum())/maxFrames))
 
     print("Filename:    %s" % filename)
@@ -259,5 +194,20 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="look for glitches in a DRX or TBN data by fitting a sine wave to the data",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to analyze')
+    parser.add_argument('-f', '--freq', type=aph.positive_or_zero_float, default=38.0,
+                        help='frequency of the observations in MHz')
+    parser.add_argument('-i', '--input-freq', type=aph.positive_or_zero_float, default=38.25,
+                        help='frequency of the input sinusoid in MHz')
+    parser.add_argument('-k', '--keep', type=aph.csv_int_list, default='1,2,3,4',
+                        help='data array indiece (stands/beams) to keep')
+    args = parser.parse_args()
+    args.freq *= 1e6
+    args.input_freq *= 1e6
+    main(args)
     

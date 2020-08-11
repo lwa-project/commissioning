@@ -15,10 +15,11 @@ import sys
 import math
 import time
 import numpy
-import getopt
+import argparse
 
 import lsl.reader.drx as drx
 import lsl.reader.errors as errors
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
@@ -32,7 +33,7 @@ def crossCorrelate(sig, ref):
     
     cc = numpy.fft.fft(sig)*numpy.fft.fft(ref).conj()
     cc = numpy.abs(numpy.fft.fftshift(numpy.fft.ifft(cc)))
-    lag = numpy.arange(-len(cc)/2,len(cc)/2)
+    lag = numpy.arange(-len(cc)//2,len(cc)//2)
 
     sigI = sig.real
     refI = ref.real
@@ -47,73 +48,9 @@ def crossCorrelate(sig, ref):
     return (lag, cc), (lag, ccI), (lag, ccQ)
 
 
-def usage(exitCode=None):
-    print("""checkTuningCoherency.py - Read in DRX files and check for coherency.
-
-Usage: checkTuningCoherency.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--p, --plot-range            Number of seconds of data to show in the I/Q plots
-                            (default = 2)
--q, --quiet                 Run drxSpectra in silent mode
--o, --output                Output file name for time series image
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['average'] = 2.00
-    config['maxFrames'] = 19144
-    config['output'] = None
-    config['verbose'] = True
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hqo:s:p:", ["help", "quiet", "output=", "skip=", "plot-range="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-p', '--plot-range'):
-            config['average'] = float(value)
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
-    fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / drx.FRAME_SIZE
+    fh = open(args.filename, "rb")
+    nFramesFile = os.path.getsize(args.filename) // drx.FRAME_SIZE
     
     while True:
         junkFrame = drx.read_frame(fh)
@@ -131,37 +68,37 @@ def main(args):
     beampols = tunepol
 
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(round(config['offset'] * srate / 4096 * beampols))
+    offset = int(round(args.skip * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
-    config['offset'] = 1.0 * offset / beampols * 4096 / srate
+    args.skip = 1.0 * offset / beampols * 4096 / srate
     fh.seek(offset*drx.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
-    maxFrames = int(config['maxFrames']/beampols)*beampols
+    maxFrames = int(19144/beampols)*beampols
 
     # Number of frames to integrate over
     toClip = False
-    oldAverage = config['average']
-    if config['average'] < 4096/srate:		
+    oldAverage = args.plot_range
+    if args.plot_range < 4096/srate:		
         toClip = True
-        config['average'] = 4096/srate
-    nFrames = int(config['average'] * srate / 4096 * beampols)
+        args.plot_range = 4096/srate
+    nFrames = int(args.plot_range * srate / 4096 * beampols)
     nFrames = int(1.0 * nFrames / beampols) * beampols
-    config['average'] = 1.0 * nFrames / beampols * 4096 / srate
+    args.plot_range = 1.0 * nFrames / beampols * 4096 / srate
 
     # Number of remaining chunks
     nChunks = int(math.ceil(1.0*(nFrames)/maxFrames))
 
     # File summary
-    print("Filename: %s" % config['args'][0])
+    print("Filename: %s" % args.filename)
     print("Beams: %i" % beams)
     print("Tune/Pols: %i %i %i %i" % tunepols)
     print("Sample Rate: %i Hz" % srate)
     print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
     print("---")
-    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
-    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols))
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.plot_range, nFrames, nFrames // beampols))
     print("Chunks: %i" % nChunks)
 
     # Sanity check
@@ -193,7 +130,7 @@ def main(args):
         print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {}
-        data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
+        data = numpy.zeros((beampols,framesWork*4096//beampols), dtype=numpy.csingle)
         
         # Inner loop that actually reads the frames into the data array
         print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
@@ -222,7 +159,7 @@ def main(args):
 
             if aStand not in count.keys():
                 count[aStand] = 0
-            #if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
+            #if cFrame.header.frame_count % 10000 == 0 and args.verbose:
             #	print("%2i,%1i,%1i -> %2i  %5i  %i" % (beam, tune, pol, aStand, cFrame.header.frame_count, cFrame.payload.timetag))
 
             #print(data.shape, count[aStand]*4096, (count[aStand]+1)*4096, cFrame.payload.data.shape)
@@ -233,14 +170,14 @@ def main(args):
         # The plots:  This is setup for the current configuration of 20 beampols
         fig = plt.figure()
         figsX = int(round(math.sqrt(beampols)))
-        figsY = beampols / figsX
+        figsY = beampols // figsX
 
         t1X = 1
         t1Y = 1
 
         offset = 0
         samples = 65536
-        for sec in xrange(data.shape[1]/samples):
+        for sec in xrange(data.shape[1]//samples):
             if toClip:
                 print("Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0))
 
@@ -258,8 +195,8 @@ def main(args):
                 (lag, cc), junkI, junkQ = crossCorrelate(data[i,sec*samples:(sec+1)*samples], 
                                     ref[offset+sec*samples:offset+(sec+1)*samples])
                 best = numpy.where( cc == cc.max() )[0][0]
-                if config['verbose']:
-                    print('tune %i pol. %s' % (standMapper[i]%4/2+1, standMapper[i]%2))
+                if args.verbose:
+                    print('tune %i pol. %s' % (standMapper[i]%4//2+1, standMapper[i]%2))
                     print(' -> best peak of %.0f at a lag of %i samples' % (cc.max(), lag[best]))
                     print(' -> NCM with tuning 1 of %.3f' % (cc.max()/t1R))
                 
@@ -271,7 +208,7 @@ def main(args):
                 best = numpy.where( cc == cc.max() )[0][0]
                 ax.set_xlim([lag[best-50], lag[best+50]])
             
-                ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]/4+1, standMapper[i]%4/2+1, standMapper[i]%2))
+                ax.set_title('Beam %i, Tune. %i, Pol. %i' % (standMapper[i]//4+1, standMapper[i]%4//2+1, standMapper[i]%2))
                 ax.set_xlabel('Lag [samples]')
                 ax.set_ylabel('Analysis Sets')
 
@@ -285,9 +222,25 @@ def main(args):
         plt.show()
 
         # Save image if requested
-        if config['output'] is not None:
-            fig.savefig(config['output'])
+        if args.output is not None:
+            fig.savefig(args.output)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="read in DRX files and check for coherency",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip period at the beginning in seconds')
+    parser.add_argument('-p', '--plot-range', type=aph.positive_float, default=2.0, 
+                        help='number of seconds of data to show in the I/Q plots')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false', 
+                        help='run %(prog)s in silent mode')
+    parser.add_argument('-o', '--output', type=str, 
+                        help='output file name for timeseries image')
+    args = parser.parse_args()
+    main(args)
+    

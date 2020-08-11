@@ -15,87 +15,21 @@ import sys
 import math
 import time
 import numpy
-import getopt
+import argparse
 
 from scipy.special import erf
 
 import lsl.reader.drx as drx
 import lsl.reader.errors as errors
 import lsl.statistics.robust as robust
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""cliporama.py - Read in DRX files and create a collection of
-timeseries (I/Q) plots.
-
-Usage: cliporama.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--o, --offset                Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--p, --plot-range            Number of seconds of data to show in the I/Q plots
-                            (default = 0.0001)
--s, --stats                 Power statistics for the first 0.5 seconds after offset
--n, --no-plot               Do not plot, only identify clip-o-rama events
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['average'] = 0.5
-    config['maxFrames'] = 19144*4
-    config['stats'] = False
-    config['doPlot'] = True
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hqo:sp:n", ["help", "quiet", "offset=", "stats", "plot-range=", "no-plot"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-o', '--offset'):
-            config['offset'] = float(value)
-        elif opt in ('-p', '--plot-range'):
-            config['average'] = float(value)
-        elif opt in ('-s', '--stats'):
-            config['stats'] = True
-        elif opt in ('-n', '--no-plot'):
-            config['doPlot'] = False
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
-    fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / drx.FRAME_SIZE
+    fh = open(args.filename, "rb")
+    nFramesFile = os.path.getsize(args.filename) // drx.FRAME_SIZE
     
     while True:
         junkFrame = drx.read_frame(fh)
@@ -112,37 +46,37 @@ def main(args):
     beampols = tunepol
 
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(round(config['offset'] * srate / 4096 * beampols))
+    offset = int(round(args.offset * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
-    config['offset'] = 1.0 * offset / beampols * 4096 / srate
+    args.offset = 1.0 * offset / beampols * 4096 / srate
     fh.seek(offset*drx.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
-    maxFrames = int(config['maxFrames']/beampols)*beampols
+    maxFrames = int((19144*4)/beampols)*beampols
 
     # Setup the statistics data set
-    if config['stats']:
-        if config['average'] < 0.1:
-            config['average'] = 0.5
+    if args.stats:
+        if args.plot_range < 0.1:
+            args.plot_range = 0.5
         
     # Number of frames to integrate over
-    nFrames = int(config['average'] * srate / 4096 * beampols)
+    nFrames = int(args.plot_range * srate / 4096 * beampols)
     nFrames = int(1.0 * nFrames / beampols) * beampols
-    config['average'] = 1.0 * nFrames / beampols * 4096 / srate
+    args.plot_range = 1.0 * nFrames / beampols * 4096 / srate
 
     # Number of remaining chunks
     nChunks = int(math.ceil(1.0*(nFrames)/maxFrames))
 
     # File summary
-    print("Filename: %s" % config['args'][0])
+    print("Filename: %s" % args.filename)
     print("Beams: %i" % beams)
     print("Tune/Pols: %i %i %i %i" % tunepols)
     print("Sample Rate: %i Hz" % srate)
     print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
     print("---")
-    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
-    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFrames, nFrames / beampols))
+    print("Offset: %.3f s (%i frames)" % (args.offset, offset))
+    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.plot_range, nFrames, nFrames // beampols))
     print("Chunks: %i" % nChunks)
 
     # Sanity check
@@ -162,7 +96,7 @@ def main(args):
 
     # Master loop over all of the file chuncks
     standMapper = []
-    for i in range(nChunks):
+    for i in xrange(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
         # only deal with that chunk
@@ -174,7 +108,7 @@ def main(args):
         print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
+        data = numpy.zeros((beampols,framesWork*4096//beampols), dtype=numpy.csingle)
         
         # Inner loop that actually reads the frames into the data array
         print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
@@ -203,7 +137,7 @@ def main(args):
         means = [robust.mean(data[i,:]) for i in xrange(data.shape[0])]
         stds  = [robust.std(data[i,:])  for i in xrange(data.shape[0])]
         
-        if config['stats']:
+        if args.stats:
             ## Report statistics
             print("Mean: %s" % ' '.join(["%.3f" % m for m in means]))
             print("StdD: %s" % ' '.join(["%.3f" % s for s in stds ]))
@@ -228,12 +162,12 @@ def main(args):
                         break
                 
                 if counts[i] == 1:
-                    print(" -> Clip-o-rama likely occuring with %i %i-sigma detection on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2))
+                    print(" -> Clip-o-rama likely occuring with %i %i-sigma detection on tuning %i, pol %i" % (counts[i], jP, i//2+1, i%2))
                 else:
-                    print(" -> Clip-o-rama likely occuring with %i %i-sigma detections on tuning %i, pol %i" % (counts[i], jP, i/2+1, i%2))
+                    print(" -> Clip-o-rama likely occuring with %i %i-sigma detections on tuning %i, pol %i" % (counts[i], jP, i//2+1, i%2))
         
         else:
-            outfile = os.path.splitext(config['args'][0])[0]
+            outfile = os.path.splitext(args.filename)[0]
             outfile = '%s.txt' % outfile
             fh = open(outfile, 'w')
             
@@ -247,36 +181,52 @@ def main(args):
             print("Plotting")
             fig = plt.figure()
             figsX = int(round(math.sqrt(beampols)))
-            figsY = beampols / figsX
+            figsY = beampols // figsX
             
             for i in xrange(data.shape[0]):
                 ax = fig.add_subplot(figsX,figsY,i+1)
-                ax.plot(config['offset'] + numpy.arange(0,data.shape[1])/srate, data[i,:])
+                ax.plot(args.offset + numpy.arange(0,data.shape[1])/srate, data[i,:])
                 
                 ## Mark areas of crazy derivatives
                 bad = numpy.where( deriv[i,:] > 20*stds[i]*numpy.sqrt(2) )[0]
                 for j in bad:
-                    fh.write("Clip-o-rama on tuning %i, pol. %i at %.6f seconds\n" % (i/2+1, i%2, config['offset'] + j/srate))
-                    print("Clip-o-rama on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate))
-                    ax.vlines(config['offset'] + j/srate, -10, 100, linestyle='--', color='red', linewidth=2.0)
+                    fh.write("Clip-o-rama on tuning %i, pol. %i at %.6f seconds\n" % (i//2+1, i%2, args.offset + j/srate))
+                    print("Clip-o-rama on tuning %i, pol. %i at %.6f seconds" % (i//2+1, i%2, args.offset + j/srate))
+                    ax.vlines(args.offset + j/srate, -10, 100, linestyle='--', color='red', linewidth=2.0)
                 
                 ## Mark areas of crazy power levels
                 bad = numpy.where( data[i,:] == 98 )[0]
                 for j in bad:
-                    fh.write("Saturation on tuning %i, pol. %i at %.6f seconds\n" % (i/2+1, i%2, config['offset'] + j/srate))
-                    print("Saturation on tuning %i, pol. %i at %.6f seconds" % (i/2+1, i%2, config['offset'] + j/srate))
-                    ax.vlines(config['offset'] + j/srate, -10, 100, linestyle='-.', color='red')
+                    fh.write("Saturation on tuning %i, pol. %i at %.6f seconds\n" % (i//2+1, i%2, args.offset + j/srate))
+                    print("Saturation on tuning %i, pol. %i at %.6f seconds" % (i//2+1, i%2, args.offset + j/srate))
+                    ax.vlines(args.offset + j/srate, -10, 100, linestyle='-.', color='red')
                 
                 ax.set_ylim([-10, 100])
                 
-                ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1,i%2))
+                ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i//2+1,i%2))
                 ax.set_xlabel('Time [seconds]')
                 ax.set_ylabel('I$^2$ + Q$^2$')
                 
             fh.close()
-            if config['doPlot']:
+            if args.do_plot:
                 plt.show()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="read in a DRX file create a collection of timeseries (I/Q) plots",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    parser.add_argument('-o', '--offset', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip period in seconds between chunks')
+    parser.add_argument('-p', '--plot-range', type=aph.positive_float, default=0.5, 
+                        help='number of seconds of data to show in the I/Q plots')
+    parser.add_argument('-s', '--stats', action='store_true',
+                        help='show power statistics for the first 0.5 seconds after outset')
+    parser.add_argument('-n', '--no-plot', dest='do_plot', action='store_false',
+                        help='do not plot, only identify clip-o-rama events')
+    args = parser.parse_args()
+    main(args)
+    

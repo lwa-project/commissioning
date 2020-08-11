@@ -15,99 +15,19 @@ import sys
 import math
 import time
 import numpy
-import getopt
+import argparse
 
 from lsl import astro
 import lsl.reader.drx as drx
 import lsl.reader.errors as errors
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""drxPower.py - Read in DRX files and create a collection of 
-timeseries power (I*I + Q*Q) plots.  These power measurements are saved to a NPZ 
-file called <filename>-power.npz.  Also, create a series of polarization and 
-tuning diagnostic plots.
-
-Usage: drxPower.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--t, --trim-level            Trim level for power analysis with clipping
-                            (default = 49)
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--a, --average               Number of seconds of data to average together for power
-                            (default = 0.0002 = 0.2 ms)
--d, --duration              Number of seconds to calculate the waterfall for 
-                            (default = 10)
--q, --quiet                 Run drxSpectra in silent mode
--o, --output                Output file name for average power image
--w, --write-npz             Write a NPZ file of the averaged power
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['average'] = 0.0002
-    config['duration'] = 10.0
-    config['maxFrames'] = 19144*3
-    config['output'] = None
-    config['verbose'] = True
-    config['trimLevel'] = 49
-    config['writeNPZ'] = False
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hqt:o:s:a:d:w", ["help", "quiet", "trim-level=", "output=", "skip=", "average=", "duration=", "write-npz"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-t', '--trim-level'):
-            config['trim'] = int(value)
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-a', '--average'):
-            config['average'] = float(value)
-        elif opt in ('-d', '--duration'):
-            config['duration'] = float(value)
-        elif opt in ('-w', '--write-npz'):
-            config['writeNPZ'] = True
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
-    fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) / drx.FRAME_SIZE
+    fh = open(args.filename, "rb")
+    nFramesFile = os.path.getsize(args.filename) // drx.FRAME_SIZE
     
     while True:
         junkFrame = drx.read_frame(fh)
@@ -125,7 +45,7 @@ def main(args):
     beampols = tunepol
 
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(round(config['offset'] * srate / 4096 * beampols))
+    offset = int(round(args.skip * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
     fh.seek(offset*drx.FRAME_SIZE, 1)
     
@@ -144,7 +64,7 @@ def main(args):
         fh.seek(-drx.FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
-        tDiff = t1i - (t0i + config['offset']) + (t1f - t0f)
+        tDiff = t1i - (t0i + args.skip) + (t1f - t0f)
         
         ## Half that to come up with a new seek parameter
         tCorr = -tDiff / 2.0
@@ -159,19 +79,19 @@ def main(args):
         fh.seek(cOffset*drx.FRAME_SIZE, 1)
     
     # Update the offset actually used
-    config['offset'] = t1i - t0i + t1f - t0f
-    offset = int(round(config['offset'] * srate / 4096 * beampols))
+    args.skip = t1i - t0i + t1f - t0f
+    offset = int(round(args.skip * srate / 4096 * beampols))
     offset = int(1.0 * offset / beampols) * beampols
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
-    maxFrames = int(round(config['average']*srate/4096))*beampols
+    maxFrames = int(round(args.average*srate/4096))*beampols
     if maxFrames < beampols:
         maxFrames = beampols
-    config['average'] = 1.0*maxFrames/beampols*4096/srate
+    args.average = 1.0*maxFrames/beampols*4096/srate
 
     # Number of remaining chunks
-    nChunks = int(round(config['duration'] / config['average']))
+    nChunks = int(round(args.duration / args.average))
     nFrames = maxFrames * nChunks
 
     # Store the information about the first frame.
@@ -179,16 +99,16 @@ def main(args):
     prevDate = junkFrame.time.datetime
 
     # File summary
-    print("Filename: %s" % config['args'][0])
+    print("Filename: %s" % args.filename)
     print("Beams: %i" % beams)
     print("Tune/Pols: %i %i %i %i" % tunepols)
     print("Sample Rate: %i Hz" % srate)
     print("Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
     print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
     print("---")
-    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
-    print("Integration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], maxFrames, maxFrames / beampols))
-    print("Duration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols))
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Integration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (args.average, maxFrames, maxFrames // beampols))
+    print("Duration: %.4f s (%i frames; %i frames per beam/tune/pol)" % (args.average*nChunks, nFrames, nFrames // beampols))
     print(" ")
 
     # Sanity check
@@ -222,8 +142,8 @@ def main(args):
         #print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
-        data  = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
-        data2 = numpy.zeros((4,framesWork*4096/beampols), dtype=numpy.float32)
+        data  = numpy.zeros((4,framesWork*4096//beampols), dtype=numpy.float32)
+        data2 = numpy.zeros((4,framesWork*4096//beampols), dtype=numpy.float32)
         
         ## Inner loop that actually reads the frames into the data array
         #print("Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
@@ -249,7 +169,7 @@ def main(args):
                 framePower = numpy.abs(cFrame.payload.data)**2
                 
                 # Calculate the clipping
-                mask = numpy.where( framePower <= config['trimLevel'], 1, 0 )
+                mask = numpy.where( framePower <= args.trim_level, 1, 0 )
                 
                 data[ aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = framePower
                 data2[aStand,  count[aStand]*4096:(count[aStand]+1)*4096] = framePower*mask
@@ -267,11 +187,11 @@ def main(args):
         masterData2[i,:] = data2.sum(axis=1)
         
     # Really save the data to a NPZ file
-    if config['writeNPZ']:
-        outfile = os.path.split(config['args'][0])[1]
+    if args.write_npz:
+        outfile = os.path.split(args.filename)[1]
         outfile = os.path.splitext(outfile)[0]
         outfile = '%s-power.npz' % outfile
-        numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, times=masterTimes, trimLevel=config['trimLevel'])
+        numpy.savez(outfile, beam=beam, avgPowerFull=masterData, avgPowerTrim=masterData2, times=masterTimes, trimLevel=args.trim_level)
 
     # Report on the clipping
     print("Summary:")
@@ -284,15 +204,15 @@ def main(args):
     # The plots:  This is setup for the current configuration of 20 beampols
     fig = plt.figure()
     figsX = int(round(math.sqrt(4)))
-    figsY = 4 / figsX
+    figsY = 4 // figsX
 
     for i in xrange(masterData.shape[1]):
         ax = fig.add_subplot(figsX,figsY,i+1)
-        ax.plot(numpy.arange(0, masterData.shape[0] )*config['average'], masterData[:,i],  label='Full')
-        ax.plot(numpy.arange(0, masterData2.shape[0])*config['average'], masterData2[:,i], label='Trimmed')
+        ax.plot(numpy.arange(0, masterData.shape[0] )*args.average, masterData[:,i],  label='Full')
+        ax.plot(numpy.arange(0, masterData2.shape[0])*args.average, masterData2[:,i], label='Trimmed')
         ax.set_ylim([0, masterData.max()])
         
-        ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1, i%2))
+        ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i//2+1, i%2))
         ax.set_xlabel('Time [seconds]')
         ax.set_ylabel('Output Power Level')
 
@@ -301,41 +221,63 @@ def main(args):
     # Part 2, polarization stuff
     fig2 = plt.figure()
     ax = fig2.add_subplot(3, 2, 1)
-    ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,0]**2 + masterData[:,1]**2))
+    ax.plot(numpy.arange(0, masterData.shape[0])*args.average, numpy.sqrt(masterData[:,0]**2 + masterData[:,1]**2))
     ax.set_title('$\\sqrt{X1^2 + Y1^2}$')
     ax.set_xlabel('Time [seconds]')
 
     ax = fig2.add_subplot(3, 2, 2)
-    ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,1] / masterData[:,0])
+    ax.plot(numpy.arange(0, masterData.shape[0])*args.average, masterData[:,1] / masterData[:,0])
     ax.set_title('$Y1 / X1$')
     ax.set_xlabel('Time [seconds]')
 
     ax = fig2.add_subplot(3, 2, 3)
-    ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,2]**2 + masterData[:,3]**2))
+    ax.plot(numpy.arange(0, masterData.shape[0])*args.average, numpy.sqrt(masterData[:,2]**2 + masterData[:,3]**2))
     ax.set_title('$\\sqrt{X2^2 + Y2^2}$')
     ax.set_xlabel('Time [seconds]')
 
     ax = fig2.add_subplot(3, 2, 4)
-    ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], masterData[:,3] / masterData[:,2])
+    ax.plot(numpy.arange(0, masterData.shape[0])*args.average, masterData[:,3] / masterData[:,2])
     ax.set_title('$Y2 / X2$')
     ax.set_xlabel('Time [seconds]')
 
     ax = fig2.add_subplot(3, 2, 5)
-    ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], numpy.sqrt(masterData[:,2]**2 + masterData[:,3]**2) / numpy.sqrt(masterData[:,0]**2 + masterData[:,1]**2))
+    ax.plot(numpy.arange(0, masterData.shape[0])*args.average, numpy.sqrt(masterData[:,2]**2 + masterData[:,3]**2) / numpy.sqrt(masterData[:,0]**2 + masterData[:,1]**2))
     ax.set_title('$\\sqrt{X2^2 + Y2^2} / \\sqrt{X1^2 + Y1^2}$')
     ax.set_xlabel('Time [seconds]')
 
     ax = fig2.add_subplot(3, 2, 6)
-    ax.plot(numpy.arange(0, masterData.shape[0])*config['average'], (masterData[:,3]/masterData[:,2]) / (masterData[:,1]/masterData[:,0]))
+    ax.plot(numpy.arange(0, masterData.shape[0])*args.average, (masterData[:,3]/masterData[:,2]) / (masterData[:,1]/masterData[:,0]))
     ax.set_title('$(Y2 / X2) / (Y1 / X1)$')
     ax.set_xlabel('Time [seconds]')
 
     plt.show()
 
     # Save image if requested
-    if config['output'] is not None:
-        fig.savefig(config['output'])
+    if args.output is not None:
+        fig.savefig(args.output)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="read in DRX files and create a collection of timeseries power (I*I + Q*Q) plots",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to analyze')
+    parser.add_argument('-t', '--trim-level', type=int, default=49,
+                        help="trim level for power analysis with clipping")
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip period at the beginning in seconds')
+    parser.add_argument('-a', '--average', type=aph.positive_float, default=0.0002,
+                        help='number of seconds of data to average together for power')
+    parser.add_argument('-d', '--duration', type=aph.positive_float, default=10.0,
+                        help='number of seconds to analyze')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false',
+                        help='run %(prog)s in silent mode')
+    parser.add_argument('-o', '--output', type=str, 
+                        help='output file name for averaged power image')
+    parser.add_argument('-w', '--write-npz', action='store_true',
+                        help='rite a NPZ file of the averaged power')
+    args = parser.parse_args()
+    main(args)
+    
