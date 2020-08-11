@@ -14,8 +14,6 @@ if sys.version_info > (3,):
     
 import os
 import sys
-import ephem
-import gc
 import argparse
 
 from lsl import astro
@@ -42,8 +40,7 @@ def main(args):
     tagSkip = int(fS / sample_rate * junkFrame.payload.data.shape[0])
     fh.seek(-drx.FRAME_SIZE, 1)
 
-    # Store the information about the first frame and convert the timetag to 
-    # an ephem.Date object.
+    # Store the information about the first frame.
     prevTime = junkFrame.payload.timetag
     prevDate = junkFrame.time.datetime
     prevFrame = junkFrame.header.frame_count
@@ -118,9 +115,7 @@ def main(args):
         k += 1
         
         del currFrame
-        if k % 100 == 0:
-            gc.collect()
-
+        
     fh.close()
 
 

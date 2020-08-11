@@ -14,7 +14,6 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import ephem
 
 from lsl.reader import drx
 from lsl.common.dp import fS

@@ -17,7 +17,6 @@ import os
 import sys
 import math
 import numpy
-import ephem
 import argparse
 
 from lsl.reader import tbn

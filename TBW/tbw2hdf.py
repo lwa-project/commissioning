@@ -16,7 +16,6 @@ if sys.version_info > (3,):
 import os
 import sys
 import h5py
-import ephem
 import numpy
 
 from lsl.common.stations import lwa1

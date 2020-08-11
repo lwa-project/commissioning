@@ -14,7 +14,6 @@ import os
 import sys
 import math
 import numpy
-import ephem
 import getopt
 
 from lsl.common import stations

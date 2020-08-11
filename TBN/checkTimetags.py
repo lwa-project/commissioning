@@ -13,7 +13,6 @@ if sys.version_info > (3,):
     
 import os
 import sys
-import ephem
 import numpy
 import argparse
 
@@ -44,8 +43,7 @@ def main(args):
     tagSkip = fS // sample_rate * junkFrame.payload.data.shape[0]
     fh.seek(0)
 
-    # Store the information about the first frame and convert the timetag to 
-    # an ephem.Date object.
+    # Store the information about the first frame.
     prevTime = junkFrame.payload.timetag
     prevDate = junkFrame.time.datetime
     prevFrame = junkFrame.header.frame_count

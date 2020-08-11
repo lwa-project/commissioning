@@ -16,7 +16,6 @@ import os
 import re
 import sys
 import time
-import ephem
 import numpy
 import getopt
 from datetime import datetime, timedelta, tzinfo
@@ -307,7 +306,7 @@ def main(args):
     fh.seek(0)
 
     jd = astro.unix_to_utcjd(test.time.unix)
-    date = str(ephem.Date(jd - astro.DJD_OFFSET))
+    date = test.time.datetime
     nFpO = len(antennas)
     sample_rate = tbn.get_sample_rate(fh)
     nInts = os.path.getsize(filename) // tbn.FRAME_SIZE // nFpO
