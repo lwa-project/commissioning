@@ -14,74 +14,25 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import getopt
+import argparse
 
 from lsl.common import stations
 from lsl.correlator import uvutils
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 
 
-def usage(exitCode=None):
-    print("""findMyStand.py - Plot the x, y, and z locations of stands at 
-LWA-1 and mark and label particular stands.
-
-Usage: findMyStand.py [OPTIONS] stand1 [stand2 [...]]]
-
-Options:
--h, --help             Display this help information
--v, --verbose          Run plotStands in verbose mode
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    
-# Command line flags - default values
-    config['label'] = False
-    config['verbose'] = False
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, arg = getopt.getopt(args, "hv", ["help", "verbose"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-v', '--verbose'):
-            config['verbose'] = True
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = [int(i) for i in arg]
-
-    # Return configuration
-    return config
-
-
 def main(args):
     # Parse command line
-    config = parseOptions(args)
-    toMark = numpy.array(config['args'])-1
+    toMark = numpy.array(args.stand) - 1
     
     # Set the LWA Station
     station = stations.lwa1
-    stands = station.getStands()
+    stands = station.stands
     stands.sort()
-
+    
     # Load in the stand position data
     data = numpy.zeros((len(stands),3))
     
@@ -112,7 +63,7 @@ def main(args):
     # Explicitly mark those that need to be marked
     if toMark.size != 0:
         for i in xrange(toMark.size):
-            ax1.plot(data[toMark[i],0], data[toMark[i],1], marker='x', linestyle='x', markersize=10, color='black')
+            ax1.plot(data[toMark[i],0], data[toMark[i],1], marker='x', linestyle='', markersize=10, color='black')
             
             ax1.annotate('%i' % (toMark[i]+1), xy=(data[toMark[i],0], data[toMark[i],1]), xytext=(data[toMark[i],0]+1, data[toMark[i],1]+1))
 
@@ -124,4 +75,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='plot the x, y, and z locations of stands at LWA-1 and mark and label particular stands',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('stand', type=aph.positive_int, nargs='+',
+                        help='stand ID to plot')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='run %(prog)s in verbose mode')
+    args = parser.parse_args()
+    main(args)
+    
