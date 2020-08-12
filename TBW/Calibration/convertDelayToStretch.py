@@ -9,78 +9,17 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import getopt
+import argparse
 
 from lsl.common.stations import parse_ssmif
 
 
-def usage(exitCode=None):
-    print("""convertDelayToStretch.py - Given a file containing additional delays 
-over the current SSMIF, convert the delays to new stretch factors.  These 
-stretch factors can then be used the applyNewStretchFactors.py to generate an
-updated SSMIF.
-
-Valid sources for additional delay files are applySelfCalTBW2.py and 
-checkConsistency.py.
-
-Usage: convertDelayToStretch.py [OPTIONS] SSMIF delayFile
-
-Options:
--h, --help             Display this help information
--o, --output           Write output to the specified filename 
-                    (default = write to screen)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['outname'] = None
-
-    # Read in and process the command line flags
-    try:
-        opts, arg = getopt.getopt(args, "ho:", ["help", "output="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-o', '--output'):
-            config['outname'] = value
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = arg
-    
-    # Validate the input
-    if len(config['args']) != 2:
-        raise RuntimeError("Must provide both a SSMIF and delay file")
-        
-    # Return configuration
-    return config
-
-
 def main(args):
-    #
-    # Parse the command line
-    #
-    config = parseConfig(args)
-    
     #
     # Load in the data
     #
-    site     = parse_ssmif(config['args'][0])
-    dataFile = numpy.loadtxt(config['args'][1])
+    site     = parse_ssmif(args.ssmif)
+    dataFile = numpy.loadtxt(args.filename)
     
     #
     # Gather the station meta-data from its various sources
@@ -140,8 +79,8 @@ def main(args):
     #
     # Report
     #
-    if config['outname'] is not None:
-        fh = open(config['outname'], 'w')
+    if args.output is not None:
+        fh = open(args.output, 'w')
     else:
         fh = sys.stdout
         
@@ -158,10 +97,21 @@ def main(args):
     for entry in output:
         fh.write("%3i  %6.4f  %6.4f  %6.4f  %6.4f\n" % tuple(entry))
         
-    if config['outname'] is not None:
+    if args.output is not None:
         fh.close()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="given a file containing additional delays over the current SSMIF, convert the delays to new stretch factors",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('ssmif', type=str,
+                        help='station SSMIF')
+    parser.add_argument('filename', type=str, 
+                        help='filename to convert')
+    parser.add_argument('-o', '--output', type=str,
+                        help='write output to the specified filename instead of the screen')
+    args = parser.parse_args()
+    main(args)
     

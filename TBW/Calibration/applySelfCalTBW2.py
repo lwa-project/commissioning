@@ -12,7 +12,7 @@ import aipy
 import copy
 import pytz
 import numpy
-import getopt
+import argparse
 from calendar import timegm
 from datetime import datetime
 
@@ -21,6 +21,7 @@ from lsl.common import stations
 from lsl.statistics.robust import *
 from lsl.correlator import uvutils
 from lsl.writer.fitsidi import NUMERIC_STOKES
+from lsl.misc import parser as aph
 
 from lsl.imaging import utils, selfcal
 from lsl.sim import vis as simVis
@@ -31,64 +32,6 @@ from matplotlib.ticker import NullFormatter
 
 MST = pytz.timezone('US/Mountain')
 UTC = pytz.UTC
-
-
-def usage(exitCode=None):
-    print("""applySelfCalTBW2.py - Self-calibrate a TBW FITS IDI file
-
-Usage: applySelfCalTBW2.py [OPTIONS] file
-
-Options:
--h, --help             Display this help information
--r, --reference        Reference stand to use (default = 173)
--l, --lower            Lowest frequency to consider in MHz 
-                    (default = 35 MHz)
--u, --upper            Highest frequency to consider in MHz
-                    (default = 85 MHz)
--p, --plot             Plot the results at the end (default = no)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['ref_ant'] = 173
-    config['freqLimits'] = [35e6, 85e6]
-    config['plot'] = False
-
-    # Read in and process the command line flags
-    try:
-        opts, arg = getopt.getopt(args, "hr:l:u:p", ["help", "reference=", "lower=", "upper=", "plot"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-r', '--reference'):
-            config['ref_ant'] = int(value)
-        elif opt in ('-l', '--lower'):
-            config['freqLimits'][0] = float(value)
-        elif opt in ('-u', '--upper'):
-            config['freqLimits'][1] = float(value)
-        elif opt in ('-p', '--plot'):
-            config['plot'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = arg
-
-    # Return configuration
-    return config
 
 
 def graticle(ax, lst, lat, label=True):
@@ -182,8 +125,7 @@ def graticle(ax, lst, lat, label=True):
 
 
 def main(args):
-    config = parseConfig(args)
-    filename = config['args'][0]
+    filename = args.filename
     
     idi = utils.CorrelatedData(filename)
     aa = idi.get_antennaarray()
@@ -203,7 +145,7 @@ def main(args):
     print("JD: %.3f" % jd)
     
     # Pull out something reasonable
-    toWork = numpy.where((freq>=config['freqLimits'][0]) & (freq<=config['freqLimits'][1]))[0]
+    toWork = numpy.where((freq>=args.lower) & (freq<=args.upper))[0]
     
     print("Reading in FITS IDI data")
     nSets = idi.total_baseline_count // (nStand*(nStand+1)//2)
@@ -231,8 +173,8 @@ def main(args):
         print("Running self cal.")
         simDict  = simDict.sort()
         dataDict = dataDict.sort()
-        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'xx', ref_ant=config['ref_ant'], max_iter=60)
-        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'yy', ref_ant=config['ref_ant'], max_iter=60)
+        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'xx', ref_ant=args.reference, max_iter=60)
+        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'yy', ref_ant=args.reference, max_iter=60)
         fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
         fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
         
@@ -256,7 +198,7 @@ def main(args):
         fh.close()
 
         # Build up the images for each polarization
-        if config['plot']:
+        if args.plot:
             print("    Gridding")
             toWork = numpy.where((freq>=80e6) & (freq<=82e6))[0]
             try:
@@ -347,4 +289,23 @@ def main(args):
 
 if __name__ == "__main__":
     numpy.seterr(all='ignore')
-    main(sys.argv[1:])
+    
+    parser = argparse.ArgumentParser(
+        description="self-calibrate a TBW FITS IDI file",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to calibrate')
+    parser.add_argument('-r', '--reference', type=aph.positive_int, default=173,
+                        help='reference stand to use')
+    parser.add_argument('-l', '--lower', type=aph.positive_float, default=35.0,
+                        help='lowest frequency to consider in MHz')
+    parser.add_argument('-u', '--upper', type=aph.positive_float, default=85.0,
+                        help='highest frequency to consider in MHz')                  
+    parser.add_argument('-p', '--plot', action='store_true',
+                        help='plot the results at the end')
+    args = parser.parse_args()
+    args.lower *= 1e6
+    args.upper *= 1e6
+    main(args)
+    

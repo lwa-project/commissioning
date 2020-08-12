@@ -9,83 +9,22 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import getopt
+import argparse
 
 from lsl.common.stations import parse_ssmif
+from lsl.misc import parser as aph
 
 # List of stands *not* to update
 EXCLUDED_STANDS = []
 
 
-def usage(exitCode=None):
-    print("""applyNewStretchFactors.py - Given an existing SSMIF and new stretch factors, build 
-a new SSMIF.
-
-Usage: applyNewStretchFactors.py [OPTIONS] SSMIF stretchFile
-
-Options:
--h, --help             Display this help information
--e, --exclude          Comma seperated list of stands not to update
-                    (default = update all stands)
--o, --output           Write output to the specified filename 
-                    (default = write to screen)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['exclude'] = []
-    config['outname'] = None
-    config['showPlots'] = False
-
-    # Read in and process the command line flags
-    try:
-        opts, arg = getopt.getopt(args, "he:o:", ["help", "exclude=", "output="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-e', '--exclude'):
-            config['exclude'] = [int(v, 10) for v in value.split(',')]
-        elif opt in ('-o', '--output'):
-            config['outname'] = value
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = arg
-    
-    # Validate the input
-    if len(config['args']) != 2:
-        raise RuntimeError("Must provide both a SSMIF and stretch file")
-        
-    # Return configuration
-    return config
-
-
 def main(args):
-    #
-    # Parse the command line
-    #
-    config = parseConfig(args)
-    
     #
     # Load in the data
     #
-    ssmifContents = open(config['args'][0], 'r').readlines()
-    site     = parse_ssmif(config['args'][0])
-    dataFile = numpy.loadtxt(config['args'][1])
+    ssmifContents = open(args.ssmif, 'r').readlines()
+    site     = parse_ssmif(args.ssmif)
+    dataFile = numpy.loadtxt(args.filename)
     
     #
     # Gather the station meta-data from its various sources
@@ -101,7 +40,7 @@ def main(args):
         dig, stretch, addDelay, rms, chi2 = dataFile[i,:]
         dig = int(dig)
         antenna = antennas[dig-1]
-        if antenna.stand.id in config['exclude']:
+        if antenna.stand.id in args.exclude:
             continue
             
         factors[antenna.id-1] = stretch
@@ -109,8 +48,8 @@ def main(args):
     #
     # Final results
     #
-    if config['outname'] is not None:
-        fh = open(config['outname'], 'w')
+    if args.output is not None:
+        fh = open(args.output, 'w')
     else:
         fh = sys.stdout
         
@@ -129,10 +68,23 @@ def main(args):
         else:
             fh.write(line)
             
-    if config['outname'] is not None:
+    if args.output is not None:
         fh.close()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="given an existing SSMIF and new stretch factors, build a new SSMIF",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('ssmif', type=str,
+                        help='station SSMIF')
+    parser.add_argument('filename', type=str, 
+                        help='filename to stretch factors')
+    parser.add_argument('-e', '--exclude', type=aph.csv_int_list,
+                        help='comma seperated list of stands not to update')
+    parser.add_argument('-o', '--output', type=str,
+                        help='write output to the specified filename instead of the screen')
+    args = parser.parse_args()
+    main(args)
     

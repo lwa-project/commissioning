@@ -11,7 +11,7 @@ import sys
 import time
 import ephem
 import numpy
-import getopt
+import argparse
 from datetime import datetime, timedelta, tzinfo
 
 from lsl import astro
@@ -35,81 +35,13 @@ _srcs = ["TauA,f|J,05:34:32.00,+22:00:52.0,1",
          "SgrA,f|J,17:45:40.00,-29:00:28.0,1"]
 
 
-def usage(exitCode=None):
-    print("""estimateSEFD.py - Given an SSMIF and a collection of TBW files, use
-the SoftwareDP to form beams at the transit point of a source and estimate the
-system equivalent flux density (SEFD) and pointing error.
-
-Usage: estimateSEFD.py [OPTIONS] SSMIF tbw [tbw [...]]
-
-Options:
--h, --help             Display this help information
--s, --source           Source to use (default = CygA)
--p, --plots            Show summary plots at the end (default = no)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['source'] = 'CygA'
-    config['showPlots'] = False
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, arg = getopt.getopt(args, "hs:p", ["help", "source=", "plots"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-s', '--source'):
-            config['source'] = value
-        elif opt in ('-p', '--plots'):
-            config['showPlots'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = arg
-    
-    # Validate the inputs
-    ## Find/validate the source
-    src = None
-    for line in _srcs:
-        srcNew = ephem.readdb(line)
-        if srcNew.name == config['source']:
-            src = srcNew
-            break
-    if src is None:
-        raise RuntimeError("Unknown source '%s'" % config['source'])
-    else:
-        config['source'] = src
-    ## Argument length
-    if len(config['args']) < 2:
-        raise RuntimeError("Must provide both a SSMIF and stretch file")
-        
-    # Return configuration
-    return config
-
-
 def main(args):
     # Parse the command line
     config = parseConfig(args)
     
     # Break out the files we need
-    ssmif = config['args'][0]
-    filenames = config['args'][1:]
+    ssmif = args.ssmif
+    filenames = args.filename
     
     # Setup the LWA station information
     station = parse_ssmif(ssmif)
@@ -138,15 +70,15 @@ def main(args):
     idf.close()
     
     obs.date = tStart.strftime("%Y/%m/%d %H:%M:%S")
-    tTransit = obs.next_transit(config['source'])
+    tTransit = obs.next_transit(args.source)
     obs.date = tTransit
-    config['source'].compute(obs)
-    targetAz = config['source'].az*180/numpy.pi
-    targetEl = config['source'].alt*180/numpy.pi
+    args.source.compute(obs)
+    targetAz = args.source.az*180/numpy.pi
+    targetEl = args.source.alt*180/numpy.pi
     
     # Preliminary report
     print("Working on %i TBW files using SSMIF '%s'" % (len(filenames), os.path.basename(ssmif)))
-    print("  Source: '%s'" % config['source'].name)
+    print("  Source: '%s'" % args.source.name)
     print("    Transit time: %s" % str(tTransit))
     print("    Transit azimuth: %.2f degrees" % targetAz)
     print("    Transet elevation: %.2f degrees" % targetEl)
@@ -223,16 +155,16 @@ def main(args):
     outname = "estimateSEFD-%s-%04i%02i%02i.npz" % (os.path.splitext(os.path.basename(ssmif))[0], tTransit.tuple()[0], tTransit.tuple()[1], tTransit.tuple()[2])
     print("Saving intermediate data to '%s'" % outname)
     print(" ")
-    numpy.savez(outname, source=config['source'].name, freq=freq, 
+    numpy.savez(outname, source=args.source.name, freq=freq, 
                 unx=unx, lst=lst, pwrX=pwrX, pwrY=pwrY)
                 
     # Report
-    print("%s" % (config['source'].name,))
+    print("%s" % (args.source.name,))
     for i in xrange(lst.size):
         print("%s:  %s  %s" % (str(ephem.hours(str(lst[i]))), pwrX[i,:], pwrY[i,:]))
         
     # Plot
-    if config['showPlots']:
+    if args.plots:
         fig = plt.figure()
         ax = fig.gca()
         ax.plot(lst, pwrX, linestyle='-', marker='+')
@@ -241,5 +173,18 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="given an SSMIF and a collection of TBW files, use the SoftwareDP to form beams at the transit point of a source and estimate the system equivalent flux density (SEFD) and pointing error",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('ssmif', type=str,
+                        help='station SSMIF')
+    parser.add_argument('filename', type=str, nargs='+',
+                        help='filename to process')
+    parser.add_argument('-s', '--source', type=str, default='CygA',
+                        help='source to use')
+    parser.add_argument('-p', '--plots', action='store_true',
+                        help='show summary plots at the end')
+    args = parser.parse_args()
+    main(args)
     
