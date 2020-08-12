@@ -2550,45 +2550,47 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
         current file.
         """
         
-        # Make sure there is not another window running already.
-        if self.examineWindow is not None:
-            self.examineWindow.poll()
-            if self.examineWindow.returncode is None:
-                print("ERROR: another sub-file examination window is already running")
+        # Make sure we have something to do
+        if self.data.filenames is not None:
+            # Make sure there is not another window running already.
+            if self.examineWindow is not None:
+                self.examineWindow.poll()
+                if self.examineWindow.returncode is None:
+                    print("ERROR: another sub-file examination window is already running")
+                    return False
+                else:
+                    self.examineWindow = None
+                    
+            # Make sure we actually have a aggregated file first
+            if self.data.filenames is None:
+                print("ERROR: current file is not an aggregated file")
                 return False
-            else:
-                self.examineWindow = None
-        
-        # Make sure we actually have a aggregated file first
-        if self.data.filenames is None:
-            print("ERROR: current file is not an aggregated file")
-            return False
-        
-        # Make sure we have clicked
-        try:
-            dataY = int(round(self.data.spectrumClick / self.data.tInt))
-        except:
-            print("ERROR: no sub-file currently selected")
-            return False
-            
-        # Make sure the target file exists
-        filename = self.data.filenames[dataY]
-        if not os.path.exists(filename):
-            print("ERROR: cannot find file '%s', trying NPZ path" % filename)
-            basepath, junk = os.path.split(self.data.filename)
-            junk, filename = os.path.split(self.data.filenames[dataY])
-            filename = os.path.join(basepath, filename)
-            
+                
+            # Make sure we have clicked
+            try:
+                dataY = int(round(self.data.spectrumClick / self.data.tInt))
+            except:
+                print("ERROR: no sub-file currently selected")
+                return False
+                
+            # Make sure the target file exists
+            filename = self.data.filenames[dataY]
             if not os.path.exists(filename):
-                print("ERROR: cannot find file '%s'" % filename)
-                return False
-        
-        # Get the current plotWaterfall.py path
-        script = sys.argv[0]
-        
-        # Go
-        self.examineWindow = subprocess.Popen([sys.executable, script, filename])
-        
+                print("ERROR: cannot find file '%s', trying NPZ path" % filename)
+                basepath, junk = os.path.split(self.data.filename)
+                junk, filename = os.path.split(self.data.filenames[dataY])
+                filename = os.path.join(basepath, filename)
+                
+                if not os.path.exists(filename):
+                    print("ERROR: cannot find file '%s'" % filename)
+                    return False
+                    
+            # Get the current plotWaterfall.py path
+            script = sys.argv[0]
+            
+            # Go
+            self.examineWindow = subprocess.Popen([sys.executable, script, filename])
+            
     def onZoomWaterfall(self, event):
         """
         Create a zoomable waterfall plot window.

@@ -11,7 +11,6 @@ if sys.version_info > (3,):
     xrange = range
     
 import unittest
-import shutil
 import glob
 import sys
 import imp
@@ -31,10 +30,7 @@ try:
         run_scripts_tests = True
         
         # Pre-seed TBN/data.py
-        base = os.path.dirname(os.path.abspath(__file__))
-        src = os.path.join(base, '../DRX/HDF5/data.py')
-        dst = os.path.join(base, '../TBN/_data.py')
-        shutil.copy(src, dst)
+        os.system("%s ../TBN/_data.py" % sys.executable)
         
 except ImportError:
     pass
@@ -59,7 +55,8 @@ _SAFE_TO_IGNORE = ["Possible",
                    "No name 'c' in module 'astropy.constants'",
                    "No name 'triang' in module 'scipy.signal'",
                    "No name 'erf' in module 'scipy.special'",
-                   "Value 'self.filenames' is unsubscriptable"]
+                   "Value 'self.filenames' is unsubscriptable",
+                   "Value 'self.data.filenames' is unsubscriptable"]
 
 
 def _get_context(filename, line, before=0, after=0):
