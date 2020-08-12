@@ -14,7 +14,7 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import getopt
+import argparse
 
 from lsl.reader import drx, errors
 from lsl.common.dp import fS
@@ -22,73 +22,17 @@ from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.correlator import fx as fxc
 from lsl.common.progress import ProgressBar
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""fringeDipole.py - Take a DRX file with a dipole on X pol. and a dipole
-on the Y pol. and cross correlate it.
-
-Usage: fringeDipole.py [OPTION] <dipole_ID_X> <dipole_ID_Y> <DRX_file>
-
-Options:
--h, --help                  Display this help information
--l, --fft-length            Set FFT length (default = 512)
--t, --avg-time              Window to average visibilities in time (seconds; 
-                            default = 4 s)
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    config['avgTime'] = 4.0
-    config['LFFT'] = 512
-    config['offset'] = 0.0
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hl:t:s:", ["help", "fft-length=", "avg-time=", "skip="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-l', '--fft-length'):
-            config['LFFT'] = int(value)
-        elif opt in ('-t', '--avg-time'):
-            config['avgTime'] = float(value)
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
-
-
 def main(args):
-    config = parseOptions(args)
+    LFFT = args.fft_length
     
-    LFFT = config['LFFT']
-    
-    stand1 = int(config['args'][0])
-    stand2 = int(config['args'][1])
-    filenames = config['args'][2:]
+    stand1 = int(args.dipole_id_x)
+    stand2 = int(args.dipole_id_y)
+    filenames = args.filename
     
     # Build up the station
     site = stations.lwa1
@@ -105,7 +49,7 @@ def main(args):
     # Loop through the input files...
     for filename in filenames:
         fh = open(filename, "rb")
-        nFramesFile = os.path.getsize(filename) / drx.FRAME_SIZE
+        nFramesFile = os.path.getsize(filename) // drx.FRAME_SIZE
         #junkFrame = drx.read_frame(fh)
         #fh.seek(0)
         while True:
@@ -130,7 +74,7 @@ def main(args):
         beampols = tunepols
         
         # Offset in frames for beampols beam/tuning/pol. sets
-        offset = int(config['offset'] * srate / 4096 * beampols)
+        offset = int(args.skip * srate / 4096 * beampols)
         offset = int(1.0 * offset / beampols) * beampols
         fh.seek(offset*drx.FRAME_SIZE, 1)
         
@@ -149,7 +93,7 @@ def main(args):
             fh.seek(-drx.FRAME_SIZE, 1)
             
             ## See how far off the current frame is from the target
-            tDiff = t1 - (t0 + config['offset'])
+            tDiff = t1 - (t0 + args.skip)
             
             ## Half that to come up with a new seek parameter
             tCorr = -tDiff / 8.0
@@ -164,8 +108,8 @@ def main(args):
             fh.seek(cOffset*drx.FRAME_SIZE, 1)
             
         # Update the offset actually used
-        config['offset'] = t1 - t0
-        offset = int(round(config['offset'] * srate / 4096 * beampols))
+        args.skip = t1 - t0
+        offset = int(round(args.skip * srate / 4096 * beampols))
         offset = int(1.0 * offset / beampols) * beampols
         
         tnom = junkFrame.header.time_offset
@@ -200,7 +144,7 @@ def main(args):
         print("Shifted beam %i data by %i frames (%.4f s)" % (beam, j, j*4096/srate/4))
         
         # Set integration time
-        tInt = config['avgTime']
+        tInt = args.avg_time
         nFrames = int(round(tInt*srate/4096))
         tInt = nFrames*4096/srate
         
@@ -296,5 +240,22 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="take a DRX file with a dipole on X pol. and a dipole on the Y pol. and cross correlate it",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('dipole_id_x', type=aph.positive_int,
+                        help='dipole number on X')
+    parser.add_argument('dipole_id_y', type=aph.positive_int,
+                        help='dipole number on Y')
+    parser.add_argument('filename', type=str, nargs='+',
+                        help='filename to process')
+    parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=512,
+                        help='FFT transform size')
+    parser.add_argument('-t', '--avg-time', type=aph.positive_float, default=4.0,
+                        help='window to average visibilities in seconds')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0,
+                        help='skip the specified number of seconds at the beginning of the file')
+    args = parser.parse_args()
+    main(args)
     

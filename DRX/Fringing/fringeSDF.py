@@ -16,123 +16,14 @@ import os
 import re
 import sys
 import numpy
-import getopt
+import argparse
 
 from lsl.misc import beamformer
 from lsl.common.stations import parse_ssmif
 from lsl.common import sdf
 from lsl.common.mcs import apply_pointing_correction
 from lsl.common.dp import delay_to_dpd, gain_to_dpg
-
-def usage(exitCode=None):
-    print("""fringeSets.py - Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF
-that puts a single dipole or beam on the X pol and the outlier on the other.
-
-Usage: fringeSDF.py [OPTIONS] SSMIF YYYY/MM/DD HH:MM:SS.SSS
-
-Options:
--h, --help                  Display this help information
--a, --azimuth               Beam only, azimuth east of north in degrees for the 
-                            pointing center (Default = 90 degrees)
--e, --elevation             Beam only, elevation above the horizon in degrees for 
-                            the pointing center (Default = 90 degrees)
--d, --dipole                Using a dipole instead of the beam (Default = use beam)
--y, --y-pol                 Generate an SDF for the Y polarization (Default = X)
--r, --reference             Reference for the fringing (Default = stand #258)
--b, --drx-beam              DP beam to run the observation on (Default = 2)
--l, --obs-length            Duration of the observation in seconds (Default = 3600.0)
--1, --frequency1            Frequency in MHz for Tuning #1 (Default = 37.9 MHz)
--2, --frequency2            Frequency in MHz for Tuning #2 (Default = 74.0 MHz)
--f, --filter                DRX filter code (Default = 7)
--s, --spec-setup            Spectrometer setup to use, i.e., "32 6144{Stokes=IV}" 
-                            (Default = do not use DR spectrometer)
--o, --output                Filename to save the SDF to (Default = fringe.sdf)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['beam'] = True
-    config['az'] = 90.0
-    config['el'] = 90.0
-    config['dipole'] = 1
-    config['xPol'] = True
-    config['ref'] = 258
-    config['drxBeam'] = 2
-    config['duration'] = 3600.0
-    config['freq1'] = 37.9e6
-    config['freq2'] = 74.0e6
-    config['filter'] = 7
-    config['spcSetup'] = [0, 0]
-    config['spcMetatag'] = ""
-    config['output'] = 'fringe.sdf'
-    config['args'] = []
-    
-    # Create the metatag regular expression to deal with spectrometer mode settings
-    metaRE = re.compile(r'\{.*\}')
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "ha:e:d:yr:b:l:1:2:f:s:o:", ["help", "azimuth=", "elevation=", "dipole=", "y-pol", "reference=", "drx-beam=", "obs-length=", "frequency1=", "frequency2=", "filter=", "spec-setup=", "output="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-a', '--azimuth'):
-            config['az'] = float(value)
-        elif opt in ('-e', '--elevation'):
-            config['el'] = float(value)
-        elif opt in ('-d', '--dipole'):
-            config['beam'] = False
-            config['dipole'] = int(value)
-        elif opt in ('-y', '--y-pol'):
-            config['xPol'] = False
-        elif opt in ('-r', '--reference'):
-            config['ref'] = int(value)
-        elif opt in ('-b', '--dp-beam'):
-            config['drxBeam'] = int(value)
-        elif opt in ('-l', '--obs-length'):
-            config['duration'] = float(value)
-        elif opt in ('-1', '--frequency1'):
-            config['freq1'] = float(value)*1e6
-        elif opt in ('-2', '--frequency2'):
-            config['freq2'] = float(value)*1e6
-        elif opt in ('-f', '--filter'):
-            config['filter'] = int(value)
-        elif opt in ('-s', '--spec-setup'):
-            # Remove the ' marks
-            value = value.replace("'", "")
-            # Excise the metatags
-            mtch = metaRE.search(value)
-            if mtch is not None:
-                metatag = mtch.group(0)
-                value = metaRE.sub('', value)
-            else:
-                metatag = None
-            
-            config['spcSetup'] = [int(i) for i in value.lstrip().rstrip().split(None, 1)]
-            config['spcMetatag'] = metatag
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
+from lsl.misc import parser as aph
 
 
 def twoByteSwap(i):
@@ -175,12 +66,10 @@ def getPointingTerms(filename):
 
 
 def main(args):
-    config = parseOptions(args)
-    filename = config['args'][0]
+    filename = args.filename
     
     # Observation start time
-    config['args'][1] = config['args'][1].replace('-', '/')
-    tStart = "%s %s" % (config['args'][1], config['args'][2])
+    tStart = "%s %s" % (args.date, args.time)
 
     station = parse_ssmif(filename)
     antennas = station.antennas
@@ -202,28 +91,28 @@ def main(args):
     print(" ")
     
     # Adjust the gain so that it matches the outlier better
-    if config['beam']:
+    if args.dipole != 0:
         bgain = 20.0 / (520 - len(bad))
     else:
         bgain = 1.0
         
     # Setup the base gain lists for the different scenarios
     baseEmptyGain = [0.0000, 0.0000, 0.0000, 0.0000]
-    if config['xPol']:
+    if not args.y_pol:
         baseBeamGain    = [bgain,  0.0000, 0.0000, 0.0000]
         baseDipoleGain  = [0.0000, 1.0000, 0.0000, 0.0000]
     else:
         baseBeamGain    = [0.0000, 0.0000, bgain,  0.0000]
         baseDipoleGain  = [0.0000, 0.0000, 0.0000, 1.0000]
         
-    if config['beam']:
-        freq = max([config['freq1'], config['freq2']])
+    if (args.dipole != 0):
+        freq = max([args.frequency1, args.frequency2])
         
         # Load in the pointing correction
         pcTerms = getPointingTerms(filename)
         print("Applying Pointing Correction Terms: theta=%.2f, phi=%.2f, psi=%.2f" % pcTerms)
-        az, el = apply_pointing_correction(config['az'], config['el'], *pcTerms)
-        print("-> az %.2f, el %.2f to az %.2f, el %.2f" % (config['az'], config['el'], az, el))
+        az, el = apply_pointing_correction(args.azimuth, args.elevation, *pcTerms)
+        print("-> az %.2f, el %.2f to az %.2f, el %.2f" % (args.azimuth, args.elevation, az, el))
         print(" ")
         
         print("Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (az, el, freq/1e6))
@@ -239,27 +128,27 @@ def main(args):
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
             i = d - 1
-            gains[i/2] = [twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain]
+            gains[i//2] = [twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain]
             
-        for i in xrange(len(stands)/2):
+        for i in xrange(len(stands)//2):
             # Put the reference stand in there all by itself
-            if stands[2*i] == config['ref']:
+            if stands[2*i] == args.reference:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
     else:
         print("Setting all delays to zero")
         delays = [0 for i in antennas]
         delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
         
-        print("Setting gains for dipoles %i and %i" % (config['dipole'], config['ref']))
+        print("Setting gains for dipoles %i and %i" % (args.dipole, args.reference))
         
         gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(260)] # initialize gain list
-        for i in xrange(len(stands)/2):
+        for i in xrange(len(stands)//2):
             # Put the fringing stand in there all by itself
-            if stands[2*i] == config['dipole']:
+            if stands[2*i] == args.dipole:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain]
             
             # Put the reference stand in there all by itself
-            if stands[2*i] == config['ref']:
+            if stands[2*i] == args.reference:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
     
     # Resort the gains into a list of 260 2x2 matrices
@@ -269,27 +158,77 @@ def main(args):
     gains = newGains
     
     # Create the SDF
-    sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if config['xPol'] else 'Y',)
+    sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if not args.y_pol else 'Y',)
     observer = sdf.Observer("fringeSDF.py Observer", 99)
     session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
     project = sdf.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
-    obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, config['filter'], is_radec=False)
-    stp = sdf.BeamStep(config['az'], config['el'], str(config['duration']), config['freq1'], config['freq2'], is_radec=False, spec_delays=delays, spec_gains=gains)
+    obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
+    stp = sdf.BeamStep(args.azimuth, args.elevation, str(args.duration), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
     obs.append(stp)
     obs.gain = 1
     project.sessions[0].observations.append(obs)
-    project.sessions[0].drx_beam = config['drxBeam']
-    project.sessions[0].spcSetup = config['spcSetup']
-    project.sessions[0].spcMetatag = config['spcMetatag']
-    
+    project.sessions[0].drx_beam = args.dp_beam
+    ## Spectrometer setup
+    if args.spec_setup is not None:
+        # Remove the ' marks
+        args.spec_setup = args.spec_setup.replace("'", "")
+        # Excise the metatags
+        mtch = metaRE.search(args.spec_setup)
+        if mtch is not None:
+            metatag = mtch.group(0)
+            args.spec_setup = metaRE.sub('', args.spec_setup)
+        else:
+            metatag = None
+            
+        project.sessions[0].spcSetup = [int(i) for i in args.spec_setup.lstrip().rstrip().split(None, 1)]
+        project.sessions[0].spcMetatag = metatag
+        
     # Write it out
-    if os.path.exists(config['output']):
-        raise RuntimeError("File '%s' already exists" % config['output'])
+    if os.path.exists(args.output):
+        raise RuntimeError("File '%s' already exists" % args.output)
     project.render(verbose=True)
-    fh = open(config['output'], 'w')
+    fh = open(args.output, 'w')
     fh.write(project.render())
     fh.close()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF that puts a single dipole or beam on the X pol and the outlier on the other",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str,
+                        help='SSMIF to use')
+    parser.add_argument('date', type=aph.date,
+                        help='UTC date for the start of the observation in YYYY/MM/DD')
+    parser.add_argument('time', type=aph.time,
+                        help='UTC time for the start the observation in HH:MM:SS')
+    parser.add_argument('-a', '--azimuth', type=float, default=90.0,
+                        help='beam only, azimuth east of north in degrees for the pointing center')
+    parser.add_argument('-e', '--elevation', type=aph.positive_or_zero_float, default=90.0,
+                        help='beam only, elevation above the horizon in degrees for the pointing center')
+    parser.add_argument('-d', '--dipole', type=aph.positive_or_zero_int, default=0,
+                        help='use the specified dipole instead of the beam; 0 = use beam')
+    parser.add_argument('-y', '--y-pol', action='store_true', 
+                        help='generate an SDF for the Y polarization instead of X')
+    parser.add_argument('-r', '--reference', type=aph.positive_int, default=258,
+                        help='reference dipole for the fringing')
+    parser.add_argument('-b', '--dp-beam', type=aph.positive_int, default=2,
+                        help='DP beam to run the observation on')
+    parser.add_argument('-l', '--obs-length', type=aph.positive_float, default=3600.0,
+                        help='duration of the observation in seconds')
+    parser.add_argument('-1', '--frequency1', type=aph.positive_float, default=37.9,
+                        help='frequency in MHz for Tuning #1')
+    parser.add_argument('-2', '--frequency2', type=aph.positive_float, default=74.0,
+                        help='frequency in MHz for Tuning #2')
+    parser.add_argument('-f', '--filter', type=aph.positive_int, default=7,
+                        help='DRX filter code')
+    parser.add_argument('-s', '--spec-setup', type=str,
+                        help='DR spectrometer setup to use, i.e., "32 6144{Stokes=IV}"') 
+    parser.add_argument('-o', '--output', type=str, default='fringe.sdf',
+                        help='filename to save the SDF to')
+    args = parser.parse_args()
+    args.frequency1 *= 1e6
+    args.frequency2 *= 1e6
+    main(args)
+    
