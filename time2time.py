@@ -15,61 +15,13 @@ if sys.version_info > (3,):
 import sys
 import math
 import pytz
-import getopt
+import argparse
 import datetime
 
 from lsl.common.stations import lwa1
 from lsl.common.mcs import datetime_to_mjdmpm
 from lsl.astro import date as astroDate, get_date as astroGetDate
-
-
-def usage(exitCode=None):
-    print("""time2time.py - Convert a local date/time string in the format of 
-"YYYY-MM-DD HH:MM:SS[.SSS]" into MJD and MPM UTC values.  If no date/time string
-is supplied, the current local date/time is used.
-
-Usage: time2time.py [OPTIONS] YYYY/MM/DD HH:MM:SS[.SSS]
-
-Options:
--h, --help                  Display this help information
--s, --sidereal              Input time is in LST, not local
--u, --utc                   Input time is in UTC, not local
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    config['inputType'] = 'local'
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hsu", ["help", "sidereal", "utc"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-s', '--sidereal'):
-            config['inputType'] = 'sidereal'
-        elif opt in ('-u', '--utc'):
-            config['inputType'] = 'utc'
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
+from lsl.misc import parser as aph
 
 
 def _getEquinoxEquation(jd):
@@ -101,31 +53,24 @@ def _getEquinoxEquation(jd):
 
 
 def main(args):
-    config = parseOptions(args)
-    
     obs = lwa1.get_observer()
     MST = pytz.timezone('US/Mountain')
     UTC = pytz.utc
     
-    if len(config['args']) == 0:
+    if args.date is None or args.time is None:
         dt = datetime.datetime.utcnow()
         dt = UTC.localize(dt)
     else:
-        config['args'][0] = config['args'][0].replace('-', '/')
-        year, month, day = config['args'][0].split('/', 2)
-        hour, minute, second = config['args'][1].split(':', 2)
+        year, month, day = args.date.split('/', 2)
+        hour, minute, second = args.time.split(':', 2)
         iSeconds = int(float(second))
         mSeconds = int(round((float(second) - iSeconds)*1000000))
         
-        if config['inputType'] == 'local':
-            # Mountain time
-            dt = MST.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
-            
-        elif config['inputType'] == 'utc':
+        if args.utc:
             # UTC
             dt = UTC.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
             
-        elif config['inputType'] == 'sidereal':
+        elif args.sidereal:
             # LST
             dt = astroDate(int(year), int(month), int(day), 0, 0, 0)
             jd = dt.to_jd()
@@ -177,7 +122,8 @@ def main(args):
             dt = UTC.localize(datetime.datetime(year, month, day, hour, minute, second, microsecond))
             
         else:
-            raise RuntimeError("Unknown input date/time type '%s'" % config['inputType'])
+            # Mountain time
+            dt = MST.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
             
         dt = dt.astimezone(UTC)
         
@@ -192,5 +138,19 @@ def main(args):
     
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-
+    parser = argparse.ArgumentParser(
+        description='convert a local date/time string into MJD and MPM UTC values',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('date', type=aph.date, nargs='?',
+                        help='local date in YYYY/MM/DD')
+    parser.add_argument('time', type=aph.time, nargs='?',
+                        help='local time in HH:MM:SS[.SSS]')
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('-s', '--sidereal', action='store_true',
+                       help='iput time is in LST, not local')
+    group.add_argument('-u', '--utc', action='store_true',
+                       help='input time is in UTC, not local')
+    args = parser.parse_args()
+    main(args)
+    
