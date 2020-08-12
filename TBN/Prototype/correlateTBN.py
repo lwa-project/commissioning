@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+a!/usr/bin/env python
 
 """
 Example script that reads in TBN data and runs a cross-correlation on it.  
@@ -7,10 +7,7 @@ The results are saved in the FITS IDI format.
 
 # Python2 compatibility
 from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info < (3,):
-    range = xrange
-    
+ 
 import os
 import sys
 import time

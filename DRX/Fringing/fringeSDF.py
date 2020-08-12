@@ -26,6 +26,10 @@ from lsl.common.dp import delay_to_dpd, gain_to_dpg
 from lsl.misc import parser as aph
 
 
+# Create the metatag regular expression to deal with spectrometer mode settings
+metaRE = re.compile(r'\{.*\}')
+
+
 def twoByteSwap(i):
     """
     gain_to_dpg and delay_to_dpd return values that are ready for big-
