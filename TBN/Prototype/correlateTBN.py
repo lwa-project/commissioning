@@ -1,4 +1,4 @@
-a!/usr/bin/env python
+#!/usr/bin/env python
 
 """
 Example script that reads in TBN data and runs a cross-correlation on it.  
