@@ -30,7 +30,7 @@ try:
         run_scripts_tests = True
         
         # Pre-seed TBN/data.py
-        os.system("%s ../TBN/_data.py" % sys.executable)
+        os.system("%s ../TBN/data.py" % sys.executable)
         
 except ImportError:
     pass
