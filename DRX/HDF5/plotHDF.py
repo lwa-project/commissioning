@@ -4043,7 +4043,7 @@ def main(args):
                     for menuItem2 in menuItem.GetSubMenu().GetMenuItems():
                         menuItem2.Enable(True)
                 
-        if frame.data.filename is None: 
+        if frame.data.filenames is None: 
             frame.examineFileButton.Enable(False) 
         else: 
             frame.examineFileButton.Enable(True) 
