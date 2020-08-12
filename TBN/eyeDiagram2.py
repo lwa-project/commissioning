@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 """
-Look for glitches in a DRX or TBN data by fitting a sine wave to the data.
+Given a DRX file, look for glitches in a DRX or TBN data by fitting a sine wave 
+to the data.
 """
 
 # Python3 compatiability
@@ -13,10 +14,10 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-
-import getopt
+import argparse
 
 from lsl.reader import errors, tbn, drx
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
@@ -30,87 +31,24 @@ def qsDiff(B, x, y):
     freq = B[1]
     phase = B[2]
     
-    yFit = quantizedSine(2*numpy.pi*freq + phase, scale=scale)
+    xPrime = 2*numpy.pi*freq*x + phase
+    #yFit = quantizedSine(xPrime, scale=scale)
+    yFit = numpy.sin(xPrime)*numpy.abs(scale)
     
     #return yFit - y
     return ((yFit - y)**2).sum()
 
 
-def usage(exitCode=None):
-    print("""eyeDiagram2.py - Look for glitches in a DRX or TBN data by fitting a 
-sine wave to the data.
-
-Usage:  eyeDiagram2.py [OPTIONS] data_file
-
-Options:
--h, --help                  Display this help information
--d, --drx                   DRX data is being supplied (default = TBN)
--f, --freq                  Set the frequency of the observations in MHz (default = 
-                            38.00 MHz)
--i, --input-freq            Set the frequency of the input sinusoid in MHz (default = 
-                            38.25 MHz)
--k, --keep                  Data array indiece (stands/beams) to keep (default = 1,2,3,4)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['reader'] = tbn
-    config['maxFrames'] = 1936
-    config['freq'] = 38.00e6
-    config['ifreq'] = 38.25e6
-    config['keep'] = [1,2,3,4]
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hdf:i:k:", ["help", "drx", "freq=", "input-freq=", "keep="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-d', '--drx'):
-            config['reader'] = drx
-        elif opt in ('-f', '--freq'):
-            config['freq'] = float(value)*1e6
-        elif opt in ('-i', '--input-freq'):
-            config['ifreq'] = float(value)*1e6
-        elif opt in ('-k', '--keep'):
-            config['keep'] = value.split(',')
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Filename
-    filename = config['args'][0]
+    filename = args.filename
     
     # The observation and sinusoid frequencies as well as the plotting time
-    cFreq = config['freq']
-    iFreq = config['ifreq']
+    cFreq = args.freq
+    iFreq = args.input_freq
     
     # Reader
-    rdr = config['reader']
+    rdr = tbn
     
     #
     # Step 1:  Read in the file and process it
@@ -129,7 +67,7 @@ def main(args):
     nCaptures = nFramesFile / nFrames.sum()
 
     # Number of remaining chunks
-    maxFrames = config['maxFrames']
+    maxFrames = 1936
     nChunks = int(numpy.ceil(1.0*(nCaptures*nFrames.sum())/maxFrames))
 
     print("Filename:    %s" % filename)
@@ -171,7 +109,7 @@ def main(args):
         for f in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = rdr.read_frame(fh, Verbose=False)
+                cFrame = rdr.read_frame(fh, verbose=False)
             except errors.EOFError:
                 break
             except errors.SyncError:
@@ -202,7 +140,7 @@ def main(args):
             if aStand not in count.keys():
                 count[aStand] = 0
 
-            dtime[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = float(cFrame.time) + 1.0 / sample_rate * numpy.arange(0.0, cFrame.payload.data.size, dtype=numpy.float64)
+            dtime[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] =  512*count[aStand]/sample_rate + 1.0 / sample_rate * numpy.arange(0.0, cFrame.payload.data.size, dtype=numpy.float64)
             data[aStand, count[aStand]*cFrame.payload.data.size:(count[aStand]+1)*cFrame.payload.data.size] = cFrame.payload.data
             
             count[aStand] = count[aStand] + 1
@@ -218,30 +156,58 @@ def main(args):
         print(endPt / sample_rate / period)
     
         from scipy.optimize import fmin, leastsq
-        p0 = [data.max(), iFreq-cFreq, 0.0]
+        
+        fig = plt.figure()
         for i in xrange(data.shape[0]):
-            freq = numpy.fft.fftfreq(4096, d=1/sample_rate)
-            psd = numpy.abs(numpy.fft.fft(data[i,0:4096]))**2
-            print(freq[numpy.where( psd == psd.max() )[0]])
-            #import pylab
-            #pylab.plot(freq, numpy.log10(psd)*10)
-            #pylab.show()
+            if i == 0 or i == 3:
+                continue
             
-            p0 = [data[i,:].std()*1.4/2048, freq[numpy.where( psd == psd.max() )][0], 0.0]
+            #p0 = [6.0, iFreq-cFreq, numpy.pi/4]
+            #p1 = fmin(qsDiff, p0, args=(dtime[i,:], data[i,:].real))
+            #print(p1)
             
-            p1 = fmin(qsDiff, p0, args=(dtime[i,:], data[i,:].real))
-            print(p1)
+            freq = iFreq - cFreq
+            def errFunc(p, x, y):
+                scale = p[0]
+                freq = p[1]
+                phase = p[2]
+                
+                xPrime = 2*numpy.pi*freq*x + phase
+                yFit = numpy.abs(scale)*numpy.sin(xPrime)
+                
+                return (yFit-y)
+                
+            p0 = [6, freq, 0.0]
+            p1, success = leastsq(errFunc, p0, args=(dtime[i,:], data[i,:].real), maxfev=100000)
+            #print(p0, p1, success)
             
             xPrime = 2*numpy.pi*p1[1]*dtime[i,:] + p1[2]
-            yFit = quantizedSine(xPrime, scale=p1[0])
-            import pylab
-            #pylab.plot(dtime[i,0:100], (yFit-data[i,:].real)[0:100])
-            pylab.plot(dtime[i,0:1000], data[i,0:1000].real, color='blue')
-            #pylab.plot(dtime[i,0:1000], yFit[0:1000], color='green')
-            pylab.show()
-            print(data[i,:].real - yFit)
+            #yFit = quantizedSine(xPrime, scale=p1[0])
+            yFit = numpy.sin(xPrime)*numpy.abs(p1[0])
+            print(i, standMapper[i], p1, ((data[i,:].real - yFit)**2).sum())
             
+            ax1 = fig.add_subplot(2, 2, i+1)
+            ax1.plot(dtime[i,:], data[i,:].real, color='blue')
+            ax1.plot(dtime[i,:], yFit[:], color='green')
+            ax1.plot(dtime[i,:], (yFit-data[i,:].real), color='red')
+        plt.show()
+
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="look for glitches in a DRX or TBN data by fitting a sine wave to the data",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to analyze')
+    parser.add_argument('-f', '--freq', type=aph.positive_or_zero_float, default=38.0,
+                        help='frequency of the observations in MHz')
+    parser.add_argument('-i', '--input-freq', type=aph.positive_or_zero_float, default=38.25,
+                        help='frequency of the input sinusoid in MHz')
+    parser.add_argument('-k', '--keep', type=aph.csv_int_list, default='1,2,3,4',
+                        help='data array indiece (stands/beams) to keep')
+    args = parser.parse_args()
+    args.freq *= 1e6
+    args.input_freq *= 1e6
+    main(args)
     

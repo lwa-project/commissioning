@@ -2,7 +2,8 @@
 
 """
 Given a TBW file, plot the time averaged spectra for each digitizer input.  Save 
-the data for later review with smGUI as an NPZ file.
+the data for later review with smGUI as an NPZ file.  Optionally clip the data 
+to remove RFI.
 """
 
 # Python3 compatiability
@@ -15,97 +16,25 @@ import os
 import sys
 import math
 import numpy
-import getopt
+import argparse
 
 from lsl.common import stations
-from lsl.reader import tbw
+from lsl.reader import tbw, tbn
 from lsl.reader import errors
 from lsl.correlator import fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
 from lsl.common.paths import DATA as dataPath
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""stationMaster.py - Read in TBW files and create a collection of 
-time-averaged spectra.
-
-Usage: stationMaster.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--m, --metadata              Name of SSMIF file to use for mappings
--f, --force                 Remake the NPZ file, even if it exists
--t, --bartlett              Apply a Bartlett window to the data
--b, --blackman              Apply a Blackman window to the data
--n, --hanning               Apply a Hanning window to the data
--q, --quiet                 Run tbwSpectra in silent mode
--l, --fft-length            Set FFT length (default = 4096)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['SSMIF'] = ''
-    config['force'] = False
-    config['LFFT'] = 4096
-    config['maxFrames'] = 30000*10
-    config['window'] = fxc.null_window
-    config['applyGain'] = True
-    config['verbose'] = True
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hm:fqtbnl:", ["help", "metadata=", "force", "quiet", "bartlett", "blackman", "hanning", "fft-length="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-m', '--metadata'):
-            config['SSMIF'] = value
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-t', '--bartlett'):
-            config['window'] = numpy.bartlett
-        elif opt in ('-b', '--blackman'):
-            config['window'] = numpy.blackman
-        elif opt in ('-n', '--hanning'):
-            config['window'] = numpy.hanning
-        elif opt in ('-l', '--fft-length'):
-            config['LFFT'] = int(value)
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Set the station
-    if config['SSMIF'] != '':
-        station = stations.parse_ssmif(config['SSMIF'])
-        ssmifContents = open(config['SSMIF']).readlines()
+    if args.metadata is not None:
+        station = stations.parse_ssmif(args.metadata)
+        ssmifContents = open(args.metadata).readlines()
     else:
         station = stations.lwana
         ssmifContents = open(os.path.join(dataPath, 'lwana-ssmif.txt')).readlines()
@@ -113,21 +42,21 @@ def main(args):
     for a in station.antennas:
         if a.digitizer != 0:
             antennas.append(a)
-
+            
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped
-    maxFrames = int(config['maxFrames']//float(LFFT))*LFFT
+    maxFrames = int((30000*20)/float(LFFT))*LFFT
     # It seems like that would be a good idea, however...  TBW data comes one
     # capture at a time so doing something like this actually truncates data 
     # from the last set of stands for the first integration.  So, we really 
     # should stick with
-    maxFrames = config['maxFrames']
+    maxFrames = (30000*20)
 
-    fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) // tbw.FRAME_SIZE
+    fh = open(args.filename, "rb")
+    nFrames = os.path.getsize(args.filename) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -142,11 +71,10 @@ def main(args):
     # of the frame.  This is needed to get the list of stands.
     junkFrame = tbw.read_frame(fh)
     fh.seek(0)
-    beginTime = junkFrame.time
     beginDate = junkFrame.time.datetime
 
     # File summary
-    print("Filename: %s" % config['args'][0])
+    print("Filename: %s" % args.filename)
     print("Date of First Frame: %s" % str(beginDate))
     print("Ant/Pols: %i" % antpols)
     print("Sample Length: %i-bit" % dataBits)
@@ -160,15 +88,37 @@ def main(args):
     i = 0
     junkFrame = tbw.read_frame(fh)
     while not junkFrame.header.is_tbw:
-        junkFrame = tbw.read_frame(fh)
+        try:
+            junkFrame = tbw.read_frame(fh)
+        except errors.SyncError:
+            fh.seek(0)
+            while True:
+                try:
+                    junkFrame = tbn.read_frame(fh)
+                    i += 1
+                except errors.SyncError:
+                    break
+            fh.seek(-2*tbn.FRAME_SIZE, 1)
+            junkFrame = tbw.read_frame(fh)
         i += 1
     fh.seek(-tbw.FRAME_SIZE, 1)
     print("Skipped %i non-TBW frames at the beginning of the file" % i)
-
-    outfile = os.path.split(config['args'][0])[1]
-    outfile = os.path.splitext(outfile)[0]
-    outfile = "%s.npz" % outfile	
-    if (not os.path.exists(outfile)) or config['force']:
+    
+    # Setup the window function to use
+    if args.pfb:
+        window = fxc.null_window
+    elif args.bartlett:
+        window = numpy.bartlett
+    elif args.blackman:
+        window = numpy.blackman
+    elif args.hanning:
+        window = numpy.hanning
+    else:
+        window = fxc.null_window
+        
+    base, ext = os.path.splitext(args.filename)
+    base = os.path.basename(base)
+    if (not os.path.exists("%s.npz" % base)) or args.force:
         # Master loop over all of the file chunks
         masterSpectra = numpy.zeros((nChunks, antpols, LFFT))
         for i in range(nChunks):
@@ -182,7 +132,7 @@ def main(args):
                 framesWork = framesRemaining
             print("Working on chunk %i, %i frames remaining" % ((i+1), framesRemaining))
 
-            data = numpy.zeros((antpols, 2*30000*10*nSamples//antpols), dtype=numpy.int16)
+            data = numpy.zeros((antpols, 30000*20*nSamples//antpols), dtype=numpy.int16)
             # If there are fewer frames than we need to fill an FFT, skip this chunk
             if data.shape[1] < 2*LFFT:
                 break
@@ -203,7 +153,7 @@ def main(args):
                 # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)
-                if cFrame.header.frame_count % 10000 == 0 and config['verbose']:
+                if cFrame.header.frame_count % 10000 == 0 and args.verbose:
                     print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.time, cFrame.header.frame_count, cFrame.payload.timetag))
 
                 # Actually load the data.  x pol goes into the even numbers, y pol into the 
@@ -216,9 +166,8 @@ def main(args):
             # the total number of frames read.  This is needed to keep the averages correct.
             # NB:  The weighting is the same for the x and y polarizations because of how 
             # the data are packed in TBW
-            freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=config['window'], verbose=config['verbose'])
-            for stand in xrange(masterSpectra.shape[1]):
-                masterSpectra[i,stand,:] = tempSpec[stand,:]
+            freq, tempSpec = fxc.SpecMaster(data, LFFT=LFFT, window=window, verbose=args.verbose)
+            masterSpectra[i,:,:] = tempSpec
 
             # Compute the 1 ms average power and the data range within each 1 ms window
             subSize = 1960
@@ -261,7 +210,7 @@ def main(args):
             del(data)
 
         # Apply the cable loss corrections, if requested
-        if config['applyGain']:
+        if True:
             for s in xrange(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
                 for c in xrange(masterSpectra.shape[0]):
@@ -289,7 +238,7 @@ def main(args):
                     bestRMS = rms
                     
             coeff = numpy.polyfit(freq[toCompare]/1e6, numpy.log10(spec[i,toCompare])*10, bestOrder)
-            fit = numpy.polyval(coeff, freq[toCompare]/1e6)
+            fit = numpy.polyval(coeff, freq[toCompare]/1e6)	
             try:
                 resFreq[i] = freq[toCompare[numpy.where( fit == fit.max() )[0][0]]] / 1e6
             except:
@@ -303,10 +252,10 @@ def main(args):
         sys.stdout.write('\n')
         sys.stdout.flush()
         
-        numpy.savez(outfile, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
+        numpy.savez("%s.npz" % base, date=str(beginDate), freq=freq, masterSpectra=masterSpectra, resFreq=resFreq, 
                     avgPower=avgPower, dataRange=dataRange, adcHistogram=adcHistogram, ssmifContents=ssmifContents)
     else:
-        dataDict = numpy.load(outfile)
+        dataDict = numpy.load("%s.npz" % base)
         freq = dataDict['freq']
         masterSpectra = dataDict['masterSpectra']
         resFreq = dataDict['resFreq']
@@ -328,19 +277,19 @@ def main(args):
     standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in antennas if ant.pol == 0])
     
     # Plots
-    if config['verbose']:
+    if args.verbose:
         fig = plt.figure()
         ax1 = fig.add_subplot(1, 2, 1)
         ax1.scatter(standPos[:,0], standPos[:,1], c=specDiff[0::2], s=40.0, alpha=0.50)
         ## Add the fence as a dashed line
-        ax1.plot([-44.315, 72.150, 44.077, -72.543, -44.315], 
-                [-72.522, -44.277, 72.191, 43.972, -72.522], linestyle='--', color='k')
-        ### Add the shelter
-        #ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
-                #[45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
+        ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
+                [59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
+        ## Add the shelter
+        ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
+                [45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
         ## Set the limits to just zoom in on the main stations
-        ax1.set_xlim([-75, 75])
-        ax1.set_ylim([-75, 75])		
+        ax1.set_xlim([-65, 65])
+        ax1.set_ylim([-65, 65])		
         
         ax2 = fig.add_subplot(1, 2, 2)
         ax2.plot(freq/1e6, numpy.log10(specTemplate)*10, alpha=0.50)
@@ -350,5 +299,27 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-
+    parser = argparse.ArgumentParser(
+        description='given a TBW file, plot the time averaged spectra for each digitizer input and save the data for later review with smGUI as an NPZ file', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to process')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='remake the NPZ file, even if it exists')
+    parser.add_argument('-m', '--metadata', type=str, 
+                        help='name of the SSMIF or metadata tarball file to use for mappings')
+    wgroup = parser.add_mutually_exclusive_group(required=False)
+    wgroup.add_argument('-t', '--bartlett', action='store_true', 
+                        help='apply a Bartlett window to the data')
+    wgroup.add_argument('-b', '--blackman', action='store_true', 
+                        help='apply a Blackman window to the data')
+    wgroup.add_argument('-n', '--hanning', action='store_true', 
+                        help='apply a Hanning window to the data')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false', 
+                        help='run %(prog)s in silent mode')
+    parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=4096, 
+                        help='set FFT length')
+    args = parser.parse_args()
+    main(args)
+    

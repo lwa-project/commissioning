@@ -2,9 +2,6 @@
 
 """
 Given a TBN file, plot the time series I and Q data as a function of time.
-
-.. note::
-    This version is for data from the current prototype system.
 """
 
 # Python3 compatiability
@@ -17,7 +14,7 @@ import os
 import sys
 import math
 import numpy
-import getopt
+import argparse
 
 from lsl.reader import tbn
 from lsl.reader import errors
@@ -25,119 +22,42 @@ from lsl.reader.buffer import TBNFrameBuffer
 from lsl.correlator import fx as fxc
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""tbnTimeseries.py - Read in TBN files created by the prototype
-system at the north arm  and create a collection of timeseries 
-(I/Q) plots.
-
-Usage: tbnTimeseries.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--p, --plot-range            Number of seconds of data to show in the I/Q plots
-                            (default = 0.01)
--k, --keep                  Only display the following comma-seperated list of 
-                            stands (default = show all 260 dual pol)
--i, --instantaneous-power   Plot I*I + Q*Q instead of the raw samples
--q, --quiet                 Run tbnTimeseries in silent mode
--o, --output                Output file name for time series image
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['average'] = 0.01
-    config['maxFrames'] = 2*10*1000
-    config['output'] = None
-    config['verbose'] = True
-    config['keep'] = None
-    config['power'] = False
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hqo:s:p:k:i", ["help", "quiet", "output=", "skip=", "plot-range=", "keep=", "instantaneous-power"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-p', '--plot-range'):
-            config['average'] = float(value)
-        elif opt in ('-k', '--keep'):
-            config['keep'] = [int(i) for i in value.split(',')]
-        elif opt in ('-i', '--instantaneous-power'):
-            config['power'] = True
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Set the station
     station = stations.lwana
-    antennas = []
-    for a in station.antennas:
-        if a.digitizer != 0:
-            antennas.append(a)
-            
-    fh = open(config['args'][0], "rb")
-    nFramesFile = os.path.getsize(config['args'][0]) // tbn.FRAME_SIZE
+    antennas = station.antennas
+
+    fh = open(args.filename, "rb")
+    nFramesFile = os.path.getsize(args.filename) // tbn.FRAME_SIZE
     srate = tbn.get_sample_rate(fh)
     antpols = len(antennas)
 
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(round(config['offset'] * srate / 512 * antpols))
+    offset = int(round(args.skip * srate / 512 * antpols))
     offset = int(1.0 * offset / antpols) * antpols
-    config['offset'] = 1.0 * offset / antpols * 512 / srate
+    args.skip = 1.0 * offset / antpols * 512 / srate
     fh.seek(offset*tbn.FRAME_SIZE)
 
     # Make sure that the file chunk size contains is an intger multiple
     # of the beampols.
-    maxFrames = int(config['maxFrames']/antpols)*antpols
+    maxFrames = int((2*10*1000)/antpols)*antpols
 
     # Number of frames to integrate over
     toClip = False
-    oldAverage = config['average']
-    if config['average'] < maxFrames:		
+    oldAverage = args.plot_range
+    if args.plot_range < maxFrames:		
         toClip = True
-        if config['average'] < 512/srate:
-            config['average'] = 512/srate
-    nFrames = int(round(config['average'] * srate / 512 * antpols))
-    print(config['average'], nFrames)
+        if args.plot_range < 512/srate:
+            args.plot_range = 512/srate
+    nFrames = int(round(args.plot_range * srate / 512 * antpols))
+    print(args.plot_range, nFrames)
     nFrames = int(1.0 * nFrames / antpols) * antpols
-    config['average'] = 1.0 * nFrames / antpols * 512 / srate
+    args.plot_range = 1.0 * nFrames / antpols * 512 / srate
 
     # Number of remaining chunks
     nChunks = int(math.ceil(1.0*(nFrames)/maxFrames))
@@ -150,15 +70,15 @@ def main(args):
     beginDate = junkFrame.time.datetime
 
     # File summary
-    print("Filename: %s" % config['args'][0])
+    print("Filename: %s" % args.filename)
     print("Date of First Frame: %s" % str(beginDate))
     print("Ant/Pols: %i" % antpols)
     print("Sample Rate: %i Hz" % srate)
     print("Tuning Frequency: %.3f Hz" % central_freq)
     print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / antpols * 512 / srate))
     print("---")
-    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
-    print("Plot time: %.3f s (%i frames; %i frames per ant)" % (config['average'], nFrames, nFrames // antpols))
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Plot time: %.3f s (%i frames; %i frames per ant)" % (args.plot_range, nFrames, nFrames // antpols))
     print("Chunks: %i" % nChunks)
 
     # Sanity check
@@ -216,7 +136,7 @@ def main(args):
             for cFrame in cFrames:
                 stand,pol = cFrame.header.id
                 
-                # In the current configuration, stands start at 1 and go up to 260.  So, we
+                # In the current configuration, stands start at 1 and go up to 10.  So, we
                 # can use this little trick to populate the data array
                 aStand = 2*(stand-1)+pol
                 
@@ -248,16 +168,16 @@ def main(args):
         print("Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0))
 
     # Deal with the `keep` options
-    if config['keep'] is None:
+    if args.keep == 'all':
         antpolsDisp = int(numpy.ceil(antpols/20))
         js = [i for i in xrange(antpols)]
     else:
-        antpolsDisp = int(numpy.ceil(len(config['keep'])*2/20))
+        antpolsDisp = int(numpy.ceil(len(args.keep)*2/20))
         if antpolsDisp < 1:
             antpolsDisp = 1
         
         js = []
-        for k in config['keep']:
+        for k in args.keep:
             for i,ant in enumerate(antennas):
                 if ant.stand.id == k:
                     js.append(i)
@@ -277,13 +197,13 @@ def main(args):
 
             ax = fig.add_subplot(figsX, figsY, (k%20)+1)
             if toClip:
-                if config['power']:
+                if args.instantaneous_power:
                     ax.plot(numpy.arange(0,samples)/srate, numpy.abs(currTS[0:samples])**2)
                 else:
                     ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].real, label='Real')
                     ax.plot(numpy.arange(0,samples)/srate, currTS[0:samples].imag, label='Imag')
             else:
-                if config['power']:
+                if args.instantaneous_power:
                     ax.plot(numpy.arange(0,data.shape[1])/srate, numpy.abs(currTS)**2)
                 else:
                     ax.plot(numpy.arange(0,data.shape[1])/srate, currTS.real, label='Real')
@@ -291,7 +211,7 @@ def main(args):
             ax.set_title('Stand: %i (%i); Dig: %i [%i]' % (antennas[j].stand.id, antennas[j].pol, antennas[j].digitizer, antennas[j].combined_status))
             ax.set_xlabel('Time [seconds]')
 
-            if config['power']:
+            if args.instantaneous_power:
                 ax.set_ylabel('I$^2$ + Q$^2$')
             else:
                 ax.legend(loc=0)
@@ -299,8 +219,8 @@ def main(args):
                 ax.set_ylabel('Output Level')
             
         # Save spectra image if requested
-        if config['output'] is not None:
-            base, ext = os.path.splitext(config['output'])
+        if args.output is not None:
+            base, ext = os.path.splitext(args.output)
             outFigure = "%s-%02i%s" % (base, i+1, ext)
             fig.savefig(outFigure)
             
@@ -309,4 +229,24 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in TBN files and create a collection of timeseries (I/Q) plots', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to plot')
+    parser.add_argument('-s', '--skip', type=aph.positive_float, default=0.0, 
+                        help='skip period in seconds between chunks')
+    parser.add_argument('-p', '--plot-range', type=aph.positive_float, default=0.01, 
+                        help='number of seconds of data to show in the I/Q plots')
+    parser.add_argument('-k', '--keep', type=aph.csv_int_list, default='all', 
+                        help='only display the following comma-seperated list of stands')
+    parser.add_argument('-i', '--instantaneous-power', action='store_true', 
+                        help='plot I*I + Q*Q instead of the raw samples')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false', 
+                        help='run %(prog)s in silent mode')
+    parser.add_argument('-o', '--output', type=str, 
+                        help='output file name for timeseries image')
+    args = parser.parse_args()
+    main(args)
+    
