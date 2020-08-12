@@ -15,7 +15,7 @@ import os
 import sys
 import math
 import numpy
-import getopt
+import argparse
 
 from lsl.common import stations
 from lsl.common.dp import fS
@@ -24,93 +24,30 @@ from lsl.reader import errors
 from lsl.correlator import fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""burstMovie.py - Read in TBW files and create a NPZ file of raw time 
-data centered around saturation events.
-
-Usage: burstMovie.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--m, --metadata              Name of SSMIF file to use for mappings
--q, --quiet                 Run burstMovie.py in silent mode
--t, --threshold             Minimum digitizer value to consider a burst 
-                            (default = 2000)
--n, --no-movie              Do not create movie frames (burst-*.png)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['SSMIF'] = ''
-    config['maxFrames'] = 30000*260
-    config['verbose'] = True
-    config['threshold'] = 2000
-    config['movie'] = True
-    config['args'] = []
-
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hm:qt:n", ["help", "metadata=", "quiet", "threshold=", "no-movie"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-m', '--metadata'):
-            config['SSMIF'] = value
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-t', '--threshold'):
-            config['threshold'] = int(value)
-        elif opt in ('-n', '--no-movie'):
-            config['movie'] = False
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Set the station
-    if config['SSMIF'] != '':
-        station = stations.parse_ssmif(config['SSMIF'])
+    if args.metadata is not None:
+        station = stations.parse_ssmif(args.metadata)
     else:
         station = stations.lwa1
     antennas = station.antennas
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped
-    maxFrames = int(config['maxFrames'])
+    maxFrames = int((30000*260))
     # It seems like that would be a good idea, however...  TBW data comes one
     # capture at a time so doing something like this actually truncates data 
     # from the last set of stands for the first integration.  So, we really 
     # should stick with
-    maxFrames = config['maxFrames']
+    maxFrames = (30000*260)
 
-    fh = open(config['args'][0], "rb")
-    nFrames = os.path.getsize(config['args'][0]) // tbw.FRAME_SIZE
+    fh = open(args.filename, "rb")
+    nFrames = os.path.getsize(args.filename) // tbw.FRAME_SIZE
     dataBits = tbw.get_data_bits(fh)
     # The number of ant/pols in the file is hard coded because I cannot figure out 
     # a way to get this number in a systematic fashion
@@ -128,7 +65,7 @@ def main(args):
     beginDate = junkFrame.time.datetime
 
     # File summary
-    print("Filename: %s" % config['args'][0])
+    print("Filename: %s" % args.filename)
     print("Date of First Frame: %s" % str(beginDate))
     print("Ant/Pols: %i" % antpols)
     print("Sample Length: %i-bit" % dataBits)
@@ -199,7 +136,7 @@ def main(args):
             # In the current configuration, stands start at 1 and go up to 10.  So, we
             # can use this little trick to populate the data array
             aStand = 2*(stand-1)
-            if cFrame.header.frame_count % 5000 == 0 and config['verbose']:
+            if cFrame.header.frame_count % 5000 == 0 and args.verbose:
                 print("%3i -> %3i  %6.3f  %5i  %i" % (stand, aStand, cFrame.time, cFrame.header.frame_count, cFrame.payload.timetag))
 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
@@ -240,7 +177,7 @@ def main(args):
         good = numpy.where( status == 33 )[0]
         while first < alignedData.shape[1]:
             mv = alignedData[good,first].max()
-            if mv >= config['threshold']:
+            if mv >= args.threshold:
                 if not inOne:
                     first += 5000
                     inOne = True
@@ -256,13 +193,13 @@ def main(args):
         # the aligned data snippet to a NPZ file.
         alignedData = alignedData[:,first-200:first+2800]
         standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in antennas])
-        junk, basename = os.path.split(config['args'][0])
+        junk, basename = os.path.split(args.filename)
         shortname, ext = os.path.splitext(basename)
-        numpy.savez('%s-burst.npz' % shortname, data=alignedData, ssmif=config['SSMIF'])
+        numpy.savez('%s-burst.npz' % shortname, data=alignedData, ssmif=args.metadata)
 
         # Make the movie (if needed)
-        if config['movie']:
-            if config['verbose']:
+        if args.movie:
+            if args.verbose:
                 print("Creating movie frames")
                 pb = ProgressBar(max=alignedData.shape[1]/2)
             else:
@@ -277,8 +214,8 @@ def main(args):
                 colorsX = 1.0*(alignedData[0::2,i] + alignedData[0::2,i+1]) / 2
                 colorsY = 1.0*(alignedData[1::2,i] + alignedData[1::2,i+1]) / 2
 
-                axX.scatter(standPos[0::2,0], standPos[0::2,1], c=colorsX, s=40.0, vmin=0, vmax=config['threshold'])
-                axY.scatter(standPos[1::2,0], standPos[1::2,1], c=colorsY, s=40.0, vmin=0, vmax=config['threshold'])
+                axX.scatter(standPos[0::2,0], standPos[0::2,1], c=colorsX, s=40.0, vmin=0, vmax=args.threshold)
+                axY.scatter(standPos[1::2,0], standPos[1::2,1], c=colorsY, s=40.0, vmin=0, vmax=args.threshold)
                 
                 ## Add the fence as a dashed line
                 axX.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
@@ -318,11 +255,26 @@ def main(args):
                 sys.stdout.write('\n')
                 sys.stdout.flush()
             
-            if config['verbose']:
+            if args.verbose:
                 print("Creating movie")
             os.system("mencoder mf://burst-*.png -mf fps=20:type=png -ovc lavc -lavcopts vcodec=mpeg4:aspect=2/1 -o %s-burst.avi -ffourcc DX50 -vf scale=600:1200,expand=600:1200" % shortname)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-
+    parser = argparse.ArgumentParser(
+        description="read in TBW files and create a NPZ file of raw time data centered around saturation events",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to process')
+    parser.add_argument('-m', '--metadata', type=str,
+                        help='name of SSMIF file to use for mappings')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false',
+                        help='run %(prog)s in silent mode')
+    parser.add_argument('-t', '--threshold', type=aph.positive_int, default=2000,
+                        help='minimum digitizer value to consider a burst')
+    parser.add_argument('-n', '--no-movie', dest='movie', action='store_false',
+                        help='do not create movie frames (burst-*.png)')
+    args = parser.parse_args()
+    main(args)
+    
