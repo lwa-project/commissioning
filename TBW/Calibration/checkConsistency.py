@@ -19,9 +19,6 @@ from matplotlib import pyplot as plt
 
 
 def main(args):
-    # Parse the command line
-    config = parseConfig(args)
-    
     # Get the list of .cs filenames to parse
     filenames = args.filename
     

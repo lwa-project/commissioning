@@ -36,9 +36,6 @@ _srcs = ["TauA,f|J,05:34:32.00,+22:00:52.0,1",
 
 
 def main(args):
-    # Parse the command line
-    config = parseConfig(args)
-    
     # Break out the files we need
     ssmif = args.ssmif
     filenames = args.filename
