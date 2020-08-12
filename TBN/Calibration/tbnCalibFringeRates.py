@@ -10,7 +10,7 @@ import os
 import sys
 import ephem
 import numpy
-import getopt
+import argparse
 
 from datetime import datetime
 
@@ -19,6 +19,7 @@ from lsl.common.stations import parse_ssmif, lwa1
 from lsl.correlator.uvutils import compute_uvw
 from lsl.statistics import robust
 from lsl.common.progress import ProgressBar
+from lsl.misc import parser as aph
 
 import lsl.sim.vis as simVis
 
@@ -32,62 +33,6 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
          "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
-
-def usage(exitCode=None):
-    print("""tbnCalibFringeRates.py - Calculate fringe rates for a few bright sources
-for baselines with all of the outriggers.
-
-Usage: tbnCalibFringeRates.py [OPTIONS] [YYYY/MM/DD HH:MM:SS.S]
-
-Options:
--h, --help            Display this help information
--m, --metadata        Name of SSMIF file to use for mappings
--f, --frequency       Frequency in MHz (default = 74)
--e, --elevation-cut   Source elevation cut (default = 10 degrees)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['SSMIF'] = None
-    config['freq'] = 74e6
-    config['elevCut'] = 10.0
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hm:f:e:", ["help", "metadata=", "frequency=", "elevation-cut="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-m', '--metadata'):
-            config['SSMIF'] = value
-        elif opt in ('-f', '--frequency'):
-            config['freq'] = float(value)*1e6
-        elif opt in ('-e', '--elevation-cut'):
-            config['elevCut'] = float(value)
-        else:
-            assert False
-            
-    # Convert the elevation cut to radians
-    config['elevCut'] *= numpy.pi/180.0	
-    
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
 
 
 def getFringeRate(antenna1, antenna2, observer, src, freq):
@@ -110,13 +55,11 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 
 
 def main(args):
-    config = parseOptions(args)
-    
     #
     # Gather the station meta-data from its various sources
     #
-    if config['SSMIF'] is not None:
-        site = parse_ssmif(config['SSMIF'])
+    if args.metadata is not None:
+        site = parse_ssmif(args.metadata)
     else:
         site = lwa1
     observer = site.get_observer()
@@ -126,17 +69,16 @@ def main(args):
     #
     # Grab the time
     #
-    if len(config['args']) == 2:
-        config['args'][0] = config['args'][0].replace('-', '/')
-        year, month, day = config['args'][0].split('/', 2)
+    if args.date is not None and args.time is not None:
+        year, month, day = args.date.split('/', 2)
         year = int(year)
         month = int(month)
         day = int(day)
         
-        hour, minute, second = config['args'][1].split(':', 2)
+        hour, minute, second = args.time.split(':', 2)
         hour = int(hour)
         minute = int(minute)
-        second = int(second)
+        second = int(float(second))
         
         tNow = datetime(year, month, day, hour, minute, second)
         
@@ -185,7 +127,7 @@ def main(args):
     print("Visible Sources:")
     for src in srcs:
         src.compute(observer)
-        if src.alt > config['elevCut']:
+        if src.alt > args.elevation_cut:
             print("  %s at %s degrees elevation" % (src.name, src.alt))
     print(" ")
     
@@ -196,8 +138,8 @@ def main(args):
     for outrigger in outriggers:
         for src in srcs:
             src.compute(observer)
-            if src.alt > config['elevCut']:
-                fRate = getFringeRate(inside, outrigger, observer, src, config['freq'])
+            if src.alt > args.elevation_cut:
+                fRate = getFringeRate(inside, outrigger, observer, src, args.frequency)
                 try:
                     allRates[src.name][outrigger.stand.id] = fRate
                 except KeyError:
@@ -217,8 +159,8 @@ def main(args):
             
             for src in srcs:
                 src.compute(observer)
-                if src.alt > config['elevCut']:
-                    fRate = getFringeRate(antennas[0], outrigger, observer, src, config['freq'])
+                if src.alt > args.elevation_cut:
+                    fRate = getFringeRate(antennas[0], outrigger, observer, src, args.frequency)
                     try:
                         allRates2[src.name][outrigger.stand.id].append(fRate)
                     except KeyError:
@@ -271,5 +213,22 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="calculate fringe rates for a few bright sources for baselines with all of the outriggers",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('date', type=aph.date, nargs='?',
+                        help='UTC date to compute rates in YYYY/MM/DD')
+    parser.add_argument('time', type=aph.time, nargs='?',
+                        help='UTC time to compute rates in HH:MM:SS')
+    parser.add_argument('-m', '--metadata', type=str,
+                        help='name of SSMIF file to use for mappings')
+    parser.add_argument('-f', '--frequency', type=aph.positive_float, default=74.0,
+                        help='frequency in MHz')
+    parser.add_argument('-e', '--elevation-cut', type=aph.positive_or_zero_float, default=10.0,
+                        help='source elevation cut in degrees')
+    args = parser.parse_args()
+    args.frequency *= 1e6
+    args.elevation_cut *= numpy.pi/180
+    main(args)
     

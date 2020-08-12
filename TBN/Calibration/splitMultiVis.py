@@ -17,68 +17,16 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import getopt
+import argparse
 
 from datetime import datetime
 
 from lsl.statistics import robust
-
-
-def usage(exitCode=None):
-    print("""splitMultiVis.py - Split multi-vis NPZ files that are generated from combined TBN
-observations into single NPZ files, one for each frequency.
-
-Usage: splitMultiVis.py [OPTIONS] file [file [...]]
-
-Options:
--h, --help                Display this help information
--a, --auto-integrations   Use automatic integration selection (median count
-                        less 2 integrations)
--m, --min-integrations    Minimum number of integrations needed to keep
-                        split out a frequency (default = 20)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['minInts'] = 20
-    config['autoInts'] = False
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hm:a", ["help", "min-integrations=", "auto-integrations"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-m', '--min-integrations'):
-            config['minInts'] = int(value)
-        elif opt in ('-a', '--auto-integrations'):
-            config['autoInts'] = True
-        else:
-            assert False
-    
-    # Add in arguments
-    config['args'] = args
-
-    # Return configuration
-    return config
+from lsl.misc import parser as aph
 
 
 def main(args):
-    config = parseOptions(args)
-    filenames = config['args']
+    filenames = args.filename
 
     for filename in filenames:
         dataDict = numpy.load(filename)
@@ -118,9 +66,9 @@ def main(args):
             
             tInts.append(len(toKeep))
         cutLength = numpy.median(tInts) - 2
-        if config['autoInts']:
+        if args.auto_integrations:
             print("  Setting minimum integration count to %i (%.1f s)" % (cutLength, cutLength*tInt))
-            config['minInts'] = cutLength
+            args.min_integrations = cutLength
     
         # Split
         for i,f in enumerate(uFreq):
@@ -133,7 +81,7 @@ def main(args):
             subTimes = times[toKeep]
             subPhase = phase[toKeep,:]
         
-            if len(toKeep) < config['minInts']:
+            if len(toKeep) < args.min_integrations:
                 print("  -> Skipping %.3f MHz with only %i integrations (%.1f s)" % (f, len(toKeep), len(toKeep)*tInt))
                 continue
         
@@ -147,5 +95,16 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="split multi-vis NPZ files that are generated from combined TBN observations into single NPZ files, one for each frequency",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='file to spllit')
+    parser.add_argument('-a', '--auto-integrations', action='store_true',
+                        help='use automatic integration selection (median count, less 2 integrations)')
+    parser.add_argument('-m', '--min-integrations', type=aph.positive_int, default=20,
+                        help='minimum number of integrations needed to keep a split out frequency')
+    args = parser.parse_args()
+    main(args)
     

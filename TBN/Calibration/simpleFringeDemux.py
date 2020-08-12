@@ -21,7 +21,7 @@ import os
 import sys
 import ephem
 import numpy
-import getopt
+import argparse
 
 from lsl.common.stations import lwa1, parse_ssmif
 from lsl.reader import tbn
@@ -29,6 +29,7 @@ from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.paths import DATA as dataPath
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
@@ -47,65 +48,6 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
 
 
-def usage(exitCode=None):
-    print("""simpleFringeDemux.py - Simple script for performing time series cross-correlation 
-of TBN data for all stands relative to the outlier
-
-Usage: simpleFringeDemux.py [OPTIONS] file
-
-Options:
--h, --help            Display this help information
--m, --metadata        Name of SSMIF file to use for mappings
--a, --average         Integration time in seconds (default = 10)
--r, --reference	      Stand to use as a reference (default = 258)
--c, --clip            Clip level in sqrt(I*I + Q*Q) to use to exclude
-                    samples in the time domain (default = 120)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['SSMIF'] = None
-    config['tInt'] = 10.0
-    config['refStand'] = 258
-    config['clip_level'] = 120.0
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hm:a:r:c:", ["help", "metadata=", "average=", "reference=", "clip="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-m', '--metadata'):
-            config['SSMIF'] = value
-        elif opt in ('-a', '--average'):
-            config['tInt'] = float(value)
-        elif opt in ('-r', '--reference'):
-            config['refStand'] = int(value)
-        elif opt in ('-c', '--clip'):
-            config['clip_level'] = float(value)
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
-
-
 def unitRead(fh, count=520, found={}):
     for i in xrange(count):
         frame = tbn.read_frame(fh)
@@ -120,15 +62,13 @@ def unitRead(fh, count=520, found={}):
 
 
 def main(args):
-    config = parseOptions(args)
-
     # The task at hand
-    filename = config['args'][0]
+    filename = args.filename
     
     # The station
-    if config['SSMIF'] is not None:
-        site = parse_ssmif(config['SSMIF'])
-        ssmifContents = open(config['SSMIF']).readlines()
+    if args.metadata is not None:
+        site = parse_ssmif(args.metadata)
+        ssmifContents = open(args.metadata).readlines()
     else:
         site = lwa1
         ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
@@ -149,7 +89,7 @@ def main(args):
         fh.seek(len(antennas)*4*tbn.FRAME_SIZE)
         
     # Reference antenna
-    ref = config['refStand']
+    ref = args.reference
     foundRef = False
     for i,a in enumerate(antennas):
         if a.stand.id == ref and a.pol == 0:
@@ -163,7 +103,7 @@ def main(args):
         raise RuntimeError("Cannot file Stand #%i" % ref)
     
     # Integration time (seconds and frames)
-    tInt = config['tInt']
+    tInt = args.average
     nFrames = int(round(tInt*srate/512*antpols))
     tInt = nFrames / antpols * 512 / srate
     
@@ -288,18 +228,33 @@ def main(args):
             break
         
         # Time-domain blanking and cross-correlation with the outlier
-        simpleVis[i,:] = fringe.Simple(data, refX, refY, config['clip_level'])
+        simpleVis[i,:] = fringe.Simple(data, refX, refY, args.clip)
     
     fh.close()
     
     # Save the data
     outname = os.path.split(filename)[1]
     outname = os.path.splitext(outname)[0]
-    outname = "%s-ref%03i-multi-vis.npz" % (outname, config['refStand'])
+    outname = "%s-ref%03i-multi-vis.npz" % (outname, args.reference)
     numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, central_freqs=central_freqs, times=times, 
             simpleVis=simpleVis, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="simple script for performing time series cross-correlation of TBN data for all stands relative to the outlier",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str,
+                        help='file to fringe')
+    parser.add_argument('-m', '--metadata', type=str,
+                        help='name of SSMIF file to use for mappings')
+    parser.add_argument('-a', '--average', type=aph.positive_float, default=10.0,
+                        help='integration time in seconds')
+    parser.add_argument('-r', '--reference', type=aph.positive_int, default=258,
+                        help='stand to use as a reference')
+    parser.add_argument('-c', '--clip', type=aph.positive_or_zero_float, default=0.0,
+                        help='clip level in sqrt(I*I + Q*Q) to use to exclude samples in the time domain; 0 = no excision')
+    args = parser.parse_args()
+    main(args)
     

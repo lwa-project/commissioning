@@ -22,7 +22,7 @@ import os
 import sys
 import ephem
 import numpy
-import getopt
+import argparse
 import tempfile
 
 from hashlib import md5
@@ -51,53 +51,6 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
          "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
          "CasA,f|J,23:23:27.94,+58:48:42.4,1",]
-
-
-def usage(exitCode=None):
-    print("""prepareDelayData.py - Aggregate a collection of complex visibility together to make
-delay fitting a little easier.
-
-Usage: prepareDelayData [OPTIONS] ref_source file [file [...]]
-
-Options:
--h, --help            Display this help information
--o, --output          Name for the final NPZ file (default = 
-                    'prepared-dat-stopped.npz')
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['output'] = 'prepared-dat-stopped.npz'
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "ho:", ["help", "output="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-o', '--output'):
-            config['output'] = value
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
 
 
 def md5sum(ssmifContents):
@@ -149,10 +102,8 @@ def getFringeRate(antenna1, antenna2, observer, src, freq):
 
 
 def main(args):
-    config = parseOptions(args)
-    
-    reference = config['args'][0]
-    filenames = config['args'][1:]
+    reference = args.ref_source
+    filenames = args.filename
     
     #
     # Gather the station meta-data from its various sources
@@ -416,11 +367,23 @@ def main(args):
     #
     # Save
     #
-    outname = config['output']
+    outname = args.output
     outname, ext = os.path.splitext(outname)
     outname = "%s-ref%03i%s" % (outname, ref_ant, ext)
     numpy.savez(outname, ref_ant=ref_ant, refX=refX, refY=refY, freq=freq, time=time, data=data, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="aggregate a collection of complex visibility together to make delay fitting a little easier",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('ref_source', type=str,
+                        help='reference source name')
+    parser.add_argument('filename', type=str, nargs='+',
+                        help='input NPZ file')
+    parser.add_argument('-o', '--output', type=str, default='prepared-dat-stopped.npz',
+                        help='name for the final NPZ file')
+    args = parser.parse_args()
+    main(args)
+    
