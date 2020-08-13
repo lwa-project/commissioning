@@ -113,13 +113,13 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
+    # Create the progress bar so that we can keep up with the conversion.
+    pbar = progress.ProgressBarPlus(max=nChunks)
+    
     data_products = ['XX', 'YY']
     done = False
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
-        print("Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1))
-        print("Working on %.1f ms of data" % (args.average*1000.0,))
-        
         tInt, cTime, data = idf.read(args.average)
         if i == 0:
             print("Actual integration time is %.1f ms" % (tInt*1000.0,))
@@ -152,6 +152,15 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
         if done:
             break
             
+        ## Update the progress bar and remaining time estimate
+        pbar.inc()
+        sys.stdout.write('%s\r' % pbar.show())
+        sys.stdout.flush()
+        
+    pbar.amount = pbar.max
+    sys.stdout.write('%s\n' % pbar.show())
+    sys.stdout.flush()
+    
     return True
 
 
@@ -212,13 +221,13 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
+    # Create the progress bar so that we can keep up with the conversion.
+    pbar = progress.ProgressBarPlus(max=nChunks)
+    
     data_products = ['I', 'Q', 'U', 'V']
     done = False
     for i in xrange(nChunks):
         # Inner loop that actually reads the frames into the data array
-        print("Working on chunk %i, %i chunks remaning" % (i+1, nChunks-i-1))
-        print("Working on %.1f ms of data" % (args.average*1000.0,))
-        
         tInt, cTime, data = idf.read(args.average)
         if i == 0:
             print("Actual integration time is %.1f ms" % (tInt*1000.0,))
@@ -249,6 +258,15 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
         if done:
             break
             
+        ## Update the progress bar and remaining time estimate
+        pbar.inc()
+        sys.stdout.write('%s\r' % pbar.show())
+        sys.stdout.flush()
+        
+    pbar.amount = pbar.max
+    sys.stdout.write('%s\n' % pbar.show())
+    sys.stdout.flush()
+    
     return True
 
 
