@@ -25,7 +25,7 @@ from lsl.common.dp import fS
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.correlator import fx as fxc
-from lsl.common.progress import ProgressBar
+from lsl.common.progress import ProgressBarPlus
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -46,15 +46,24 @@ def main(args):
     # Get the antennas we need (and a fake one for the beam)
     rawAntennas = site.antennas
     
+    antennas = []
+    
     dipole = None
+    xyz = numpy.zeros((len(rawAntennas),3))
+    i = 0
     for ant in rawAntennas:
         if ant.stand.id == stand2 and ant.pol == 0:
             dipole = ant
-            
-    antennas = []
+        xyz[i,0] = ant.stand.x
+        xyz[i,1] = ant.stand.y
+        xyz[i,2] = ant.stand.z
+        i += 1
+    arrayX = xyz[:,0].mean()
+    arrayY = xyz[:,1].mean()
+    arrayZ = xyz[:,2].mean()
     
     ## Fake one down here...
-    beamStand   = stations.Stand(0, dipole.x, dipole.y, dipole.z)
+    beamStand   = stations.Stand(0, arrayX, arrayY, arrayZ)
     beamFEE     = stations.FEE('Beam', 0, gain1=0, gain2=0, status=3)
     beamCable   = stations.Cable('Beam', 0, vf=1.0)
     beamAntenna = stations.Antenna(0, stand=beamStand, pol=0, theta=0, phi=0, status=3)
@@ -209,12 +218,12 @@ def main(args):
         out = raw_input("Polarization (X/Y): ")
         outfile.attrs["POLARIZATION"] = out
         dset1 = group1.create_dataset("Timesteps", (nChunks,3), numpy.float64, maxshape=(nChunks,3))
-        dset2 = group2.create_dataset("Tuning1", LFFT, '<f8', maxshape=(LFFT,))
-        dset3 = group2.create_dataset("Tuning2", LFFT, '<f8', maxshape=(LFFT,))
-        dset4 = group3.create_dataset("Tuning1", (nChunks, 3, LFFT), numpy.complex64,maxshape=(nChunks, 3, LFFT))
-        dset5 = group3.create_dataset("Tuning2", (nChunks, 3, LFFT), numpy.complex64,maxshape=(nChunks, 3, LFFT))
+        dset2 = group2.create_dataset("Tuning1", (LFFT,), numpy.float64, maxshape=(LFFT,))
+        dset3 = group2.create_dataset("Tuning2", (LFFT,), numpy.float64, maxshape=(LFFT,))
+        dset4 = group3.create_dataset("Tuning1", (nChunks, 3, LFFT), numpy.complex64, maxshape=(nChunks, 3, LFFT))
+        dset5 = group3.create_dataset("Tuning2", (nChunks, 3, LFFT), numpy.complex64, maxshape=(nChunks, 3, LFFT))
         
-        pb = ProgressBar(max=nChunks)
+        pb = ProgressBarPlus(max=nChunks)
         tsec = numpy.zeros(1, dtype=numpy.float64)
         for i in xrange(nChunks):
             junkFrame = drx.read_frame(fh)
