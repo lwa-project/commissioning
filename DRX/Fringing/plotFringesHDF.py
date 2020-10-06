@@ -48,13 +48,13 @@ def main(args):
     for i in range(time.shape[0]):
         times.append(datetime.utcfromtimestamp(time[i][0]))
         
-        vis1 = infile['Visibilities']['Tuning1'][i, 1,freq1.size/4:freq1.size*3/4]
-        auto11 = infile['Visibilities']['Tuning1'][i, 0,freq1.size/4:freq1.size*3/4]
-        auto12 = infile['Visibilities']['Tuning1'][i, 2,freq1.size/4:freq1.size*3/4]
+        vis1 = infile['Visibilities']['Tuning1'][i, 1,freq1.size//4:freq1.size*3//4]
+        auto11 = infile['Visibilities']['Tuning1'][i, 0,freq1.size//4:freq1.size*3//4]
+        auto12 = infile['Visibilities']['Tuning1'][i, 2,freq1.size//4:freq1.size*3//4]
         
-        vis2 = infile['Visibilities']['Tuning2'][i, 1,freq2.size/4:freq2.size*3/4]
-        auto21 = infile['Visibilities']['Tuning2'][i, 0,freq2.size/4:freq2.size*3/4]
-        auto22 = infile['Visibilities']['Tuning2'][i, 2,freq2.size/4:freq2.size*3/4]
+        vis2 = infile['Visibilities']['Tuning2'][i, 1,freq2.size//4:freq2.size*3//4]
+        auto21 = infile['Visibilities']['Tuning2'][i, 0,freq2.size//4:freq2.size*3//4]
+        auto22 = infile['Visibilities']['Tuning2'][i, 2,freq2.size//4:freq2.size*3//4]
     
         amp1.append( numpy.abs(vis1).mean() )
         amp2.append( numpy.abs(vis2).mean() )
@@ -141,4 +141,3 @@ def main(args):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
