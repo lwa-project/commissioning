@@ -627,8 +627,7 @@ class Waterfall_GUI(object):
             BW = freq.max() - freq.min()
             metric = 1e20
             best = 1
-            for fc in FILTER_CODES.keys():
-                fb = FILTER_CODES[fc]
+            for fc,fb in FILTER_CODES.items():
                 if numpy.abs(BW-fb) < metric:
                     metric = numpy.abs(BW-fb)
                     best = fc
