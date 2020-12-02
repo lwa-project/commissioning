@@ -25,6 +25,8 @@ from scipy.interpolate import interp1d
 from scipy.stats import scoreatpercentile as percentile, skew, kurtosis
 from scipy.signal import savgol_filter as savitzky_golay
 
+from astropy.time import Time as AstroTime
+
 import lsl
 from lsl.common import dp
 from lsl.common import stations
@@ -322,7 +324,18 @@ class Waterfall_GUI(object):
         self.tInt  = obs.attrs['tInt']
         self.time  = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
         obs['time'].read_direct(self.time)
-        
+        try:
+            if obs['time'].attrs['format'] != 'unix' or obs['time'].attrs['scale'] != 'utc':
+                self.time = [AstroTime(*t, format='obs['time'].attrs['format'], scalobs['time'].attrs['scale']) for t in self.time]
+                self.time = [t.utc.unix for t in self.time]
+                self.time = numpy.array(self.time)
+                
+            else:
+                self.time = self.time["int"] + self.time["frac"]
+                
+        except (KeyError, ValueError):
+            pass
+            
         tuning1 = obs.get('Tuning1', None)
         tuning2 = obs.get('Tuning2', None)
         
@@ -336,7 +349,7 @@ class Waterfall_GUI(object):
                 pass
         if data_products[0][0] in ('X', 'Y'):
             self.linear = True
-            if 'XY' in data_products or 'XY' in data_products:
+            if 'XY' in data_products or 'XY' in data_products or 'XY_real' in data_products:
                 self.usedB = False
             else:
                 self.usedB = True
@@ -375,20 +388,53 @@ class Waterfall_GUI(object):
         self.spec = numpy.empty((self.iDuration, 8, self.freq1.size), dtype=numpy.float32)
         
         for p in data_products:
-            ## Tuning 1
-            ind = 4*(1-1) + mapper[p]
-            part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
-            tuning1[p].read_direct(part, selection)
-            self.spec[:,ind,:] = part.astype(numpy.float32)
-            
-            ## Tuning 2
-            ind = 4*(2-1) + mapper[p]
-            part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2[p].dtype)
-            tuning2[p].read_direct(part, selection)
-            self.spec[:,ind,:] = part.astype(numpy.float32)
-            
-            del part
-            
+            if p == 'XY_real':
+                ## Tuning 1
+                xyr = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
+                tuning1[p].read_direct(xyr, selection)
+                xyi = numpy.emtpy((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
+                tuning1[p].read_direct(xyi, selection)
+                part = xyr + 1j*xyi
+                
+                ind = 4*(1-1) + mapper['XY']
+                self.spec[:,ind,:] = numpy.abs(part).astype(numpy.float32)
+                ind = 4*(1-1) + mapper['YX']
+                self.spec[:,ind,:] = numpy.abs(part.conj()).astype(numpy.float32)
+                
+                ## Tuning 2
+                xyr = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning1[p].dtype)
+                tuning2[p].read_direct(xyr, selection)
+                xyi = numpy.emtpy((self.iDuration, self.freq2.size), dtype=tuning1[p].dtype)
+                tuning2[p].read_direct(xyi, selection)
+                part = xyr + 1j*xyi
+                
+                ind = 4*(2-1) + mapper['XY']
+                self.spec[:,ind,:] = numpy.abs(part).astype(numpy.float32)
+                ind = 4*(2-1) + mapper['YX']
+                self.spec[:,ind,:] = numpy.abs(part.conj()).astype(numpy.float32)
+                
+                del xyr
+                del xyi
+                del part
+                
+            elif p == 'XY_imag':
+                pass
+                
+            else:
+                ## Tuning 1
+                ind = 4*(1-1) + mapper[p]
+                part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
+                tuning1[p].read_direct(part, selection)
+                self.spec[:,ind,:] = part.astype(numpy.float32)
+                
+                ## Tuning 2
+                ind = 4*(2-1) + mapper[p]
+                part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2[p].dtype)
+                tuning2[p].read_direct(part, selection)
+                self.spec[:,ind,:] = part.astype(numpy.float32)
+                
+                del part
+                
         self.sats = numpy.empty((self.iDuration, 4), dtype=numpy.float32)
         part = numpy.empty((self.iDuration, 2), dtype=tuning1['Saturation'].dtype)
         tuning1['Saturation'].read_direct(part, selection)
