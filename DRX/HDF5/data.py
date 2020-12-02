@@ -146,7 +146,7 @@ def fill_minimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv'):
+        if station in ('lwa1', 'lwasv', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
@@ -497,7 +497,7 @@ def get_observation_set(f, observation):
     return obs
 
 
-def create_observation_sets(f, observation, tuning, frequency, chunks, data_products=['XX', 'YY']):
+def create_observation_set(f, observation, tuning, frequency, chunks, data_products=['XX', 'YY']):
     """
     Fill in a tuning group with the right set of dummy data sets and 
     attributes.
@@ -535,7 +535,7 @@ def create_observation_sets(f, observation, tuning, frequency, chunks, data_prod
         
     # Add the dataset that stores time as a two-element quantity
     if 'time' not in obs:
-        d = grp.create_dataset('time', (chunks,), dtype=numpy.dtype({"names:" ["int", "frac"],
+        d = obs.create_dataset('time', (chunks,), dtype=numpy.dtype({"names": ["int", "frac"],
                                                                      "formats": ["i8", "f8"]}))
         d.attrs['format'] = 'unix'
         d.attrs['scale'] = 'utc'
@@ -570,7 +570,7 @@ def get_time(f, observation):
         
     # Get the data set
     try:
-        d = grp['time'']
+        d = obs['time']
     except:
         raise RuntimeError("Unknown data set for Observation %i: %s" % (observation, 'time'))
         

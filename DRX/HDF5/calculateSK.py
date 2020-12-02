@@ -158,8 +158,8 @@ def main(args):
                         else:
                             maskDP[:,:] = maskBase[:,:]
                             
-                    elif dp in ('XY', 'YX'):
-                        ## Case 2 - Flag XY and YX off XX and YY
+                    elif dp in ('XY', 'YX') or dp in ('XY_real', 'XY_imag'):
+                        ## Case 2 - Flag XY/XY_real and YX/XY_imag off XX and YY
                         
                         ## Pull out the Mask group from the HDF5 file
                         mask = tuning.get('Mask', None)

@@ -49,7 +49,7 @@ def _cloneStructure(input, output, level=0):
         if type(entity).__name__ == 'Dataset':
             ### If so, add it and fill it in
             if ent in ('Steps', 'Delays', 'Gains', 'time', 'Saturation', 'freq'):
-                entityO = output.create_dataset(ent, entity.shape, entity.dtype.descr[0][1])
+                entityO = output.create_dataset(ent, entity.shape, entity.dtype)
                 entityO[:] = entity[:]
                 
             else:

@@ -326,7 +326,7 @@ class Waterfall_GUI(object):
         obs['time'].read_direct(self.time)
         try:
             if obs['time'].attrs['format'] != 'unix' or obs['time'].attrs['scale'] != 'utc':
-                self.time = [AstroTime(*t, format='obs['time'].attrs['format'], scalobs['time'].attrs['scale']) for t in self.time]
+                self.time = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.time]
                 self.time = [t.utc.unix for t in self.time]
                 self.time = numpy.array(self.time)
                 
@@ -338,7 +338,9 @@ class Waterfall_GUI(object):
             
         tuning1 = obs.get('Tuning1', None)
         tuning2 = obs.get('Tuning2', None)
-        
+        if tuning2 is None:
+            tuning2 = tuning1
+            
         data_products = list(tuning1)
         mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
         for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
@@ -392,26 +394,26 @@ class Waterfall_GUI(object):
                 ## Tuning 1
                 xyr = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
                 tuning1[p].read_direct(xyr, selection)
-                xyi = numpy.emtpy((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
+                xyi = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
                 tuning1[p].read_direct(xyi, selection)
                 part = xyr + 1j*xyi
                 
                 ind = 4*(1-1) + mapper['XY']
-                self.spec[:,ind,:] = numpy.abs(part).astype(numpy.float32)
+                self.spec[:,ind,:] = part.real.astype(numpy.float32)
                 ind = 4*(1-1) + mapper['YX']
-                self.spec[:,ind,:] = numpy.abs(part.conj()).astype(numpy.float32)
+                self.spec[:,ind,:] = part.imag.astype(numpy.float32)
                 
                 ## Tuning 2
-                xyr = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning1[p].dtype)
+                xyr = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2[p].dtype)
                 tuning2[p].read_direct(xyr, selection)
-                xyi = numpy.emtpy((self.iDuration, self.freq2.size), dtype=tuning1[p].dtype)
+                xyi = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2[p].dtype)
                 tuning2[p].read_direct(xyi, selection)
                 part = xyr + 1j*xyi
                 
                 ind = 4*(2-1) + mapper['XY']
-                self.spec[:,ind,:] = numpy.abs(part).astype(numpy.float32)
+                self.spec[:,ind,:] = part.real.astype(numpy.float32)
                 ind = 4*(2-1) + mapper['YX']
-                self.spec[:,ind,:] = numpy.abs(part.conj()).astype(numpy.float32)
+                self.spec[:,ind,:] = part.imag.astype(numpy.float32)
                 
                 del xyr
                 del xyi
@@ -482,6 +484,23 @@ class Waterfall_GUI(object):
         obs['time'].read_direct(self.timesNPZ)
         self.timesNPZRestricted = numpy.zeros(self.spec.shape[0], dtype=obs['time'].dtype)
         obs['time'].read_direct(self.timesNPZRestricted, numpy.s_[self.iOffset:self.iOffset+self.iDuration])
+        try:
+            if obs['time'].attrs['format'] != 'unix' or obs['time'].attrs['scale'] != 'utc':
+                self.timesNPZ = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.timesNPZ]
+                self.timesNPZ = [t.utc.unix for t in self.timesNPZ]
+                self.timesNPZ = numpy.array(self.timesNPZ)
+                
+                self.timesNPZRestricted = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.timesNPZRestricted]
+                self.timesNPZRestricted = [t.utc.unix for t in self.timesNPZRestricted]
+                self.timesNPZRestricted = numpy.array(self.timesNPZRestricted)
+                
+            else:
+                self.timesNPZ = self.timesNPZ["int"] + self.timesNPZ["frac"]
+                
+                self.timesNPZRestricted = self.timesNPZRestricted["int"] + self.timesNPZRestricted["frac"]
+                
+        except (KeyError, ValueError):
+            pass
         
         # Deal with the potential for aggregated files
         self.tIntActual = self.tInt
@@ -1926,10 +1945,10 @@ class MainWindow(wx.Frame):
             if p in ('I', 'XX'):
                 self.dataMenuOptions[0].Enable(True)
                 self.dataMenuOptions[4].Enable(True)
-            elif p in ('Q', 'XY'):
+            elif p in ('Q', 'XY', 'XY_real'):
                 self.dataMenuOptions[1].Enable(True)
                 self.dataMenuOptions[5].Enable(True)
-            elif p in ('U', 'YX'):
+            elif p in ('U', 'YX', 'XY_imag'):
                 self.dataMenuOptions[2].Enable(True)
                 self.dataMenuOptions[6].Enable(True)
             else:
