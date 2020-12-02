@@ -140,7 +140,7 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
             
-    f = hdfData.createNewFile(outname)
+    f = hdfData.create_new_file(outname)
     obsList = {}
     if args.metadata is not None:
         try:
@@ -163,7 +163,7 @@ def main(args):
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
             
-        hdfData.fillFromMetabundle(f, args.metadata)
+        hdfData.fill_from_metabundle(f, args.metadata)
         
     elif args.sdf is not None:
         try:
@@ -186,17 +186,17 @@ def main(args):
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
             
-        hdfData.fillFromSDF(f, args.sdf, station=site)
+        hdfData.fill_from_sdf(f, args.sdf, station=site)
         
     else:
         obsList[1] = (beginDate, datetime(2222,12,31,23,59,59), nChunks)
         
-        hdfData.fillMinimum(f, 1, beam, srate, station=site)
+        hdfData.fill_minimum(f, 1, beam, srate, station=site)
         
     data_products = junkFrame.data_products
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), obsList[o][2], data_products)
+            hdfData.create_observation_set(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), obsList[o][2], data_products)
             
     f.attrs['FileGenerator'] = 'drspec2hdf.py'
     f.attrs['InputData'] = os.path.basename(args.filename)
@@ -204,10 +204,10 @@ def main(args):
     # Create the various HDF group holders
     ds = {}
     for o in sorted(obsList.keys()):
-        obs = hdfData.getObservationSet(f, o)
+        obs = hdfData.get_observation_set(f, o)
         
         ds['obs%i' % o] = obs
-        ds['obs%i-time' % o] = obs.create_dataset('time', (obsList[o][2],), 'f8')
+        ds['obs%i-time' % o] = hdfData.get_time(f, o)
         
         for t in (1,2):
             ds['obs%i-freq%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'freq')
@@ -284,7 +284,7 @@ def main(args):
             firstPass = False
             
         # Load the data from the spectrometer frame into the HDF5 group
-        ds['obs%i-time' % o][j] = float(frame.time)
+        ds['obs%i-time' % o][j] = (frame.time[0], frame.time[1])
         
         ds['obs%i-Saturation1' % o][j,:] = frame.payload.saturations[0:2]
         ds['obs%i-Saturation2' % o][j,:] = frame.payload.saturations[2:4]

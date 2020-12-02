@@ -126,7 +126,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
             print("Actual integration time is %.1f ms" % (tInt*1000.0,))
             
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)
+        dataSets['obs%i-time' % obsID][i] = (cTime[0], cTime[1])
         
         if (not args.without_sats):
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -244,7 +244,7 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
             print("Actual integration time is %.1f ms" % (tInt*1000.0,))
             
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)
+        dataSets['obs%i-time' % obsID][i] = (cTime[0], cTime[1])
         
         if (not args.without_sats):
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -408,7 +408,7 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
             
-    f = hdfData.createNewFile(outname)
+    f = hdfData.create_new_file(outname)
     
     # Look at the metadata and come up with a list of observations.  If 
     # there are no metadata, create a single "observation" that covers the
@@ -442,7 +442,7 @@ def main(args):
             print(" #%i: %s to %s (%.3f s) at %.3f MHz" % (i, obs[0], obs[1], obs[2], obs[3]/1e6))
         print(" ")
             
-        hdfData.fillFromMetabundle(f, args.metadata)
+        hdfData.fill_from_metabundle(f, args.metadata)
         
     elif args.sdf is not None:
         try:
@@ -469,7 +469,7 @@ def main(args):
         site = 'lwa1'
         if args.lwasv:
             site = 'lwasv'
-        hdfData.fillFromSDF(f, args.sdf, station=site)
+        hdfData.fill_from_sdf(f, args.sdf, station=site)
         
     else:
         obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
@@ -477,7 +477,7 @@ def main(args):
         site = 'lwa1'
         if args.lwasv:
             site = 'lwasv'
-        hdfData.fillMinimum(f, 1, beam, srate, station=site)
+        hdfData.fill_minimum(f, 1, beam, srate, station=site)
         
     if (not args.stokes):
         data_products = ['XX', 'YY']
@@ -486,7 +486,7 @@ def main(args):
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), int(round(obsList[o][2]/args.average)), data_products)
+            hdfData.create_observation_set(f, o, t, numpy.arange(LFFT, dtype=numpy.float64), int(round(obsList[o][2]/args.average)), data_products)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(args.filename)
@@ -494,10 +494,10 @@ def main(args):
     # Create the various HDF group holders
     ds = {}
     for o in sorted(obsList.keys()):
-        obs = hdfData.getObservationSet(f, o)
+        obs = hdfData.get_observation_set(f, o)
         
         ds['obs%i' % o] = obs
-        ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/args.average)),), 'f8')
+        ds['obs%i-time' % o] = hdfData.get_time(f, o)
         
         for t in (1,2):
             ds['obs%i-freq%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'freq')
