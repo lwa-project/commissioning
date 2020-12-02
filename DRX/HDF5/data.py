@@ -289,6 +289,9 @@ def fill_from_metabundle(f, tarball):
                 if station == 'lwasv':
                     nstand = 256
                     label_base = 'ADP'
+                elif station == 'ovrolwa':
+                    nstand = 352
+                    label_base = 'OVR'
                     
                 cbfg = grp.create_group('CustomBeamforming')
                 dlys = cbfg.create_dataset('Delays', (len(obsD['steps']), nstand*2+1), 'f4')
@@ -358,7 +361,7 @@ def fill_from_sdf(f, sdfFilename, station=None):
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv'):
+        if station in ('lwa1', 'lwasv', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
@@ -437,6 +440,9 @@ def fill_from_sdf(f, sdfFilename, station=None):
                 if station == 'lwasv':
                     nstand = 256
                     label_base = 'ADP'
+                elif station == 'ovrolwa':
+                    nstand = 352
+                    label_base = 'OVR'
                     
                 cbfg = grp.create_group('CustomBeamforming')
                 dlys = cbfg.create_dataset('Delays', (len(obsS.steps), nstand*2+1), 'f4')
