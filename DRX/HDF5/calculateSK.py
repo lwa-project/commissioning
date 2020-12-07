@@ -158,8 +158,8 @@ def main(args):
                         else:
                             maskDP[:,:] = maskBase[:,:]
                             
-                    elif dp in ('XY', 'YX') or dp in ('XY_real', 'XY_imag'):
-                        ## Case 2 - Flag XY/XY_real and YX/XY_imag off XX and YY
+                    elif dp in ('XY_real', 'XY_imag'):
+                        ## Case 2 - Flag XY_real and XY_imag off XX and YY
                         
                         ## Pull out the Mask group from the HDF5 file
                         mask = tuning.get('Mask', None)
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--threshold', type=aph.positive_float, default=4.0, 
                         help='masking threshold, in sigma, if the -g/--generate-mask flag is set')
     parser.add_argument('-f', '--fill', action='store_true', 
-                        help='fill in the secondary polarizations, i.e., XY, YX; Q, U, V; RL, LR, using the mask from the primaries: XX, YY; I; RR, LL')
+                        help='fill in the secondary polarizations, i.e., XY_real, XY_imag; Q, U, V; RL, LR, using the mask from the primaries: XX, YY; I; RR, LL')
     parser.add_argument('-m', '--merge', action='store_true', 
                         help='merge the new mask table with the existing one, if it exists')
     args = parser.parse_args()

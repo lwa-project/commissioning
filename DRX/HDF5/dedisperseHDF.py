@@ -86,7 +86,7 @@ def main(args):
             obs['time'][:] = time
             
         # Loop over data products
-        for dp in ('XX', 'YY', 'XY', 'YX', 'XY_real', 'XY_imag', 'I', 'Q', 'U', 'V'):
+        for dp in ('XX', 'YY', 'XY_real', 'XY_imag', 'I', 'Q', 'U', 'V'):
             data1 = tuning1.get(dp, None)
             data2 = tuning2.get(dp, None)
             if data1 is None:

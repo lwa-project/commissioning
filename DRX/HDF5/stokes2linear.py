@@ -81,7 +81,7 @@ def main(args):
                 pass
                 
         ## Linear
-        if 'XX' in data_products or 'YY' in data_products or 'XY' in data_products or 'YX' in data_products:
+        if 'XX' in data_products or 'YY' in data_products or 'XY_real' in data_products or 'XY_imag' in data_products:
             raise RuntimeError("Input file '%s' contains data products %s" % (args.filename, ', '.join(data_products)))
             
         ## Minimum information
@@ -194,49 +194,49 @@ def main(args):
                         baseSKOut['YY'].attrs[key] = baseSKIn['I'].attrs[key]
                         
             if 'U' in data_products and 'V' in data_products:
-                ## XY
-                print("      Computing 'XY'")
-                tuningOut.create_dataset('XY', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
-                tuningOut['XY'][:] = (tuningIn['U'][:] + tuningIn['V'])/2.0
+                ## XY_real
+                print("      Computing 'XY_real'")
+                tuningOut.create_dataset('XY_real', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
+                tuningOut['XY_real'][:] = tuningIn['U'][:]/2.0
                 
                 for key in tuningIn['U'].attrs:
-                    tuningOut['XY'].attrs[key] = tuningIn['U'].attrs[key]
+                    tuningOut['XY_real'].attrs[key] = tuningIn['U'].attrs[key]
                     
                 if baseMaskIn is not None:
-                    baseMaskOut.create_dataset('XY', baseMaskIn['U'].shape, dtype=baseMaskIn['U'].dtype.descr[0][1])
-                    baseMaskOut['XY'][:] = baseMaskIn['U'][:] & baseMaskIn['V'][:]
+                    baseMaskOut.create_dataset('XY_real', baseMaskIn['U'].shape, dtype=baseMaskIn['U'].dtype.descr[0][1])
+                    baseMaskOut['XY_real'][:] = baseMaskIn['U'][:]
                     
                     for key in baseMaskIn['U'].attrs:
-                        baseMaskOut['XY'].attrs[key] = baseMaskIn['U'].attrs[key]
+                        baseMaskOut['XY_real'].attrs[key] = baseMaskIn['U'].attrs[key]
                         
                 if baseSKIn is not None:
-                    baseSKOut.create_dataset('XY', baseSKIn['U'].shape, dtype=baseSKIn['U'].dtype.descr[0][1])
-                    baseSKOut['XY'][:] = (baseSKIn['U'][:] + baseSKIn['V'][:]) / 2.0
+                    baseSKOut.create_dataset('XY_real', baseSKIn['U'].shape, dtype=baseSKIn['U'].dtype.descr[0][1])
+                    baseSKOut['XY_real'][:] = baseSKIn['U'][:]
                     
                     for key in baseSKIn['U'].attrs:
-                        baseSKOut['XY'].attrs[key] = baseSKIn['U'].attrs[key]
+                        baseSKOut['XY_real'].attrs[key] = baseSKIn['U'].attrs[key]
                         
-                ## YX
-                print("      Computing 'YX'")
-                tuningOut.create_dataset('YX', tuningIn['U'].shape, dtype=tuningIn['U'].dtype.descr[0][1])
-                tuningOut['YX'][:] = (tuningIn['U'][:] - tuningIn['V'])/2.0
+                ## XY_imag
+                print("      Computing 'XY_imag'")
+                tuningOut.create_dataset('XY_imag', tuningIn['V'].shape, dtype=tuningIn['V'].dtype.descr[0][1])
+                tuningOut['XY_imag'][:] = tuningIn['V'][:]/2.0
                 
-                for key in tuningIn['U'].attrs:
-                    tuningOut['YX'].attrs[key] = tuningIn['U'].attrs[key]
+                for key in tuningIn['V'].attrs:
+                    tuningOut['XY_imag'].attrs[key] = tuningIn['V'].attrs[key]
                     
                 if baseMaskIn is not None:
-                    baseMaskOut.create_dataset('YX', baseMaskIn['U'].shape, dtype=baseMaskIn['U'].dtype.descr[0][1])
-                    baseMaskOut['YX'][:] = baseMaskIn['U'][:] & baseMaskIn['V'][:]
+                    baseMaskOut.create_dataset('XY_imag', baseMaskIn['V'].shape, dtype=baseMaskIn['V'].dtype.descr[0][1])
+                    baseMaskOut['XY_imag'][:] = baseMaskIn['V'][:]
                     
-                    for key in baseMaskIn['U'].attrs:
-                        baseMaskOut['YX'].attrs[key] = baseMaskIn['U'].attrs[key]
+                    for key in baseMaskIn['V'].attrs:
+                        baseMaskOut['XY_imag'].attrs[key] = baseMaskIn['V'].attrs[key]
                         
                 if baseSKIn is not None:
-                    baseSKOut.create_dataset('YX', baseSKIn['U'].shape, dtype=baseSKIn['U'].dtype.descr[0][1])
-                    baseSKOut['YX'][:] = (baseSKIn['U'][:] + baseSKIn['V'][:]) / 2.0
+                    baseSKOut.create_dataset('XY_imag', baseSKIn['V'].shape, dtype=baseSKIn['V'].dtype.descr[0][1])
+                    baseSKOut['XY_imag'][:] = baseSKIn['V'][:]
                     
-                    for key in baseSKIn['U'].attrs:
-                        baseSKOut['YX'].attrs[key] = baseSKIn['U'].attrs[key]
+                    for key in baseSKIn['V'].attrs:
+                        baseSKOut['XY_imag'].attrs[key] = baseSKIn['V'].attrs[key]
     # Done!
     hIn.close()
     hOut.close()
