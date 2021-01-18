@@ -41,7 +41,10 @@ def main(args):
     filenames = args.filename
     
     # Build up the station
-    site = stations.lwa1
+    if args.lwasv:
+        site = stations.lwasv
+    else:
+        site = stations.lwa1
     
     # Get the antennas we need (and a fake one for the beam)
     rawAntennas = site.antennas
@@ -320,6 +323,8 @@ if __name__ == "__main__":
                         help='dipole number')
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to process')
+    parser.add_argument('-S','--lwasv', action='store_true',
+                        help='Station is LWA-SV')
     parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=512,
                         help='FFT transform size')
     parser.add_argument('-t', '--avg-time', type=aph.positive_float, default=4.0,

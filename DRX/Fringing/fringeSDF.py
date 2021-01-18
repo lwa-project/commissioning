@@ -20,7 +20,7 @@ import argparse
 
 from lsl.misc import beamformer
 from lsl.common.stations import parse_ssmif
-from lsl.common import sdf
+#from lsl.common import sdf, sdfADP
 from lsl.common.mcs import apply_pointing_correction
 from lsl.common.dp import delay_to_dpd, gain_to_dpg
 from lsl.misc import parser as aph
@@ -76,6 +76,12 @@ def main(args):
     tStart = "%s %s" % (args.date, args.time)
 
     station = parse_ssmif(filename)
+    #Import the right version of the sdf module for the desired station.
+    if station.name == 'LWASV':
+        from lsl.common import sdfADP as sdf
+    else:
+        from lsl.common import sdf
+
     antennas = station.antennas
 
     digs    = numpy.array([ant.digitizer  for ant in antennas])
@@ -95,8 +101,8 @@ def main(args):
     print(" ")
     
     # Adjust the gain so that it matches the outlier better
-    if args.dipole != 0:
-        bgain = 20.0 / (520 - len(bad))
+    if args.dipole == 0:
+        bgain = 20.0 / (len(antennas) - len(bad))
     else:
         bgain = 1.0
         
@@ -109,7 +115,7 @@ def main(args):
         baseBeamGain    = [0.0000, 0.0000, bgain,  0.0000]
         baseDipoleGain  = [0.0000, 0.0000, 0.0000, 1.0000]
         
-    if (args.dipole != 0):
+    if (args.dipole == 0):
         freq = max([args.frequency1, args.frequency2])
         
         # Load in the pointing correction
@@ -128,7 +134,14 @@ def main(args):
         print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
         print("-> Using gain setting of %.4f for the beam" % bgain)
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(260)] # initialize gain list
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(int(len(antennas)/2))] # initialize gain list 
+        #If achromatic beamforming is requested, set the gains for it.
+        if args.custom:
+            #These weird gain values will signal to ADP to use the predetermined
+            #achromatic beam gains located in /home/adp/.
+            gains[0] = [8191,16383,32767,65535]
+            gains[1] = [1,1,1,1]
+
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
             i = d - 1
@@ -145,7 +158,7 @@ def main(args):
         
         print("Setting gains for dipoles %i and %i" % (args.dipole, args.reference))
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(260)] # initialize gain list
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(int(len(antennas)/2))] # initialize gain list
         for i in xrange(len(stands)//2):
             # Put the fringing stand in there all by itself
             if stands[2*i] == args.dipole:
@@ -155,7 +168,7 @@ def main(args):
             if stands[2*i] == args.reference:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
     
-    # Resort the gains into a list of 260 2x2 matrices
+    # Resort the gains into a list of 2x2 matrices
     newGains = []
     for gain in gains:
         newGains.append([[gain[0], gain[1]], [gain[2], gain[3]]])
@@ -219,7 +232,7 @@ if __name__ == "__main__":
                         help='reference dipole for the fringing')
     parser.add_argument('-b', '--dp-beam', type=aph.positive_int, default=2,
                         help='DP beam to run the observation on')
-    parser.add_argument('-l', '--obs-length', type=aph.positive_float, default=3600.0,
+    parser.add_argument('-l', '--duration', type=aph.positive_float, default=3600.0,
                         help='duration of the observation in seconds')
     parser.add_argument('-1', '--frequency1', type=aph.positive_float, default=37.9,
                         help='frequency in MHz for Tuning #1')
@@ -227,6 +240,8 @@ if __name__ == "__main__":
                         help='frequency in MHz for Tuning #2')
     parser.add_argument('-f', '--filter', type=aph.positive_int, default=7,
                         help='DRX filter code')
+    parser.add_argument('-c','--custom', action='store_true',
+                        help='Use achromatic beamforming for station beam (LWA-SV only).')
     parser.add_argument('-s', '--spec-setup', type=str,
                         help='DR spectrometer setup to use, i.e., "32 6144{Stokes=IV}"') 
     parser.add_argument('-o', '--output', type=str, default='fringe.sdf',
