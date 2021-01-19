@@ -253,7 +253,7 @@ if __name__ == "__main__":
                         help='dipole number on Y')
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to process')
-    parser.add_argument('-S', '--lwasv', action='store_true',
+    parser.add_argument('-v', '--lwasv', action='store_true',
                         help='Station is LWA-SV')
     parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=512,
                         help='FFT transform size')

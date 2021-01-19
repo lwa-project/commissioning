@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     parser.add_argument('filename', type=str,
             help='Binary gain file (.gf)')
-    parser.add_argument('-S','--lwasv', action='store_true',
+    parser.add_argument('-v','--lwasv', action='store_true',
             help='Station is LWA-SV')
 
     args = parser.parse_args()
