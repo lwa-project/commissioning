@@ -14,6 +14,7 @@ import os
 import sys
 import glob
 import numpy
+import argparse
 
 from datetime import datetime
 
@@ -31,7 +32,7 @@ def main(args):
     phs1 = []
     phs2 = []
 
-    for filename in args:
+    for filename in args.filenames:
         dataDict = numpy.load(filename)
 
         srate = dataDict['srate']
@@ -130,5 +131,12 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description='Simple script to plot up the NPZ files created by fringeDipole.py/fringeBeam.py',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('filenames', nargs='+',
+            help='NPZ files to plot.')
+
+    args = parser.parse_args()
+    main(args)
 

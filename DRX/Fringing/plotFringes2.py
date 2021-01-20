@@ -14,6 +14,7 @@ import os
 import sys
 import glob
 import numpy
+import argparse
 
 from datetime import datetime
 
@@ -39,7 +40,7 @@ def spectralKurtosis(x, N=1):
 
 
 def main(args):
-    filenames = args
+    filenames = args.filenames
     filenames.sort()
 
     fig1 = plt.figure()
@@ -156,5 +157,11 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description='A fancier version of plotFringes.py that makes waterfall-like plots',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    parser.add_argument('filenames', nargs='+',
+            help='NPZ filenames to plot')
+
+    args = parser.parse_args()
+    main(args)

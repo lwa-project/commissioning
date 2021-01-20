@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Simple script to plot up the NPZ files created by fringeDipole.py/fringeBeam.py.
+Simple script to plot up the HDF5 file created by fringeBeamHDF.py.
 """
 
 # Python3 compatiability
@@ -15,6 +15,7 @@ import sys
 import glob
 import numpy
 import h5py
+import argparse
 
 from datetime import datetime
 
@@ -32,7 +33,7 @@ def main(args):
     phs1 = []
     phs2 = []
     
-    infile = h5py.File(args[0],'r')
+    infile = h5py.File(args.filename,'r')
     srate = infile.attrs['SRATE']
     
     # Get timestamps
@@ -140,4 +141,12 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description='Simple script to plot up the HDF5 file created by fringeBeamHDF.py',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('filename',
+            help='HDF5 filename to plot')
+
+    args = parser.parse_args()
+    main(args)
+
