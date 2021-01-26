@@ -180,7 +180,7 @@ def main(args):
     session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
     project = sdf.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
     obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
-    stp = sdf.BeamStep(args.azimuth, args.elevation, str(args.duration), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
+    stp = sdf.BeamStep(args.azimuth, args.elevation, str(args.obs_length), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
     obs.append(stp)
     obs.gain = 1
     project.sessions[0].observations.append(obs)
@@ -232,7 +232,7 @@ if __name__ == "__main__":
                         help='reference dipole for the fringing')
     parser.add_argument('-b', '--dp-beam', type=aph.positive_int, default=2,
                         help='DP beam to run the observation on')
-    parser.add_argument('-l', '--duration', type=aph.positive_float, default=3600.0,
+    parser.add_argument('-l', '--obs-length', type=aph.positive_float, default=3600.0,
                         help='duration of the observation in seconds')
     parser.add_argument('-1', '--frequency1', type=aph.positive_float, default=37.9,
                         help='frequency in MHz for Tuning #1')
