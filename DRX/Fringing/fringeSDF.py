@@ -20,7 +20,7 @@ import argparse
 
 from lsl.misc import beamformer
 from lsl.common.stations import parse_ssmif
-#from lsl.common import sdf, sdfADP
+from lsl.common import sdf, sdfADP
 from lsl.common.mcs import apply_pointing_correction
 from lsl.common.dp import delay_to_dpd, gain_to_dpg
 from lsl.misc import parser as aph
@@ -78,9 +78,9 @@ def main(args):
     station = parse_ssmif(filename)
     #Import the right version of the sdf module for the desired station.
     if station.name == 'LWASV':
-        from lsl.common import sdfADP as sdf
+        sdf_module = sdfADP
     else:
-        from lsl.common import sdf
+        sdf_module = sdf
 
     antennas = station.antennas
 
@@ -135,13 +135,7 @@ def main(args):
         print("-> Using gain setting of %.4f for the beam" % bgain)
         
         gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(int(len(antennas)/2))] # initialize gain list 
-        #If achromatic beamforming is requested, set the gains for it.
-        if args.custom:
-            #These weird gain values will signal to ADP to use the predetermined
-            #achromatic beam gains located in /home/adp/.
-            gains[0] = [8191,16383,32767,65535]
-            gains[1] = [1,1,1,1]
-
+        
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
             i = d - 1
@@ -176,11 +170,11 @@ def main(args):
     
     # Create the SDF
     sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if not args.y_pol else 'Y',)
-    observer = sdf.Observer("fringeSDF.py Observer", 99)
-    session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
-    project = sdf.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
-    obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
-    stp = sdf.BeamStep(args.azimuth, args.elevation, str(args.obs_length), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
+    observer = sdf_module.Observer("fringeSDF.py Observer", 99)
+    session = sdf_module.Session("fringeSDF.py Session", 1, comments=sessionComment)
+    project = sdf_module.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
+    obs = sdf_module.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
+    stp = sdf_module.BeamStep(args.azimuth, args.elevation, str(args.obs_length), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
     obs.append(stp)
     obs.gain = 1
     project.sessions[0].observations.append(obs)
@@ -240,8 +234,6 @@ if __name__ == "__main__":
                         help='frequency in MHz for Tuning #2')
     parser.add_argument('-f', '--filter', type=aph.positive_int, default=7,
                         help='DRX filter code')
-    parser.add_argument('-c','--custom', action='store_true',
-                        help='Use achromatic beamforming for station beam (LWA-SV only).')
     parser.add_argument('-s', '--spec-setup', type=str,
                         help='DR spectrometer setup to use, i.e., "32 6144{Stokes=IV}"') 
     parser.add_argument('-o', '--output', type=str, default='fringe.sdf',
