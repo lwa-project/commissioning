@@ -36,7 +36,7 @@ def main(args):
     
     # Build up the station
     if args.lwasv:
-        site = station.lwasv
+        site = stations.lwasv
     else:
         site = stations.lwa1
     
