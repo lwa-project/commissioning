@@ -20,7 +20,7 @@ from datetime import datetime
 
 from lsl.statistics import robust
 
-from lsl.reader import drx, errors
+from lsl.reader import drx, errors, buffer
 from lsl.common.dp import fS
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
@@ -157,7 +157,7 @@ def main(args):
         # Get the DRX frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
-        for i in xrange(4):
+        for i in xrange(32):
             junkFrame = drx.read_frame(fh)
             b,t,p = junkFrame.id
             if p == 0 and t == 1:
@@ -166,7 +166,7 @@ def main(args):
                 cFreq2 = junkFrame.central_freq
             else:
                 pass
-        fh.seek(-4*drx.FRAME_SIZE, 1)
+        fh.seek(-32*drx.FRAME_SIZE, 1)
         
         # Align the files as close as possible by the time tags and then make sure that
         # the first frame processed is from tuning 1, pol 0.
@@ -226,34 +226,43 @@ def main(args):
         dset4 = group3.create_dataset("Tuning1", (nChunks, 3, LFFT), numpy.complex64, maxshape=(nChunks, 3, LFFT))
         dset5 = group3.create_dataset("Tuning2", (nChunks, 3, LFFT), numpy.complex64, maxshape=(nChunks, 3, LFFT))
         
+        drxBuffer = buffer.DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1])
+        data = numpy.zeros((2, 2, 4096*nFrames), dtype=numpy.complex64)
+
         pb = ProgressBarPlus(max=nChunks)
         tsec = numpy.zeros(1, dtype=numpy.float64)
         for i in xrange(nChunks):
-            junkFrame = drx.read_frame(fh)
-            tStart = junkFrame.time
-            fh.seek(-drx.FRAME_SIZE, 1)
-            
-            count1 = [0,0]
-            data1 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
-            count2 = [0,0]
-            data2 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
-            for j in xrange(nFrames):
+            j = 0
+            while j < nFrames:
                 for k in xrange(4):
-                    cFrame = drx.read_frame(fh)
+                    try:
+                        cFrame = drx.read_frame(fh)
+                        drxBuffer.append( cFrame )
+                    except errors.syncError:
+                        pass
+
+                cFrames = drxBuffer.get()
+                if cFrames is None:
+                    continue
+
+                for cFrame in cFrames:
+                    if j == 0:
+                        tStart = cFrame.time
                     beam, tune, pol = cFrame.id
                     pair = 2*(tune-1) + pol
-                    
+
                     if tune == 1:
-                        data1[pol, count1[pol]*4096:(count1[pol]+1)*4096] = cFrame.payload.data
-                        count1[pol] += 1
+                        data[0, pol, j*4096:(j+1)*4096] = cFrame.payload.data
                     else:
-                        data2[pol, count2[pol]*4096:(count2[pol]+1)*4096] = cFrame.payload.data
-                        count2[pol] += 1
-                        
+                        data[1, pol, j*4096:(j+1)*4096] = cFrame.payload.data
+
+                j += 1
+
+
             # Correlate
-            blList1, freq1, vis1 = fxc.FXMaster(data1, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList1, freq1, vis1 = fxc.FXMaster(data[0,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
             
-            blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList2, freq2, vis2 = fxc.FXMaster(data[1,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
             
             if i == 0:
                 tsec = tInt/2
@@ -273,8 +282,6 @@ def main(args):
             dset1.write_direct(temp, dest_sel=numpy.s_[i])
             dset4.write_direct(vis1, dest_sel=numpy.s_[i])
             dset5.write_direct(vis2, dest_sel=numpy.s_[i])
-            del data1
-            del data2
             
             pb.inc(amount=1)
             sys.stdout.write(pb.show()+'\r')
