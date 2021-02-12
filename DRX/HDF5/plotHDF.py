@@ -405,13 +405,16 @@ class Waterfall_GUI(object):
             del part
             
         self.sats = numpy.empty((self.iDuration, 4), dtype=numpy.float32)
-        part = numpy.empty((self.iDuration, 2), dtype=tuning1['Saturation'].dtype)
-        tuning1['Saturation'].read_direct(part, selection)
-        self.sats[:,0:2] = part / (self.tInt * self.srate)
-        part = numpy.empty((self.iDuration, 2), dtype=tuning2['Saturation'].dtype)
-        tuning2['Saturation'].read_direct(part, selection)
-        self.sats[:,2:4] = part / (self.tInt * self.srate)
-        del part
+        try:
+            part = numpy.empty((self.iDuration, 2), dtype=tuning1['Saturation'].dtype)
+            tuning1['Saturation'].read_direct(part, selection)
+            self.sats[:,0:2] = part / (self.tInt * self.srate)
+            part = numpy.empty((self.iDuration, 2), dtype=tuning2['Saturation'].dtype)
+            tuning2['Saturation'].read_direct(part, selection)
+            self.sats[:,2:4] = part / (self.tInt * self.srate)
+            del part
+        except KeyError:
+            pass
         # Mask out negative saturation values since that indicates the data is
         # not available
         self.sats = numpy.ma.array(self.sats, mask=(self.sats < 0))
