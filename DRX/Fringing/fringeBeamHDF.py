@@ -238,7 +238,7 @@ def main(args):
                     try:
                         cFrame = drx.read_frame(fh)
                         drxBuffer.append( cFrame )
-                    except errors.syncError:
+                    except errors.SyncError:
                         pass
 
                 cFrames = drxBuffer.get()
