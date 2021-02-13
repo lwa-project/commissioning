@@ -40,14 +40,14 @@ def main(args):
         tStart = datetime.utcfromtimestamp(tStart)
         
         freq1 = dataDict['freq1']
-        vis1 = dataDict['vis1'][1,int(freq1.size/4):int(freq1.size*3/4)]
-        auto11 = dataDict['vis1'][0,int(freq1.size/4):int(freq1.size*3/4)]
-        auto12 = dataDict['vis1'][2,int(freq1.size/4):int(freq1.size*3/4)]
+        vis1 = dataDict['vis1'][1,freq1.size//4:freq1.size*3//4]
+        auto11 = dataDict['vis1'][0,freq1.size//4:freq1.size*3//4]
+        auto12 = dataDict['vis1'][2,freq1.size//4:freq1.size*3//4]
         
         freq2 = dataDict['freq2']
-        vis2 = dataDict['vis2'][1,int(freq1.size/4):int(freq1.size*3/4)]
-        auto21 = dataDict['vis2'][0,int(freq1.size/4):int(freq1.size*3/4)]
-        auto22 = dataDict['vis2'][1,int(freq1.size/4):int(freq1.size*3/4)]
+        vis2 = dataDict['vis2'][1,freq2.size//4:freq2.size*3//4]
+        auto21 = dataDict['vis2'][0,freq2.size//4:freq2.size*3//4]
+        auto22 = dataDict['vis2'][2,freq2.size//4:freq2.size*3//4]
 
         times.append( tStart)
         amp1.append( numpy.abs(vis1).mean() )

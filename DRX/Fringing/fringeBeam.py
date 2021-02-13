@@ -40,7 +40,7 @@ def main(args):
         site = stations.lwasv
     else:
         site = stations.lwa1
-
+        
     # Get the antennas we need (and a fake one for the beam)
     rawAntennas = site.antennas
     
@@ -79,7 +79,7 @@ def main(args):
     ### else to get good fringes.
     dipole.cable.length = 0
     antennas.append(dipole)
-            
+    
     # Loop over the input files...
     for filename in filenames:
         fh = open(filename, "rb")
@@ -97,7 +97,7 @@ def main(args):
                     pass
             except errors.SyncError:
                 fh.seek(-drx.FRAME_SIZE+1, 1)
-                    
+                
         fh.seek(-drx.FRAME_SIZE, 1)
         
         beam, tune, pol = junkFrame.id
@@ -148,7 +148,7 @@ def main(args):
         
         tnom = junkFrame.header.time_offset
         tStart = junkFrame.time
-      
+        
         # Get the DRX frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
@@ -181,7 +181,7 @@ def main(args):
         tInt = args.avg_time
         nFrames = int(round(tInt*srate/4096))
         tInt = nFrames*4096/srate
-         
+        
         # Read in some data
         tFile = nFramesFile / 4 * 4096 / srate
         
@@ -288,7 +288,7 @@ if __name__ == "__main__":
                         help='dipole number')
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to process')
-    parser.add_argument('-v','--lwasv', action='store_true',
+    parser.add_argument('-v', '--lwasv', action='store_true',
                         help='Station is LWA-SV')
     parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=512,
                         help='FFT transform size')
