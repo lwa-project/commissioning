@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 """
-Simple script to read in a MCS binary packed DP delay file (.df) and print 
-out the delays in ns.
+Simple script to read in a MCS binary packed DP gain file (.gf) and print 
+out the gains.
 """
 
 # Python3 compatiability
@@ -15,16 +15,16 @@ import os
 import sys
 import numpy
 import struct
+import argparse
 
 from lsl.common.dp import dpg_to_gain
-from lsl.common.stations import lwa1
+from lsl.common import stations
 
 
 def main(args):
-    filename = args[0]
 
     # Read in the entire file
-    fh = open(filename, 'rb')
+    fh = open(args.filename, 'rb')
     data = fh.read()
     fh.close()
     
@@ -33,9 +33,15 @@ def main(args):
 
     # Convert to delays in ns
     gains = [dpg_to_gain(g) for g in rawGains]
-    
+
+    #Build up the station
+    if args.lwasv:
+        site = stations.lwasv
+    else:
+        site = stations.lwa1
+
     # Report
-    ants = lwa1.antennas[0::2]
+    ants = site.antennas[0::2]
     
     print("Std   X->x   X->y    Y->x   Y->y")
     print("----------------------------------")
@@ -45,5 +51,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+            description='Simple script to read in a MCS binary packed DP gain file (.gf) and print out the gains.',
+            formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 
+    parser.add_argument('filename', type=str,
+            help='Binary gain file (.gf)')
+    parser.add_argument('-v','--lwasv', action='store_true',
+            help='Station is LWA-SV')
+
+    args = parser.parse_args()
+    main(args)

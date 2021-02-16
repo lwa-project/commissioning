@@ -14,6 +14,7 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
+import argparse
 from calendar import timegm
 from datetime import datetime
 
@@ -29,7 +30,7 @@ from lsl.sim import vis as simVis
 from matplotlib import pyplot as plt
 
 def main(args):
-    filenames = args
+    filenames = args.filenames
     filenames.sort()
 
     times = []
@@ -60,9 +61,11 @@ def main(args):
     
     print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq1)+1, freq1[1]-freq1[0]))
 
-    
     # Build up the station
-    site = stations.lwa1
+    if args.lwasv:
+        site = stations.lwasv
+    else:
+        site = stations.lwa1
     
     rawAntennas = site.antennas
     
@@ -144,5 +147,14 @@ def main(args):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+    description='Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.build_sim_data() function and the bright sources listed in lsl.sim.vis.srcs.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    parser.add_argument('filenames', type=str, nargs='+',
+            help='Data sets (.npz)')
+    parser.add_argument('-v','--lwasv', action='store_true',
+            help='Station is LWA-SV')
+
+    args = parser.parse_args()
+    main(args)

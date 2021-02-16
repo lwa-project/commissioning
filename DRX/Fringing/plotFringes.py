@@ -14,6 +14,7 @@ import os
 import sys
 import glob
 import numpy
+import argparse
 
 from datetime import datetime
 
@@ -31,21 +32,22 @@ def main(args):
     phs1 = []
     phs2 = []
 
-    for filename in args:
+    for filename in args.filenames:
         dataDict = numpy.load(filename)
 
         srate = dataDict['srate']
-        tStart = datetime.utcfromtimestamp(dataDict['tStart'])
+        tStart = dataDict['tStart']
+        tStart = datetime.utcfromtimestamp(tStart)
         
         freq1 = dataDict['freq1']
-        vis1 = dataDict['vis1'][1,freq1.size/4:freq1.size*3/4]
-        auto11 = dataDict['vis1'][0,freq1.size/4:freq1.size*3/4]
-        auto12 = dataDict['vis1'][2,freq1.size/4:freq1.size*3/4]
+        vis1 = dataDict['vis1'][1,freq1.size//4:freq1.size*3//4]
+        auto11 = dataDict['vis1'][0,freq1.size//4:freq1.size*3//4]
+        auto12 = dataDict['vis1'][2,freq1.size//4:freq1.size*3//4]
         
         freq2 = dataDict['freq2']
-        vis2 = dataDict['vis2'][1,freq1.size/4:freq1.size*3/4]
-        auto21 = dataDict['vis2'][0,freq1.size/4:freq1.size*3/4]
-        auto22 = dataDict['vis2'][1,freq1.size/4:freq1.size*3/4]
+        vis2 = dataDict['vis2'][1,freq2.size//4:freq2.size*3//4]
+        auto21 = dataDict['vis2'][0,freq2.size//4:freq2.size*3//4]
+        auto22 = dataDict['vis2'][2,freq2.size//4:freq2.size*3//4]
 
         times.append( tStart)
         amp1.append( numpy.abs(vis1).mean() )
@@ -130,5 +132,12 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description='Simple script to plot up the NPZ files created by fringeDipole.py/fringeBeam.py',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('filenames', nargs='+',
+            help='NPZ files to plot.')
+
+    args = parser.parse_args()
+    main(args)
 

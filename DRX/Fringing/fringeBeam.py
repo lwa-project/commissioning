@@ -18,7 +18,7 @@ import argparse
 
 from lsl.statistics import robust
 
-from lsl.reader import drx, errors
+from lsl.reader import drx, errors, buffer
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.correlator import fx as fxc
@@ -36,8 +36,11 @@ def main(args):
     filenames = args.filename
     
     # Build up the station
-    site = stations.lwa1
-    
+    if args.lwasv:
+        site = stations.lwasv
+    else:
+        site = stations.lwa1
+        
     # Get the antennas we need (and a fake one for the beam)
     rawAntennas = site.antennas
     
@@ -76,7 +79,7 @@ def main(args):
     ### else to get good fringes.
     dipole.cable.length = 0
     antennas.append(dipole)
-            
+    
     # Loop over the input files...
     for filename in filenames:
         fh = open(filename, "rb")
@@ -94,7 +97,7 @@ def main(args):
                     pass
             except errors.SyncError:
                 fh.seek(-drx.FRAME_SIZE+1, 1)
-                    
+                
         fh.seek(-drx.FRAME_SIZE, 1)
         
         beam, tune, pol = junkFrame.id
@@ -149,7 +152,7 @@ def main(args):
         # Get the DRX frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
-        for i in xrange(4):
+        for i in xrange(32):
             junkFrame = drx.read_frame(fh)
             b,t,p = junkFrame.id
             if p == 0 and t == 1:
@@ -158,7 +161,7 @@ def main(args):
                 cFreq2 = junkFrame.central_freq
             else:
                 pass
-        fh.seek(-4*drx.FRAME_SIZE, 1)
+        fh.seek(-32*drx.FRAME_SIZE, 1)
         
         # Align the files as close as possible by the time tags and then make sure that
         # the first frame processed is from tuning 1, pol 0.
@@ -190,35 +193,44 @@ def main(args):
         print("  ===")
         print("  Integration Time: %.3f s" % tInt)
         print("  Integrations in File: %i" % int(tFile/tInt))
-        
+
         nChunks = int(tFile/tInt)
+        drxBuffer = buffer.DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1])
+         
+        data = numpy.zeros((2,2,4096*nFrames), dtype=numpy.complex64)
+
         pb = ProgressBarPlus(max=nChunks)
         for i in xrange(nChunks):
-            junkFrame = drx.read_frame(fh)
-            tStart = junkFrame.time
-            fh.seek(-drx.FRAME_SIZE, 1)
-            
-            count1 = [0,0]
-            data1 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
-            count2 = [0,0]
-            data2 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
-            for j in xrange(nFrames):
+            j = 0
+            while j < nFrames:
                 for k in xrange(4):
-                    cFrame = drx.read_frame(fh)
+                    try:
+                        cFrame = drx.read_frame(fh)
+                        drxBuffer.append( cFrame )
+                    except errors.SyncError:
+                        pass
+    
+                cFrames = drxBuffer.get()
+                if cFrames is None:
+                    continue
+
+                for cFrame in cFrames:
+                    if j == 0:
+                        tStart = cFrame.time
                     beam, tune, pol = cFrame.id
                     pair = 2*(tune-1) + pol
-                    
+
                     if tune == 1:
-                        data1[pol, count1[pol]*4096:(count1[pol]+1)*4096] = cFrame.payload.data
-                        count1[pol] += 1
+                        data[0, pol, j*4096:(j+1)*4096] = cFrame.payload.data
                     else:
-                        data2[pol, count2[pol]*4096:(count2[pol]+1)*4096] = cFrame.payload.data
-                        count2[pol] += 1
-                    
+                        data[1, pol, j*4096:(j+1)*4096] = cFrame.payload.data
+
+                j += 1
+ 
             # Correlate
-            blList1, freq1, vis1 = fxc.FXMaster(data1, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList1, freq1, vis1 = fxc.FXMaster(data[0,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
         
-            blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList2, freq2, vis2 = fxc.FXMaster(data[1,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
             
             if nChunks != 1:
                 outfile = os.path.split(filename)[1]
@@ -228,11 +240,8 @@ def main(args):
                 outfile = os.path.split(filename)[1]
                 outfile = os.path.splitext(outfile)[0]
                 outfile = "%s-vis.npz" % outfile
-            numpy.savez(outfile, srate=srate, freq1=freq1, vis1=vis1, freq2=freq2, vis2=vis2, tStart=tStart, tInt=tInt, stands=numpy.array([stand1, stand2]))
-            
-            del data1
-            del data2
-            
+            numpy.savez(outfile, srate=srate, freq1=freq1, vis1=vis1, freq2=freq2, vis2=vis2, tStart=tStart.unix, tInt=tInt, stands=numpy.array([stand1, stand2]))
+             
             pb.inc(amount=1)
             sys.stdout.write(pb.show()+'\r')
             sys.stdout.flush()
@@ -279,6 +288,8 @@ if __name__ == "__main__":
                         help='dipole number')
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to process')
+    parser.add_argument('-v', '--lwasv', action='store_true',
+                        help='Station is LWA-SV')
     parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=512,
                         help='FFT transform size')
     parser.add_argument('-t', '--avg-time', type=aph.positive_float, default=4.0,

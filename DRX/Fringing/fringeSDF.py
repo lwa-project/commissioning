@@ -20,7 +20,7 @@ import argparse
 
 from lsl.misc import beamformer
 from lsl.common.stations import parse_ssmif
-from lsl.common import sdf
+from lsl.common import sdf, sdfADP
 from lsl.common.mcs import apply_pointing_correction
 from lsl.common.dp import delay_to_dpd, gain_to_dpg
 from lsl.misc import parser as aph
@@ -76,6 +76,12 @@ def main(args):
     tStart = "%s %s" % (args.date, args.time)
 
     station = parse_ssmif(filename)
+    #Import the right version of the sdf module for the desired station.
+    if station.name == 'LWASV':
+        sdf_module = sdfADP
+    else:
+        sdf_module = sdf
+
     antennas = station.antennas
 
     digs    = numpy.array([ant.digitizer  for ant in antennas])
@@ -95,8 +101,8 @@ def main(args):
     print(" ")
     
     # Adjust the gain so that it matches the outlier better
-    if args.dipole != 0:
-        bgain = 20.0 / (520 - len(bad))
+    if args.dipole == 0:
+        bgain = 20.0 / (len(antennas) - len(bad))
     else:
         bgain = 1.0
         
@@ -109,7 +115,7 @@ def main(args):
         baseBeamGain    = [0.0000, 0.0000, bgain,  0.0000]
         baseDipoleGain  = [0.0000, 0.0000, 0.0000, 1.0000]
         
-    if (args.dipole != 0):
+    if (args.dipole == 0):
         freq = max([args.frequency1, args.frequency2])
         
         # Load in the pointing correction
@@ -128,7 +134,8 @@ def main(args):
         print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
         print("-> Using gain setting of %.4f for the beam" % bgain)
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(260)] # initialize gain list
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(int(len(antennas)/2))] # initialize gain list 
+        
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
             i = d - 1
@@ -145,7 +152,7 @@ def main(args):
         
         print("Setting gains for dipoles %i and %i" % (args.dipole, args.reference))
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(260)] # initialize gain list
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(int(len(antennas)/2))] # initialize gain list
         for i in xrange(len(stands)//2):
             # Put the fringing stand in there all by itself
             if stands[2*i] == args.dipole:
@@ -155,7 +162,7 @@ def main(args):
             if stands[2*i] == args.reference:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
     
-    # Resort the gains into a list of 260 2x2 matrices
+    # Resort the gains into a list of 2x2 matrices
     newGains = []
     for gain in gains:
         newGains.append([[gain[0], gain[1]], [gain[2], gain[3]]])
@@ -163,11 +170,11 @@ def main(args):
     
     # Create the SDF
     sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if not args.y_pol else 'Y',)
-    observer = sdf.Observer("fringeSDF.py Observer", 99)
-    session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
-    project = sdf.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
-    obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
-    stp = sdf.BeamStep(args.azimuth, args.elevation, str(args.duration), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
+    observer = sdf_module.Observer("fringeSDF.py Observer", 99)
+    session = sdf_module.Session("fringeSDF.py Session", 1, comments=sessionComment)
+    project = sdf_module.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
+    obs = sdf_module.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
+    stp = sdf_module.BeamStep(args.azimuth, args.elevation, str(args.obs_length), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
     obs.append(stp)
     obs.gain = 1
     project.sessions[0].observations.append(obs)

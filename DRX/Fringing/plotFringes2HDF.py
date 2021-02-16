@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-A fancier version of plotFringes.py that makes waterfall-like plots.
+A fancier version of plotFringesHDF.py that makes waterfall-like plots.
 """
 
 # Python3 compatiability
@@ -15,6 +15,7 @@ import sys
 import glob
 import numpy
 import h5py
+import argparse
 
 from datetime import datetime
 
@@ -40,7 +41,7 @@ def spectralKurtosis(x, N=1):
 
 
 def main(args):
-    filenames = args
+    filenames = args.filenames
     filenames.sort()
     
     fig1 = plt.figure()
@@ -55,7 +56,7 @@ def main(args):
     vis1 = []
     vis2 = []
     
-    infile = h5py.File(args[0],'r')
+    infile = h5py.File(args.filenames[0],'r')
     srate = infile.attrs['SRATE']
     
     # Get timestamps
@@ -159,5 +160,11 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(description='A fancier version of plotFringesHDF.py that makes waterfall-like plots.',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    parser.add_argument('filenames', nargs='+',
+            help='HDF5 file to plot')
+
+    args = parser.parse_args()
+    main(args)
