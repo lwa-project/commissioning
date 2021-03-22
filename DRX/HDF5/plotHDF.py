@@ -25,6 +25,8 @@ from scipy.interpolate import interp1d
 from scipy.stats import scoreatpercentile as percentile, skew, kurtosis
 from scipy.signal import savgol_filter as savitzky_golay
 
+from astropy.time import Time as AstroTime
+
 import lsl
 from lsl.common import dp
 from lsl.common import stations
@@ -322,12 +324,25 @@ class Waterfall_GUI(object):
         self.tInt  = obs.attrs['tInt']
         self.time  = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
         obs['time'].read_direct(self.time)
-        
+        try:
+            if obs['time'].attrs['format'] != 'unix' or obs['time'].attrs['scale'] != 'utc':
+                self.time = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.time]
+                self.time = [t.utc.unix for t in self.time]
+                self.time = numpy.array(self.time)
+                
+            else:
+                self.time = self.time["int"] + self.time["frac"]
+                
+        except (KeyError, ValueError):
+            pass
+            
         tuning1 = obs.get('Tuning1', None)
         tuning2 = obs.get('Tuning2', None)
-        
+        if tuning2 is None:
+            tuning2 = tuning1
+            
         data_products = list(tuning1)
-        mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
+        mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
         for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
             try:
                 ind = data_products.index(exclude)
@@ -336,7 +351,7 @@ class Waterfall_GUI(object):
                 pass
         if data_products[0][0] in ('X', 'Y'):
             self.linear = True
-            if 'XY' in data_products or 'XY' in data_products:
+            if 'XY_real' in data_products or 'XY_imag' in data_products:
                 self.usedB = False
             else:
                 self.usedB = True
@@ -390,13 +405,16 @@ class Waterfall_GUI(object):
             del part
             
         self.sats = numpy.empty((self.iDuration, 4), dtype=numpy.float32)
-        part = numpy.empty((self.iDuration, 2), dtype=tuning1['Saturation'].dtype)
-        tuning1['Saturation'].read_direct(part, selection)
-        self.sats[:,0:2] = part / (self.tInt * self.srate)
-        part = numpy.empty((self.iDuration, 2), dtype=tuning2['Saturation'].dtype)
-        tuning2['Saturation'].read_direct(part, selection)
-        self.sats[:,2:4] = part / (self.tInt * self.srate)
-        del part
+        try:
+            part = numpy.empty((self.iDuration, 2), dtype=tuning1['Saturation'].dtype)
+            tuning1['Saturation'].read_direct(part, selection)
+            self.sats[:,0:2] = part / (self.tInt * self.srate)
+            part = numpy.empty((self.iDuration, 2), dtype=tuning2['Saturation'].dtype)
+            tuning2['Saturation'].read_direct(part, selection)
+            self.sats[:,2:4] = part / (self.tInt * self.srate)
+            del part
+        except KeyError:
+            pass
         # Mask out negative saturation values since that indicates the data is
         # not available
         self.sats = numpy.ma.array(self.sats, mask=(self.sats < 0))
@@ -436,6 +454,23 @@ class Waterfall_GUI(object):
         obs['time'].read_direct(self.timesNPZ)
         self.timesNPZRestricted = numpy.zeros(self.spec.shape[0], dtype=obs['time'].dtype)
         obs['time'].read_direct(self.timesNPZRestricted, numpy.s_[self.iOffset:self.iOffset+self.iDuration])
+        try:
+            if obs['time'].attrs['format'] != 'unix' or obs['time'].attrs['scale'] != 'utc':
+                self.timesNPZ = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.timesNPZ]
+                self.timesNPZ = [t.utc.unix for t in self.timesNPZ]
+                self.timesNPZ = numpy.array(self.timesNPZ)
+                
+                self.timesNPZRestricted = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.timesNPZRestricted]
+                self.timesNPZRestricted = [t.utc.unix for t in self.timesNPZRestricted]
+                self.timesNPZRestricted = numpy.array(self.timesNPZRestricted)
+                
+            else:
+                self.timesNPZ = self.timesNPZ["int"] + self.timesNPZ["frac"]
+                
+                self.timesNPZRestricted = self.timesNPZRestricted["int"] + self.timesNPZRestricted["frac"]
+                
+        except (KeyError, ValueError):
+            pass
         
         # Deal with the potential for aggregated files
         self.tIntActual = self.tInt
@@ -720,7 +755,7 @@ class Waterfall_GUI(object):
         if self.linear:
             tun = self.index // 4 + 1
             ind = self.index % 4
-            mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+            mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
             self.ax1a.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
             tun = self.index // 4 + 1
@@ -907,8 +942,8 @@ class Waterfall_GUI(object):
         Suggest a mask for the current index.
         """
         
-        nAdjust = {'XX': 1, 'YY': 1, 'XY': 2, 'YX': 2, 
-                'I': 2, 'Q': 2, 'U': 2, 'V': 2}
+        nAdjust = {'XX': 1, 'YY': 1, 'XY_real': 2, 'XY_imag': 2, 
+                   'I': 2, 'Q': 2, 'U': 2, 'V': 2}
                 
         if self.index // (self.spec.shape[1]//2) == 0:
             freq = self.freq1
@@ -942,7 +977,7 @@ class Waterfall_GUI(object):
             self.timeMask[b,index] = True
             
         if self.linear:
-            mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+            mapper = {0: 'XX', 1: 'XY_real', 2: 'XY_imag', 3: 'YY'}
         else:
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
         N = self.srate//freq.size*self.tIntActual*nAdjust[mapper[index % 4]]
@@ -1311,6 +1346,20 @@ class Waterfall_GUI(object):
             elif event.key == 'w':
                 ## Write
                 outname = "spectrum.txt"
+                while os.path.exists(outname):
+                    outpath, outname = os.path.split(outname)
+                    outname, ext = os.path.splitext(outname)
+                    try:
+                        outname, N = outname.rsplit('-', 1)
+                    except ValueError:
+                        N = "0"
+                    try:
+                        N = int(N, 10)
+                    except ValueError:
+                        outname = "%s-%s" % (outname, N)
+                        N = 0
+                    N += 1
+                    outname = "%s%s%s-%i%s" % (outpath, os.path.sep if outpath else '', outname, N, ext)
                 print("Saving to '%s'" % outname)
                 
                 fn = os.path.basename(self.filename)
@@ -1319,7 +1368,7 @@ class Waterfall_GUI(object):
                 if self.linear:
                     tun = self.index // 4 + 1
                     ind = self.index % 4
-                    mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+                    mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
                     pol = mapper[ind]
                 else:
                     tun = self.index // 4 + 1
@@ -1354,7 +1403,7 @@ class Waterfall_GUI(object):
                 fh.write("#                                           #\n")
                 fh.write("# Input: %-33s  #\n" % fn)
                 fh.write("#                                           #\n")
-                fh.write("# Beam: %-1i                                   #\n" % beam)
+                fh.write("# Beam: %-2i                                  #\n" % beam)
                 fh.write("# RA: %-13s                         #\n" % ra)
                 fh.write("# Dec: %-13s                        #\n" % dec)
                 fh.write("# Observing Mode: %-10s                #\n" % mode)
@@ -1362,7 +1411,7 @@ class Waterfall_GUI(object):
                 fh.write("# Sample Rate Units: %-10s             #\n" % sunit)
                 fh.write("#                                           #\n")
                 fh.write("# Tuning: %-1i                                 #\n" % tun)
-                fh.write("# Polarization: %-2s                          #\n" % pol)
+                fh.write("# Polarization: %-6s                      #\n" % pol)
                 fh.write("# Date/Time: %-26s     #\n" % dt)
                 fh.write("# Channel Count: %-10i                 #\n" % freq.size)
                 fh.write("# Resolution Bandwidth: %-12.6f        #\n" % rbw)
@@ -1641,12 +1690,12 @@ class MainWindow(wx.Frame):
         
         ## Data Menu Stub
         t1p1 = dataMenu.AppendRadioItem(ID_TUNING1_1, 'Tuning 1, XX')
-        t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, XY')
-        t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, YX')
+        t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, Re(XY)')
+        t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, Im(XY)')
         t1p4 = dataMenu.AppendRadioItem(ID_TUNING1_4, 'Tuning 1, YY')
         t2p1 = dataMenu.AppendRadioItem(ID_TUNING2_1, 'Tuning 2, XX')
-        t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, XY')
-        t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, YX')
+        t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, Re(XY)')
+        t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, Im(XY)')
         t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, YY')
         
         dataMenu.InsertSeparator(4)
@@ -1858,12 +1907,12 @@ class MainWindow(wx.Frame):
         # Update the text for the current mode
         if self.data.linear:
             self.dataMenuOptions[0].SetItemLabel('Tuning 1, XX')
-            self.dataMenuOptions[1].SetItemLabel('Tuning 1, XY')
-            self.dataMenuOptions[2].SetItemLabel('Tuning 1, YX')
+            self.dataMenuOptions[1].SetItemLabel('Tuning 1, Re(XY)')
+            self.dataMenuOptions[2].SetItemLabel('Tuning 1, Im(XY)')
             self.dataMenuOptions[3].SetItemLabel('Tuning 1, YY')
             self.dataMenuOptions[4].SetItemLabel('Tuning 2, XX')
-            self.dataMenuOptions[5].SetItemLabel('Tuning 2, XY')
-            self.dataMenuOptions[6].SetItemLabel('Tuning 2, YX')
+            self.dataMenuOptions[5].SetItemLabel('Tuning 2, Re(XY)')
+            self.dataMenuOptions[6].SetItemLabel('Tuning 2, Im(XY)')
             self.dataMenuOptions[7].SetItemLabel('Tuning 2, YY')
         else:
             self.dataMenuOptions[0].SetItemLabel('Tuning 1, I')
@@ -1880,10 +1929,10 @@ class MainWindow(wx.Frame):
             if p in ('I', 'XX'):
                 self.dataMenuOptions[0].Enable(True)
                 self.dataMenuOptions[4].Enable(True)
-            elif p in ('Q', 'XY'):
+            elif p in ('Q', 'XY_real'):
                 self.dataMenuOptions[1].Enable(True)
                 self.dataMenuOptions[5].Enable(True)
-            elif p in ('U', 'YX'):
+            elif p in ('U', 'XY_imag'):
                 self.dataMenuOptions[2].Enable(True)
                 self.dataMenuOptions[6].Enable(True)
             else:
@@ -1947,7 +1996,7 @@ class MainWindow(wx.Frame):
                 del data_products[data_products.index('SpectralKurtosis')]
             except ValueError:
                 pass
-            mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
+            mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
             for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
                 try:
                     ind = data_products.index(exclude)
@@ -2024,7 +2073,7 @@ class MainWindow(wx.Frame):
                 del data_products[data_products.index('SpectralKurtosis')]
             except ValueError:
                 pass
-            mapper = {'XX': 0, 'I': 0, 'XY': 1, 'Q': 1, 'YX': 2, 'U': 2, 'YY': 3, 'V': 3}
+            mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
             for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
                 try:
                     ind = data_products.index(exclude)
@@ -2239,7 +2288,7 @@ class MainWindow(wx.Frame):
         
     def onTuning1product2(self, event):
         """
-        Display tuning 1, data product 1 (XY or Q)
+        Display tuning 1, data product 1 (XY_real or Q)
         """
         
         wx.BeginBusyCursor()
@@ -2254,7 +2303,7 @@ class MainWindow(wx.Frame):
         
     def onTuning1product3(self, event):
         """
-        Display tuning 1, data product 3 (YX or U)
+        Display tuning 1, data product 3 (XY_imag or U)
         """
         
         wx.BeginBusyCursor()
@@ -2299,7 +2348,7 @@ class MainWindow(wx.Frame):
         
     def onTuning2product2(self, event):
         """
-        Display tuning 2, data product 1 (XY or Q)
+        Display tuning 2, data product 1 (XY_real or Q)
         """
         
         wx.BeginBusyCursor()
@@ -2314,7 +2363,7 @@ class MainWindow(wx.Frame):
         
     def onTuning2product3(self, event):
         """
-        Display tuning 2, data product 3 (YX or U)
+        Display tuning 2, data product 3 (XY_imag or U)
         """
         
         wx.BeginBusyCursor()
@@ -3421,7 +3470,7 @@ class WaterfallDisplay(wx.Frame):
         if self.parent.data.linear:
             tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
-            mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+            mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
             tun = self.parent.data.index // 4 + 1
@@ -3602,7 +3651,7 @@ class DriftCurveDisplay(wx.Frame):
         if self.parent.data.linear:
             tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
-            mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+            mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
             tun = self.parent.data.index // 4 + 1
@@ -3788,7 +3837,7 @@ class PowerSpectrumDisplay(wx.Frame):
         if self.parent.data.linear:
             tun = self.parent.data.index // 4 + 1
             ind = self.parent.data.index % 4
-            mapper = {0: 'XX', 1: 'XY', 2: 'YX', 3: 'YY'}
+            mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
             self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
             tun = self.parent.data.index // 4 + 1

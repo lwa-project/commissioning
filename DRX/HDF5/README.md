@@ -55,7 +55,7 @@ Given an HDF5 file containing linear polarization products, compute the related
 Stokes parameters and save the results to a new file.  The combinations supported
 are:
   * XX and YY -> I and Q
-  * XY and YX -> U and V
+  * XY_real and XY_imag -> U and V
 
 stokes2linear.py
 ----------------
@@ -63,10 +63,9 @@ Given an HDF5 file containing Stokes parameters, compute the related linear
 polarization products and save the results to a new file.  The combinations supported
 are:
   * I and Q -> XX and YY
-  * U and V -> XY and YX
+  * U and V -> XY_real and XY_imag
 
 plotHDF.py
 ----------
 Version of plotWaterfall.py for viewing HDF5 files created by hdfWaterfall.py and
 drspec2hdf.py.  This viewer supports all linear and Stokes data products.
-

@@ -23,9 +23,9 @@ except ImportError:
     adpReady = False
 
 
-__version__ = "0.6"
-__all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF', 
-           'getObservationSet', 'createDataSets', 'get_data_set']
+__version__ = "0.7"
+__all__ = ['create_new_file', 'fill_minimum', 'fill_from_metabundle', 'fill_from_sdf', 
+           'get_observation_set', 'create_observation_set', 'get_time', 'get_data_set']
 
 
 def _valuetoDelay(value):
@@ -108,7 +108,7 @@ class HDFFileWrapper(h5py.File):
         _open_hdf_files.remove(self)
 
 
-def createNewFile(filename):
+def create_new_file(filename):
     """
     Create a new HDF5 and return the handle for it.  This sets up all of 
     the required attributes and groups and fills them with dummy values.
@@ -139,14 +139,14 @@ def createNewFile(filename):
     return f
 
 
-def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
+def fill_minimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
     """
     Minimum metadata filling for a particular observation.
     """
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv'):
+        if station in ('lwa1', 'lwasv', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
@@ -184,7 +184,7 @@ def fillMinimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
     return True
 
 
-def fillFromMetabundle(f, tarball):
+def fill_from_metabundle(f, tarball):
     """
     Fill in a HDF5 file based off an input metadata file.
     """
@@ -289,6 +289,9 @@ def fillFromMetabundle(f, tarball):
                 if station == 'lwasv':
                     nstand = 256
                     label_base = 'ADP'
+                elif station == 'ovrolwa':
+                    nstand = 352
+                    label_base = 'OVR'
                     
                 cbfg = grp.create_group('CustomBeamforming')
                 dlys = cbfg.create_dataset('Delays', (len(obsD['steps']), nstand*2+1), 'f4')
@@ -336,7 +339,7 @@ def fillFromMetabundle(f, tarball):
     return True
 
 
-def fillFromSDF(f, sdfFilename, station=None):
+def fill_from_sdf(f, sdfFilename, station=None):
     """
     Fill in a HDF5 file based off an input session definition file.
     """
@@ -358,7 +361,7 @@ def fillFromSDF(f, sdfFilename, station=None):
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv'):
+        if station in ('lwa1', 'lwasv', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
@@ -437,6 +440,9 @@ def fillFromSDF(f, sdfFilename, station=None):
                 if station == 'lwasv':
                     nstand = 256
                     label_base = 'ADP'
+                elif station == 'ovrolwa':
+                    nstand = 352
+                    label_base = 'OVR'
                     
                 cbfg = grp.create_group('CustomBeamforming')
                 dlys = cbfg.create_dataset('Delays', (len(obsS.steps), nstand*2+1), 'f4')
@@ -484,7 +490,7 @@ def fillFromSDF(f, sdfFilename, station=None):
     return True
 
 
-def getObservationSet(f, observation):
+def get_observation_set(f, observation):
     """
     Return a reference to the specified observation.
     """
@@ -497,7 +503,7 @@ def getObservationSet(f, observation):
     return obs
 
 
-def createDataSets(f, observation, tuning, frequency, chunks, data_products=['XX', 'YY']):
+def create_observation_set(f, observation, tuning, frequency, chunks, data_products=['XX', 'YY']):
     """
     Fill in a tuning group with the right set of dummy data sets and 
     attributes.
@@ -533,6 +539,13 @@ def createDataSets(f, observation, tuning, frequency, chunks, data_products=['XX
         obs.attrs['RBW'] = -1.0
         obs.attrs['RBW_Units'] = 'Hz'
         
+    # Add the dataset that stores time as a two-element quantity
+    if 'time' not in obs:
+        d = obs.create_dataset('time', (chunks,), dtype=numpy.dtype({"names": ["int", "frac"],
+                                                                     "formats": ["i8", "f8"]}))
+        d.attrs['format'] = 'unix'
+        d.attrs['scale'] = 'utc'
+        
     # Get the group or create it if it doesn't exist
     grp = obs.get('Tuning%i' % tuning, None)
     if grp is None:
@@ -551,11 +564,34 @@ def createDataSets(f, observation, tuning, frequency, chunks, data_products=['XX
     return True
 
 
+def get_time(f, observation):
+    """
+    Return a reference to the time data set for the specified observation.
+    """
+    
+    # Get the observation
+    obs = f.get('/Observation%i' % observation, None)
+    if obs is None:
+        raise RuntimeError('No such observation: %i' % observation)
+        
+    # Get the data set
+    try:
+        d = obs['time']
+    except:
+        raise RuntimeError("Unknown data set for Observation %i: %s" % (observation, 'time'))
+        
+    return d
+
+
 def get_data_set(f, observation, tuning, dataProduct):
     """
     Return a reference to the specified data set.
     """
     
+    # Catch 'time' and redirect it to get_time
+    if dataProduct == 'time':
+        return get_time(f, observation)
+        
     # Get the observation
     obs = f.get('/Observation%i' % observation, None)
     if obs is None:
