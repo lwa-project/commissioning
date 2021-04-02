@@ -23,7 +23,7 @@ except ImportError:
     adpReady = False
 
 
-__version__ = "0.7"
+__version__ = "0.8"
 __all__ = ['create_new_file', 'fill_minimum', 'fill_from_metabundle', 'fill_from_sdf', 
            'get_observation_set', 'create_observation_set', 'get_time', 'get_data_set']
 
@@ -220,7 +220,7 @@ def fill_from_metabundle(f, tarball):
     try:
         arx = mbParser.get_asp_configuration_summary(tarball)
     except:
-        arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
+        arx = {'asp_filter': -1, 'asp_atten_1': -1, 'asp_atten_2': -1, 'asp_atten_split': -1}
         
     for i,obsS in enumerate(project.sessions[0].observations):
         # Detailed observation information
@@ -234,32 +234,32 @@ def fill_from_metabundle(f, tarball):
         # Target info.
         grp.attrs['ObservationName'] = obsS.name
         grp.attrs['TargetName'] = obsS.target
-        grp.attrs['RA'] = obsD['RA']
+        grp.attrs['RA'] = obsD['ra']
         grp.attrs['RA_Units'] = 'hours'
-        grp.attrs['Dec'] = obsD['Dec']
+        grp.attrs['Dec'] = obsD['dec']
         grp.attrs['Dec_Units'] = 'degrees'
         grp.attrs['Epoch'] = 2000.0
-        grp.attrs['TrackingMode'] = mcs.mode_to_string(obsD['Mode'])
+        grp.attrs['TrackingMode'] = mcs.mode_to_string(obsD['mode'])
         
         # Observation info
-        grp.attrs['ARX_Filter'] = arx['filter']
-        grp.attrs['ARX_Gain1'] = arx['at1']
-        grp.attrs['ARX_Gain2'] = arx['at2']
-        grp.attrs['ARX_GainS'] = arx['atsplit']
-        grp.attrs['Beam'] = obsD['drxBeam']
-        grp.attrs['DRX_Gain'] = obsD['drxGain']
-        grp.attrs['sampleRate'] = float(FILTER_CODES[obsD['BW']])
+        grp.attrs['ARX_Filter'] = arx['asp_filter']
+        grp.attrs['ARX_Gain1'] = arx['asp_atten_1']
+        grp.attrs['ARX_Gain2'] = arx['asp_atten_2']
+        grp.attrs['ARX_GainS'] = arx['asp_atten_split']
+        grp.attrs['Beam'] = obsD['drx_geam']
+        grp.attrs['DRX_Gain'] = obsD['drx_gain']
+        grp.attrs['sampleRate'] = float(FILTER_CODES[obsD['bw']])
         grp.attrs['sampleRate_Units'] = 'samples/s'
         
         # Deal with stepped mode
-        if mcs.mode_to_string(obsD['Mode']) == 'STEPPED':
+        if mcs.mode_to_string(obsD['mode']) == 'STEPPED':
             stps = grp.create_group('Pointing')
-            stps.attrs['StepType'] = 'RA/Dec' if obsD['StepRADec'] else 'Az/Alt'
+            stps.attrs['StepType'] = 'RA/Dec' if obsD['is_radec'] else 'Az/Alt'
             stps.attrs['col0'] = 'StartTime'
             stps.attrs['col0_Unit'] = 's'
-            stps.attrs['col1'] = 'RA' if obsD['StepRADec'] else 'Azimuth'
-            stps.attrs['col1_Unit'] = 'h' if obsD['StepRADec'] else 'd'
-            stps.attrs['col2'] = 'Dec' if obsD['StepRADec'] else 'Elevation'
+            stps.attrs['col1'] = 'RA' if obsD['is_radec'] else 'Azimuth'
+            stps.attrs['col1_Unit'] = 'h' if obsD['is_radec'] else 'd'
+            stps.attrs['col2'] = 'Dec' if obsD['is_radec'] else 'Elevation'
             stps.attrs['col2_Unit'] = 'd'
             stps.attrs['col3'] = 'Tuning1'
             stps.attrs['col3_Unit'] = 'Hz'
@@ -268,7 +268,7 @@ def fill_from_metabundle(f, tarball):
         
             # Extract the data for the steps
             data = numpy.zeros((len(obsD['steps']), 5))
-            t = obsD['MJD']*86400.0 + obsD['MPM']/1000.0 - 3506716800.0
+            t = obsD['mjd']*86400.0 + obsD['mpm']/1000.0 - 3506716800.0
             for i,s in enumerate(obsD['steps']):
                 data[i,0] = t
                 data[i,1] = s.OBS_STP_C1
@@ -303,7 +303,7 @@ def fill_from_metabundle(f, tarball):
                     
                 # Extract the delays
                 dataD = numpy.zeros((len(obsD['steps']), 2*nstand+1))
-                t = obsD['MJD']*86400.0 + obsD['MPM']/1000.0 - 3506716800.0
+                t = obsD['mjd']*86400.0 + obsD['mpm']/1000.0 - 3506716800.0
                 for i,s in enumerate(obsD['steps']):
                     dataD[i,0] = t
                     for j in xrange(2*nstand):
@@ -370,11 +370,11 @@ def fill_from_sdf(f, sdfFilename, station=None):
     f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
     
     # ARX configuration summary
-    arx = {'filter': -1, 'at1': -1, 'at2': -1, 'atsplit': -1}
-    arx['filter'] = numpy.median( project.sessions[0].observations[0].aspFlt )
-    arx['at1'] = numpy.median( project.sessions[0].observations[0].aspAT1 )
-    arx['at2'] = numpy.median( project.sessions[0].observations[0].aspAT2 )
-    arx['atsplit'] = numpy.median( project.sessions[0].observations[0].aspATS )
+    arx = {'asp_filter': -1, 'asp_atten_1': -1, 'asp_atten_2': -1, 'asp_atten_split': -1}
+    arx['asp_filter'] = numpy.median( project.sessions[0].observations[0].asp_filter )
+    arx['asp_atten_1'] = numpy.median( project.sessions[0].observations[0].asp_atten_1 )
+    arx['asp_atten_2'] = numpy.median( project.sessions[0].observations[0].asp_atten_2 )
+    arx['asp_atten_split'] = numpy.median( project.sessions[0].observations[0].asp_atten_split )
     
     for i,obsS in enumerate(project.sessions[0].observations):
         # Get the group or create it if it doesn't exist
@@ -393,10 +393,10 @@ def fill_from_sdf(f, sdfFilename, station=None):
         grp.attrs['TrackingMode'] = obsS.mode
         
         # Observation info
-        grp.attrs['ARX_Filter'] = arx['filter']
-        grp.attrs['ARX_Gain1'] = arx['at1']
-        grp.attrs['ARX_Gain2'] = arx['at2']
-        grp.attrs['ARX_GainS'] = arx['atsplit']
+        grp.attrs['ARX_Filter'] = arx['asp_filter']
+        grp.attrs['ARX_Gain1'] = arx['asp_atten_1']
+        grp.attrs['ARX_Gain2'] = arx['asp_atten_2']
+        grp.attrs['ARX_GainS'] = arx['asp_atten_split']
         grp.attrs['Beam'] = project.sessions[0].drx_beam
         grp.attrs['DRX_Gain'] = obsS.gain
         grp.attrs['sampleRate'] = float(FILTER_CODES[obsS.filter])
