@@ -246,7 +246,7 @@ def fill_from_metabundle(f, tarball):
         grp.attrs['ARX_Gain1'] = arx['asp_atten_1']
         grp.attrs['ARX_Gain2'] = arx['asp_atten_2']
         grp.attrs['ARX_GainS'] = arx['asp_atten_split']
-        grp.attrs['Beam'] = obsD['drx_geam']
+        grp.attrs['Beam'] = obsD['drx_beam']
         grp.attrs['DRX_Gain'] = obsD['drx_gain']
         grp.attrs['sampleRate'] = float(FILTER_CODES[obsD['bw']])
         grp.attrs['sampleRate_Units'] = 'samples/s'
