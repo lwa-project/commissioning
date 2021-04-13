@@ -325,8 +325,16 @@ class Waterfall_GUI(object):
         self.time  = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
         obs['time'].read_direct(self.time)
         try:
-            if obs['time'].attrs['format'] != 'unix' or obs['time'].attrs['scale'] != 'utc':
-                self.time = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.time]
+            fmt = obs['time'].attrs['format']
+            scl = obs['time'].attrs['scale']
+            try:
+                fmt = fmt.decode()
+                scl = scl.decode()
+            except AttributeError:
+                pass
+                
+            if fmt != 'unix' or scl != 'utc':
+                self.time = [AstroTime(*t, format=fmt, scale=scl) for t in self.time]
                 self.time = [t.utc.unix for t in self.time]
                 self.time = numpy.array(self.time)
                 
@@ -455,8 +463,16 @@ class Waterfall_GUI(object):
         self.timesNPZRestricted = numpy.zeros(self.spec.shape[0], dtype=obs['time'].dtype)
         obs['time'].read_direct(self.timesNPZRestricted, numpy.s_[self.iOffset:self.iOffset+self.iDuration])
         try:
-            if obs['time'].attrs['format'] != 'unix' or obs['time'].attrs['scale'] != 'utc':
-                self.timesNPZ = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.timesNPZ]
+            fmt = obs['time'].attrs['format']
+            scl = obs['time'].attrs['scale']
+            try:
+                fmt = fmt.decode()
+                scl = scl.decode()
+            except AttributeError:
+                pass
+                
+            if fmt != 'unix' or scl != 'utc':
+                self.timesNPZ = [AstroTime(*t, format=fmt, scale=scl) for t in self.timesNPZ]
                 self.timesNPZ = [t.utc.unix for t in self.timesNPZ]
                 self.timesNPZ = numpy.array(self.timesNPZ)
                 
