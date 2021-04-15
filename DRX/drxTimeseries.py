@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 
 def main(args):
     fh = open(args.filename, "rb")
-    nFramesFile = os.path.getsize(args.filename) / drx.FRAME_SIZE
+    nFramesFile = os.path.getsize(args.filename) // drx.FRAME_SIZE
     
     while True:
         try:
@@ -111,7 +111,7 @@ def main(args):
     print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * 4096 / srate))
     print("---")
     print("Offset: %.3f s (%i frames)" % (args.skip, offset))
-    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.plot_range, nFrames, nFrames / beampols))
+    print("Plot time: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.plot_range, nFrames, nFrames // beampols))
     print("Chunks: %i" % nChunks)
 
     # Sanity check
@@ -141,8 +141,8 @@ def main(args):
         print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
-        tt = numpy.zeros((beampols,framesWork/beampols), dtype=numpy.int64) - 1
-        data = numpy.zeros((beampols,framesWork*4096/beampols), dtype=numpy.csingle)
+        tt = numpy.zeros((beampols,framesWork//beampols), dtype=numpy.int64) - 1
+        data = numpy.zeros((beampols,framesWork*4096//beampols), dtype=numpy.csingle)
         
         # Inner loop that actually reads the frames into the data array
         print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
@@ -155,7 +155,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/drx.FRAME_SIZE-1))
+                #print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())//drx.FRAME_SIZE-1))
                 continue
                 
             beam,tune,pol = cFrame.id
@@ -173,7 +173,7 @@ def main(args):
         # The plots:  This is setup for the current configuration of 20 beampols
         fig = plt.figure()
         figsX = int(round(math.sqrt(beampols)))
-        figsY = beampols / figsX
+        figsY = beampols // figsX
 
         samples = int(oldAverage * srate)
         if toClip:
@@ -200,10 +200,10 @@ def main(args):
 
             if args.mark_frames:
                 for j in xrange(0, samples-4096, 4096):
-                    ax.vlines(float(j)/srate, limits[0], limits[1], color='k', label='%i' % tt[i,j/4096])
+                    ax.vlines(float(j)/srate, limits[0], limits[1], color='k', label='%i' % tt[i,j//4096])
 
             ax.set_ylim(limits)
-            ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i/2+1,i%2))
+            ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i//2+1,i%2))
             ax.set_xlabel('Time [seconds]')
             if args.instantaneous_power:
                 ax.set_ylabel('I$^2$ + Q$^2$')
