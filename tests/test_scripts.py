@@ -56,7 +56,8 @@ _SAFE_TO_IGNORE = ["Possible",
                    "No name 'triang' in module 'scipy.signal'",
                    "No name 'erf' in module 'scipy.special'",
                    "Value 'self.filenames' is unsubscriptable",
-                   "Value 'self.data.filenames' is unsubscriptable"]
+                   "Value 'self.data.filenames' is unsubscriptable",
+                   "Argument '.ndarray' does not match format type"]
 
 
 def _get_context(filename, line, before=0, after=0):
