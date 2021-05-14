@@ -518,9 +518,9 @@ class Waterfall_GUI(object):
         # Find the mean spectra
         print(" %6.3f s - Computing mean spectra" % (time.time() - tStart))
         try:
-            from _helper import FastAxis0Mean
-            self.mean = FastAxis0Mean(self.spec)
-            self.meanBandpass = FastAxis0Mean(self.specBandpass)
+            from _helper import FastAxis1Mean
+            self.mean = FastAxis1Mean(self.spec)
+            self.meanBandpass = FastAxis1Mean(self.specBandpass)
         except ImportError:
             self.mean = numpy.mean(self.spec, axis=1)
             self.meanBandpass = numpy.mean(self.specBandpass, axis=1)
@@ -531,9 +531,9 @@ class Waterfall_GUI(object):
         self.limitsBandpass = [None,]*self.spec.shape[0]
         
         try:
-            from _helper import FastAxis1MinMax
-            limits0 = FastAxis1MinMax(self.spec)
-            limits1 = FastAxis1MinMax(self.specBandpass, chanMin=self.spec.shape[2]//10, chanMax=9*self.spec.shape[2]//10)
+            from _helper import FastAxis0MinMax
+            limits0 = FastAxis0MinMax(self.spec)
+            limits1 = FastAxis0MinMax(self.specBandpass, chanMin=self.spec.shape[2]//10, chanMax=9*self.spec.shape[2]//10)
             if self.usedB:
                 limits0 = to_dB(limits0)
                 limits1 = to_dB(limits1)
@@ -587,8 +587,8 @@ class Waterfall_GUI(object):
         """
         
         try:
-            from _helper import FastAxis0Median
-            meanSpec = FastAxis0Median(self.spec)
+            from _helper import FastAxis1Median
+            meanSpec = FastAxis1Median(self.spec)
         except ImportError:
             meanSpec = numpy.median(self.spec, axis=1)
             
@@ -612,8 +612,8 @@ class Waterfall_GUI(object):
         bpm2 = numpy.array(bpm2)
         self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
         try:
-            from _helper import FastAxis0Bandpass
-            FastAxis0Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
+            from _helper import FastAxis1Bandpass
+            FastAxis1Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
         except ImportError:
             for i in xrange(self.spec.shape[0]):
                 self.specBandpass.data[i,:,:] = self.spec.data[i,:,:] / bpm2[i]
@@ -717,8 +717,8 @@ class Waterfall_GUI(object):
         bpm2 = numpy.array(bpm2)
         self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
         try:
-            from _helper import FastAxis0Bandpass
-            FastAxis0Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
+            from _helper import FastAxis1Bandpass
+            FastAxis1Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
         except ImportError:
             for i in xrange(self.spec.shape[0]):
                 self.specBandpass.data[i,:,:] = self.spec.data[i,:,:] / bpm2[i]
@@ -2181,11 +2181,11 @@ class MainWindow(wx.Frame):
         toUse = numpy.arange(self.data.spec.shape[2]//10, 9*self.data.spec.shape[2]//10)
         
         try:
-            from _helper import FastAxis1Percentiles5And99
+            from _helper import FastAxis0Percentiles5And99
             if self.data.bandpass:
-                self.data.limitsBandpass[i] = list(FastAxis1Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]//10, chanMax=9*self.data.spec.shape[2]//10))
+                self.data.limitsBandpass[i] = list(FastAxis0Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]//10, chanMax=9*self.data.spec.shape[2]//10))
             else:
-                self.data.limits[i] = list(FastAxis1Percentiles5And99(self.data.spec.data, i))
+                self.data.limits[i] = list(FastAxis0Percentiles5And99(self.data.spec.data, i))
         except ImportError:
             if self.data.bandpass:
                 self.data.limitsBandpass[i] = [percentile(self.data.specBandpass[i,:,toUse].ravel(), 5), percentile(self.data.specBandpass[i,:,toUse].ravel(), 99)] 
