@@ -9,7 +9,7 @@
 	
 	// OpenMP scheduling method
 	#ifndef OMP_SCHEDULER
-	#define OMP_SCHEDULER dynamic
+	#define OMP_SCHEDULER static
 	#endif
 #endif
 
@@ -58,12 +58,12 @@ static PyObject *FastAxis1Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Pointers
 	float *a, *b;
-	double tempV;
+	float tempV;
 	a = (float *) PyArray_DATA(data);
 	b = (float *) PyArray_DATA(dataF);
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, jk, tempV, jPrime)
+		#pragma omp parallel default(shared) private(i, j, k, ik, tempV, jPrime)
 	#endif
 	{
 		#ifdef _OPENMP
@@ -78,17 +78,17 @@ static PyObject *FastAxis1Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 			jPrime = 0;
 			for(j=0; j<nSamps; j++) {
 				if( IS_NOT_NAN(*(a + nSamps*nChans*i + nChans*j + k)) ) {
-					tempV += (double) *(a + nSamps*nChans*i + nChans*j + k);
+					tempV += (float) *(a + nSamps*nChans*i + nChans*j + k);
 					jPrime++;
 				}
 			}
 			
 			if( jPrime > 0 ) {
-				tempV /= (double) jPrime;
+				tempV /= (float) jPrime;
 			} else {
 				tempV = 1.0;
 			}
-			*(b + nChans*i + k) = (float) tempV;
+			*(b + nChans*i + k) = tempV;
 		}
 	}
 	
