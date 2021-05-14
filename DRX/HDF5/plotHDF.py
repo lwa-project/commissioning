@@ -61,15 +61,6 @@ else:
     AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
 
 
-
-def findMean(data):
-    """
-    Tiny function to return the mean along the first axis.
-    """
-    
-    return numpy.mean(data, axis=0)
-
-
 def findLimits(data, usedB=True):
     """
     Tiny function to speed up the computing of the data range for the colorbar.
@@ -694,9 +685,9 @@ class Waterfall_GUI(object):
             except KeyError:
                 self._bpCache[('ARX', freq[0], freq[-1], freq.size)] = getARXResponse(freq, filter=self.arxFilter)
                 rARXX, rARXY = self._bpCache[('ARX', freq[0], freq[-1], freq.size)]
-            if self.linear and i % (self.spec.shape[1]//2) == 0:
+            if self.linear and i % (self.spec.shape[0]//2) == 0:
                 rARX = rARXX
-            elif self.linear and i % (self.spec.shape[1]//2) == 3:
+            elif self.linear and i % (self.spec.shape[0]//2) == 3:
                 rARX = rARXY
             else:
                 rARX = 0.5*rARXX + 0.5*rARXY
@@ -2453,7 +2444,7 @@ class MainWindow(wx.Frame):
         wx.BeginBusyCursor()
         wx.Yield()
         
-        for i in xrange(self.data.spec.shape[1]):
+        for i in xrange(self.data.spec.shape[0]):
             self.data.suggestMask(i)
             
         self.data.draw()
@@ -2486,7 +2477,7 @@ class MainWindow(wx.Frame):
         wx.BeginBusyCursor()
         wx.Yield()
         
-        for i in xrange(self.data.spec.shape[1]):
+        for i in xrange(self.data.spec.shape[0]):
             self.data.resetMask(i)
         
         self.data.draw()
@@ -2561,7 +2552,7 @@ class MainWindow(wx.Frame):
         beam = self.data.beam
         srate, sunit = bestFreqUnits(self.data.srate)
         tInt = self.data.tInt
-        nInt = self.data.spec.shape[0]
+        nInt = self.data.spec.shape[1]
         isAggregate = False if self.data.filenames is None else True
         tIntOrg = self.data.tIntOriginal
         tIntAct = self.data.tIntActual
@@ -3359,7 +3350,7 @@ class MaskingAdjust(wx.Frame):
             self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
         
     def onDCCIncrease(self, event):
-        if self.parent.data.driftOrder < numpy.ceil(self.parent.data.spec.shape[0]/300):
+        if self.parent.data.driftOrder < numpy.ceil(self.parent.data.spec.shape[1]/300):
             self.parent.data.driftCut += 1
             self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
             
@@ -3445,7 +3436,7 @@ class WaterfallDisplay(wx.Frame):
         once for this type of window.
         """
 
-        if self.parent.data.index // (self.parent.data.spec.shape[1]//2) == 0:
+        if self.parent.data.index // (self.parent.data.spec.shape[0]//2) == 0:
             freq = self.parent.data.freq1
         else:
             freq = self.parent.data.freq2
@@ -3512,7 +3503,7 @@ class WaterfallDisplay(wx.Frame):
         as the stand number of the selected stand (if any).
         """
 
-        if self.parent.data.index // (self.parent.data.spec.shape[1]//2) == 0:
+        if self.parent.data.index // (self.parent.data.spec.shape[0]//2) == 0:
             freq = self.parent.data.freq1
         else:
             freq = self.parent.data.freq2
