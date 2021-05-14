@@ -77,7 +77,7 @@ def downsample_waterfall(image, mode='mean'):
     # Actually downsample
     sx = (image.shape[1] // downsample_factor_time) * downsample_factor_time
     sy = (image.shape[2] // downsample_factor_freq) * downsample_factor_freq
-    if (image.shape[0] != sx and sx > 100) or image.shape[1] != sy:
+    if (image.shape[1] != sx and sx > 100) or image.shape[2] != sy:
         image = image[:,:sx,:sy]
         
     # Downsample as needed
