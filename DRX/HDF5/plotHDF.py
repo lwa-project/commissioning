@@ -61,6 +61,45 @@ else:
     AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
 
 
+def downsample_waterfall(image, mode='mean'):
+    # Figure out how much to downsample in time.  We want at most 1,024 time in
+    # the output.
+    downsample_factor_time = 1
+    while image.shape[1] // downsample_factor_time > 1024:
+        downsample_factor_time += 1
+        
+    # Figure out how much to downsample in frequency.  We want at most 1,024
+    # channels in the output.
+    downsample_factor_freq = 1
+    while image.shape[2] // downsample_factor_freq > 1024:
+        downsample_factor_freq += 1
+        
+    # Actually downsample
+    sx = (image.shape[1] // downsample_factor_time) * downsample_factor_time
+    sy = (image.shape[2] // downsample_factor_freq) * downsample_factor_freq
+    if (image.shape[0] != sx and sx > 100) or image.shape[1] != sy:
+        image = image[:,:sx,:sy]
+        
+    # Downsample as needed
+    bx = image.shape[1] // downsample_factor_time
+    by = image.shape[2] // downsample_factor_freq
+    image = image.reshape((-1, bx, downsample_factor_time, by, downsample_factor_freq))
+    mimage = image.mean(axis=4).mean(axis=2)
+    if mode == 'mean':
+        ## Block mean
+        image = mimage
+    elif mode == 'mad':
+        ## Block maximum absolute deviation (block max or min, depending on
+        ## which is farthest from the block mean)
+        limage = image.mean(axis=4).min(axis=2)
+        uimage = image.mean(axis=4).max(axis=2)
+        image = numpy.where(uimage-mimage > mimage-limage, uimage, limage)
+    else:
+        ValueError("Unknown mode '%s'" % mode)
+        
+    return image
+
+
 def findLimits(data, usedB=True):
     """
     Tiny function to speed up the computing of the data range for the colorbar.
@@ -538,6 +577,13 @@ class Waterfall_GUI(object):
             for i in xrange(self.spec.shape[0]):
                 self.limitsBandpass[i] = findLimits(self.specBandpass[i,:,toUse], usedB=self.usedB)
                 
+        # Create the downsampled waterfalls for display 
+        #print(" %6.3f s - Creating downsampled waterfalls" % (time.time() - tStart))
+        #self.specWF = downsample_waterfall(self.spec, mode='mad')
+        #self.specBandpassWF = downsample_waterfall(self.specBandpass, mode='mad')
+        self.specWF = self.spec
+        self.specBandpassWF = self.specBandpass
+        
         try:
             self.disconnect()
         except:
@@ -729,15 +775,17 @@ class Waterfall_GUI(object):
         if self.bandpass:
             spec = self.specBandpass
             limits = self.limitsBandpass
+            wf = self.specBandpassWF
         else:
             spec = self.spec
             limits = self.limits
-        
+            wf = self.specWF
+            
         # Plot 1(a) - Waterfall
         self.frame.figure1a.clf()
         self.ax1a = self.frame.figure1a.gca()
         if self.usedB:
-            m = self.ax1a.imshow(to_dB(spec[self.index,:,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
+            m = self.ax1a.imshow(to_dB(wf[self.index,:,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
             try:
                 cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
             except:
@@ -746,7 +794,7 @@ class Waterfall_GUI(object):
                 cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
             cm.ax.set_ylabel('PSD [arb. dB]')
         else:
-            m = self.ax1a.imshow(spec[self.index,:,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
+            m = self.ax1a.imshow(wf[self.index,:,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
             try:
                 cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
             except TypeError:
@@ -1401,7 +1449,7 @@ class Waterfall_GUI(object):
                 else:
                     dec = ephem.degrees(self.dec*numpy.pi/180.0)
                 mode = self.mode
-        
+                
                 rbw = self.rbw
                 rbwu = self.rbwUnit
                 
@@ -1436,7 +1484,7 @@ class Waterfall_GUI(object):
                 fh.write("#                                           #\n")
                 fh.write("#############################################\n")
                 for i in xrange(freq.size):
-                    fh.write("%13.5f  %13.6f  %13s\n" % (freq[i], spec.data[dataY,self.index,i], spec.mask[dataY,self.index,i]))
+                    fh.write("%13.5f  %13.6f  %13s\n" % (freq[i], spec.data[self.index,dataY,i], spec.mask[self.index,dataY,i]))
                 fh.close()
                 
                 print("===")
@@ -1446,7 +1494,7 @@ class Waterfall_GUI(object):
                 print("Masking %.3f MHz" % (freq[dataX]/1e6,))
                 
                 self.spec.mask[self.index, :, dataX] = True
-                self.specBandpass.mask[self.index, m, dataX] = True
+                self.specBandpass.mask[self.index, :, dataX] = True
                 self.freqMask[self.index, dataX] = True
                 
                 self.draw()
@@ -1849,14 +1897,14 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SINH)
         self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_HIST)
         
-        self.Bind(wx.EVT_MENU, self.onTuning1product1, id=ID_TUNING1_1)
-        self.Bind(wx.EVT_MENU, self.onTuning1product2, id=ID_TUNING1_2)
-        self.Bind(wx.EVT_MENU, self.onTuning1product3, id=ID_TUNING1_3)
-        self.Bind(wx.EVT_MENU, self.onTuning1product4, id=ID_TUNING1_4)
-        self.Bind(wx.EVT_MENU, self.onTuning2product1, id=ID_TUNING2_1)
-        self.Bind(wx.EVT_MENU, self.onTuning2product2, id=ID_TUNING2_2)
-        self.Bind(wx.EVT_MENU, self.onTuning2product3, id=ID_TUNING2_3)
-        self.Bind(wx.EVT_MENU, self.onTuning2product4, id=ID_TUNING2_4)
+        self.Bind(wx.EVT_MENU, self.onTuning1Product1, id=ID_TUNING1_1)
+        self.Bind(wx.EVT_MENU, self.onTuning1Product2, id=ID_TUNING1_2)
+        self.Bind(wx.EVT_MENU, self.onTuning1Product3, id=ID_TUNING1_3)
+        self.Bind(wx.EVT_MENU, self.onTuning1Product4, id=ID_TUNING1_4)
+        self.Bind(wx.EVT_MENU, self.onTuning2Product1, id=ID_TUNING2_1)
+        self.Bind(wx.EVT_MENU, self.onTuning2Product2, id=ID_TUNING2_2)
+        self.Bind(wx.EVT_MENU, self.onTuning2Product3, id=ID_TUNING2_3)
+        self.Bind(wx.EVT_MENU, self.onTuning2Product4, id=ID_TUNING2_4)
         self.Bind(wx.EVT_MENU, self.onRangeChange, id=ID_CHANGE_RANGE)
         self.Bind(wx.EVT_MENU, self.onObservationchange, id=ID_CHANGE_OBSID)
         
@@ -2278,7 +2326,7 @@ class MainWindow(wx.Frame):
         """
         Set the colormap to 'jet' and refresh the plots.
         """
-    def onTuning1product1(self, event):
+    def onTuning1Product1(self, event):
         """
         Display tuning 1, data product 1 (XX or I)
         """
@@ -2293,7 +2341,7 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def onTuning1product2(self, event):
+    def onTuning1Product2(self, event):
         """
         Display tuning 1, data product 1 (XY_real or Q)
         """
@@ -2308,7 +2356,7 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def onTuning1product3(self, event):
+    def onTuning1Product3(self, event):
         """
         Display tuning 1, data product 3 (XY_imag or U)
         """
@@ -2323,7 +2371,7 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def onTuning1product4(self, event):
+    def onTuning1Product4(self, event):
         """
         Display tuning 1, data product 4 (YY or V)
         """
@@ -2338,7 +2386,7 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def onTuning2product1(self, event):
+    def onTuning2Product1(self, event):
         """
         Display tuning 2, data product 1 (XX or I)
         """
@@ -2353,7 +2401,7 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def onTuning2product2(self, event):
+    def onTuning2Product2(self, event):
         """
         Display tuning 2, data product 1 (XY_real or Q)
         """
@@ -2368,7 +2416,7 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def onTuning2product3(self, event):
+    def onTuning2Product3(self, event):
         """
         Display tuning 2, data product 3 (XY_imag or U)
         """
@@ -2383,7 +2431,7 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def onTuning2product4(self, event):
+    def onTuning2Product4(self, event):
         """
         Display tuning 2, data product 4 (YY or V)
         """
@@ -2693,8 +2741,8 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
             if self.data.spectrumClick is not None:
                 dataY = int(round(self.data.spectrumClick / self.data.tInt ))
                 
-                self.data.spec.mask[dataY, self.data.index, :] = True
-                self.data.specBandpass.mask[dataY, self.data.index, :] = True
+                self.data.spec.mask[self.data.index, dataY, :] = True
+                self.data.specBandpass.mask[self.data.index, dataY, :] = True
                 self.data.timeMask[self.data.index, dataY] = True
                 
                 self.data.draw()
@@ -2707,8 +2755,8 @@ Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames)
             if self.data.spectrumClick is not None:
                 dataY = int(round(self.data.spectrumClick / self.data.tInt ))
                 
-                self.data.spec.mask[dataY, self.data.index, :] = self.data.freqMask[self.data.index,:]
-                self.data.specBandpass.mask[dataY, self.data.index, :] = self.data.freqMask[self.data.index,:]
+                self.data.spec.mask[self.data.index, dataY, :] = self.data.freqMask[self.data.index,:]
+                self.data.specBandpass.mask[self.data.index, dataY, :] = self.data.freqMask[self.data.index,:]
                 self.data.timeMask[self.data.index, dataY] = False
                 
                 self.data.draw()
