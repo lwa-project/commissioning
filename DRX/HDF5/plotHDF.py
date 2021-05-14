@@ -1217,8 +1217,8 @@ class Waterfall_GUI(object):
                 ## Unmask
                 print("Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
                 
-                self.spec.mask[best, self.index, :] = self.freqMask[self.index,:]
-                self.specBandpass.mask[best, self.index, :] = self.freqMask[self.index,:]
+                self.spec.mask[self.index, best, :] = self.freqMask[self.index,:]
+                self.specBandpass.mask[self.index, best, :] = self.freqMask[self.index,:]
                 self.timeMask[self.index, best] = False
                 
                 self.draw()
@@ -1231,8 +1231,8 @@ class Waterfall_GUI(object):
                 ## Mask
                 print("Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
                 
-                self.spec.mask[best, self.index, :] = True
-                self.specBandpass.mask[best, self.index, :] = True
+                self.spec.mask[self.index, best, :] = True
+                self.specBandpass.mask[self.index, best, :] = True
                 self.timeMask[self.index, best] = True
                 
                 self.draw()
@@ -1445,8 +1445,8 @@ class Waterfall_GUI(object):
                 ## Mask
                 print("Masking %.3f MHz" % (freq[dataX]/1e6,))
                 
-                self.spec.mask[:, self.index, dataX] = True
-                self.specBandpass.mask[:, self.index, dataX] = True
+                self.spec.mask[self.index, :, dataX] = True
+                self.specBandpass.mask[self.index, m, dataX] = True
                 self.freqMask[self.index, dataX] = True
                 
                 self.draw()
@@ -1459,8 +1459,8 @@ class Waterfall_GUI(object):
                 ## Unmask
                 print("Unmasking %.3f MHz" % (freq[dataX]/1e6,))
                 
-                self.spec.mask[:, self.index, dataX] = self.timeMask[self.index,:]
-                self.specBandpass.mask[:, self.index, dataX] = self.timeMask[self.index,:]
+                self.spec.mask[self.index, :, dataX] = self.timeMask[self.index,:]
+                self.specBandpass.mask[self.index, :, dataX] = self.timeMask[self.index,:]
                 self.freqMask[self.index, dataX] = False
                 
                 self.draw()
