@@ -18,11 +18,14 @@
 #include "py3_compat.h"
 
 
-static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
+#define IS_NOT_NAN(X) (X == X)
+
+
+static PyObject *FastAxis1Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data=NULL, *dataF=NULL;
 	
-	long i, j, k, jk, nStand, nSamps, nChans, iPrime;
+	long i, j, k, ik, nStand, nSamps, nChans, jPrime;
 	
 	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -37,8 +40,8 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	}
 	
 	// Get the properties of the data
-	nSamps = (long) PyArray_DIM(data, 0);
-	nStand = (long) PyArray_DIM(data, 1);
+	nStand = (long) PyArray_DIM(data, 0);
+	nSamps = (long) PyArray_DIM(data, 1);
 	nChans = (long) PyArray_DIM(data, 2);
 	
 	// Find out how large the output array needs to be and initialize it
@@ -55,37 +58,37 @@ static PyObject *FastAxis0Mean(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Pointers
 	float *a, *b;
-	float tempV;
+	double tempV;
 	a = (float *) PyArray_DATA(data);
 	b = (float *) PyArray_DATA(dataF);
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, jk, tempV, iPrime)
+		#pragma omp parallel default(shared) private(i, j, k, jk, tempV, jPrime)
 	#endif
 	{
 		#ifdef _OPENMP
 			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
-		for(jk=0; jk<nStand*nChans; jk++) {
-			j = jk / nChans;
-			k = jk % nChans;
+		for(ik=0; ik<nStand*nChans; ik++) {
+			i = ik / nChans;
+			k = ik % nChans;
 			
 			tempV = 0.0;
 			
-			iPrime = 0;
-			for(i=0; i<nSamps; i++) {
-				if( *(a + nStand*nChans*i + nChans*j + k) == *(a + nStand*nChans*i + nChans*j + k) ) {
-					tempV += (float) *(a + nStand*nChans*i + nChans*j + k);
-					iPrime++;
+			jPrime = 0;
+			for(j=0; j<nSamps; j++) {
+				if( IS_NOT_NAN(*(a + nSamps*nChans*i + nChans*j + k)) ) {
+					tempV += (double) *(a + nSamps*nChans*i + nChans*j + k);
+					jPrime++;
 				}
 			}
 			
-			if( iPrime > 0 ) {
-				tempV /= (float) iPrime;
+			if( jPrime > 0 ) {
+				tempV /= (double) jPrime;
 			} else {
 				tempV = 1.0;
 			}
-			*(b + nChans*j + k) = tempV;
+			*(b + nChans*i + k) = (float) tempV;
 		}
 	}
 	
@@ -105,11 +108,11 @@ fail:
 	return NULL;
 }
 
-PyDoc_STRVAR(FastAxis0Mean_doc, \
-"Given a 3-D numpy.float32 array, compute the mean along the zeroth axis\n\
+PyDoc_STRVAR(FastAxis1Mean_doc, \
+"Given a 3-D numpy.float32 array, compute the mean along the first axis\n\
 \n\
 Input arguments are:\n\
- * spectra: 3-D numpy.float32 (time by stands by channels) array of data\n\
+ * spectra: 3-D numpy.float32 (stands by time by channels) array of data\n\
 \n\
 Input keywords are:\n\
  None\n\
@@ -119,7 +122,7 @@ Outputs:\n\
 ");
 
 
-static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds) {
+static PyObject *FastAxis0MinMax(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data=NULL, *dataF=NULL;
 	
@@ -142,8 +145,8 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 	}
 	
 	// Get the properties of the data
-	nSamps = (long) PyArray_DIM(data, 0);
-	nStand = (long) PyArray_DIM(data, 1);
+	nStand = (long) PyArray_DIM(data, 0);
+	nSamps = (long) PyArray_DIM(data, 1);
 	nChans = (long) PyArray_DIM(data, 2);
 	if( chanMax < chanMin ) {
 		chanMax = nChans;
@@ -174,22 +177,22 @@ static PyObject *FastAxis1MinMax(PyObject *self, PyObject *args, PyObject *kwds)
 		#ifdef _OPENMP
 			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
-		for(j=0; j<nStand; j++) {
+		for(i=0; i<nStand; i++) {
 			tempMin = 1e200;
 			tempMax = -tempMin;
 			
-			for(k=chanMin; k<chanMax; k++) {
-				for(i=0; i<nSamps; i++) {
-					if( (float) *(a + nStand*nChans*i + nChans*j + k) < tempMin ) {
-						tempMin = (float) *(a + nStand*nChans*i + nChans*j + k);
-					} else if( (float) *(a + nStand*nChans*i + nChans*j + k) > tempMax ) {
-						tempMax = (float) *(a + nStand*nChans*i + nChans*j + k);
+			for(j=0; j<nSamps; j++) {
+				for(k=chanMin; k<chanMax; k++) {
+					if( (float) *(a + nSamps*nChans*i + nChans*j + k) < tempMin ) {
+						tempMin = (float) *(a + nSamps*nChans*i + nChans*j + k);
+					} else if( (float) *(a + nSamps*nChans*i + nChans*j + k) > tempMax ) {
+						tempMax = (float) *(a + nSamps*nChans*i + nChans*j + k);
 					}
 				}
 			}
 			
-			*(b + 2*j + 0) = (float) tempMin;
-			*(b + 2*j + 1) = (float) tempMax;
+			*(b + 2*i + 0) = (float) tempMin;
+			*(b + 2*i + 1) = (float) tempMax;
 		}
 	}
 	
@@ -209,12 +212,12 @@ fail:
 	return NULL;
 }
 
-PyDoc_STRVAR(FastAxis1MinMax_doc, \
+PyDoc_STRVAR(FastAxis0MinMax_doc, \
 "Given a 3-D numpy.float32 array, compute the minimum and maximum values along\n\
-the first axis\n\
+the zeroth axis\n\
 \n\
 Input arguments are:\n\
- * spectra: 3-D numpy.float32 (time by stands by channels) array of data\n\
+ * spectra: 3-D numpy.float32 (stands by time by channels) array of data\n\
 \n\
 Input keywords are:\n\
  * chanMin: Channel to start at (default = 0)\n\
@@ -225,11 +228,11 @@ Outputs:\n\
 ");
 
 
-static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwds) {
+static PyObject *FastAxis1Bandpass(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *bandpass, *spectraF;
 	PyArrayObject *data=NULL, *dataB=NULL;
 	
-	long i, j, k, jk, nStand, nSamps, nChans;
+	long i, j, k, ik, nStand, nSamps, nChans;
 	
 	if(!PyArg_ParseTuple(args, "OO", &spectra, &bandpass)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -249,8 +252,8 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 	}
 	
 	// Get the properties of the data
-	nSamps = (long) PyArray_DIM(data, 0);
-	nStand = (long) PyArray_DIM(data, 1);
+	nStand = (long) PyArray_DIM(data, 0);
+	nSamps = (long) PyArray_DIM(data, 1);
 	nChans = (long) PyArray_DIM(data, 2);
 	
 	Py_BEGIN_ALLOW_THREADS
@@ -267,12 +270,12 @@ static PyObject *FastAxis0Bandpass(PyObject *self, PyObject *args, PyObject *kwd
 		#ifdef _OPENMP
 			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
-		for(jk=0; jk<nStand*nChans; jk++) {
-			j = jk / nChans;
-			k = jk % nChans;
+		for(ik=0; ik<nStand*nChans; ik++) {
+			i = ik / nChans;
+			k = ik % nChans;
 			
-			for(i=0; i<nSamps; i++) {
-				*(a + nStand*nChans*i + nChans*j + k) /= *(b + nChans*j + k);
+			for(j=0; j<nSamps; j++) {
+				*(a + nSamps*nChans*i + nChans*j + k) /= *(b + nChans*i + k);
 			}
 		}
 	}
@@ -293,19 +296,19 @@ fail:
 	return NULL;
 }
 
-PyDoc_STRVAR(FastAxis0Bandpass_doc, \
+PyDoc_STRVAR(FastAxis1Bandpass_doc, \
 "Given a 3-D numpy.float32 array of spectra and a 2-D numpy.float32 of\n\
 bandpass shapes, apply a bandpass correction to the spectra.\n\
 \n\
 Input arguments are:\n\
- * spectra: 3-D numpy.float32 (time by stands by channels) array of data\n\
+ * spectra: 3-D numpy.float32 (stands by time by channels) array of data\n\
  * bandpass: 2-D numpy.float32 (stands by channels) array of bandpass shapes\n\
 \n\
 Input keywords are:\n\
  None\n\
 \n\
 Outputs:\n\
- * bandpassed: 3-D numpy.float32 (time by stands by channels) of bandpass-\n\
+ * bandpassed: 3-D numpy.float32 (stands by time by channels) of bandpass-\n\
                corrected spectra\n\
 ");
 
@@ -321,11 +324,11 @@ int cmpfloat(const void *a, const void *b) {
 }
 
 
-static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds) {
+static PyObject *FastAxis1Median(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data=NULL, *dataF=NULL;
 	
-	long i, j, k, nStand, nSamps, nChans, iPrime;
+	long i, j, k, nStand, nSamps, nChans, jPrime;
 	
 	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -340,8 +343,8 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 	}
 	
 	// Get the properties of the data
-	nSamps = (long) PyArray_DIM(data, 0);
-	nStand = (long) PyArray_DIM(data, 1);
+	nStand = (long) PyArray_DIM(data, 0);
+	nSamps = (long) PyArray_DIM(data, 1);
 	nChans = (long) PyArray_DIM(data, 2);
 	
 	// Find out how large the output array needs to be and initialize it
@@ -364,7 +367,7 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 	float *tempV;
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, tempV, iPrime)
+		#pragma omp parallel default(shared) private(i, j, k, tempV, jPrime)
 	#endif
 	{
 		#ifdef _OPENMP
@@ -373,22 +376,22 @@ static PyObject *FastAxis0Median(PyObject *self, PyObject *args, PyObject *kwds)
 		for(k=0; k<nChans; k++) {
 			tempV = (float *) malloc(nSamps*sizeof(float));
 			
-			for(j=0; j<nStand; j++) {
+			for(i=0; i<nStand; i++) {
 				
-				iPrime = 0;
-				for(i=0; i<nSamps; i++) {
-					*(tempV + iPrime) = *(a + nStand*nChans*i + nChans*j + k);
-					if( *(tempV + iPrime) == *(tempV + iPrime) ) {
-						iPrime++;
+				jPrime = 0;
+				for(j=0; j<nSamps; j++) {
+					*(tempV + jPrime) = *(a + nSamps*nChans*i + nChans*j + k);
+					if( IS_NOT_NAN(*(tempV + jPrime)) ) {
+						jPrime++;
 					}
 				}
 				
-				if( iPrime > 0 ) {
-					qsort(tempV, iPrime, sizeof(float), cmpfloat);
+				if( jPrime > 0 ) {
+					qsort(tempV, jPrime, sizeof(float), cmpfloat);
 					
-					*(b + nChans*j + k) = *(tempV + iPrime/2);
+					*(b + nChans*i + k) = *(tempV + jPrime/2);
 				} else {
-					*(b + nChans*j + k) = 1.0;
+					*(b + nChans*i + k) = 1.0;
 				}
 			}
 			
@@ -412,12 +415,12 @@ fail:
 	return NULL;
 }
 
-PyDoc_STRVAR(FastAxis0Median_doc, \
+PyDoc_STRVAR(FastAxis1Median_doc, \
 "Given a 3-D numpy.float32 array, compute the approximate median along the\n\
-zeroth axis\n\
+first axis\n\
 \n\
 Input arguments are:\n\
- * spectra: 3-D numpy.float32 (time by stands by channels) array of data\n\
+ * spectra: 3-D numpy.float32 (stands by time by channels) array of data\n\
 \n\
 Input keywords are:\n\
  None\n\
@@ -432,11 +435,11 @@ Outputs:\n\
 ");
 
 
-static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyObject *kwds) {
+static PyObject *FastAxis0Percentiles5And99(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data=NULL;
 	
-	long i, j, k, nStand, nSamps, nChans, iPrime;
+	long i, j, k, nStand, nSamps, nChans, jPrime;
 	long int stand, chanMin, chanMax;
 	stand = 0;
 	chanMin = 0;
@@ -456,8 +459,8 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	}
 	
 	// Get the properties of the data
-	nSamps = (long) PyArray_DIM(data, 0);
-	nStand = (long) PyArray_DIM(data, 1);
+	nStand = (long) PyArray_DIM(data, 0);
+	nSamps = (long) PyArray_DIM(data, 1);
 	nChans = (long) PyArray_DIM(data, 2);
 	if( chanMax < chanMin ) {
 		chanMax = nChans;
@@ -476,30 +479,30 @@ static PyObject *FastAxis1Percentiles5And99(PyObject *self, PyObject *args, PyOb
 	temp99 = (float *) malloc((chanMax-chanMin)*sizeof(float));
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, tempV, iPrime)
+		#pragma omp parallel default(shared) private(i, j, k, tempV, jPrime)
 	#endif
 	{
 		#ifdef _OPENMP
 			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(k=chanMin; k<chanMax; k++) {
-			j = stand;
+			i = stand;
 			
 			tempV = (float *) malloc(nSamps*sizeof(float));
 			
-			iPrime = 0;
-			for(i=0; i<nSamps; i++) {
-				*(tempV + iPrime) = *(a + nStand*nChans*i + nChans*j + k);
-				if( *(tempV + iPrime) == *(tempV + iPrime) ){
-					iPrime++;
+			jPrime = 0;
+			for(j=0; j<nSamps; j++) {
+				*(tempV + jPrime) = *(a + nSamps*nChans*i + nChans*j + k);
+				if( IS_NOT_NAN(*(tempV + jPrime)) ){
+					jPrime++;
 				}
 			}
 			
-			qsort(tempV, iPrime, sizeof(float), cmpfloat);
+			qsort(tempV, jPrime, sizeof(float), cmpfloat);
 			
-			if( iPrime > 0 ) {
-				*(temp5  + k - chanMin) = *(tempV + (int) (iPrime * 0.05));
-				*(temp99 + k - chanMin) = *(tempV + (int) (iPrime * 0.99));
+			if( jPrime > 0 ) {
+				*(temp5  + k - chanMin) = *(tempV + (int) (jPrime * 0.05));
+				*(temp99 + k - chanMin) = *(tempV + (int) (jPrime * 0.99));
 			} else {
 				*(temp5  + k - chanMin) = 0.1;
 				*(temp99 + k - chanMin) = 0.2;
@@ -528,13 +531,13 @@ fail:
 	return NULL;
 }
 
-PyDoc_STRVAR(FastAxis1Percentiles5And99_doc, \
+PyDoc_STRVAR(FastAxis0Percentiles5And99_doc, \
 "Given a 3-D numpy.float32 array, compute the approximate fifth and 99th \n\
-percentiles for a particular index along the first axis.\n\
+percentiles for a particular index along the zeroth axis.\n\
 \n\
 Input arguments are:\n\
- * spectra: 3-D numpy.float32 (time by stands by channels) array of data\n\
- * stand: index along the first axis to compute these values\n\
+ * spectra: 3-D numpy.float32 (stands by time by channels) array of data\n\
+ * stand: index along the zeroth axis to compute these values\n\
 \n\
 Input keywords are:\n\
  * chanMin: Channel to start at (default = 0)\n\
@@ -555,11 +558,11 @@ Outputs:\n\
 */
 
 static PyMethodDef HelperMethods[] = {
-	{"FastAxis0Mean",              (PyCFunction) FastAxis0Mean,              METH_VARARGS,               FastAxis0Mean_doc}, 
-	{"FastAxis1MinMax",            (PyCFunction) FastAxis1MinMax,            METH_VARARGS|METH_KEYWORDS, FastAxis1MinMax_doc}, 
-	{"FastAxis0Bandpass",          (PyCFunction) FastAxis0Bandpass,          METH_VARARGS,               FastAxis0Bandpass_doc}, 
-	{"FastAxis0Median",            (PyCFunction) FastAxis0Median,            METH_VARARGS,               FastAxis0Median_doc}, 
-	{"FastAxis1Percentiles5And99", (PyCFunction) FastAxis1Percentiles5And99, METH_VARARGS|METH_KEYWORDS, FastAxis1Percentiles5And99_doc},
+	{"FastAxis1Mean",              (PyCFunction) FastAxis1Mean,              METH_VARARGS,               FastAxis1Mean_doc}, 
+	{"FastAxis0MinMax",            (PyCFunction) FastAxis0MinMax,            METH_VARARGS|METH_KEYWORDS, FastAxis0MinMax_doc}, 
+	{"FastAxis1Bandpass",          (PyCFunction) FastAxis1Bandpass,          METH_VARARGS,               FastAxis1Bandpass_doc}, 
+	{"FastAxis1Median",            (PyCFunction) FastAxis1Median,            METH_VARARGS,               FastAxis1Median_doc}, 
+	{"FastAxis0Percentiles5And99", (PyCFunction) FastAxis0Percentiles5And99, METH_VARARGS|METH_KEYWORDS, FastAxis0Percentiles5And99_doc},
 	{NULL,                         NULL,                                     0,                          NULL}
 };
 
@@ -585,15 +588,15 @@ MOD_INIT(_helper) {
         import_array();
         
         // Version information
-        PyModule_AddObject(m, "__version__", PyString_FromString("0.1"));
+        PyModule_AddObject(m, "__version__", PyString_FromString("0.2"));
         
         // Function listings
         all = PyList_New(0);
-        PyList_Append(all, PyString_FromString("FastAxis0Mean"));
-        PyList_Append(all, PyString_FromString("FastAxis1MinMax"));
-        PyList_Append(all, PyString_FromString("FastAxis0Bandpass"));
-        PyList_Append(all, PyString_FromString("FastAxis0Median"));
-        PyList_Append(all, PyString_FromString("FastAxis1Percentiles5And99"));
+        PyList_Append(all, PyString_FromString("FastAxis1Mean"));
+        PyList_Append(all, PyString_FromString("FastAxis0MinMax"));
+        PyList_Append(all, PyString_FromString("FastAxis1Bandpass"));
+        PyList_Append(all, PyString_FromString("FastAxis1Median"));
+        PyList_Append(all, PyString_FromString("FastAxis0Percentiles5And99"));
         PyModule_AddObject(m, "__all__", all);
         
         return MOD_SUCCESS_VAL(m);
