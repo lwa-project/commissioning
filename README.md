@@ -1,3 +1,5 @@
+[![Travis](https://travis-ci.com/lwa-project/commissioning.svg?branch=master)](https://travis-ci.com/lwa-project/commissioning)
+
 LWA Commissioning Scripts
 =========================
 This is a collection of scripts use for commissioning and testing at the LWA1 
