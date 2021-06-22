@@ -71,6 +71,9 @@ def main(args):
         # Loop over data products - primary
         for dp in ('XX', 'YY', 'I', 'RR', 'LL'):
             for t,tuning in enumerate((tuning1, tuning2)):
+                if tuning is None:
+                    continue
+                    
                 data = tuning.get(dp, None)
                 if data is None:
                     continue
