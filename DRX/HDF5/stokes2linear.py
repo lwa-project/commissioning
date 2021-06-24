@@ -131,9 +131,11 @@ def main(args):
         print("  tInt: %.3f s" % tInt)
         
         for tuning in (1, 2):
-            print("    Tuning %i" % tuning)
             tuningIn = obsIn.get('Tuning%i' % tuning, None)
             tuningOut = obsOut.get('Tuning%i' % tuning, None)
+            if tuningIn is None:
+                continue
+            print("    Tuning %i" % tuning)
             
             baseMaskIn = tuningIn.get('Mask', None)
             baseMaskOut = tuningOut.get('Mask', None)
@@ -152,7 +154,7 @@ def main(args):
                 ## XX
                 print("      Computing 'XX'")
                 tuningOut.create_dataset('XX', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
-                tuningOut['XX'][:] = (tuningIn['I'][:] + tuningIn['Q'])/2.0
+                tuningOut['XX'][:] = (tuningIn['I'][:] + tuningIn['Q'][:])/2.0
                 
                 for key in tuningIn['I'].attrs:
                     tuningOut['XX'].attrs[key] = tuningIn['I'].attrs[key]
@@ -174,7 +176,7 @@ def main(args):
                 ## YY
                 print("      Computing 'YY'")
                 tuningOut.create_dataset('YY', tuningIn['I'].shape, dtype=tuningIn['I'].dtype.descr[0][1])
-                tuningOut['YY'][:] = (tuningIn['I'][:] - tuningIn['Q'])/2.0
+                tuningOut['YY'][:] = (tuningIn['I'][:] - tuningIn['Q'][:])/2.0
                 
                 for key in tuningIn['I'].attrs:
                     tuningOut['YY'].attrs[key] = tuningIn['I'].attrs[key]
