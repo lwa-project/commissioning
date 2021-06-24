@@ -131,9 +131,11 @@ def main(args):
         print("  tInt: %.3f s" % tInt)
         
         for tuning in (1, 2):
-            print("    Tuning %i" % tuning)
             tuningIn = obsIn.get('Tuning%i' % tuning, None)
             tuningOut = obsOut.get('Tuning%i' % tuning, None)
+            if tuningIn is None:
+                continue
+            print("    Tuning %i" % tuning)
             
             baseMaskIn = tuningIn.get('Mask', None)
             baseMaskOut = tuningOut.get('Mask', None)
