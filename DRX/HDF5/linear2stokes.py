@@ -222,7 +222,7 @@ def main(args):
                 ## V
                 print("      Computing 'V'")
                 tuningOut.create_dataset('V', tuningIn['XY_imag'].shape, dtype=tuningIn['XY_imag'].dtype.descr[0][1])
-                tuningOut['V'][:] = 2*tuningIn['XY_imag']
+                tuningOut['V'][:] = 2*tuningIn['XY_imag'][:]
                 
                 for key in tuningIn['XY_imag'].attrs:
                     tuningOut['V'].attrs[key] = tuningIn['XY_imag'].attrs[key]
