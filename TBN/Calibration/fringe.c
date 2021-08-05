@@ -1,7 +1,6 @@
 #include "Python.h"
 #include <math.h>
 #include <stdio.h>
-#include <cblas.h>
 #include <stdlib.h>
 #include <complex.h>
 
