@@ -58,7 +58,8 @@ _SAFE_TO_IGNORE = ["Possible",
                    "Value 'self.filenames' is unsubscriptable",
                    "Value 'self.data.filenames' is unsubscriptable",
                    "Argument '.ndarray' does not match format type",
-                   "Instance of 'Group' has no 'dtype' member",]
+                   "Instance of 'Group' has no 'dtype' member",
+                   "Instance of 'Group' has no 'read_direct' member",]
 
 
 def _get_context(filename, line, before=0, after=0):
