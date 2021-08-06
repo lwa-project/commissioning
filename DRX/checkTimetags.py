@@ -68,7 +68,7 @@ def main(args):
 
         prevTime[rID] = currFrame.payload.timetag
         prevDate[rID] = currFrame.time.datetime
-        prevNumb[rID] = 1 + k / 4
+        prevNumb[rID] = 1 + k // 4
         #prevNumb[rID] = k
         
         k += 1
@@ -79,7 +79,7 @@ def main(args):
         except errors.EOFError:
             break
         except errors.SyncError:
-            currNumb = 1 + k / 4
+            currNumb = 1 + k // 4
             
             print("ERROR: invalid frame (sync. word error) @ frame %8i" % currNumb)
             continue
@@ -88,7 +88,7 @@ def main(args):
         rID = 2*(tune-1) + pol
         currTime = currFrame.payload.timetag
         currDate = currFrame.time.datetime
-        currNumb = 1 + k / 4
+        currNumb = 1 + k // 4
         #currNumb = k
 
         if tune == 1 and pol == 0 and currNumb % 50000 == 0:
