@@ -328,7 +328,7 @@ static PyObject *FastAxis1Median(PyObject *self, PyObject *args, PyObject *kwds)
 	PyObject *spectra, *spectraF;
 	PyArrayObject *data=NULL, *dataF=NULL;
 	
-	long i, j, k, nStand, nSamps, nChans, jPrime;
+	long i, j, k, ik, nStand, nSamps, nChans, jPrime;
 	
 	if(!PyArg_ParseTuple(args, "O", &spectra)) {
 		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
@@ -367,36 +367,40 @@ static PyObject *FastAxis1Median(PyObject *self, PyObject *args, PyObject *kwds)
 	float *tempV;
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i, j, k, tempV, jPrime)
+		#pragma omp parallel default(shared) private(i, j, k, ik, tempV, jPrime)
 	#endif
 	{
+		tempV = (float *) malloc(nSamps*sizeof(float));
+		
 		#ifdef _OPENMP
 			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
-		for(k=0; k<nChans; k++) {
-			tempV = (float *) malloc(nSamps*sizeof(float));
+		for(ik=0; ik<nStand*nChans; ik++) {
+			i = ik / nChans;
+			k = ik % nChans;
 			
-			for(i=0; i<nStand; i++) {
-				
-				jPrime = 0;
-				for(j=0; j<nSamps; j++) {
-					*(tempV + jPrime) = *(a + nSamps*nChans*i + nChans*j + k);
-					if( IS_NOT_NAN(*(tempV + jPrime)) ) {
-						jPrime++;
-					}
-				}
-				
-				if( jPrime > 0 ) {
-					qsort(tempV, jPrime, sizeof(float), cmpfloat);
-					
-					*(b + nChans*i + k) = *(tempV + jPrime/2);
-				} else {
-					*(b + nChans*i + k) = 1.0;
+			jPrime = 0;
+			for(j=0; j<nSamps; j++) {
+				*(tempV + jPrime) = *(a + nSamps*nChans*i + nChans*j + k);
+				if( IS_NOT_NAN(*(tempV + jPrime)) ) {
+					jPrime++;
 				}
 			}
 			
-			free(tempV);
+			if( jPrime > 0 ) {
+				qsort(tempV, jPrime, sizeof(float), cmpfloat);
+				
+				*(b + nChans*i + k) = *(tempV + jPrime/2);
+				if( jPrime % 2 == 0) {
+					*(b + nChans*i + k) += *(tempV + jPrime/2 - 1);
+					*(b + nChans*i + k) /= 2.0;
+				}
+			} else {
+				*(b + nChans*i + k) = 1.0;
+			}
 		}
+		
+		free(tempV);
 	}
 	
 	Py_END_ALLOW_THREADS
@@ -482,13 +486,13 @@ static PyObject *FastAxis0Percentiles5And99(PyObject *self, PyObject *args, PyOb
 		#pragma omp parallel default(shared) private(i, j, k, tempV, jPrime)
 	#endif
 	{
+		tempV = (float *) malloc(nSamps*sizeof(float));
+		
 		#ifdef _OPENMP
 			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(k=chanMin; k<chanMax; k++) {
 			i = stand;
-			
-			tempV = (float *) malloc(nSamps*sizeof(float));
 			
 			jPrime = 0;
 			for(j=0; j<nSamps; j++) {
@@ -507,9 +511,9 @@ static PyObject *FastAxis0Percentiles5And99(PyObject *self, PyObject *args, PyOb
 				*(temp5  + k - chanMin) = 0.1;
 				*(temp99 + k - chanMin) = 0.2;
 			}
-			
-			free(tempV);
 		}
+		
+		free(tempV);
 	}
 	
 	qsort(temp5,  (chanMax-chanMin), sizeof(float), cmpfloat);
