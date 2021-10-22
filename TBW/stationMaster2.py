@@ -300,7 +300,7 @@ if __name__ == "__main__":
         description='given a TBW file, plot the time averaged spectra for each digitizer input and save the data for later review with smGUI as an NPZ file', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
-    parser.add_argument('filename', type=str, nargs='+', 
+    parser.add_argument('filename', type=str,
                         help='filename to process')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='remake the NPZ file, even if it exists')
