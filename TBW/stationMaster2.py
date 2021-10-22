@@ -102,9 +102,7 @@ def main(args):
     print("Skipped %i non-TBW frames at the beginning of the file" % i)
     
     # Setup the window function to use
-    if args.pfb:
-        window = fxc.null_window
-    elif args.bartlett:
+    if args.bartlett:
         window = numpy.bartlett
     elif args.blackman:
         window = numpy.blackman
