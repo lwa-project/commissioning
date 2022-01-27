@@ -167,9 +167,10 @@ if __name__ == "__main__":
                         help='display rise, transit, and set times in UTC instead of MST/MDT')
     parser.add_argument('-p', '--position-mode', action='store_true',
                         help='display the azimuth and elevation of sources above the horizon')
-    parser.add_argument('-s', '--lwasv', action='store_true',
+    sgroup = parser.add_mutually_exclusive_group(required=False)
+    sgroup.add_argument('-s', '--lwasv', action='store_true',
                         help='compute for LWA-SV instead of LWA1')
-    parser.add_argument('-o', '--ovrolwa', action='store_true',
+    sgroup.add_argument('-o', '--ovrolwa', action='store_true',
                         help='compute for OVRO-LWA instead of LWA1')
     args = parser.parse_args()
     main(args)
