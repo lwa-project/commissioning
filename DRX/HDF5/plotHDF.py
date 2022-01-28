@@ -61,45 +61,6 @@ else:
     AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
 
 
-def downsample_waterfall(image, mode='mean'):
-    # Figure out how much to downsample in time.  We want at most 1,024 time in
-    # the output.
-    downsample_factor_time = 1
-    while image.shape[1] // downsample_factor_time > 1024:
-        downsample_factor_time += 1
-        
-    # Figure out how much to downsample in frequency.  We want at most 1,024
-    # channels in the output.
-    downsample_factor_freq = 1
-    while image.shape[2] // downsample_factor_freq > 1024:
-        downsample_factor_freq += 1
-        
-    # Actually downsample
-    sx = (image.shape[1] // downsample_factor_time) * downsample_factor_time
-    sy = (image.shape[2] // downsample_factor_freq) * downsample_factor_freq
-    if (image.shape[1] != sx and sx > 100) or image.shape[2] != sy:
-        image = image[:,:sx,:sy]
-        
-    # Downsample as needed
-    bx = image.shape[1] // downsample_factor_time
-    by = image.shape[2] // downsample_factor_freq
-    image = image.reshape((-1, bx, downsample_factor_time, by, downsample_factor_freq))
-    mimage = image.mean(axis=4).mean(axis=2)
-    if mode == 'mean':
-        ## Block mean
-        image = mimage
-    elif mode == 'mad':
-        ## Block maximum absolute deviation (block max or min, depending on
-        ## which is farthest from the block mean)
-        limage = image.mean(axis=4).min(axis=2)
-        uimage = image.mean(axis=4).max(axis=2)
-        image = numpy.where(uimage-mimage > mimage-limage, uimage, limage)
-    else:
-        ValueError("Unknown mode '%s'" % mode)
-        
-    return image
-
-
 def findLimits(data, usedB=True):
     """
     Tiny function to speed up the computing of the data range for the colorbar.
@@ -577,13 +538,6 @@ class Waterfall_GUI(object):
             for i in xrange(self.spec.shape[0]):
                 self.limitsBandpass[i] = findLimits(self.specBandpass[i,:,toUse], usedB=self.usedB)
                 
-        # Create the downsampled waterfalls for display 
-        #print(" %6.3f s - Creating downsampled waterfalls" % (time.time() - tStart))
-        #self.specWF = downsample_waterfall(self.spec, mode='mad')
-        #self.specBandpassWF = downsample_waterfall(self.specBandpass, mode='mad')
-        self.specWF = self.spec
-        self.specBandpassWF = self.specBandpass
-        
         try:
             self.disconnect()
         except:
@@ -775,17 +729,15 @@ class Waterfall_GUI(object):
         if self.bandpass:
             spec = self.specBandpass
             limits = self.limitsBandpass
-            wf = self.specBandpassWF
         else:
             spec = self.spec
             limits = self.limits
-            wf = self.specWF
             
         # Plot 1(a) - Waterfall
         self.frame.figure1a.clf()
         self.ax1a = self.frame.figure1a.gca()
         if self.usedB:
-            m = self.ax1a.imshow(to_dB(wf[self.index,:,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
+            m = self.ax1a.imshow(to_dB(spec[self.index,:,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
             try:
                 cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
             except:
@@ -794,7 +746,7 @@ class Waterfall_GUI(object):
                 cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
             cm.ax.set_ylabel('PSD [arb. dB]')
         else:
-            m = self.ax1a.imshow(wf[self.index,:,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
+            m = self.ax1a.imshow(spec[self.index,:,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
             try:
                 cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
             except TypeError:
