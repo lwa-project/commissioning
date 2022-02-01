@@ -453,12 +453,14 @@ class Waterfall_GUI(object):
         # Construct frequency and time master masks to prevent some masked things from getting unmasked
         try:
             import bottleneck as btlnck
-            self.freqMask = btlnck.median(self.spec.mask, axis=1)
-            self.timeMask = btlnck.median(self.spec.mask, axis=2)
+            self.freqMask = btlnck.nanmean(self.spec.mask, axis=1)
+            self.timeMask = btlnck.nanmean(self.spec.mask, axis=2)
         except ImportError:
-            self.freqMask = numpy.median(self.spec.mask, axis=1)
-            self.timeMask = numpy.median(self.spec.mask, axis=2)
-            
+            self.freqMask = numpy.mean(self.spec.mask, axis=1)
+            self.timeMask = numpy.mean(self.spec.mask, axis=2)
+        self.freqMask = numpy.where(self.freqMask >= 0.5, True, False)
+        self.timeMask = numpy.where(self.timeMask >= 0.5, True, False)
+        
         # Other data to keep around
         self.timesNPZ = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
         obs['time'].read_direct(self.timesNPZ)
