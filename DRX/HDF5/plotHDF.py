@@ -67,13 +67,19 @@ def findLimits(data, usedB=True):
     Returns a two-element list of the lowest and highest values.
     """
     
-    dMin = data.min()
+    try:
+        import bottleneck as btlnck
+        dMin = btlnck.nanmin(data)
+        dMax = btlnck.nanmax(data)
+    except ImportError:
+        dMin = numpy.nanmin(data)
+        dMax = numpy.nanmax(data)
+        
     if usedB:
         dMin = to_dB(dMin)
     if not numpy.isfinite(dMin):
         dMin = 0
         
-    dMax = data.max()
     if usedB:
         dMax = to_dB(dMax)
     if not numpy.isfinite(dMax):
@@ -445,9 +451,14 @@ class Waterfall_GUI(object):
         self.spec = numpy.ma.array(self.spec, mask=mask)
         
         # Construct frequency and time master masks to prevent some masked things from getting unmasked
-        self.freqMask = numpy.median(self.spec.mask, axis=1)
-        self.timeMask = numpy.median(self.spec.mask, axis=2)
-        
+        try:
+            import bottleneck as btlnck
+            self.freqMask = btlnck.median(self.spec.mask, axis=1)
+            self.timeMask = btlnck.median(self.spec.mask, axis=2)
+        except ImportError:
+            self.freqMask = numpy.median(self.spec.mask, axis=1)
+            self.timeMask = numpy.median(self.spec.mask, axis=2)
+            
         # Other data to keep around
         self.timesNPZ = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
         obs['time'].read_direct(self.timesNPZ)
@@ -509,35 +520,24 @@ class Waterfall_GUI(object):
         # Find the mean spectra
         print(" %6.3f s - Computing mean spectra" % (time.time() - tStart))
         try:
-            from _helper import FastAxis1Mean
-            self.mean = FastAxis1Mean(self.spec)
-            self.meanBandpass = FastAxis1Mean(self.specBandpass)
+            import bottleneck as btlnck
+            self.mean = btlnck.nanmean(self.spec, axis=1)
+            self.meanBandpass = btlnck.nanmean(self.specBandpass, axis=1)
         except ImportError:
-            self.mean = numpy.mean(self.spec, axis=1)
-            self.meanBandpass = numpy.mean(self.specBandpass, axis=1)
+            self.mean = numpy.nanmean(self.spec, axis=1)
+            self.meanBandpass = numpy.nanmean(self.specBandpass, axis=1)
         
         # Set default colobars
         print(" %6.3f s - Setting default colorbar ranges" % (time.time() - tStart))
         self.limits = [None,]*self.spec.shape[0]
         self.limitsBandpass = [None,]*self.spec.shape[0]
         
-        try:
-            from _helper import FastAxis0MinMax
-            limits0 = FastAxis0MinMax(self.spec)
-            limits1 = FastAxis0MinMax(self.specBandpass, chanMin=self.spec.shape[2]//10, chanMax=9*self.spec.shape[2]//10)
-            if self.usedB:
-                limits0 = to_dB(limits0)
-                limits1 = to_dB(limits1)
-            for i in xrange(self.spec.shape[0]):
-                self.limits[i] = list(limits0[i,:])
-                self.limitsBandpass[i] = list(limits1[i,:])
-        except ImportError:
-            toUse = range(self.spec.shape[2]//10, 9*self.spec.shape[2]//10+1)
-            for i in xrange(self.spec.shape[0]):
-                self.limits[i] = findLimits(self.spec[i,:,:], usedB=self.usedB)
-            for i in xrange(self.spec.shape[0]):
-                self.limitsBandpass[i] = findLimits(self.specBandpass[i,:,toUse], usedB=self.usedB)
-                
+        toUse = range(self.spec.shape[2]//10, 9*self.spec.shape[2]//10+1)
+        for i in xrange(self.spec.shape[0]):
+            self.limits[i] = findLimits(self.spec[i,:,:], usedB=self.usedB)
+        for i in xrange(self.spec.shape[0]):
+            self.limitsBandpass[i] = findLimits(self.specBandpass[i,:,toUse], usedB=self.usedB)
+            
         try:
             self.disconnect()
         except:
@@ -578,8 +578,8 @@ class Waterfall_GUI(object):
         """
         
         try:
-            from _helper import FastAxis1Median
-            meanSpec = FastAxis1Median(self.spec)
+            import bottleneck as btlnck
+            meanSpec = btlnck.nanmedian(self.spec, axis=1)
         except ImportError:
             meanSpec = numpy.median(self.spec, axis=1)
             
@@ -597,17 +597,12 @@ class Waterfall_GUI(object):
             
             if bpm.mean() == 0:
                 bpm += 1
-            bpm2.append( bpm / bpm.mean() )
+            bpm2.append( [bpm / bpm.mean(),] )
             
         # Apply the bandpass correction
         bpm2 = numpy.array(bpm2)
         self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
-        try:
-            from _helper import FastAxis1Bandpass
-            FastAxis1Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
-        except ImportError:
-            for i in xrange(self.spec.shape[0]):
-                self.specBandpass.data[i,:,:] = self.spec.data[i,:,:] / bpm2[i]
+        self.specBandpass.data[...] /= bpm2
                 
         return True
         
@@ -702,17 +697,12 @@ class Waterfall_GUI(object):
             
             if bpm.mean() == 0:
                 bpm += 1
-            bpm2.append( bpm / bpm.mean() )
+            bpm2.append( [bpm / bpm.mean(),] )
             
         # Apply the bandpass correction
         bpm2 = numpy.array(bpm2)
         self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
-        try:
-            from _helper import FastAxis1Bandpass
-            FastAxis1Bandpass(self.specBandpass.data, bpm2.astype(numpy.float32))
-        except ImportError:
-            for i in xrange(self.spec.shape[0]):
-                self.specBandpass.data[i,:,:] = self.spec.data[i,:,:] / bpm2[i]
+        self.specBandpass.data[...] /= bpm2
                 
         return True
         
@@ -1705,7 +1695,10 @@ class MainWindow(wx.Frame):
         t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, Im(XY)')
         t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, YY')
         
-        dataMenu.InsertSeparator(4)
+        try:
+            dataMenu.InsertSeparator(4)
+        except:
+            pass
         dataMenu.AppendSeparator()
         self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, 'Change Time &Range')
         self.changeObservationButton = wx.MenuItem(colorMenu, ID_CHANGE_OBSID, 'Change &Observation')
@@ -2171,17 +2164,10 @@ class MainWindow(wx.Frame):
         i = self.data.index
         toUse = numpy.arange(self.data.spec.shape[2]//10, 9*self.data.spec.shape[2]//10)
         
-        try:
-            from _helper import FastAxis0Percentiles5And99
-            if self.data.bandpass:
-                self.data.limitsBandpass[i] = list(FastAxis0Percentiles5And99(self.data.specBandpass.data, i, chanMin=self.data.spec.shape[2]//10, chanMax=9*self.data.spec.shape[2]//10))
-            else:
-                self.data.limits[i] = list(FastAxis0Percentiles5And99(self.data.spec.data, i))
-        except ImportError:
-            if self.data.bandpass:
-                self.data.limitsBandpass[i] = [percentile(self.data.specBandpass[i,:,toUse].ravel(), 5), percentile(self.data.specBandpass[i,:,toUse].ravel(), 99)] 
-            else:
-                self.data.limits[i] = [percentile(self.data.spec[i,:,:].ravel(), 5), percentile(self.data.spec[i,:,:].ravel(), 99)]
+        if self.data.bandpass:
+            self.data.limitsBandpass[i] = numpy.percentile(self.data.specBandpass[i,:,toUse], (5, 99))
+        else:
+            self.data.limits[i] = numpy.percentile(self.data.spec[i,:,:], (5, 99))
             
         if self.data.usedB:
             if self.data.bandpass:
@@ -4070,11 +4056,11 @@ def main(args):
     elif args.reduced:
         arxFilter = 'reduced'
     
-    # Check for the _helper module
+    # Check for the bottleneck module
     try:
-        import _helper
+        import bottleneck
     except ImportError:
-        print("WARNING: _helper.so not found, consider building it with 'make'")
+        print("WARNING: bottleneck not found, consider installing it with 'pip'")
         
     # Go!
     app = wx.App(0)
