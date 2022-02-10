@@ -325,9 +325,9 @@ def main(args):
     beams = max([1, beampols // 4])
     
     # Number of frames to integrate over
-    nFramesAvg = int(args.average * srate / 4096 * beampols)
-    nFramesAvg = int(1.0 * nFramesAvg / beampols*4096/float(LFFT))*LFFT/4096*beampols
-    args.average = 1.0 * nFramesAvg / beampols * 4096 / srate
+    nFramesAvg = int(args.average * srate / 4096) * beampols
+    nFramesAvg = int(1.0 * (nFramesAvg // beampols)*4096/float(LFFT))*LFFT/4096 * beampols
+    args.average = 1.0 * (nFramesAvg // beampols) * 4096 / srate
     maxFrames = nFramesAvg
     
     # Offset into the file, if needed

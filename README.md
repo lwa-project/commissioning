@@ -1,4 +1,4 @@
-[![Travis](https://travis-ci.com/lwa-project/commissioning.svg?branch=master)](https://travis-ci.com/lwa-project/commissioning)
+[![GHA](https://github.com/lwa-project/commissioning/actions/workflows/main.yml/badge.svg)](https://github.com/lwa-project/commissioning/actions/workflows/main.yml)
 
 LWA Commissioning Scripts
 =========================

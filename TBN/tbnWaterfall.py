@@ -292,9 +292,9 @@ def main(args):
     antpols = idf.get_info('nantenna')
     
     # Number of frames to integrate over
-    nFramesAvg = int(args.average * srate / 512 * antpols)
-    nFramesAvg = int(1.0 * nFramesAvg / antpols*512/float(LFFT))*LFFT/512*antpols
-    args.average = 1.0 * nFramesAvg / antpols * 512 / srate
+    nFramesAvg = int(args.average * srate / 512) * antpols
+    nFramesAvg = int(1.0 * (nFramesAvg // antpols)*512/float(LFFT))*LFFT/512 * antpols
+    args.average = 1.0 * (nFramesAvg // antpols) * 512 / srate
     maxFrames = nFramesAvg
     
     # Offset into the file, if needed

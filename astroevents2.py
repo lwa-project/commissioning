@@ -43,6 +43,10 @@ def main(args):
     # Set the station
     if args.lwasv:
         station = stations.lwasv
+    elif args.ovrolwa:
+        station = stations.lwa1
+        station.name = 'OVRO-LWA'
+        station.lat, station.lon, station.elev = ('37.23977727', '-118.2816667', 1182.89)
     else:
         station = stations.lwa1
     observer = station.get_observer()
@@ -59,7 +63,7 @@ def main(args):
         hour, minute, second = args.time.split(':', 2)
         hour = int(hour)
         minute = int(minute)
-        second = int(second)
+        second = int(float(second))
         
         tNow = _MST.localize(datetime(year, month, day, hour, minute, second))
         tNow = tNow.astimezone(_UTC)
@@ -163,8 +167,11 @@ if __name__ == "__main__":
                         help='display rise, transit, and set times in UTC instead of MST/MDT')
     parser.add_argument('-p', '--position-mode', action='store_true',
                         help='display the azimuth and elevation of sources above the horizon')
-    parser.add_argument('-s', '--lwasv', action='store_true',
+    sgroup = parser.add_mutually_exclusive_group(required=False)
+    sgroup.add_argument('-s', '--lwasv', action='store_true',
                         help='compute for LWA-SV instead of LWA1')
+    sgroup.add_argument('-o', '--ovrolwa', action='store_true',
+                        help='compute for OVRO-LWA instead of LWA1')
     args = parser.parse_args()
     main(args)
     
