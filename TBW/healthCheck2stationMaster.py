@@ -121,6 +121,11 @@ class DynamicSSMIF(object):
         # Save it to a file
         _, filename = tempfile.mkstemp(suffix='.txt', prefix='SSMIF')
         fh = open(filename, 'wb')
+        try:
+            contents = contents.decode()
+        except AttributeError:
+            # Python2 catch
+            pass
         fh.write(contents)
         fh.close()
         
@@ -207,7 +212,6 @@ def loadHealthCheckFile(filename):
     
     # Get the corresponding frequencies
     freqs = numpy.arange(nchans) / float(nchans - 1) * 196e6 / 2
-    
     return dt, freqs, specs
 
 
@@ -261,7 +265,7 @@ def main(args):
         ## NOTE:  This is a dummy operation since we can't do this with the health
         ##        check data.
         subSize = 1960
-        nsegments = 2*subSize / subSize
+        nsegments = 2*subSize // subSize
         avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
         dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
         adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
