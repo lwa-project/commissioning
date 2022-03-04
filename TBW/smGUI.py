@@ -291,7 +291,7 @@ class TBW_GUI(object):
             for i in xrange(self.spec.shape[0]):
                 junk = numpy.log10( self.spec[i,wgl] / self.specTemplate[wgl] )
                 specDiff[i] = junk.std()
-                specDiff[i] = 17 - int(self.antennas[i].arx.aspChannel % 16) + 1
+                specDiff[i] = 17 - int(self.antennas[i].arx.asp_channel % 16) + 1
                 specDiff[i] *= self.antennas[i].cable.length / 10.0
                 print(i, specDiff[i])
                 
