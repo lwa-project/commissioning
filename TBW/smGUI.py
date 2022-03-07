@@ -199,7 +199,12 @@ class TBW_GUI(object):
         path, basename = os.path.split(filename)
         self.filename = basename
         self.date = dataDict['date']
-
+        try:
+            self.date = self.date.tostring().decode()
+        except AttributeError:
+            # Python2 catch
+            pass
+            
         try:
             self.disconnect()
         except:
@@ -1354,9 +1359,9 @@ Global Range:
     def resizePlots(self, event):
         w, h = self.GetSize()
         dpi = self.figure1.get_dpi()
-        newW = 1.0*w/dpi
-        newH1 = 1.0*(h/2-100)/dpi
-        newH2 = 1.0*(h/2-75)/dpi
+        newW = 0.5*w/dpi
+        newH1 = 1.0*(h-100)/dpi
+        newH2 = 1.0*(h-130)/dpi
         self.figure1.set_size_inches((newW, newH1))
         self.figure1.canvas.draw()
         self.figure2.set_size_inches((newW, newH2))
