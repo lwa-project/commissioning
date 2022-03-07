@@ -20,12 +20,10 @@ import struct
 try:
     from urllib2 import urlopen
 except ImportError:
-    from urllib import urlopen
+    from urllib.request import urlopen
 import argparse
 import tempfile
 from datetime import datetime
-from xml.etree import ElementTree
-from BeautifulSoup import BeautifulSoup
     
 
 from lsl.common.stations import parse_ssmif
@@ -38,6 +36,12 @@ def parseIndex(index):
     filename/date tuples.
     """
     
+    from xml.etree import ElementTree
+    try:
+        from BeautifulSoup import BeautifulSoup
+    except ImportError:
+        from bs4 import BeautifulSoup
+    
     # Find the table
     start = index.find('<table>')
     stop  = index.find('</table>')
@@ -48,9 +52,17 @@ def parseIndex(index):
                  (re.compile('<hr>'), lambda match: ''), 
                  (re.compile('&nbsp;'), lambda match: ' '), 
                  (re.compile('<a.*?>(.*)</a>'), lambda mtch: mtch.group(1))]
-    soup = BeautifulSoup(index, markupMassage=myMassage)
+    for massage in myMassage:
+        regex, replace = massage
+        index = re.sub(regex, replace, index)
+        
+    soup = BeautifulSoup(index)
     index = soup.prettify()
-    
+    index = index.replace('<html>', '<?xml version="1.0" encoding="utf-8"?>')
+    for tag in ('body', 'html'):
+        index = index.replace("<%s>" % tag, '')
+        index = index.replace("</%s>" % tag, '')
+        
     # Parse it
     table = ElementTree.XML(index)
     rows = iter(table)
@@ -121,11 +133,6 @@ class DynamicSSMIF(object):
         # Save it to a file
         _, filename = tempfile.mkstemp(suffix='.txt', prefix='SSMIF')
         fh = open(filename, 'wb')
-        try:
-            contents = contents.decode()
-        except AttributeError:
-            # Python2 catch
-            pass
         fh.write(contents)
         fh.close()
         
@@ -149,6 +156,11 @@ class DynamicSSMIF(object):
         except AttributeError:
             self._retrieve()
             contents = self.contents
+        try:
+            contents = contents.decode()
+        except AttributeError:
+            # Python2 catch
+            pass
         contents = contents.split('\n')
         
         return contents
@@ -172,6 +184,11 @@ def loadSSMIFCache():
     # Retrieve the list
     ah = urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/")
     index = ah.read()
+    try:
+        index = index.decode()
+    except AttributeError:
+        # Python2 catch
+        pass
     ah.close()
     
     # Parse
