@@ -228,9 +228,9 @@ def main(args):
                 j += 1
  
             # Correlate
-            blList1, freq1, vis1 = fxc.FXMaster(data[0,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList1, freq1, vis1 = fxc.FXMaster(data[0,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
         
-            blList2, freq2, vis2 = fxc.FXMaster(data[1,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, Pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList2, freq2, vis2 = fxc.FXMaster(data[1,:,:], antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
             
             if nChunks != 1:
                 outfile = os.path.split(filename)[1]
