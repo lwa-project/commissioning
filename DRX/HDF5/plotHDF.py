@@ -4112,7 +4112,7 @@ def main(args):
         ## a file to look at
         for menuItem in frame.fileMenu.GetMenuItems():
             print(type(menuItem))
-            if menuItem.GetLabelText().find('Save') != -1:
+            if menuItem.GetItemLabelText().find('Save') != -1:
                 menuItem.Enable(False)
         for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
             for menuItem in menu.GetMenuItems():
