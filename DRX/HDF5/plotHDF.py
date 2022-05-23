@@ -775,7 +775,7 @@ class Waterfall_GUI(object):
         self.ax1b.plot(self.sats[:,2*(tun-1)+1], self.time, linestyle='-', color='green')
         self.ax1b.set_xlim((-0.05, 1.05))
         self.ax1b.set_ylim((self.time[0], self.time[-1]))
-        self.ax1b.set_xlabel('Saturation Fraction')
+        self.ax1b.set_xlabel('Saturation\nFraction')
         self.ax1b.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
         self.ax1b.xaxis.set_ticks([0.0, 0.25, 0.5, 0.75, 1.0])
         self.ax1b.xaxis.set_ticklabels(['0', '', '0.5', '', '1'])
