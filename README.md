@@ -3,9 +3,9 @@
 LWA Commissioning Scripts
 =========================
 This is a collection of scripts use for commissioning and testing at the LWA1 
-and LWA-SV stations.  All of the scripts (everything except for TBF) depend 
-on the LSL 0.6.x branch.  The TBF-related scripts depend on the LSL 1.2.x 
-branch.
+and LWA-SV stations.  No installation (e.g., python setup.py install) is required
+to use the software but a `requirements.txt` file is provided to help setup the
+Python environment.
 
 time2time.py
 ------------
