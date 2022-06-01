@@ -343,6 +343,10 @@ class Waterfall_GUI(object):
                 self.arxFilter = 'full'
             elif arxFilterCode == 2:
                 self.arxFilter = 'reduced'
+            elif arxFilterCode == 4:
+                self.arxFilter = 'split @ 3MHz'
+            elif arxFilterCode == 5:
+                self.arxFilter = 'full @ 3 MHz'
                 
         except KeyError:
             pass
@@ -601,6 +605,17 @@ class Waterfall_GUI(object):
         
         meanSpec = nan_median(self.spec, axis=1)
         
+        # Figure out if there is a PFB or not.  Regardless, load a the polynomial
+        # approximation for the shape of a channel
+        pfb_sf = numpy.fft.fftfreq(meanSpec.shape[1], d=self.freq1[1]-self.freq1[0])
+        pfb_ss = numpy.abs(numpy.fft.fft(meanSpec[0,:]))**2
+        pfb_ss_on = pfb_ss[numpy.argmin(numpy.abs(pfb_sf-1/25e3))]
+        pfb_ss_off = pfb_ss[numpy.argmin(numpy.abs(pfb_sf-1/195e3))]
+        
+        pfb_approx = numpy.array([-2.01736960e+02, -1.77609459e-14, 1.44631262e+02,
+                                  -1.71870454e-14, -2.67882562e+01, 8.97067739e-15,
+                                  -1.21759294e+00, -1.04983930e-15, 1.38897096e+00])
+        
         # Come up with an appropriate smoothing window (wd) and order (od)
         ws = int(round(self.spec.shape[2]/10.0))
         ws = min([41, ws])
@@ -613,6 +628,17 @@ class Waterfall_GUI(object):
             bpm = savitzky_golay(meanSpec[i,:], ws, od, deriv=0)
             bpm = numpy.ma.array(bpm, mask=~numpy.isfinite(bpm))
             
+            if pfb_ss_on > 5000*pfb_ss_off:
+                ## Correct for the PFB if it seems to be in the data
+                if i // (self.spec.shape[0]//2) == 0:
+                    efreq = self.freq1
+                else:
+                    efreq = self.freq2
+                efreq = efreq/25e3 % 1
+                efreq[numpy.where(efreq>0.5)] = 1 - efreq[numpy.where(efreq>0.5)]
+                pfb_model = numpy.polyval(pfb_approx, efreq)
+                bpm *= pfb_model
+                
             if bpm.mean() == 0:
                 bpm += 1
             bpm2.append( [bpm / bpm.mean(),] )
