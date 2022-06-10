@@ -4055,9 +4055,8 @@ are:
         
         self.CreateStatusBar()
         
-        panel.SetSizer(vbox)
-
-
+        panel.SetSizerAndFit(vbox)
+        
 def main(args):
     # Turn off all NumPy warnings to keep stdout clean
     errs = numpy.geterr()
