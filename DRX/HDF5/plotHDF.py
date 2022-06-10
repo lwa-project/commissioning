@@ -2763,7 +2763,7 @@ ID_CONTRAST_OK = 104
 
 class ContrastAdjust(wx.Frame):
     def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Contrast Adjustment', size=(330, 175))
+        wx.Frame.__init__(self, parent, title='Contrast Adjustment')
         
         self.parent = parent
         
@@ -2776,13 +2776,13 @@ class ContrastAdjust(wx.Frame):
     def initUI(self):
         row = 0
         panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(5, 5)
+        sizer = wx.GridBagSizer(0, 0)
         
         if self.parent.data.bandpass:
             typ = wx.StaticText(panel, label='Tuning %i, Pol. %i - Bandpass' % (self.parent.data.index//2+1, self.parent.data.index%2))
         else:
             typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index//2+1, self.parent.data.index%2))
-        sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+        sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.ALL, border=5)
         
         row += 1
         
@@ -2811,7 +2811,7 @@ class ContrastAdjust(wx.Frame):
         sizer.Add(rngText, pos=(row+2, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         
         line = wx.StaticLine(panel)
-        sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
+        sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
         
         row += 4
         
@@ -2820,9 +2820,10 @@ class ContrastAdjust(wx.Frame):
         #
         
         ok = wx.Button(panel, ID_CONTRAST_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
+        sizer.Add(ok, pos=(row+0, 3), flag=wx.ALL, border=5)
         
-        panel.SetSizerAndFit(sizer)
+        panel.SetSizer(sizer)
+        sizer.Fit(self)
 
         self.uText = uprText
         self.lText = lwrText
@@ -2953,7 +2954,7 @@ ID_RANGE_CANCEL = 102
 
 class TimeRangeAdjust(wx.Frame):
     def __init__ (self, parent, mode='Adjust'):	
-        wx.Frame.__init__(self, parent, title='Time Range to Display', size=(330, 175), style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
+        wx.Frame.__init__(self, parent, title='Time Range to Display', style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
         
         self.parent = parent
         self.mode = mode
@@ -2965,10 +2966,10 @@ class TimeRangeAdjust(wx.Frame):
     def initUI(self):
         row = 0
         panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(5, 5)
+        sizer = wx.GridBagSizer(0, 0)
         
         offL = wx.StaticText(panel, label='Offset from file start:')
-        sizer.Add(offL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+        sizer.Add(offL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=10)
         row += 1
         
         self.offsetText = wx.TextCtrl(panel)
@@ -2996,9 +2997,9 @@ class TimeRangeAdjust(wx.Frame):
         #
         
         ok = wx.Button(panel, ID_RANGE_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 0), flag=wx.RIGHT|wx.BOTTOM, border=5)
+        sizer.Add(ok, pos=(row+0, 0), flag=wx.ALL, border=5)
         cancel = wx.Button(panel, ID_RANGE_CANCEL, 'Cancel', size=(56, 28))
-        sizer.Add(cancel, pos=(row+0, 1),  flag=wx.RIGHT|wx.BOTTOM, border=5)
+        sizer.Add(cancel, pos=(row+0, 1),  flag=wx.ALL, border=5)
         
         #
         # Fill in values
@@ -3016,7 +3017,8 @@ class TimeRangeAdjust(wx.Frame):
         if self.mode != 'Adjust':
             cancel.Disable()
         
-        panel.SetSizerAndFit(sizer)
+        panel.SetSizer(sizer)
+        sizer.Fit(self)
         
     def initEvents(self):
         self.Bind(wx.EVT_CHECKBOX, self.onWholeFileToggle, id=ID_RANGE_WHOLE)
@@ -3087,7 +3089,7 @@ ID_OBSID_CANCEL = 102
 
 class SwitchObservation(wx.Frame):
     def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Observation to Display', size=(330, 175), style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
+        wx.Frame.__init__(self, parent, title='Observation to Display', style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
         
         self.parent = parent
         
@@ -3105,7 +3107,7 @@ class SwitchObservation(wx.Frame):
         
         row = 0
         panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(5, 5)
+        sizer = wx.GridBagSizer(0, 0)
         
         self.rbList = []
         for i,obs in enumerate(obsList):
@@ -3123,9 +3125,9 @@ class SwitchObservation(wx.Frame):
         #
         
         ok = wx.Button(panel, ID_OBSID_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 0), flag=wx.RIGHT|wx.BOTTOM, border=5)
+        sizer.Add(ok, pos=(row+0, 0), flag=wx.ALL, border=5)
         cancel = wx.Button(panel, ID_OBSID_CANCEL, 'Cancel', size=(56, 28))
-        sizer.Add(cancel, pos=(row+0, 1),  flag=wx.RIGHT|wx.BOTTOM, border=5)
+        sizer.Add(cancel, pos=(row+0, 1), flag=wx.ALL, border=5)
         
         #
         # Fill in values
@@ -3137,7 +3139,8 @@ class SwitchObservation(wx.Frame):
             else:
                 rb.SetValue(False)
                 
-        panel.SetSizerAndFit(sizer)
+        panel.SetSizer(sizer)
+        sizer.Fit(self)
         
     def initEvents(self):
         self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_OBSID_OK)
@@ -3193,7 +3196,7 @@ ID_MASKING_OK = 110
 
 class MaskingAdjust(wx.Frame):
     def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Masking Adjustment', size=(330, 350))
+        wx.Frame.__init__(self, parent, title='Masking Adjustment')
         
         self.parent = parent
         
@@ -3206,12 +3209,7 @@ class MaskingAdjust(wx.Frame):
     def initUI(self):
         row = 0
         panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(5, 5)
-        
-        typ = wx.StaticText(panel, label='Masking Parameters')
-        sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        
-        row += 1
+        sizer = wx.GridBagSizer(0, 0)
         
         bp = wx.StaticText(panel, label='Bandpass Rention:')
         bpR = wx.StaticText(panel, label='Inner:')
@@ -3241,13 +3239,13 @@ class MaskingAdjust(wx.Frame):
         skCDec = wx.Button(panel, ID_SK_CUT_DEC, '-', size=(56, 28))
         skCInc = wx.Button(panel, ID_SK_CUT_INC, '+', size=(56, 28))
         
-        sizer.Add(bp,      pos=(row+0, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+        sizer.Add(bp,      pos=(row+0, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
         sizer.Add(bpR,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(bpRText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(bpRDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(bpRInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         
-        sizer.Add(dc,      pos=(row+2, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+        sizer.Add(dc,      pos=(row+2, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
         sizer.Add(dcP,     pos=(row+3, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(dcPText, pos=(row+3, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(dcPDec,  pos=(row+3, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
@@ -3257,7 +3255,7 @@ class MaskingAdjust(wx.Frame):
         sizer.Add(dcCDec,  pos=(row+4, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(dcCInc,  pos=(row+4, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         
-        sizer.Add(sk,      pos=(row+5, 0), span=(1, 4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+        sizer.Add(sk,      pos=(row+5, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
         sizer.Add(skS,     pos=(row+6, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(skSText, pos=(row+6, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         sizer.Add(skSDec,  pos=(row+6, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
@@ -3268,7 +3266,7 @@ class MaskingAdjust(wx.Frame):
         sizer.Add(skCInc,  pos=(row+7, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
         
         line = wx.StaticLine(panel)
-        sizer.Add(line, pos=(row+8, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
+        sizer.Add(line, pos=(row+8, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
         
         row += 9
         
@@ -3277,9 +3275,10 @@ class MaskingAdjust(wx.Frame):
         #
         
         ok = wx.Button(panel, ID_MASKING_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
+        sizer.Add(ok, pos=(row+0, 3), flag=wx.ALL, border=5)
         
-        panel.SetSizerAndFit(sizer)
+        panel.SetSizer(sizer)
+        sizer.Fit(self)
 
         self.bpRText = bpRText
         self.dcPText = dcPText
