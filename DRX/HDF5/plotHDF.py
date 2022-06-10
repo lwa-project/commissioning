@@ -48,7 +48,42 @@ from matplotlib.collections import LineCollection
 from matplotlib import cm
 from matplotlib.figure import Figure
 
-__version__ = "0.2"
+# Alias for min/max/mean/median that will work with NaNs
+try:
+    nan_min = numpy.nanmin
+    nan_max = numpy.nanmax
+except AttributeError:
+    nan_min = numpy.min
+    nan_max = numpy.max
+try:
+    nan_mean = numpy.nanmean
+except AttributeError:
+    nan_mean = numpy.mean
+try:
+    nan_median = numpy.nanmedian
+except AttributeError:
+    nan_median = numpy.median
+
+try:
+    import bottleneck
+    try:
+        nan_min = bottleneck.nanmin
+        nan_max = bottleneck.nanmax
+    except AttributeError:
+        pass
+    try:
+        nan_mean = bottleneck.nanmean
+    except AttributeError:
+        pass
+    try:
+        nan_median = bottleneck.nanmedian
+    except AttributeError:
+        pass
+except ImportError:
+    print("WARNING: bottleneck not found, consider installing it with 'pip'")
+
+
+__version__ = "0.3"
 __author__ = "Jayce Dowell"
 
 
@@ -67,14 +102,9 @@ def findLimits(data, usedB=True):
     Returns a two-element list of the lowest and highest values.
     """
     
-    try:
-        import bottleneck as btlnck
-        dMin = btlnck.nanmin(data)
-        dMax = btlnck.nanmax(data)
-    except ImportError:
-        dMin = numpy.nanmin(data)
-        dMax = numpy.nanmax(data)
-        
+    dMin = nan_min(data)
+    dMax = nan_max(data)
+    
     if usedB:
         dMin = to_dB(dMin)
     if not numpy.isfinite(dMin):
@@ -451,13 +481,8 @@ class Waterfall_GUI(object):
         self.spec = numpy.ma.array(self.spec, mask=mask)
         
         # Construct frequency and time master masks to prevent some masked things from getting unmasked
-        try:
-            import bottleneck as btlnck
-            self.freqMask = btlnck.nanmean(self.spec.mask, axis=1)
-            self.timeMask = btlnck.nanmean(self.spec.mask, axis=2)
-        except ImportError:
-            self.freqMask = numpy.mean(self.spec.mask, axis=1)
-            self.timeMask = numpy.mean(self.spec.mask, axis=2)
+        self.freqMask = nan_mean(self.spec.mask, axis=1)
+        self.timeMask = nan_mean(self.spec.mask, axis=2)
         self.freqMask = numpy.where(self.freqMask >= 0.5, True, False)
         self.timeMask = numpy.where(self.timeMask >= 0.5, True, False)
         
@@ -521,13 +546,8 @@ class Waterfall_GUI(object):
         
         # Find the mean spectra
         print(" %6.3f s - Computing mean spectra" % (time.time() - tStart))
-        try:
-            import bottleneck as btlnck
-            self.mean = btlnck.nanmean(self.spec, axis=1)
-            self.meanBandpass = btlnck.nanmean(self.specBandpass, axis=1)
-        except ImportError:
-            self.mean = numpy.nanmean(self.spec, axis=1)
-            self.meanBandpass = numpy.nanmean(self.specBandpass, axis=1)
+        self.mean = nan_mean(self.spec, axis=1)
+        self.meanBandpass = nan_mean(self.specBandpass, axis=1)
         
         # Set default colobars
         print(" %6.3f s - Setting default colorbar ranges" % (time.time() - tStart))
@@ -579,12 +599,8 @@ class Waterfall_GUI(object):
         Compute data-based bandpass fits.
         """
         
-        try:
-            import bottleneck as btlnck
-            meanSpec = btlnck.nanmedian(self.spec, axis=1)
-        except ImportError:
-            meanSpec = numpy.median(self.spec, axis=1)
-            
+        meanSpec = nan_median(self.spec, axis=1)
+        
         # Come up with an appropriate smoothing window (wd) and order (od)
         ws = int(round(self.spec.shape[2]/10.0))
         ws = min([41, ws])
@@ -775,7 +791,7 @@ class Waterfall_GUI(object):
         self.ax1b.plot(self.sats[:,2*(tun-1)+1], self.time, linestyle='-', color='green')
         self.ax1b.set_xlim((-0.05, 1.05))
         self.ax1b.set_ylim((self.time[0], self.time[-1]))
-        self.ax1b.set_xlabel('Saturation Fraction')
+        self.ax1b.set_xlabel('Saturation\nFraction')
         self.ax1b.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
         self.ax1b.xaxis.set_ticks([0.0, 0.25, 0.5, 0.75, 1.0])
         self.ax1b.xaxis.set_ticklabels(['0', '', '0.5', '', '1'])
@@ -4056,12 +4072,6 @@ def main(args):
         arxFilter = 'full'
     elif args.reduced:
         arxFilter = 'reduced'
-    
-    # Check for the bottleneck module
-    try:
-        import bottleneck
-    except ImportError:
-        print("WARNING: bottleneck not found, consider installing it with 'pip'")
         
     # Go!
     app = wx.App(0)
@@ -4100,7 +4110,8 @@ def main(args):
         ## Otherwise, disable the various menus that only do something if there is 
         ## a file to look at
         for menuItem in frame.fileMenu.GetMenuItems():
-            if menuItem.GetLabelText().find('Save') != -1:
+            print(type(menuItem))
+            if menuItem.GetItemLabelText().find('Save') != -1:
                 menuItem.Enable(False)
         for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
             for menuItem in menu.GetMenuItems():

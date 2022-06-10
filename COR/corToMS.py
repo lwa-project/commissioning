@@ -118,7 +118,7 @@ def main(args):
                 
             # Convert to a dataDict
             try:
-                blList
+                blList  # pylint: disable=used-before-assignment
             except NameError:
                 blList = uvutils.get_baselines(ants[0::2], include_auto=True)
                 
