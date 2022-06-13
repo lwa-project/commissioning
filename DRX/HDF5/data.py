@@ -16,14 +16,10 @@ from collections import defaultdict
 
 from lsl.common import dp, mcs, sdf, metabundle
 from lsl.reader.drx import FILTER_CODES
-try:
-    from lsl.common import sdfADP, metabundleADP
-    adpReady = True
-except ImportError:
-    adpReady = False
+from lsl.common import sdfADP, metabundleADP
 
 
-__version__ = "0.8"
+__version__ = "0.9"
 __all__ = ['create_new_file', 'fill_minimum', 'fill_from_metabundle', 'fill_from_sdf', 
            'get_observation_set', 'create_observation_set', 'get_time', 'get_data_set']
 
@@ -196,14 +192,11 @@ def fill_from_metabundle(f, tarball):
         cds = mbParser.get_command_script(tarball)
         station = 'lwa1'
     except Exception as e:
-        if adpReady:
-            mbParser = metabundleADP
-            project = mbParser.get_sdf(tarball)
-            cds = mbParser.get_command_script(tarball)
-            station = 'lwasv'
-        else:
-            raise e
-            
+        mbParser = metabundleADP
+        project = mbParser.get_sdf(tarball)
+        cds = mbParser.get_command_script(tarball)
+        station = 'lwasv'
+        
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
     f.attrs['ObserverName'] = project.observer.name
@@ -348,11 +341,8 @@ def fill_from_sdf(f, sdfFilename, station=None):
     try:
         project = sdf.parse_sdf(sdfFilename)
     except Exception as e:
-        if adpReady:
-            project = sdfADP.parse_sdf(sdfFilename)
-        else:
-            raise e
-            
+        project = sdfADP.parse_sdf(sdfFilename)
+        
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
     f.attrs['ObserverName'] = project.observer.name

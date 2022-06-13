@@ -26,11 +26,7 @@ import lsl.correlator.fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common import progress, stations
 from lsl.common import mcs, sdf, metabundle
-try:
-    from lsl.common import sdfADP, metabundleADP
-    adpReady = True
-except ImportError:
-    adpReady = False
+from lsl.common import sdfADP, metabundleADP
 from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
@@ -418,11 +414,8 @@ def main(args):
         try:
             project = metabundle.get_sdf(args.metadata)
         except Exception as e:
-            if adpReady:
-                project = metabundleADP.get_sdf(args.metadata)
-            else:
-                raise e
-                
+            project = metabundleADP.get_sdf(args.metadata)
+            
         sdfBeam  = project.sessions[0].drx_beam
         spcSetup = project.sessions[0].spcSetup
         if sdfBeam != beam:
@@ -448,11 +441,8 @@ def main(args):
         try:
             project = sdf.parse_sdf(args.sdf)
         except Exception as e:
-            if adpReady:
-                project = sdfADP.parse_sdf(args.sdf)
-            else:
-                raise e
-                
+            project = sdfADP.parse_sdf(args.sdf)
+            
         sdfBeam  = project.sessions[0].drx_beam
         spcSetup = project.sessions[0].spcSetup
         if sdfBeam != beam:
