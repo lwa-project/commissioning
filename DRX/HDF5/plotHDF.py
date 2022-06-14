@@ -632,11 +632,16 @@ class Waterfall_GUI(object):
                 ## Correct for the PFB if it seems to be in the data
                 if i // (self.spec.shape[0]//2) == 0:
                     efreq = self.freq1
+                    mfreg = self.freq1
                 else:
                     efreq = self.freq2
+                    mfreq = self.freq2
                 efreq = efreq/25e3 % 1
+                mfreq = numpy.abs(mfreq-mfreq.mean()) / (mfreq[-1]+mfreq[1]-2*mfreq[0])
                 efreq[numpy.where(efreq>0.5)] = 1 - efreq[numpy.where(efreq>0.5)]
                 pfb_model = numpy.polyval(pfb_approx, efreq)
+                pfb_alpha = 1 - 1/(1+np.exp(-(mfreq-0.46)/0.007))
+                pfb_model = alpha*pfb_model + (1-alpha)*1
                 bpm *= pfb_model
                 
             if bpm.mean() == 0:
