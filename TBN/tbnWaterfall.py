@@ -26,11 +26,7 @@ import lsl.correlator.fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common import progress, stations
 from lsl.common import mcs, sdf, metabundle
-try:
-    from lsl.common import sdfADP, metabundleADP
-    adpReady = True
-except ImportError:
-    adpReady = False
+from lsl.common import sdfADP, metabundleADP
 from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
@@ -346,11 +342,8 @@ def main(args):
             project = metabundle.get_sdf(args.metadata)
             station = stations.lwa1
         except Exception as e:
-            if adpReady:
-                project = metabundleADP.get_sdf(args.metadata)
-                station = stations.lwasv
-            else:
-                raise e
+            project = metabundleADP.get_sdf(args.metadata)
+            station = stations.lwasv
     elif args.lwasv:
         station = stations.lwasv
     else:
@@ -383,11 +376,8 @@ def main(args):
         try:
             project = metabundle.get_sdf(args.metadata)
         except Exception as e:
-            if adpReady:
-                project = metabundleADP.get_sdf(args.metadata)
-            else:
-                raise e
-                
+            project = metabundleADP.get_sdf(args.metadata)
+            
         sdfBeam  = project.sessions[0].drx_beam
         if sdfBeam != 5:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, 5))
@@ -412,11 +402,8 @@ def main(args):
         try:
             project = sdf.parse_sdf(args.sdf)
         except Exception as e:
-            if adpReady:
-                project = sdfADP.parse_sdf(args.sdf)
-            else:
-                raise e
-                
+            project = sdfADP.parse_sdf(args.sdf)
+            
         sdfBeam  = project.sessions[0].drx_beam
         if sdfBeam != 5:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, 5))
