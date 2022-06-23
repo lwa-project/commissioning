@@ -457,7 +457,7 @@ class Waterfall_GUI(object):
         mask1 = tuning1.get('Mask', None)
         mask2 = tuning2.get('Mask', None)
         
-        mask = numpy.zeros(self.spec.shape, dtype=numpy.bool)
+        mask = numpy.zeros(self.spec.shape, dtype=bool)
         
         for p in data_products:
             if mask1 is not None:
