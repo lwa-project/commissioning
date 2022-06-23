@@ -576,9 +576,7 @@ class Waterfall_GUI(object):
         
     def render(self):
         # Clear the old marks
-        self.oldMarkA = None
-        self.oldMarkB = None
-        self.oldMarkC = None
+        self.oldMark = None
         
         # Clear the old figures
         self.frame.figure1a.clf()
@@ -809,9 +807,9 @@ class Waterfall_GUI(object):
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
             self.ax1a.set_title('Tuning %i, %s' % (tun, mapper[ind]))
             
-        if self.oldMarkA is not None:
-            self.ax1a.lines.extend(self.oldMarkA)
-        
+        if self.oldMark is not None:
+            self.ax1a.plot([-1e20, 1e20], self.oldMark, color='red')
+            
         self.frame.figure1a.tight_layout()
         self.frame.canvas1a.draw()
         
@@ -827,8 +825,8 @@ class Waterfall_GUI(object):
         self.ax1b.xaxis.set_ticks([0.0, 0.25, 0.5, 0.75, 1.0])
         self.ax1b.xaxis.set_ticklabels(['0', '', '0.5', '', '1'])
         
-        if self.oldMarkB is not None:
-            self.ax1b.lines.extend(self.oldMarkB)
+        if self.oldMark is not None:
+            self.ax1b.plot([0, 1], self.oldMark, color='red')
         self.frame.figure1b.tight_layout()
         self.frame.canvas1b.draw()
         
@@ -854,9 +852,9 @@ class Waterfall_GUI(object):
         self.ax1c.set_ylim((self.time[0], self.time[-1]))
         self.ax1c.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
         
-        if self.oldMarkC is not None:
-            self.ax1c.lines.extend(self.oldMarkC)
-        
+        if self.oldMark is not None:
+            self.ax1c.plot(self.ax1c.get_xlim(), self.oldMark, color='red')
+            
         self.frame.figure1c.tight_layout()
         self.frame.canvas1c.draw()
         
@@ -939,24 +937,29 @@ class Waterfall_GUI(object):
         except TypeError:
             return False
         
-        if self.oldMarkA is not None:
+        if self.oldMark is not None:
             try:
-                del self.ax1a.lines[-1]
-            except:
-                pass
-            
-        if self.oldMarkB is not None:
+                self.ax1a.lines[-1].remove()
+            except AttributeError:
+                try:
+                    del self.ax1a.lines[-1]
+                except:
+                    pass
             try:
-                del self.ax1b.lines[-1]
-            except:
-                pass
-                
-        if self.oldMarkC is not None:
+                self.ax1b.lines[-1].remove()
+            except AttributeError:
+                try:
+                    del self.ax1b.lines[-1]
+                except:
+                    pass
             try:
-                del self.ax1c.lines[-1]
-            except:
-                pass
-        
+                self.ax1c.lines[-1].remove()
+            except AttributeError:
+                try:
+                    del self.ax1c.lines[-1]
+                except:
+                    pass
+                    
         oldXSizeA = self.ax1a.get_xlim()
         oldYSizeA = self.ax1a.get_ylim()
         
@@ -966,9 +969,10 @@ class Waterfall_GUI(object):
         oldXSizeC = self.ax1c.get_xlim()
         oldYSizeC = self.ax1c.get_ylim()
         
-        self.oldMarkA = self.ax1a.plot([-1e20, 1e20], [self.time[dataY],]*2, color='red')
-        self.oldMarkB = self.ax1b.plot([-1e20, 1e20], [self.time[dataY],]*2, color='red')
-        self.oldMarkC = self.ax1c.plot([-1e20, 1e20], [self.time[dataY],]*2, color='red')
+        self.oldMark = [self.time[dataY],]*2
+        self.ax1a.plot([-1e20, 1e20], self.oldMark, color='red')
+        self.ax1b.plot([-1e20, 1e20], self.oldMark, color='red')
+        self.ax1c.plot([-1e20, 1e20], self.oldMark, color='red')
         
         self.ax1a.set_xlim(oldXSizeA)
         self.ax1a.set_ylim(oldYSizeA)
@@ -2309,10 +2313,6 @@ class MainWindow(wx.Frame):
             
         wx.EndBusyCursor()
         
-    def setColorJet(self, event):
-        """
-        Set the colormap to 'jet' and refresh the plots.
-        """
     def onTuning1Product1(self, event):
         """
         Display tuning 1, data product 1 (XX or I)
