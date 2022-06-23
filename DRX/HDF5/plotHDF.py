@@ -639,7 +639,7 @@ class Waterfall_GUI(object):
                 efreq[numpy.where(efreq>0.5)] = 1 - efreq[numpy.where(efreq>0.5)]
                 pfb_model = numpy.polyval(pfb_approx, efreq)
                 pfb_alpha = 1 - 1/(1+numpy.exp(-(mfreq-0.46)/0.007))
-                pfb_model = alpha*pfb_model + (1-alpha)*1
+                pfb_model = pfb_alpha*pfb_model + (1-pfb_alpha)*1
                 bpm *= pfb_model
                 
             if bpm.mean() == 0:
