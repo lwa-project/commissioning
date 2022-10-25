@@ -45,7 +45,7 @@ def main(args):
     beginDate = junkFrame.time.datetime
     central_freq1 = 0.0
     central_freq2 = 0.0
-    for i in xrange(32):
+    for i in xrange(64):
         junkFrame = drx.read_frame(fh)
         b,t,p = junkFrame.id
         if p == 0 and t == 1:
@@ -54,7 +54,7 @@ def main(args):
             central_freq2 = junkFrame.central_freq
         else:
             pass
-    fh.seek(-32*drx.FRAME_SIZE, 1)
+    fh.seek(-64*drx.FRAME_SIZE, 1)
     
     # Report on the file
     print("Filename: %s" % filename)

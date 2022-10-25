@@ -79,7 +79,7 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
     # Get how much the timetags should change and other basic information
     fh.seek(file_begin)
     ids = []
-    for i in xrange(24*8):
+    for i in xrange(64*8):
         junkFrame = drx.read_frame(fh)
         b,t,p = junkFrame.id
         id = (t,p)
@@ -163,7 +163,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     # Get how much the timetags should change and other basic information
     fh.seek(file_begin)
     ids = []
-    for i in xrange(24*8):
+    for i in xrange(64*8):
         junkFrame = drx.read_frame(fh)
         b,t,p = junkFrame.id
         id = (t,p)
