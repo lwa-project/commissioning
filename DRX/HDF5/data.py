@@ -19,9 +19,13 @@ from lsl.reader.drx import FILTER_CODES
 from lsl.common import sdfADP, metabundleADP
 
 
-__version__ = "0.9"
+__version__ = "1.0"
 __all__ = ['create_new_file', 'fill_minimum', 'fill_from_metabundle', 'fill_from_sdf', 
            'get_observation_set', 'create_observation_set', 'get_time', 'get_data_set']
+
+
+
+HDF5_CHUNK_SIZE_MB = 32
 
 
 def _valuetoDelay(value):
@@ -544,7 +548,7 @@ def create_observation_set(f, observation, tuning, frequency, chunks, data_produ
     grp['freq'] = frequency.astype('<f8')
     grp['freq'].attrs['Units'] = 'Hz'
     for p in data_products:
-        chunk_size = 32*1024**2 // 4 // frequency.size
+        chunk_size = HDF5_CHUNK_SIZE_MB * 1024**2 // 4 // frequency.size
         chunk_size = max([1, chunk_size])
         chunk_size = min([chunks, chunk_size])
         
