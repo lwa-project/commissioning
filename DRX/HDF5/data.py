@@ -532,7 +532,7 @@ def create_observation_set(f, observation, tuning, frequency, chunks, data_produ
     # Add the dataset that stores time as a two-element quantity
     if 'time' not in obs:
         d = obs.create_dataset('time', (chunks,), dtype=numpy.dtype({"names": ["int", "frac"],
-                                                                     "formats": ["i8", "f8"]}))
+                                                                     "formats": ["<i8", "<f8"]}))
         d.attrs['format'] = 'unix'
         d.attrs['scale'] = 'utc'
         
@@ -541,13 +541,17 @@ def create_observation_set(f, observation, tuning, frequency, chunks, data_produ
     if grp is None:
         grp = obs.create_group('Tuning%i' % tuning)
         
-    grp['freq'] = frequency.astype(numpy.float64)
+    grp['freq'] = frequency.astype('<f8')
     grp['freq'].attrs['Units'] = 'Hz'
     for p in data_products:
-        d = grp.create_dataset(p, (chunks, frequency.size), 'f4')
+        chunk_size = 32*1024**2 // 4 // frequency.size
+        chunk_size = max([1, chunk_size])
+        chunk_size = min([chunks, chunk_size])
+        
+        d = grp.create_dataset(p, (chunks, frequency.size), dtype='<f4', chunks=(chunk_size, frequency.size))
         d.attrs['axis0'] = 'time'
         d.attrs['axis1'] = 'frequency'
-    d = grp.create_dataset('Saturation', (chunks, 2), 'i8')
+    d = grp.create_dataset('Saturation', (chunks, 2), dtype='<i8')
     d.attrs['axis0'] = 'time'
     d.attrs['axis1'] = 'polarization'
     
