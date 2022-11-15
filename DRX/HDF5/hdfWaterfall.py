@@ -114,42 +114,60 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
     pbar = progress.ProgressBarPlus(max=nChunks)
     
     data_products = ['XX', 'YY']
+    nProd = len(data_products)
     done = False
-    for i in xrange(nChunks):
-        # Inner loop that actually reads the frames into the data array
-        tInt, cTime, data = idf.read(args.average)
-        if i == 0:
-            print("Actual integration time is %.1f ms" % (tInt*1000.0,))
-            
-        # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = (cTime[0], cTime[1])
+    i = 0
+    min_batch = 1
+    while i < nChunks:
+        nBatch = min([min_batch, nChunks-i])
         
-        if (not args.without_sats):
-            sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
-            dataSets['obs%i-Saturation1' % obsID][i,:] = sats[0:2]
-            dataSets['obs%i-Saturation2' % obsID][i,:] = sats[2:4]
-        else:
-            dataSets['obs%i-Saturation1' % obsID][i,:] = -1
-            dataSets['obs%i-Saturation2' % obsID][i,:] = -1
+        super_data = []
+        for j in xrange(nBatch):
+            # Inner loop that actually reads the frames into the data array
+            tInt, cTime, data = idf.read(args.average)
             
+            if i == 0 and j == 0:
+                print("Actual integration time is %.1f ms" % (tInt*1000.0,))
+                if clip1 == clip2:
+                    min_batch = 16*1024**2 // data.dtype.itemsize // data.size
+                    min_batch = max([1, min_batch])
+                    
+            # Save out some easy stuff
+            dataSets['obs%i-time' % obsID][i+j] = (cTime[0], cTime[1])
+            
+            if (not args.without_sats):
+                sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
+                dataSets['obs%i-Saturation1' % obsID][i+j,:] = sats[0:2]
+                dataSets['obs%i-Saturation2' % obsID][i+j,:] = sats[2:4]
+            else:
+                dataSets['obs%i-Saturation1' % obsID][i+j,:] = -1
+                dataSets['obs%i-Saturation2' % obsID][i+j,:] = -1
+                
+            super_data.append(data)
+        data = numpy.concatenate(super_data)
+        
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
             freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             
             l = 0
-            for t in (1,2):
-                for p in data_products:
-                    dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,:]
-                    l += 1
-                    
+            for j in xrange(nBatch):
+                for t in (1,2):
+                    for p in data_products:
+                        dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,:]
+                        l += 1
+                i += 1
+                
         else:
             freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
             
-            for l,p in enumerate(data_products):
-                dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,:]
-                dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,:]
+            for j in xrange(nBatch):
+                for l,p in enumerate(data_products):
+                    dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[nProd*j+l,:]
+                    dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[nProd*j+l,:]
+                i += 1
                 
         # We don't really need the data array anymore, so delete it
         del(data)
@@ -159,7 +177,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
             break
             
         ## Update the progress bar and remaining time estimate
-        pbar.inc()
+        pbar.inc(nBatch)
         sys.stdout.write('%s\r' % pbar.show())
         sys.stdout.flush()
         
@@ -232,40 +250,61 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
     pbar = progress.ProgressBarPlus(max=nChunks)
     
     data_products = ['I', 'Q', 'U', 'V']
+    nProd = len(data_products)
+    nAnt = len(antennas)
     done = False
-    for i in xrange(nChunks):
-        # Inner loop that actually reads the frames into the data array
-        tInt, cTime, data = idf.read(args.average)
-        if i == 0:
-            print("Actual integration time is %.1f ms" % (tInt*1000.0,))
-            
-        # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = (cTime[0], cTime[1])
+    i = 0
+    min_batch = 1
+    while i < nChunks:
+        nBatch = min([min_batch, nChunks-i])
+        while len(antennas) < nAnt*nBatch:
+            antennas.extend(antennas)
+        antennas = antennas[:nAnt*nBatch]
         
-        if (not args.without_sats):
-            sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
-            dataSets['obs%i-Saturation1' % obsID][i,:] = sats[0:2]
-            dataSets['obs%i-Saturation2' % obsID][i,:] = sats[2:4]
-        else:
-            dataSets['obs%i-Saturation1' % obsID][i,:] = -1
-            dataSets['obs%i-Saturation2' % obsID][i,:] = -1
+        super_data = []
+        for j in xrange(nBatch):
+            # Inner loop that actually reads the frames into the data array
+            tInt, cTime, data = idf.read(args.average)
+            if i == 0 and j == 0:
+                print("Actual integration time is %.1f ms" % (tInt*1000.0,))
+                if clip1 == clip2:
+                    min_batch = 16*1024**2 // data.dtype.itemsize // data.size
+                    min_batch = max([1, min_batch])
+                    
+            # Save out some easy stuff
+            dataSets['obs%i-time' % obsID][i+j] = (cTime[0], cTime[1])
             
+            if (not args.without_sats):
+                sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
+                dataSets['obs%i-Saturation1' % obsID][i+j,:] = sats[0:2]
+                dataSets['obs%i-Saturation2' % obsID][i+j,:] = sats[2:4]
+            else:
+                dataSets['obs%i-Saturation1' % obsID][i+j,:] = -1
+                dataSets['obs%i-Saturation2' % obsID][i+j,:] = -1
+                
+            super_data.append(data)
+        data = numpy.concatenate(super_data)
+        
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
             freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             
-            for t in (1,2):
-                for l,p in enumerate(data_products):
-                    dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,t-1,:]
+            for j in xrange(nBatch):
+                for t in (1,2):
+                    for l,p in enumerate(data_products):
+                        dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,2*j+t-1,:]
+                i += 1
                     
         else:
             freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
             
-            for l,p in enumerate(data_products):
-                dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,0,:]
-                dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,0,:]
+            for j in xrange(nBatch):
+                for l,p in enumerate(data_products):
+                    dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,j,:]
+                    dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,j,:]
+                i += 1
                 
         # We don't really need the data array anymore, so delete it
         del(data)
@@ -275,7 +314,7 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
             break
             
         ## Update the progress bar and remaining time estimate
-        pbar.inc()
+        pbar.inc(nBatch)
         sys.stdout.write('%s\r' % pbar.show())
         sys.stdout.flush()
         
