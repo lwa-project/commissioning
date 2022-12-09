@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 plotShelterTemp.py - Script to read in the shelter.txt file and plot up the 

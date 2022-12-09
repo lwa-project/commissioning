@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a /data/rack##.txt file (or one of the rotated backups) plot the PDU input

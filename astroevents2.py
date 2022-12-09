@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 New take on astroevents using PyEphem for calculations.  It can also take a

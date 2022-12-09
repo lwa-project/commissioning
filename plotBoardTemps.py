@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a /data/temp.txt file (or one of the rotated backups) plot the temperatures

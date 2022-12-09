@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Convert a local date/time string in the format of "YYYY/MM/DD HH:MM:SS[.SSS]" into 
