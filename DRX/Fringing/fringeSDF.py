@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF that puts a 

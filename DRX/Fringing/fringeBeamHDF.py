@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Frank Schinzel's script to fringe special DRX files that have a beam X pol. 

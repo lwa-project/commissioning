@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simple script to plot up the HDF5 file created by fringeBeamHDF.py.

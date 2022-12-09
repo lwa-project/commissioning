@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.build_sim_data()

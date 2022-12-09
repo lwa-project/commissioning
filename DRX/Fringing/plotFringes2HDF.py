@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 A fancier version of plotFringesHDF.py that makes waterfall-like plots.
