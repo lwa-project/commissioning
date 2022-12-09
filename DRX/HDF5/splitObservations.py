@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 splitObservations.py - Read in a DRX/HDF5 watefall file and split out various 

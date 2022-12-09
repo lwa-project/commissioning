@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Run through a DR spectrometer file and determine if it is bad or not.

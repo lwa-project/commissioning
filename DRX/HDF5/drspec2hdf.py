@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Small script to read in a DR spectrometer binary data file and create a HDF5 in 

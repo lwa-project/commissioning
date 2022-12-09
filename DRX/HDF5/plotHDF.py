@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a DRX HDF5 waterfall file, plot it in an interactive way.

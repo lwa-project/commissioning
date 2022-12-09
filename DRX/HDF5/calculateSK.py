@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 calculateSK.py - Read in a DRX/HDF5 wataerfall file and calculate the pseudo-

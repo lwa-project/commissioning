@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given an HDF5 file with linear polarization products, calculate the Stokes 
