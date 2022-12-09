@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Basic script to take a COR file, apply the station delay model, and write the
