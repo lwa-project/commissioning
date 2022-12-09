@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a binary TBW health check file from PASI/LASI, covnert the data into a 

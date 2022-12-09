@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Script to take a single TBW capture and create a RFI-centered HDF5 file for stands 1, 10, 54, 
