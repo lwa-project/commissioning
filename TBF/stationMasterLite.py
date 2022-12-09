@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBF file, plot the time averaged spectra for each digitizer input.  Save 
