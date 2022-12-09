@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Split multi-vis NPZ files that are generated from combined TBN observations into

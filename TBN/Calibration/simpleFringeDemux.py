@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simple script for performing time series cross-correlation of TBN data for 

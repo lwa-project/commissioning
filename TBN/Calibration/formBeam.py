@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simple TBN beam forming script based on Steve's "Fun with TBN" memo.

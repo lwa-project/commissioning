@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Combine the delay differences from a text file with the a priori knowledge of the

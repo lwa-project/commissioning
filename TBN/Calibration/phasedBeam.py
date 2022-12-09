@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a reference file for calibration and a pointing azimuth and elevation 
