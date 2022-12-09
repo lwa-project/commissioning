@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBN file, plot the time averaged spectra for each stand output over some 

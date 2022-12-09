@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBN file, plot the time series I and Q data as a function of time.
