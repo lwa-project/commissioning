@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Check the time times in a DRX file for flow.  This script should be immune to the 

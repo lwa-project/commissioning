@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Read in a DRX file and look at the time tag difference between tuning 1 and 

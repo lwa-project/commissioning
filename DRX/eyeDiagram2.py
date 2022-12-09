@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a DRX file, look for glitches in a DRX or TBN data by fitting a sine wave 

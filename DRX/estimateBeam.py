@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Read in a SSMIF file and estimate the DRX beam for a given frequency and 

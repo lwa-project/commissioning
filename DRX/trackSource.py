@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Script to generate delay-and-sum beam forming coefficients as well as a 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Read in SSMIF file and create a set of DRX gain and delay files for a given 
