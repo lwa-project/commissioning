@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Display NPZ data from stationMaster in an interactive GUI sort of way.
