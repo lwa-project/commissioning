@@ -5,11 +5,12 @@ Basic script to take a COR file, apply the station delay model, and write the
 data out as a CASA measurement set.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -100,8 +101,8 @@ def main(args):
                 gaiy = [a.cable.gain(freqs) for a in ants if a.pol == 1]
                 dlyx = [a.cable.delay(freqs) - a.stand.z / speedOfLight for a in ants if a.pol == 0]
                 dlyy = [a.cable.delay(freqs) - a.stand.z / speedOfLight for a in ants if a.pol == 1]
-                for i in xrange(nAnt):
-                    for j in xrange(i, nAnt):
+                for i in range(nAnt):
+                    for j in range(i, nAnt):
                         phase[k,:,0,0] = numpy.exp(2j*numpy.pi*freqs*(dlyx[i] - dlyx[j])) \
                                             / numpy.sqrt(gaix[i]*gaix[j])
                         phase[k,:,0,1] = numpy.exp(2j*numpy.pi*freqs*(dlyx[i] - dlyy[j])) \
@@ -113,7 +114,7 @@ def main(args):
                         
                         k += 1
                         
-            for i in xrange(data.shape[-1]):
+            for i in range(data.shape[-1]):
                 data[...,i] *= phase
                 
             # Convert to a dataDict
