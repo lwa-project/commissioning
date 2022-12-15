@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -157,7 +158,7 @@ def main(args):
                 
     # Report
     print("%s" % (args.source.name,))
-    for i in xrange(lst.size):
+    for i in range(lst.size):
         print("%s:  %s  %s" % (str(ephem.hours(str(lst[i]))), pwrX[i,:], pwrY[i,:]))
         
     # Plot

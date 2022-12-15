@@ -7,11 +7,12 @@ center, and the outlier.  The HDF5 contains values for the spectral kurtosis est
 the data and various statistics about the timeseries (mean, std. dev., percentiles, etc.)
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -42,10 +43,10 @@ def expandMask(mask, radius=2, merge=False):
     """
     
     mask2 = numpy.zeros(mask.shape, dtype=numpy.int16)
-    for i in xrange(mask.shape[0]):
-        for j in xrange(mask.shape[1]):
+    for i in range(mask.shape[0]):
+        for j in range(mask.shape[1]):
             if mask[i,j] == 1:
-                for k in xrange(-radius,radius+1):
+                for k in range(-radius,radius+1):
                     try:
                         mask2[i,j+k] = True
                     except IndexError:
@@ -53,7 +54,7 @@ def expandMask(mask, radius=2, merge=False):
                     
     if merge:
         mask3 = mask2.sum(axis=0)
-        for i in xrange(mask.shape[1]):
+        for i in range(mask.shape[1]):
             if mask3[i] > 0:
                 mask2[:,i] = True
     
@@ -199,8 +200,8 @@ def main(args):
         # Time series analysis - percentiles
         p = [50, 75, 90, 95, 99]
         tsPct = numpy.zeros((data.shape[0], len(p)))
-        for i in xrange(len(p)):
-            for j in xrange(data.shape[0]):
+        for i in range(len(p)):
+            for j in range(data.shape[0]):
                 tsPct[j,i] = percentile(numpy.abs(data[j,:]), p[i])
     
         # Frequency domain analysis - spectra
@@ -220,8 +221,8 @@ def main(args):
         
         # Frequency domain analysis -  spectral kurtosis
         k = numpy.zeros((signalsF.shape[0], signalsF.shape[1]))
-        for l in xrange(signalsF.shape[0]):
-            for m in xrange(freq.size):
+        for l in range(signalsF.shape[0]):
+            for m in range(freq.size):
                 k[l,m] = kurtosis.spectral_fft(signalsF[l,m,:])
         kl, kh = kurtosis.get_limits(4, skM, skN)
         print(kl, kh)
@@ -256,7 +257,7 @@ def main(args):
         f.attrs['SK-M'] = skM
         f.attrs['SK-N'] = skN
         
-        for l in xrange(len(toKeep)):
+        for l in range(len(toKeep)):
             antX = antennas[toKeep[l]]
             antY = antennas[toKeep[l]+1]
             
@@ -290,7 +291,7 @@ def main(args):
         fig = plt.figure()
         ax1 = fig.add_subplot(2, 1, 1)
         ax2 = fig.add_subplot(2, 1, 2)
-        for l in xrange(k.shape[0]):
+        for l in range(k.shape[0]):
             ant = antennas[toKeep[l/2]]
             
             ax1.plot(freq/1e6, numpy.log10(masterSpectra[l,:])*10, label='Stand %i, Pol %i' % (ant.stand.id, ant.pol+l%2))
