@@ -5,11 +5,12 @@ Read in a DRX file and look at the time tag difference between tuning 1 and
 tuning 2 to and if that difference changes throughout a file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -65,14 +66,14 @@ def main(args):
         screen.nodelay(1)
 
         strdict = {'preamble': out}
-        for i in xrange(tuningOffset.size):
+        for i in range(tuningOffset.size):
             screen.clear()
 
             beamIDs = [0,0,0,0]
             timetags = numpy.zeros(4, dtype=numpy.int64) - 1
             time_offsets = numpy.zeros(4, dtype=numpy.int64) - 1
             timeValues = numpy.zeros(4, dtype=numpy.float64)
-            for j in xrange(4):
+            for j in range(4):
                 # Read in the next frame and anticipate any problems that could occur
                 try:
                     cFrame = drx.read_frame(fh, verbose=False)

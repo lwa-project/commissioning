@@ -7,12 +7,9 @@ Creates delay file for one or all antennas
 # March 12, 2011                                                        *
 # Copyright 2011, by the California Institute of Technology. ALL RIGHTS RESERVED.
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 

@@ -4,11 +4,12 @@
 Given a DRX file, plot the instantaneous power as a function of time.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -149,7 +150,7 @@ def main(args):
         #print("Working on %.2f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
-        for j in xrange(framesWork):
+        for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = drx.read_frame(fh, verbose=False)
@@ -195,7 +196,7 @@ def main(args):
 
     # Report on the clipping
     print("Summary:")
-    for i in xrange(4):
+    for i in range(4):
         print("  Tuning %i, Pol. %s:" % (i/2+1, 'X' if i%2 else 'Y'))
         print("    Processed: %i samples" % masterProcessed[i])
         print("    Clipped:   %i samples" % masterRemoved[i])
@@ -206,7 +207,7 @@ def main(args):
     figsX = int(round(math.sqrt(4)))
     figsY = 4 // figsX
 
-    for i in xrange(masterData.shape[1]):
+    for i in range(masterData.shape[1]):
         ax = fig.add_subplot(figsX,figsY,i+1)
         ax.plot(numpy.arange(0, masterData.shape[0] )*args.average, masterData[:,i],  label='Full')
         ax.plot(numpy.arange(0, masterData2.shape[0])*args.average, masterData2[:,i], label='Trimmed')

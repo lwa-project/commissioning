@@ -4,11 +4,12 @@
 Given a DRX file, look for clip-o-rama (single samples with high instanenous power).
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -96,7 +97,7 @@ def main(args):
 
     # Master loop over all of the file chuncks
     standMapper = []
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
         # only deal with that chunk
@@ -114,7 +115,7 @@ def main(args):
         print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
-        for j in xrange(framesWork):
+        for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = drx.read_frame(fh, verbose=False)
@@ -134,8 +135,8 @@ def main(args):
         
         # Statistics
         print("Running robust statistics")
-        means = [robust.mean(data[i,:]) for i in xrange(data.shape[0])]
-        stds  = [robust.std(data[i,:])  for i in xrange(data.shape[0])]
+        means = [robust.mean(data[i,:]) for i in range(data.shape[0])]
+        stds  = [robust.std(data[i,:])  for i in range(data.shape[0])]
         
         if args.stats:
             ## Report statistics
@@ -147,7 +148,7 @@ def main(args):
             j = 0
             counts = [1,]*data.shape[0]
             while (means[i]+j*stds[i] <= 98) and max(counts) != 0:
-                counts =[len(numpy.where( numpy.abs(data[i,:] - means[i]) >= j*stds[i] )[0]) for i in xrange(data.shape[0])]
+                counts =[len(numpy.where( numpy.abs(data[i,:] - means[i]) >= j*stds[i] )[0]) for i in range(data.shape[0])]
                 print(" %2isigma (%5.1f%%): %s" % (j, 100.0*(1-erf(j/numpy.sqrt(2))), ' '.join(["%7i (%5.1f%%)" % (c, 100.0*c/data.shape[1]) for c in counts])))
                 j += 1
             
@@ -156,8 +157,8 @@ def main(args):
             ## bin is j-2.
             jP = j - 2
             if jP > 20:
-                counts = [len(numpy.where( numpy.abs(data[i,:] - means[i]) >= jP*stds[i] )[0]) for i in xrange(data.shape[0])]
-                for i in xrange(data.shape[0]):
+                counts = [len(numpy.where( numpy.abs(data[i,:] - means[i]) >= jP*stds[i] )[0]) for i in range(data.shape[0])]
+                for i in range(data.shape[0]):
                     if counts[i] > 0:
                         break
                 
@@ -174,7 +175,7 @@ def main(args):
             # Plot possible clip-o-rama and flag it
             print("Computing power derivatives w.r.t. time")
             deriv = numpy.zeros_like(data)
-            for i in xrange(data.shape[0]):
+            for i in range(data.shape[0]):
                 deriv[i,:] = numpy.roll(data[i,:], -1) - data[i,:]
             
             # The plots:  This is setup for the current configuration of 20 beampols
@@ -183,7 +184,7 @@ def main(args):
             figsX = int(round(math.sqrt(beampols)))
             figsY = beampols // figsX
             
-            for i in xrange(data.shape[0]):
+            for i in range(data.shape[0]):
                 ax = fig.add_subplot(figsX,figsY,i+1)
                 ax.plot(args.offset + numpy.arange(0,data.shape[1])/srate, data[i,:])
                 

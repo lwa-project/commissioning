@@ -5,12 +5,9 @@
 Set DRX beams and start a recording.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import datetime
 import os
 import math

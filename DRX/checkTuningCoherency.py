@@ -4,11 +4,12 @@
 Given a DRX file with both tunings set to the same parameters, check for coherency.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -136,7 +137,7 @@ def main(args):
         print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
-        for j in xrange(framesWork):
+        for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = drx.read_frame(fh, verbose=False)
@@ -177,7 +178,7 @@ def main(args):
 
         offset = 0
         samples = 65536
-        for sec in xrange(data.shape[1]//samples):
+        for sec in range(data.shape[1]//samples):
             if toClip:
                 print("Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0))
 

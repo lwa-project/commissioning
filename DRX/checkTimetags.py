@@ -6,11 +6,12 @@ various DRX cross-tuning time tag issues because it does comparisons on a tuning
 polarization basis.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -61,7 +62,7 @@ def main(args):
     prevTime = [0, 0, 0, 0]
     prevDate = ['', '', '', '']
     prevNumb = [0, 0, 0, 0]
-    for i in xrange(4):
+    for i in range(4):
         currFrame = drx.read_frame(fh)
         beam, tune, pol = currFrame.id
         rID = 2*(tune-1) + pol

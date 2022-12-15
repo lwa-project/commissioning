@@ -4,11 +4,12 @@
 Create an eye diagram for some portion of a TBN or DRX file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -87,7 +88,7 @@ def main(args):
     masterCount = 0
     tStart = 0
     data *= 0
-    for f in xrange(fInt*nFrames.sum()):
+    for f in range(fInt*nFrames.sum()):
         # Read in the next frame and anticipate any problems that could occur
         try:
             cFrame = rdr.read_frame(fh, verbose=False)
