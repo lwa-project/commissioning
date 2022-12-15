@@ -6,12 +6,9 @@ MJD and MPM UTC values.  If no date/time string is supplied, the current local
 date/time is used.
 """
 
-# Python3 compatiability
+# Python2 compatiability
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+ 
 import sys
 import math
 import pytz
