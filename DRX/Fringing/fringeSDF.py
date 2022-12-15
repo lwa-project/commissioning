@@ -135,7 +135,7 @@ def main(args):
         print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
         print("-> Using gain setting of %.4f for the beam" % bgain)
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(int(len(antennas)/2))] # initialize gain list 
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in range(int(len(antennas)/2))] # initialize gain list 
         
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
