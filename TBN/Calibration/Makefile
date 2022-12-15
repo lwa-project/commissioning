@@ -1,7 +1,4 @@
-PYTHON ?= python3
-ifeq (, $(shell which $(PYTHON)))
-	PYTHON = python
-endif
+PYTHON ?= python
 
 .PHONY: all
 all: fringe.so
