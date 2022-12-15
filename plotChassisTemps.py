@@ -7,7 +7,7 @@ temperatures are plotted as color maps for (1) the mean FPGA temperature per boa
 and (2) the maximum FPGA temperature per board.
 """
 
-# Python2 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
 try:
     range = xrange

@@ -6,7 +6,7 @@ date in the form of YYYY/MM/DD from the command line to use a as base for
 its calculations.
 """
 
-# Python2 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
 try:
     range = xrange
