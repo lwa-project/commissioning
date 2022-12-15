@@ -4,11 +4,12 @@
 Given a DRX HDF5 waterfall file, plot it in an interactive way.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -555,9 +556,9 @@ class Waterfall_GUI(object):
         self.limitsBandpass = [None,]*self.spec.shape[0]
         
         toUse = range(self.spec.shape[2]//10, 9*self.spec.shape[2]//10+1)
-        for i in xrange(self.spec.shape[0]):
+        for i in range(self.spec.shape[0]):
             self.limits[i] = findLimits(self.spec[i,:,:], usedB=self.usedB)
-        for i in xrange(self.spec.shape[0]):
+        for i in range(self.spec.shape[0]):
             self.limitsBandpass[i] = findLimits(self.specBandpass[i,:,toUse], usedB=self.usedB)
             
         try:
@@ -607,7 +608,7 @@ class Waterfall_GUI(object):
         od = min([9, ws-2])
         
         bpm2 = []
-        for i in xrange(self.spec.shape[0]):
+        for i in range(self.spec.shape[0]):
             bpm = savitzky_golay(meanSpec[i,:], ws, od, deriv=0)
             bpm = numpy.ma.array(bpm, mask=~numpy.isfinite(bpm))
             
@@ -641,7 +642,7 @@ class Waterfall_GUI(object):
             freq2 = f
             respX2 = numpy.zeros_like(r)
             respY2 = numpy.zeros_like(r)
-            for i in xrange(len(antennas)):
+            for i in range(len(antennas)):
                 if antennas[i].combined_status != 33:
                     continue
                 f,r = antennas[i].arx.response(filter=filter, dB=False)
@@ -671,7 +672,7 @@ class Waterfall_GUI(object):
             return rDRX
             
         bpm2 = []
-        for i in xrange(self.spec.shape[0]):
+        for i in range(self.spec.shape[0]):
             if i // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
@@ -1003,11 +1004,11 @@ class Waterfall_GUI(object):
         kurtosis = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
         
         secSize = self.spec.shape[1]//self.kurtosisSec
-        for k in xrange(self.kurtosisSec):
+        for k in range(self.kurtosisSec):
             tStart = k*secSize
             tStop  = (k+1)*secSize
             
-            for j in xrange(self.spec.shape[2]):
+            for j in range(self.spec.shape[2]):
                 channel = self.spec.data[index,tStart:tStop,j]
                 kurtosis[k,j] = spectral_power(channel, N=N)
                 
@@ -1025,7 +1026,7 @@ class Waterfall_GUI(object):
             tStop  = (k+1)*secSize
             
             try:
-                for j in xrange(b-2, b+3):
+                for j in range(b-2, b+3):
                     self.spec.mask[index,tStart:tStop,j] = True
                     self.specBandpass.mask[index,tStart:tStop,j] = True
                     self.freqMask[index,j] = True
@@ -1447,7 +1448,7 @@ class Waterfall_GUI(object):
                 fh.write("#  3. Masked Channel                        #\n")
                 fh.write("#                                           #\n")
                 fh.write("#############################################\n")
-                for i in xrange(freq.size):
+                for i in range(freq.size):
                     fh.write("%13.5f  %13.6f  %13s\n" % (freq[i], spec.data[self.index,dataY,i], spec.mask[self.index,dataY,i]))
                 fh.close()
                 
@@ -2448,7 +2449,7 @@ class MainWindow(wx.Frame):
         wx.BeginBusyCursor()
         wx.Yield()
         
-        for i in xrange(self.data.spec.shape[0]):
+        for i in range(self.data.spec.shape[0]):
             self.data.suggestMask(i)
             
         self.data.draw()
@@ -2481,7 +2482,7 @@ class MainWindow(wx.Frame):
         wx.BeginBusyCursor()
         wx.Yield()
         
-        for i in xrange(self.data.spec.shape[0]):
+        for i in range(self.data.spec.shape[0]):
             self.data.resetMask(i)
         
         self.data.draw()
@@ -3647,7 +3648,7 @@ class DriftCurveDisplay(wx.Frame):
             
         levels = []
         segments = []
-        for i in xrange(1, z.size):
+        for i in range(1, z.size):
                 levels.append( 0.5*(z[i-1]+z[i]) )
                 segments.append( [(self.parent.data.time[i-1],z[i-1]), (self.parent.data.time[i],z[i])] )
         segments = LineCollection(segments)
@@ -3833,7 +3834,7 @@ class PowerSpectrumDisplay(wx.Frame):
         
         levels = []
         segments = []
-        for i in xrange(1, z.size):
+        for i in range(1, z.size):
                 levels.append( 0.5*(z[i-1]+z[i]) )
                 segments.append( [(self.fft_freq[i-1],z[i-1]), (self.fft_freq[i],z[i])] )
         segments = LineCollection(segments)

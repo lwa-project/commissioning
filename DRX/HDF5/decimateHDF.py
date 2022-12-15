@@ -5,12 +5,13 @@ Given an HDF5 file, decimate the data contained in it in both time and
 frequency, and save the results to a new file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
+try:
+    range = xrange
+    input = raw_input
+except NameError:
+    pass
     
 import os
 import sys
@@ -63,28 +64,28 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
             elif ent == 'time':
                 newShape = (entity.shape[0]//tDecimation,)
                 entityO = output.create_dataset(ent, newShape, entity.dtype)
-                for i in xrange(newShape[0]):
+                for i in range(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1)]
                     entityO[i] = data[0]
                     
             elif ent == 'Saturation':
                 newShape = (entity.shape[0]//tDecimation, entity.shape[1])
                 entityO = output.create_dataset(ent, newShape, entity.dtype)
-                for i in xrange(newShape[0]):
+                for i in range(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1),:]
                     entityO[i,:] = data.sum(axis=0)
                     
             elif ent == 'freq':
                 newShape = (entity.shape[0]//sDecimation,)
                 entityO = output.create_dataset(ent, newShape, entity.dtype)
-                for i in xrange(newShape[0]):
+                for i in range(newShape[0]):
                     data = entity[sDecimation*i:sDecimation*(i+1)]
                     entityO[i] = data.mean()
                     
             else:
                 newShape = (entity.shape[0]//tDecimation, entity.shape[1]//sDecimation)
                 entityO = output.create_dataset(ent, newShape, entity.dtype)
-                for i in xrange(newShape[0]):
+                for i in range(newShape[0]):
                     data = entity[tDecimation*i:tDecimation*(i+1),:newShape[1]*sDecimation]
                     data = data.mean(axis=0)
                     data.shape = (data.size//sDecimation, sDecimation)
@@ -108,7 +109,7 @@ def main(args):
         
         if os.path.exists(outname):
             if not args.force:
-                yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
                 

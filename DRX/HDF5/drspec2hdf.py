@@ -5,12 +5,13 @@ Small script to read in a DR spectrometer binary data file and create a HDF5 in
 the image of hdfWaterfall.py that can be plotted with plotHDF.py
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
+try:
+    range = xrange
+    input = raw_input
+except NameError:
+    pass
     
 import os
 import sys
@@ -44,7 +45,7 @@ def main(args):
     fh = open(args.filename, 'rb')
 
     try:
-        for i in xrange(5):
+        for i in range(5):
             junkFrame = drx.read_frame(fh)
         raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % args.filename)
     except errors.SyncError:
@@ -131,7 +132,7 @@ def main(args):
     
     if os.path.exists(outname):
         if not args.force:
-            yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             
@@ -221,7 +222,7 @@ def main(args):
     j = 0
     
     firstPass = True
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         frame = drspec.read_frame(fh)
         
         cTime = frame.time.datetime

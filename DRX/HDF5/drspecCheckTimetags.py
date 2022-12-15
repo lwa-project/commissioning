@@ -4,11 +4,12 @@
 Check the time times in a DR spectrometer file for flow.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -26,7 +27,7 @@ def main(args):
     fh = open(args.filename, "rb")
         
     try:
-        for i in xrange(5):
+        for i in range(5):
             junkFrame = drx.read_frame(fh)
         raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % args.filename)
     except errors.SyncError:
@@ -101,7 +102,7 @@ def main(args):
     print("Transform Length: %i" % LFFT)
     print("Integration: %.3f s" % tInt)
     
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         frame = drspec.read_frame(fh)
         
         cTime = frame.time
