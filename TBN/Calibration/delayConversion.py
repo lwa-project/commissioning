@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Combine the delay differences from a text file with the a priori knowledge of the
 cable model to make a NPZ file that reflects the fully delay of the system.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import sys
 import numpy
@@ -29,7 +30,7 @@ def main(args):
     fh = open(filename)
 
     delays = {}
-    for i in xrange(520):
+    for i in range(520):
         delays[i] = []
 
     for line in fh:
@@ -51,11 +52,11 @@ def main(args):
 
     fh.close()
 
-    pols = numpy.array([i % 2 for i in xrange(520)])
+    pols = numpy.array([i % 2 for i in range(520)])
 
     delays2 = numpy.zeros(520)
     delays3 = numpy.zeros(520) - 1000.0
-    for i in xrange(520):
+    for i in range(520):
         part = numpy.array(delays[i])
         if part.size == 0:
             continue

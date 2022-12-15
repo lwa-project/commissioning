@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Script to generate delay-and-sum beam forming coefficients as well as a 
@@ -8,11 +8,12 @@ Usage:
 trackSource <SSMIF> <source_name> <start date> <start time> <duration in hr>
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -109,7 +110,7 @@ def main(args):
         
     # Identify the source to track
     refSource  = None
-    for i in xrange(len(srcs)):
+    for i in range(len(srcs)):
         if srcs[i].name.lower() == source.lower():
             refSource = srcs[i]
             source = refSource.name
@@ -133,7 +134,7 @@ def main(args):
     # Create the DFT files and build the script
     nSteps = int(numpy.ceil(duration * 60 / 4))
     stepSize = timedelta(0, int(tStep*60), int((tStep*60*1000000) % 1000000))
-    for s in xrange(nSteps):
+    for s in range(nSteps):
         # Compute the source location half-way into the step
         tBeam = tStart + timedelta(0, int(tStep*60/2), int((tStep*60/2*1000000) % 1000000))
         observer.date = tBeam.strftime("%Y/%m/%d %H:%M:%S")

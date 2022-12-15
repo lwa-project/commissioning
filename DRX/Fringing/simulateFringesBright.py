@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.build_sim_data()
 function and the bright sources listed in lsl.sim.vis.srcs.
 """
 
-# Python3 compatiability
+# Python compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -53,7 +54,7 @@ def main(args):
     print("Got %i files from %s to %s (%s)" % (len(filenames), times[0].strftime("%Y/%m/%d %H:%M:%S"), times[-1].strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = []
-    for i in xrange(1, len(times)):
+    for i in range(1, len(times)):
         dt = times[i] - times[i-1]
         iTimes.append(dt.days*24*3600 + dt.seconds + dt.microseconds/1e6)
     iTimes = numpy.array(iTimes)
@@ -87,7 +88,7 @@ def main(args):
     # Build the model times and range.
     jdList = []
     dTimes = []
-    for i in xrange(len(times)):
+    for i in range(len(times)):
         tNow = timegm(times[i].timetuple())
         jdNow = unix_to_utcjd(tNow)
 

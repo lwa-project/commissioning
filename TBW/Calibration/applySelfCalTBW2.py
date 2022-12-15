@@ -1,10 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -193,7 +194,7 @@ def main(args):
         fh.write("# 5) Y pol. delay (ns)         #\n")
         fh.write("#                              #\n")
         fh.write("################################\n")
-        for i in xrange(delaysXX.size):
+        for i in range(delaysXX.size):
             fh.write("%3i  %.6g  %.6g  %.6g  %.6g\n" % (idi.stands[i], 1.0, delaysXX[i], 1.0, delaysYY[i]))
         fh.close()
 

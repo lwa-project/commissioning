@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 New take on astroevents using PyEphem for calculations.  It can also take a
@@ -6,11 +6,12 @@ date in the form of YYYY/MM/DD from the command line to use a as base for
 its calculations.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -87,7 +88,7 @@ def main(args):
     srcs = [ephem.Sun(), ephem.Jupiter()]
     for line in _srcs:
         srcs.append( ephem.readdb(line) )
-    for i in xrange(len(srcs)):
+    for i in range(len(srcs)):
         srcs[i].compute(observer)
         
     if not args.position_mode:

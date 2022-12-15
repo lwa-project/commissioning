@@ -1,10 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -31,7 +32,7 @@ def main(args):
     # Calculate the new stretch factors
     #
     output = [[None, None, None, None, None] for ant in antennas]
-    for i in xrange(dataFile.shape[0]):
+    for i in range(dataFile.shape[0]):
         ## Parse the line
         stand, ampX, addDelayX, ampY, addDelayY = dataFile[i,:]
         stand = int(stand)

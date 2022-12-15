@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Read in SSMIF file and create a STEPPED/SPEC_DELAYS_GAINS SDF that puts a 
@@ -6,11 +6,12 @@ single dipole or beam on the X pol and the outlier on the other.  The
 gain files are constructed such that all data is from X pol.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import re
@@ -134,14 +135,14 @@ def main(args):
         print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
         print("-> Using gain setting of %.4f for the beam" % bgain)
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in xrange(int(len(antennas)/2))] # initialize gain list 
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in range(int(len(antennas)/2))] # initialize gain list 
         
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
             i = d - 1
             gains[i//2] = [twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain]
             
-        for i in xrange(len(stands)//2):
+        for i in range(len(stands)//2):
             # Put the reference stand in there all by itself
             if stands[2*i] == args.reference:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
@@ -152,8 +153,8 @@ def main(args):
         
         print("Setting gains for dipoles %i and %i" % (args.dipole, args.reference))
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in xrange(int(len(antennas)/2))] # initialize gain list
-        for i in xrange(len(stands)//2):
+        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in range(int(len(antennas)/2))] # initialize gain list
+        for i in range(len(stands)//2):
             # Put the fringing stand in there all by itself
             if stands[2*i] == args.dipole:
                 gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain]

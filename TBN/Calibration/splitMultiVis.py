@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Split multi-vis NPZ files that are generated from combined TBN observations into
@@ -8,12 +8,9 @@ Usage:
 ./splitMultiVis.py <NPZ multi-vis. file> [<NPZ multi-vis. file> [...]]
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import numpy

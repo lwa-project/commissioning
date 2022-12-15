@@ -1,10 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -35,8 +36,8 @@ def main(args):
     #
     # Match the new stretch factors to the antennas
     #
-    factors = [1.0 for i in xrange(len(antennas))]
-    for i in xrange(dataFile.shape[0]):
+    factors = [1.0 for i in range(len(antennas))]
+    for i in range(dataFile.shape[0]):
         dig, stretch, addDelay, rms, chi2 = dataFile[i,:]
         dig = int(dig)
         antenna = antennas[dig-1]

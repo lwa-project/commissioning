@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 A fancier version of plotFringesHDF.py that makes waterfall-like plots.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -83,7 +84,7 @@ def main(args):
     print("Got %i files from %s to %s (%s)" % (len(filenames), times[0].strftime("%Y/%m/%d %H:%M:%S"), times[-1].strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
     
     iTimes = []
-    for i in xrange(1, len(times)):
+    for i in range(1, len(times)):
         dt = times[i] - times[i-1]
         iTimes.append(dt.days*24*3600 + dt.seconds + dt.microseconds/1e6)
     iTimes = numpy.array(iTimes)
@@ -104,7 +105,7 @@ def main(args):
     vis2 = numpy.ma.array(vis2, mask=~numpy.isfinite(vis2))
     
     sk = numpy.zeros(freq1.size)
-    for i in xrange(vis1.shape[1]):
+    for i in range(vis1.shape[1]):
         sk[i] = spectralKurtosis(numpy.abs(vis1[:,i])**2, N=N)
     
     skM = robust.mean(sk)
@@ -113,7 +114,7 @@ def main(args):
     #vis1.mask[:,bad] = True
     
     sk = numpy.zeros_like(freq2)
-    for i in xrange(vis2.shape[1]):
+    for i in range(vis2.shape[1]):
         sk[i] = spectralKurtosis(numpy.abs(vis2[:,i])**2, N=N)
     
     skM = robust.mean(sk)

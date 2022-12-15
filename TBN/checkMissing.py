@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBN file, check for missing frames (or frames considered missing by the
@@ -7,11 +7,12 @@ missing.  Rather than do this for a whole file, it is done for some small portio
 of the file that is controlled by the -s/--skip and -a/--average flags.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -95,7 +96,7 @@ def main(args):
     buffer = TBNFrameBuffer(stands=range(1,antpols//2+1), pols=[0, 1])
 
     # Master loop over all of the file chunks
-    masterCount = [0 for a in xrange(len(antennas))]
+    masterCount = [0 for a in range(len(antennas))]
     
     # Missing packet control variables
     missingPackets = numpy.ones((antpols, 2048), dtype=numpy.int8)
@@ -109,7 +110,7 @@ def main(args):
     ax2 = fig.add_subplot(1, 2, 2)
     
     k = 0
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time ((200*520)),
         # only deal with that chunk
@@ -119,7 +120,7 @@ def main(args):
         else:
             framesWork = framesRemaining
         
-        count = [0 for a in xrange(len(antennas))]
+        count = [0 for a in range(len(antennas))]
         
         j = 0
         fillsWork = framesWork // antpols

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBW file, plot the time averaged spectra for each digitizer input.  Save 
@@ -6,11 +6,12 @@ the data for later review with smGUI as an NPZ file.  Optionally clip the data
 to remove RFI.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -174,11 +175,11 @@ def main(args):
             dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
             adcHistogram = numpy.zeros((antpols, 4096), dtype=numpy.int32)
             histBins = range(-2048, 2049)
-            for s in xrange(data.shape[0]):
+            for s in range(data.shape[0]):
                 hs, be = numpy.histogram(data[s,:], bins=histBins)
                 adcHistogram[s,:] += hs
                 
-                for p in xrange(nsegments):
+                for p in range(nsegments):
                     subData = data[s,(p*subSize):((p+1)*subSize)]
                     avgPower[s,p] = numpy.mean( numpy.abs(subData) )
                     dataRange[s,p,0] = subData.min()
@@ -206,9 +207,9 @@ def main(args):
 
         # Apply the cable loss corrections, if requested
         if True:
-            for s in xrange(masterSpectra.shape[1]):
+            for s in range(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
-                for c in xrange(masterSpectra.shape[0]):
+                for c in range(masterSpectra.shape[0]):
                     masterSpectra[c,s,:] /= currGain
                     
         
@@ -221,10 +222,10 @@ def main(args):
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
-        for i in xrange(spec.shape[0]):
+        for i in range(spec.shape[0]):
             bestOrder = 0
             bestRMS = 1e34
-            for j in xrange(3, 12):
+            for j in range(3, 12):
                 coeff = numpy.polyfit(freq[toCompare]/1e6, numpy.log10(spec[i,toCompare])*10, j)
                 fit = numpy.polyval(coeff, freq[toCompare]/1e6)
                 rms = ((fit - numpy.log10(spec[i,toCompare])*10)**2).sum()
@@ -264,7 +265,7 @@ def main(args):
     specDiff = numpy.zeros(spec.shape[0])
     toCompare = numpy.where( (freq>32e6) & (freq<50e6) )[0]
     print(len(toCompare))
-    for i in xrange(spec.shape[0]):
+    for i in range(spec.shape[0]):
         specDiff[i] = (spec[i,toCompare] / specTemplate[toCompare]).mean()
     specDiff = numpy.where( specDiff < 2, specDiff, 2)
     

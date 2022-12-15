@@ -1,10 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -43,7 +44,7 @@ def main(args):
         
         ## Load in the actual file
         data = numpy.loadtxt(filename)
-        for i in xrange(data.shape[0]):
+        for i in range(data.shape[0]):
             stand, ax, dx, ay, dy = data[i,:]
             stand = int(stand)
             dx = float(dx)
@@ -93,7 +94,7 @@ def main(args):
     for i,stand in enumerate(delaysX.keys()):
         dx = delaysX[stand]
         dy = delaysY[stand]
-        for j in xrange(len(dx)):
+        for j in range(len(dx)):
             vsX[i,j] = dx[j]
             vsY[i,j] = dy[j]
     msX = robust.mean(vsX, axis=0)

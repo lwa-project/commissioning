@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a DRX file, plot the time series I and Q data as a function of time.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -148,7 +149,7 @@ def main(args):
         print("Working on %.1f ms of data" % ((framesWork*4096/beampols/srate)*1000.0))
         t0 = time.time()
         
-        for j in xrange(framesWork):
+        for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = drx.read_frame(fh, verbose=False)
@@ -180,7 +181,7 @@ def main(args):
             print("Plotting only the first %i samples (%.3f ms) of data" % (samples, oldAverage*1000.0))
             
         sortedMapper = sorted(standMapper)
-        for i in xrange(data.shape[0]):
+        for i in range(data.shape[0]):
             ax = fig.add_subplot(figsX,figsY,i+1)
             if args.instantaneous_power:
                 limits = (-10, 100)
@@ -199,7 +200,7 @@ def main(args):
                 ax.legend(loc=0)
 
             if args.mark_frames:
-                for j in xrange(0, samples-4096, 4096):
+                for j in range(0, samples-4096, 4096):
                     ax.vlines(float(j)/srate, limits[0], limits[1], color='k', label='%i' % tt[i,j//4096])
 
             ax.set_ylim(limits)

@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Example script to read in the positions of stands at LWA-1 and make a plot
 of the site.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -62,7 +63,7 @@ def main(args):
     
     # Explicitly mark those that need to be marked
     if toMark.size != 0:
-        for i in xrange(toMark.size):
+        for i in range(toMark.size):
             ax1.plot(data[toMark[i],0], data[toMark[i],1], marker='x', linestyle='', markersize=10, color='black')
             
             ax1.annotate('%i' % (toMark[i]+1), xy=(data[toMark[i],0], data[toMark[i],1]), xytext=(data[toMark[i],0]+1, data[toMark[i],1]+1))

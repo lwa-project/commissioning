@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 calculateSK.py - Read in a DRX/HDF5 wataerfall file and calculate the pseudo-
@@ -14,11 +14,12 @@ Usage:
 ./calculateSK.py [OPTIONS] file
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -82,7 +83,7 @@ def main(args):
                 sk = numpy.zeros_like(data)
                 
                 section = numpy.empty((chunkSize,data.shape[1]), dtype=data.dtype)
-                for i in xrange(time.size//chunkSize+1):
+                for i in range(time.size//chunkSize+1):
                     start = i*chunkSize
                     stop = start + chunkSize
                     if stop >= time.size:
@@ -96,7 +97,7 @@ def main(args):
                         data.read_direct(section, selection)
                     except TypeError:
                         section = data[start:stop,:]
-                    for j in xrange(section.shape[1]):
+                    for j in range(section.shape[1]):
                         sk[start:stop,j] = kurtosis.spectral_power(section[:,j], N=skN*nAdjust[dp])
                         
                 # Report

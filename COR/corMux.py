@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a COR filles created by ADP, combine the files together into a single 
 file that can be used like a standard DR-recorded COR file
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -182,7 +183,7 @@ def main(args):
     for i in idf:
         chans.extend( i.buffer.chans )
     chans.sort()
-    for i in xrange(1, len(chans)):
+    for i in range(1, len(chans)):
         if chans[i] != chans[i-1] + cor.FRAME_CHANNEL_COUNT:
             raise RuntimeError("Unexpected channel increment: %i != %s" % (chans[i]-chans[i-1], cor.FRAME_CHANNEL_COUNT))
             

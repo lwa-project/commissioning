@@ -1,16 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given an HDF5 file, apply incoherent dedispersion to the data at the specified
 DM and save the results to a new file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
+try:
+    input = raw_input
+except NameError:
+    pass
     
 import os
 import sys
@@ -33,7 +33,7 @@ def main(args):
     
     if os.path.exists(outname):
         if not args.force:
-            yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             

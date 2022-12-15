@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBW file, check the time tags.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -135,7 +136,7 @@ def main(args):
             print("   %2i %6i (%7.3f%%)" % (k, v, 100.0*v/(30000*10)))
 
     # Check time tags to make sure every ant/pol as the same time as each frame
-    for f in xrange(timetags.shape[1]):
+    for f in range(timetags.shape[1]):
         ## For each frame count value, get the median time tag and use this for comparison.
         ## If things are really bad, we will get a lot of errors.
         frameTime = numpy.median( timetags[:,f] )
@@ -150,8 +151,8 @@ def main(args):
             print("       -> difference: %i" % (timetags[m,f]-frameTime,))
 
     # Check time tags to make sure the times increment correctly between frames
-    for i in xrange(timetags.shape[0]):
-        for f in xrange(1,timetags.shape[1]):
+    for i in range(timetags.shape[0]):
+        for f in range(1,timetags.shape[1]):
             ## Skip missing frames since they always fail
             if timetags[i,f] < 0 or timetags[i,f-1] < 0:
                 continue

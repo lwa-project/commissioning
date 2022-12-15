@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBF file, check the time tags.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+try:
+    range = xrange
+except NameError:
+    pass
+        
 import os
 import sys
 import math
@@ -45,7 +46,7 @@ def main(args):
     
     # Pre-load the channel mapper
     mapper = []
-    for i in xrange(2*nFramesPerObs):
+    for i in range(2*nFramesPerObs):
         cFrame = tbf.read_frame(fh)
         if cFrame.header.first_chan not in mapper:
             mapper.append( cFrame.header.first_chan )
@@ -63,9 +64,9 @@ def main(args):
     
     # Master loop over all of the file chunks
     timetags = numpy.zeros((nFramesPerObs, nChunks), dtype=numpy.int64) - 1
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Inner loop that actually reads the frames into the data array
-        for j in xrange(nFramesPerObs):
+        for j in range(nFramesPerObs):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = tbf.read_frame(fh)
@@ -104,7 +105,7 @@ def main(args):
             print("  channel set %4i @ frame %5i" % (mapper[i], f+1))
             
     # Check time tags to make sure every ant/pol as the same time as each frame
-    for f in xrange(timetags.shape[1]):
+    for f in range(timetags.shape[1]):
         ## For each frame count value, get the median time tag and use this for comparison.
         ## If things are really bad, we will get a lot of errors.
         frameTime = numpy.median( timetags[:,f] )
@@ -119,8 +120,8 @@ def main(args):
             print("       -> difference: %i" % (timetags[m,f]-frameTime,))
 
     # Check time tags to make sure the times increment correctly between frames
-    for i in xrange(timetags.shape[0]):
-        for f in xrange(1,timetags.shape[1]):
+    for i in range(timetags.shape[0]):
+        for f in range(1,timetags.shape[1]):
             ## Skip missing frames since they always fail
             if timetags[i,f] < 0 or timetags[i,f-1] < 0:
                 continue

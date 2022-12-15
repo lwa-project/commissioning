@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBW file, plot the time averaged spectra for each digitizer input.  Save 
 the data for later review with smGUI as an NPZ file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -163,7 +164,7 @@ def main(args):
             # the total number of frames read.  This is needed to keep the averages correct.
             # NB:  The weighting is the same for the x and y polarizations because of how 
             # the data are packed in TBW
-            for j in xrange(0, masterSpectra.shape[1], 4):
+            for j in range(0, masterSpectra.shape[1], 4):
                 tempData = numpy.zeros((4, data.shape[1]), dtype=data.dtype)
                 tempData = data[j:j+4,:]
                 
@@ -178,8 +179,8 @@ def main(args):
             pb = ProgressBar(max=data.shape[0])
             avgPower = numpy.zeros((antpols, nsegments), dtype=numpy.float32)
             dataRange = numpy.zeros((antpols, nsegments, 3), dtype=numpy.int16)
-            for s in xrange(data.shape[0]):
-                for p in xrange(nsegments):
+            for s in range(data.shape[0]):
+                for p in range(nsegments):
                     subData = data[s,(p*subSize):((p+1)*subSize)]
                     avgPower[s,p] = numpy.mean( numpy.abs(subData) )
                     dataRange[s,p,0] = subData.min()
@@ -208,9 +209,9 @@ def main(args):
 
         # Apply the cable loss corrections, if requested
         if True:
-            for s in xrange(masterSpectra.shape[1]):
+            for s in range(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
-                for c in xrange(masterSpectra.shape[0]):
+                for c in range(masterSpectra.shape[0]):
                     masterSpectra[c,s,:] /= currGain
                     
         
@@ -223,10 +224,10 @@ def main(args):
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
-        for i in xrange(spec.shape[0]):
+        for i in range(spec.shape[0]):
             bestOrder = 0
             bestRMS = 1e34
-            for j in xrange(3, 12):
+            for j in range(3, 12):
                 coeff = numpy.polyfit(freq[toCompare]/1e6, numpy.log10(spec[i,toCompare])*10, j)
                 fit = numpy.polyval(coeff, freq[toCompare]/1e6)
                 rms = ((fit - numpy.log10(spec[i,toCompare])*10)**2).sum()
@@ -266,7 +267,7 @@ def main(args):
     specDiff = numpy.zeros(spec.shape[0])
     toCompare = numpy.where( (freq>32e6) & (freq<50e6) )[0]
     print(len(toCompare))
-    for i in xrange(spec.shape[0]):
+    for i in range(spec.shape[0]):
         specDiff[i] = (spec[i,toCompare] / specTemplate[toCompare]).mean()
     specDiff = numpy.where( specDiff < 2, specDiff, 2)
     

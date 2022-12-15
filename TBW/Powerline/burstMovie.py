@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBW file, look for the weird RFI bursts that we have been seeing.  The
 bursts are likely 'microsparking' from the powerline.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -159,7 +160,7 @@ def main(args):
         delays = delays.max() - delays
         
         alignedData = numpy.zeros((data.shape[0], data.shape[1]-delays.max()), dtype=data.dtype)
-        for s in xrange(data.shape[0]):
+        for s in range(data.shape[0]):
             alignedData[s,:] = data[s,delays[s]:(delays[s]+alignedData.shape[1])]
         del(data)
 
@@ -206,7 +207,7 @@ def main(args):
                 pb = None
                 
             fig = plt.figure(figsize=(12,6))
-            for i in xrange(0,alignedData.shape[1],2):
+            for i in range(0,alignedData.shape[1],2):
                 fig.clf()
                 axX = fig.add_subplot(1, 2, 1)
                 axY = fig.add_subplot(1, 2, 2)

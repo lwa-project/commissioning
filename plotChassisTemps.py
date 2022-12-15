@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a /data/temp.txt file (or one of the rotated backups) plot the temperatures
@@ -7,11 +7,12 @@ temperatures are plotted as color maps for (1) the mean FPGA temperature per boa
 and (2) the maximum FPGA temperature per board.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import sys
 import numpy
@@ -84,11 +85,11 @@ def main(args):
     # Split into boards
     boardMean = numpy.zeros((data.shape[0], 28))
     boardMax  = numpy.zeros((data.shape[0], 28))
-    for i in xrange(data.shape[0]):
+    for i in range(data.shape[0]):
         line = data[i,1:]
         line.shape = (28, 5)
         
-        for j in xrange(28):
+        for j in range(28):
             boardMean[i,j] = line[j,:].mean()
             boardMax[i,j]  = line[j,:].max()
     
@@ -96,7 +97,7 @@ def main(args):
     tempMax1  = numpy.zeros((data.shape[0], 14))
     tempMean2 = numpy.zeros((data.shape[0], 14))
     tempMax2  = numpy.zeros((data.shape[0], 14))
-    for i in xrange(boardMean.shape[1]):
+    for i in range(boardMean.shape[1]):
         if i < 14:
             # lwa16 is board #1 and it is in the bottom chassis
             p = LPmapping[i+1]

@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Display NPZ data from stationMaster in an interactive GUI sort of way.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -238,7 +239,7 @@ class TBW_GUI(object):
             # (self.specTemplate) between 32 and 50 MHz (default)
             specDiff = numpy.zeros(self.spec.shape[0])
             toCompare = numpy.where( (self.freq>compLow) & (self.freq<compHigh) )[0]
-            for i in xrange(self.spec.shape[0]):
+            for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,toCompare] / self.specTemplate[toCompare]).mean()
             
             cbTitle = '%.0f to %.0f MHz Mean Deviation' % (compLow/1e6, compHigh/1e6)
@@ -252,7 +253,7 @@ class TBW_GUI(object):
             rfi1 = numpy.where( (self.freq>45e6) & (self.freq<47e6) )[0]
             corr = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
             
-            for i in xrange(self.spec.shape[0]):
+            for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi1] / self.specTemplate[rfi1]).max()
                 specDiff[i] /= (self.spec[i,corr] / self.specTemplate[corr]).mean()
                 
@@ -267,7 +268,7 @@ class TBW_GUI(object):
             rfi2 = numpy.where( (self.freq>63e6) & (self.freq<65e6) )[0]
             corr = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
             
-            for i in xrange(self.spec.shape[0]):
+            for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
                 specDiff[i] /= (self.spec[i,corr] / self.specTemplate[corr]).mean()
                 
@@ -275,7 +276,7 @@ class TBW_GUI(object):
         elif self.color == 3:
             # Color by antenna status code.
             specDiff = numpy.zeros(self.spec.shape[0])
-            for i in xrange(self.spec.shape[0]):
+            for i in range(self.spec.shape[0]):
                 specDiff[i] = self.antennas[i].status
                 
             cbTitle = 'Antenna Status'
@@ -288,10 +289,10 @@ class TBW_GUI(object):
             if self.resFreq is None:
                 specDiff = numpy.zeros(self.spec.shape[0])
                 toCompare = numpy.where( (self.freq>31e6) & (self.freq<70e6) )[0]
-                for i in xrange(self.spec.shape[0]):
+                for i in range(self.spec.shape[0]):
                     bestOrder = 0
                     bestRMS = 1e34
-                    for j in xrange(3, 12):
+                    for j in range(3, 12):
                         coeff = numpy.polyfit(self.freq[toCompare]/1e6, to_dB(self.spec[i,toCompare]), j)
                         fit = numpy.polyval(coeff, self.freq[toCompare]/1e6)
                         rms = ((fit - to_dB(self.spec[i,toCompare]))**2).sum()
@@ -820,7 +821,7 @@ class MainWindow(wx.Frame):
             i = self.data.bestX-1
             bestOrder = 0
             bestRMS = 1e34
-            for j in xrange(3, 12):
+            for j in range(3, 12):
                 coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
                 fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
                 rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()
@@ -837,7 +838,7 @@ class MainWindow(wx.Frame):
             i = self.data.bestY-1
             bestOrder = 0
             bestRMS = 1e34
-            for j in xrange(3, 12):
+            for j in range(3, 12):
                 coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
                 fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
                 rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()

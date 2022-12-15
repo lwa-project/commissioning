@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Run through a DR spectrometer file and determine if it is bad or not.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -25,7 +26,7 @@ def main(args):
     fh = open(args.filename, "rb")
     
     try:
-        for i in xrange(5):
+        for i in range(5):
             junkFrame = drx.read_frame(fh)
         raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % args.filename)
     except errors.SyncError:
@@ -92,7 +93,7 @@ def main(args):
         count = {0:0, 1:0, 2:0, 3:0}
         sats = numpy.empty((4,chunkLength), dtype=numpy.float32)
         data = numpy.empty((2*len(data_products),chunkLength*LFFT), dtype=numpy.float32)
-        for j in xrange(chunkLength):
+        for j in range(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = frame = drspec.read_frame(fh)
@@ -120,7 +121,7 @@ def main(args):
             
             out = "%2i | %6.2f%% %6.2f%% %6.2f%% %6.2f%% |" % (i, clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0)
             for t in (1, 2):
-                for p in xrange(len(data_products)):
+                for p in range(len(data_products)):
                     out += " %5.2f" % (power[len(data_products)*(t-1)+p],)
             out += " |"
             print(out)
@@ -137,7 +138,7 @@ def main(args):
     print("-"*len(out))
     out = "%2s | %6.2f%% %6.2f%% %6.2f%% %6.2f%% |" % ('M', clip[0]*100.0, clip[1]*100.0, clip[2]*100.0, clip[3]*100.0)
     for t in (1, 2):
-        for p in xrange(len(data_products)):
+        for p in range(len(data_products)):
             out += " %5.2f" % (power[len(data_products)*(t-1)+p],)
     out += " |"
     print(out)

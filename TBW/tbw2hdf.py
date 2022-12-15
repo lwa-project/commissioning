@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Export select stands from a TBW file to HDF5.
@@ -7,12 +7,9 @@ Usage:
 ./tbw2hdf.py <TBW_filename> <stand_ID> [<stand_ID> [...]]
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import h5py

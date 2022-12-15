@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a reference file for calibration and a pointing azimuth and elevation 
 in degrees, create a set of phase-and-sum beamforming coefficients for DRX.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -87,7 +88,7 @@ def main(args):
     # Identify the location of the reference source (the Sun in this case)
     az = -99
     el = -99
-    for i in xrange(len(srcs)):
+    for i in range(len(srcs)):
         srcs[i].compute(observer)
             
         if srcs[i].name == 'Sun':
@@ -96,14 +97,14 @@ def main(args):
     
     # Generate geometric delay coefficients
     aln = []
-    for i in xrange(phase.shape[1]):
+    for i in range(phase.shape[1]):
         gd = getGeoDelay(antennas[i], az, el, Degrees=True)
         aln.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
     aln = numpy.array(aln)
     
     # Build the c^l_n values from Steve's "Fun with TBN" memo (Eqn. 10)
     cln = numpy.zeros(phase.shape, dtype=numpy.complex128)
-    for i in xrange(cln.shape[1]):
+    for i in range(cln.shape[1]):
         if i % 2 == 0:
             cln[:,i] = phase[:,i] / phase[:,0]
         else:
@@ -112,7 +113,7 @@ def main(args):
     
     # Compute the geometric delay for the requested pointing
     alnPointing = []
-    for i in xrange(phase.shape[1]):
+    for i in range(phase.shape[1]):
         gd = getGeoDelay(antennas[i], pointingAz, pointingEl, Degrees=True)
         alnPointing.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
     alnPointing = numpy.array(alnPointing)

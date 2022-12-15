@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Read in a SSMIF file and estimate the DRX beam for a given frequency and 
@@ -6,11 +6,12 @@ topocentric pointing center.  The estimate is based off a simple delay-and-sum
 beam former so it won't be an exact match.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -91,8 +92,8 @@ def main(args):
     # Go!
     print("Calculating NS/EW beams for az. %.2f, el. %.2f at %.2f MHz - with %i antennas" % (args.azimuth, args.elevation, args.frequency, wgt.sum()))
     tStart = time.time()
-    for i in xrange(az.shape[0]):
-        for j in xrange(az.shape[1]):
+    for i in range(az.shape[0]):
+        for j in range(az.shape[1]):
             ## Get the directon we are intersted in knowing the beam patter in
             a, e = az[i,j]*numpy.pi/180, el[i,j]*numpy.pi/180
             

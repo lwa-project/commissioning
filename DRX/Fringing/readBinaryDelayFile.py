@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simple script to read in a MCS binary packed DP delay file (.df) and print
 out the delays in ns.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -45,7 +46,7 @@ def main(args):
     
     print("Std   X [ns]    Y [ns]")
     print("----------------------")
-    for i in xrange(len(ants)):
+    for i in range(len(ants)):
         dx, dy = delays[2*i+0], delays[2*i+1]
         print("%3i   %7.2f  %7.2f" % (ants[i].stand.id, dx, dy))
 

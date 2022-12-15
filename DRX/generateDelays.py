@@ -1,16 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Read in SSMIF file and create a set of DRX gain and delay files for a given 
 frequency and topogentric pointing center.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import sys
 import numpy
 import argparse

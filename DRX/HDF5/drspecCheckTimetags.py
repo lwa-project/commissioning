@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Check the time times in a DR spectrometer file for flow.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -26,7 +27,7 @@ def main(args):
     fh = open(args.filename, "rb")
         
     try:
-        for i in xrange(5):
+        for i in range(5):
             junkFrame = drx.read_frame(fh)
         raise RuntimeError("ERROR: '%s' appears to be a raw DRX file, not a DR spectrometer file" % args.filename)
     except errors.SyncError:
@@ -72,7 +73,7 @@ def main(args):
         
         ## If the offset is zero, we are done.  Otherwise, apply the offset
         ## and check the location in the file again/
-        if cOffset is 0:
+        if cOffset == 0:
             break
         fh.seek(cOffset*FRAME_SIZE, 1)
         
@@ -101,12 +102,12 @@ def main(args):
     print("Transform Length: %i" % LFFT)
     print("Integration: %.3f s" % tInt)
     
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         frame = drspec.read_frame(fh)
         
         cTime = frame.time
         if i % 1000 == 0:
-            print("Frame %i: %s" % (i, datetime.utcfromtimestamp(cTime))		)
+            print("Frame %i: %s" % (i, cTime.datetime))
             
         try:
             if cTime > oTime + 1.001*tInt:

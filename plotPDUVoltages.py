@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a /data/rack##.txt file (or one of the rotated backups) plot the PDU input
@@ -6,12 +6,9 @@ voltage over time.  This script is designed to accept multiple files from multip
 rack if needed.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import re
 import sys

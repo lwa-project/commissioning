@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a DRX file, look for glitches in a DRX or TBN data by fitting a sine wave 
 to the data.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -106,7 +107,7 @@ def main(args):
         masterCount = 0
         tStart = 0
         data *= 0
-        for f in xrange(framesWork):
+        for f in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = rdr.read_frame(fh, verbose=False)
@@ -158,7 +159,7 @@ def main(args):
         from scipy.optimize import fmin, leastsq
         
         fig = plt.figure()
-        for i in xrange(data.shape[0]):
+        for i in range(data.shape[0]):
             if i == 0 or i == 3:
                 continue
             

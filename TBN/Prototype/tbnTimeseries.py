@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBN file, plot the time series I and Q data as a function of time.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -93,7 +94,7 @@ def main(args):
     # Master loop over all of the file chunks
     k = 0
 
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
         # only deal with that chunk
@@ -108,7 +109,7 @@ def main(args):
             print("Padding from %i to %i frames" % (framesRemaining, framesWork))
         print("Working on chunk %i, %i frames remaining" % (i, framesRemaining))
         
-        count = [0 for a in xrange(len(antennas))]
+        count = [0 for a in range(len(antennas))]
         
         j = 0
         fillsWork = framesWork // antpols
@@ -170,7 +171,7 @@ def main(args):
     # Deal with the `keep` options
     if args.keep == 'all':
         antpolsDisp = int(numpy.ceil(antpols/20))
-        js = [i for i in xrange(antpols)]
+        js = [i for i in range(antpols)]
     else:
         antpolsDisp = int(numpy.ceil(len(args.keep)*2/20))
         if antpolsDisp < 1:
@@ -182,13 +183,13 @@ def main(args):
                 if ant.stand.id == k:
                     js.append(i)
 
-    for i in xrange(antpolsDisp):
+    for i in range(antpolsDisp):
         # Normal plotting
         fig = plt.figure()
         figsY = 4
         figsX = 5
         fig.subplots_adjust(left=0.06, bottom=0.06, right=0.94, top=0.94, wspace=0.20, hspace=0.50)
-        for k in xrange(i*20, i*20+20):
+        for k in range(i*20, i*20+20):
             try:
                 j = js[k]
                 currTS = data[j,:]

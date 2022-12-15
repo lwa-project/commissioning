@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given two or more DRX files from different beams, check for coherency between the beams
 and make sure that the beams agree with the T_NOM values.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -74,7 +75,7 @@ def main(args):
     
     # Align the files as close as possible by the time tags and then make sure that
     # the first frame processed is from tuning 1, pol 0.
-    for i in xrange(len(files)):
+    for i in range(len(files)):
         junkFrame = drx.read_frame(fh[i])
         beam, tune, pol = junkFrame.id
         pair = 2*(tune-1) + pol
@@ -108,9 +109,9 @@ def main(args):
     nFrames = 2000
     data = numpy.zeros((len(files), 4, 4096*nFrames), dtype=numpy.csingle)
     times = numpy.zeros((len(files), 4, nFrames), dtype=numpy.int64)
-    for i in xrange(len(files)):
-        for j in xrange(nFrames):
-            for k in xrange(4):
+    for i in range(len(files)):
+        for j in range(nFrames):
+            for k in range(4):
                 frame = drx.read_frame(fh[i])
                 beam, tune, pol = frame.id
                 pair = 2*(tune-1) + pol
@@ -121,12 +122,12 @@ def main(args):
     
     # Cross-correlate
     refs = [0,0,0,0]
-    for i in xrange(len(files)):
-        for j in xrange(i, len(files)):
+    for i in range(len(files)):
+        for j in range(i, len(files)):
             if i != j:
                 fig = plt.figure()
             
-            for k in xrange(4):
+            for k in range(4):
                 lag, cc = crossCorrelate(data[j,k,:], data[i,k,:])
                 best = numpy.where( cc == cc.max() )[0][0]
                 

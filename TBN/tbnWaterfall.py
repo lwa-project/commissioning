@@ -1,16 +1,17 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a TBN file, plot the time averaged spectra for each stand output over some 
 period.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
+try:
+    range = xrange
+    input = raw_input
+except NameError:
+    pass
     
 import os
 import sys
@@ -74,17 +75,17 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
     idf.reset()
     
     t0 = idf.get_info('start_time')
-    tDiff = tStart - datetime.utcfromtimestamp(t0)
+    tDiff = tStart - t0.datetime
     offset = idf.offset( tDiff.total_seconds() )
     t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+    while t0.datetime < tStart or srate != sample_rate:
         offset = idf.offset( 512./sample_rate )
         t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
-    tDiff = datetime.utcfromtimestamp(t0) - tStart
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.datetime, srate))
+    tDiff = t0.datetime - tStart
     duration = duration - max([0, tDiff.total_seconds()])
     
     # Number of remaining chunks (and the correction to the number of
@@ -114,7 +115,7 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
     
     data_products = ['XX', 'YY']
     done = False
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Inner loop that actually reads the frames into the data array
         tInt, cTime, data = idf.read(args.average)
         if i == 0:
@@ -176,17 +177,17 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
     idf.reset()
     
     t0 = idf.get_info('start_time')
-    tDiff = tStart - datetime.utcfromtimestamp(t0)
+    tDiff = tStart - t0.datetime
     offset = idf.offset( tDiff.total_seconds() )
     t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+    while t0.datetime < tStart or srate != sample_rate:
         offset = idf.offset( 512./sample_rate )
         t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
-    tDiff = datetime.utcfromtimestamp(t0) - tStart
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.datetime, srate))
+    tDiff = t0.datetime - tStart
     duration = duration - max([0, tDiff.total_seconds()])
         
     # Number of remaining chunks (and the correction to the number of
@@ -222,7 +223,7 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
     
     data_products = ['I', 'Q', 'U', 'V']
     done = False
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Inner loop that actually reads the frames into the data array
         tInt, cTime, data = idf.read(args.average)
         if i == 0:
@@ -357,7 +358,7 @@ def main(args):
     
     if os.path.exists(outname):
         if not args.force:
-            yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             
@@ -422,7 +423,7 @@ def main(args):
         hdfData.fill_from_sdf(f, args.sdf, station=site)
         
     else:
-        obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
+        obsList[1] = (t1.datetime, datetime(2222,12,31,23,59,59), args.duration, srate)
         
         site = 'lwa1'
         if args.lwasv:

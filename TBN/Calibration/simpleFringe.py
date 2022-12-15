@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simple script (with hard coded integration times) for performing time series
@@ -8,11 +8,12 @@ Usage:
 ./simpleFringe.py <TBN data file>
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -100,7 +101,7 @@ def main(args):
     for line in _srcs:
         srcs.append( ephem.readdb(line) )
     
-    for i in xrange(len(srcs)):
+    for i in range(len(srcs)):
         srcs[i].compute(observer)
         
         if srcs[i].alt > 0:
@@ -133,7 +134,7 @@ def main(args):
     
     # Go!
     k = 0
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
         # only deal with that chunk
@@ -146,7 +147,7 @@ def main(args):
             data = numpy.zeros((antpols, framesWork//antpols*512), dtype=numpy.complex64)
         print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
-        count = [0 for a in xrange(len(antennas))]
+        count = [0 for a in range(len(antennas))]
         
         j = 0
         fillsWork = framesWork // antpols
@@ -191,7 +192,7 @@ def main(args):
             data[bad] *= 0.0
         
         # Simple correlation
-        for l in xrange(520):
+        for l in range(520):
             if l % 2 == 0:
                 simpleVis[i,l] = (data[l,:]*data[refX,:].conj()).mean()
             else:

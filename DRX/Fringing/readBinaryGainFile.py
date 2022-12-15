@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simple script to read in a MCS binary packed DP gain file (.gf) and print 
 out the gains.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -45,7 +46,7 @@ def main(args):
     
     print("Std   X->x   X->y    Y->x   Y->y")
     print("----------------------------------")
-    for i in xrange(len(ants)):
+    for i in range(len(ants)):
         xofx, xofy, yofx, yofy = gains[4*i:4*(i+1)]
         print("%3i   %6.4f %6.4f  %6.4f %6.4f" % (ants[i].stand.id, xofx, xofy, yofx, yofy))
 

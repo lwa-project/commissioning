@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Check the time times in a DRX file for flow in a more intellegent fashion.
@@ -6,11 +6,12 @@ This script also allows DRX files to be split at the boundaries of time
 flow problems.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -79,7 +80,7 @@ def identify_section(fh, start=0, stop=-1, strict=True, min_frames=4096, verbose
     # Get how much the timetags should change and other basic information
     fh.seek(file_begin)
     ids = []
-    for i in xrange(64*8):
+    for i in range(64*8):
         junkFrame = drx.read_frame(fh)
         b,t,p = junkFrame.id
         id = (t,p)
@@ -163,7 +164,7 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     # Get how much the timetags should change and other basic information
     fh.seek(file_begin)
     ids = []
-    for i in xrange(64*8):
+    for i in range(64*8):
         junkFrame = drx.read_frame(fh)
         b,t,p = junkFrame.id
         id = (t,p)
@@ -176,10 +177,10 @@ def fine_tune_boundary_start(fh, start, max_frames=4, verbose=True):
     # Load in the times to figure out what to do
     fh.seek(file_begin)
     timetags = []
-    for i in xrange(max_frames):
+    for i in range(max_frames):
         junkFrame = drx.read_frame(fh)
         timetags.append( junkFrame.payload.timetag )
-    skips = [timetags[i]-timetags[i-1] for i in xrange(1, max_frames)]
+    skips = [timetags[i]-timetags[i-1] for i in range(1, max_frames)]
     try:
         offset = min([skips.index(0), skips.index(ttStep)])
     except ValueError:

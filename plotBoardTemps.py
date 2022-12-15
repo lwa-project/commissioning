@@ -1,15 +1,16 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a /data/temp.txt file (or one of the rotated backups) plot the temperatures
 of all 140 FPGAs in DP.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import sys
 import numpy
@@ -65,7 +66,7 @@ def main(args):
     # Plot all of the Chips
     fig = plt.figure()
     ax1 = fig.add_subplot(1, 1, 1)
-    for i in xrange(1,141):
+    for i in range(1,141):
         ax1.plot_date(dates, data[:,i], fmt='-', tz=MST7MDT, marker='x', linestyle=' ')
 
     # Label and format dates

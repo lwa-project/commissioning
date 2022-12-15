@@ -1,14 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a DP board status code, decode it into its various parts.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import sys
 import struct
@@ -21,7 +22,7 @@ def num2num(v):
     """
 
     out = ""
-    for i in xrange(32):
+    for i in range(32):
         if i % 4 == 0 and i != 0:
             out += " "
         out += str((v>>(31-i))&1)

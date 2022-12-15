@@ -4,12 +4,9 @@
 Unit tests for the various commissioning scripts.
 """
 
-# Python3 compatibility
+# Python2 compatibility
 from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import unittest
 import glob
 import sys
@@ -60,6 +57,7 @@ _SAFE_TO_IGNORE = ["Possible",
                    "Argument '.ndarray' does not match format type",
                    "Instance of 'Group' has no 'dtype' member",
                    "Instance of 'Group' has no 'read_direct' member",
+                   "Instance of 'Group' has no 'shape' member",
                    "Value 'spec.data' is unsubscriptable",]
 
 

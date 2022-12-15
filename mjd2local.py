@@ -1,16 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 For a given MJD value or list of MJD values, return the range of local times 
 associated with that MJD.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import sys
 import pytz
 import argparse
