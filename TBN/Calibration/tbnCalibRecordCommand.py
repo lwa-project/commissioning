@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -130,7 +131,7 @@ def main(args):
     srcs = [ephem.Sun(), ephem.Jupiter()]
     for line in _srcs:
         srcs.append( ephem.readdb(line) )
-    for i in xrange(len(srcs)):
+    for i in range(len(srcs)):
         srcs[i].compute(observer)
         
     #

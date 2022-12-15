@@ -7,11 +7,12 @@ Usage:
 ./form_beam.py <cln_file> <azimuth> <elevation> <TBN_file>
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -49,7 +50,7 @@ def form_beam(data, bln):
     """
     
     temp = 1.0*data
-    for i in xrange(bln.size):
+    for i in range(bln.size):
         temp[i,:] *= bln[i]
     
     temp = temp.sum(axis=0)
@@ -154,7 +155,7 @@ def main(args):
     aln1 = []
     aln2 = []
     aln3 = []
-    for i in xrange(cln.shape[1]):
+    for i in range(cln.shape[1]):
         gd = getGeoDelay(antennas[i], az, el, central_freq, Degrees=True)
         aln1.append( numpy.exp(2j*numpy.pi*central_freq*gd) )
         
@@ -171,7 +172,7 @@ def main(args):
     bln1 = (cln*aln1).conj() / numpy.abs(cln*aln1)
     bln2 = (cln*aln2).conj() / numpy.abs(cln*aln2)
     bln3 = (cln*aln3).conj() / numpy.abs(cln*aln3)
-    for i in xrange(cln.shape[1]):
+    for i in range(cln.shape[1]):
         if antennas[i].combined_status != 33 or antennas[i].stand.id == ref:
             bln1[:,i] = 0.0
             bln2[:,i] = 0.0
@@ -188,7 +189,7 @@ def main(args):
     
     # Go!
     k = 0
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
         # only deal with that chunk
@@ -201,7 +202,7 @@ def main(args):
             data = numpy.zeros((antpols, framesWork/antpols*512), dtype=numpy.complex64)
         print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
-        count = [0 for a in xrange(antpols)]
+        count = [0 for a in range(antpols)]
         
         j = 0
         fillsWork = framesWork / antpols

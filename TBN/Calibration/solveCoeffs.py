@@ -9,11 +9,12 @@ Usage:
 ./solveCoeffs.py <refernece source> <NPZ visibility file>
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -112,7 +113,7 @@ def main(args):
     print("Starting Source Positions:")
     
     refSrc = None
-    for i in xrange(len(srcs)):
+    for i in range(len(srcs)):
         srcs[i].compute(observer)
         
         if srcs[i].alt > 0:
@@ -137,10 +138,10 @@ def main(args):
     pbar = ProgressBar(max=phase.shape[1])
 
     phase2 = 1.0*phase
-    for l in xrange(phase.shape[1]):
+    for l in range(phase.shape[1]):
         # Compute the fringe rates across all time
         fRate = [None,]*phase.shape[0]
-        for i in xrange(phase.shape[0]):
+        for i in range(phase.shape[0]):
             currDate = datetime.utcfromtimestamp(times[i])
             observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
         
@@ -164,7 +165,7 @@ def main(args):
     
     # Compute the beam forming coefficients for the reference source
     bln = numpy.zeros(phase2.shape, dtype=numpy.complex128)
-    for i in xrange(bln.shape[1]):
+    for i in range(bln.shape[1]):
         if i % 2 == 0:
             bln[:,i] = phase2[:,i] / phase2[:,0]
         else:
@@ -181,7 +182,7 @@ def main(args):
     pbar = ProgressBar(max=phase2.shape[1])
     
     aln = numpy.zeros_like(phase2)
-    for l in xrange(phase2.shape[1]):
+    for l in range(phase2.shape[1]):
         currDate = datetime.utcfromtimestamp(times[0])
         observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
         refSrc.compute(observer)
@@ -200,7 +201,7 @@ def main(args):
     # Calculate the c^l_n terms by removing the array geometry from the
     # phases.
     cln = numpy.zeros(phase2.shape, dtype=numpy.complex128)
-    for i in xrange(cln.shape[1]):
+    for i in range(cln.shape[1]):
         if i % 2 == 0:
             cln[:,i] = phase2[:,i] / phase2[:,0]
         else:
