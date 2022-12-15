@@ -4,11 +4,11 @@
 Check the time tags in a full 520 antenna stand data set.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
     from functools import reduce
     
 import os
@@ -105,7 +105,7 @@ def main(args):
         if (currTime-prevTime) > tagSkip:
             print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (currTime, currFrame, prevTime, prevFrame))
             print("       -> difference: %i (%.5f seconds); %s" % (currTime-prevTime, float(currTime-prevTime)/fS, str(currDate)))
-        for i in xrange(timetags.size):
+        for i in range(timetags.size):
             if timetags[i] != currTime:
                 print("ERROR: t.t. of dig. %i != frame set median of %i" % (i, currTime))
                 print("       -> difference: %i" % (currTime-timetags[i],))

@@ -4,11 +4,12 @@
 Run through a TBN file and determine if it is bad or not.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -69,7 +70,7 @@ def main(args):
     
     # Find stands #10
     toUse = []
-    for i in xrange(antpols):
+    for i in range(antpols):
         ant = antennas[i]
         if ant.stand.id == 10:
             toUse.append(i)
@@ -82,9 +83,9 @@ def main(args):
     print("---+-----------------+-------------------+")
     
     while True:
-        count = [0 for j in xrange(antpols)]
+        count = [0 for j in range(antpols)]
         data = numpy.zeros((antpols, chunkLength*512//antpols), dtype=numpy.csingle)
-        for j in xrange(chunkLength):
+        for j in range(chunkLength):
             try:
                 cFrame = tbn.read_frame(fh)
             except errors.EOFError:
@@ -137,7 +138,7 @@ def main(args):
             
             clipFraction.append( numpy.zeros(antpols) )
             meanPower.append( data.mean(axis=1) )
-            for j in xrange(antpols):
+            for j in range(antpols):
                 bad = numpy.nonzero(data[j,:] > args.trim_level)[0]
                 clipFraction[-1][j] = 1.0*len(bad) / data.shape[1]
             
