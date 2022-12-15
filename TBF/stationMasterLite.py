@@ -5,11 +5,12 @@ Given a TBF file, plot the time averaged spectra for each digitizer input.  Save
 the data for later review with smGUI as an NPZ file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -59,7 +60,7 @@ def main(args):
     # Pre-load the channel mapper
     mapper = []
     freq = []
-    for i in xrange(2*nFramesPerObs):
+    for i in range(2*nFramesPerObs):
         cFrame = tbf.read_frame(fh)
         mapper.append( cFrame.header.first_chan )
         freq.extend( list(cFrame.header.channel_freqs) )
@@ -126,9 +127,9 @@ def main(args):
             
         # Apply the cable loss corrections, if requested
         if True:
-            for s in xrange(masterSpectra.shape[1]):
+            for s in range(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
-                for c in xrange(masterSpectra.shape[0]):
+                for c in range(masterSpectra.shape[0]):
                     masterSpectra[c,s,:] /= currGain
                     
         # Now that we have read through all of the chunks, perform the final averaging by
@@ -140,10 +141,10 @@ def main(args):
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
-        for i in xrange(spec.shape[0]):
+        for i in range(spec.shape[0]):
             bestOrder = 0
             bestRMS = 1e34
-            for j in xrange(3, 12):
+            for j in range(3, 12):
                 coeff = numpy.polyfit(freq[toCompare]/1e6, numpy.log10(spec[i,toCompare])*10, j)
                 fit = numpy.polyval(coeff, freq[toCompare]/1e6)
                 rms = ((fit - numpy.log10(spec[i,toCompare])*10)**2).sum()
@@ -183,7 +184,7 @@ def main(args):
     specDiff = numpy.zeros(spec.shape[0])
     toCompare = numpy.where( (freq>32e6) & (freq<50e6) )[0]
     print(len(toCompare))
-    for i in xrange(spec.shape[0]):
+    for i in range(spec.shape[0]):
         specDiff[i] = (spec[i,toCompare] / specTemplate[toCompare]).mean()
     specDiff = numpy.where( specDiff < 2, specDiff, 2)
     

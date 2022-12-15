@@ -6,11 +6,12 @@ Given a binary TBW health check file from PASI/LASI, covnert the data into a
 can be used with the smGUI.py utility.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import re
@@ -269,9 +270,9 @@ def main(args):
         
         ## Apply the cable loss corrections, if requested
         if True:
-            for s in xrange(masterSpectra.shape[1]):
+            for s in range(masterSpectra.shape[1]):
                 currGain = antennas[s].cable.gain(freq)
-                for c in xrange(masterSpectra.shape[0]):
+                for c in range(masterSpectra.shape[0]):
                     masterSpectra[c,s,:] /= currGain
                     
         ## Estimate the dipole resonance frequencies
@@ -280,10 +281,10 @@ def main(args):
         pb = ProgressBar(max=spec.shape[0])
         resFreq = numpy.zeros(spec.shape[0])
         toCompare = numpy.where( (freq>31e6) & (freq<70e6) )[0]
-        for i in xrange(spec.shape[0]):
+        for i in range(spec.shape[0]):
             bestOrder = 0
             bestRMS = 1e34
-            for j in xrange(3, 12):
+            for j in range(3, 12):
                 coeff = numpy.polyfit(freq[toCompare]/1e6, numpy.log10(spec[i,toCompare])*10, j)
                 fit = numpy.polyval(coeff, freq[toCompare]/1e6)
                 rms = ((fit - numpy.log10(spec[i,toCompare])*10)**2).sum()

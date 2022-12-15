@@ -2,12 +2,9 @@
 Unit tests for the a small DRX file.
 """
 
-# Python3 compatibility
+# Python2 compatibility
 from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import unittest
 import os
 import re
