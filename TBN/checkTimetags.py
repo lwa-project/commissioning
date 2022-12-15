@@ -10,7 +10,7 @@ try:
     range = xrange
 except NameError:
     pass
-try
+try:
     from functools import reduce
 except ImportError:
     pass
