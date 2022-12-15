@@ -6,12 +6,9 @@ voltage over time.  This script is designed to accept multiple files from multip
 rack if needed.
 """
 
-# Python3 compatiability
+# Python2 compatiability
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import re
 import sys

@@ -4,12 +4,9 @@
 Get ARX information about a stand.
 """
 
-# Python3 compatiability
+# Python2 compatiability
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import argparse

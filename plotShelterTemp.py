@@ -5,12 +5,9 @@ plotShelterTemp.py - Script to read in the shelter.txt file and plot up the
 shelter temperature (in F) as a function of time.
 """
 
-# Python3 compatiability
+# Python2 compatiability
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import numpy
