@@ -4,12 +4,9 @@
 Simple script to plot up the HDF5 file created by fringeBeamHDF.py.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import glob
@@ -149,4 +146,3 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(args)
-

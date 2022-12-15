@@ -4,11 +4,13 @@
 A fancier version of plotFringes.py that makes waterfall-like plots.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+    input = raw_input
+except NameError:
+    pass
     
 import os
 import sys

@@ -5,11 +5,12 @@ Script to fringe special DRX files that have one dipole on X pol. and another
 dipole on Y pol.  The visibilites are written to a NPZ file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
+try:
+    range = xrange
+except NameError:
+    pass
     
 import os
 import sys
@@ -121,7 +122,7 @@ def main(args):
         # Get the DRX frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
-        for i in xrange(4):
+        for i in range(4):
             junkFrame = drx.read_frame(fh)
             b,t,p = junkFrame.id
             if p == 0 and t == 1:
@@ -165,7 +166,7 @@ def main(args):
         
         nChunks = int(tFile/tInt)
         pb = ProgressBar(max=nChunks)
-        for i in xrange(nChunks):
+        for i in range(nChunks):
             junkFrame = drx.read_frame(fh)
             tStart = junkFrame.time
             fh.seek(-drx.FRAME_SIZE, 1)
@@ -174,8 +175,8 @@ def main(args):
             data1 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
             count2 = [0,0]
             data2 = numpy.zeros((2, 4096*nFrames), dtype=numpy.complex64)
-            for j in xrange(nFrames):
-                for k in xrange(4):
+            for j in range(nFrames):
+                for k in range(4):
                     cFrame = drx.read_frame(fh)
                     beam, tune, pol = cFrame.id
                     pair = 2*(tune-1) + pol

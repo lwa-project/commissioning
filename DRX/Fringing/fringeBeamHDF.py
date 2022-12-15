@@ -5,12 +5,13 @@ Frank Schinzel's script to fringe special DRX files that have a beam X pol.
 and a dipole on Y pol.  The visibilities are written to an HDF file.
 """
 
-# Python3 compatiability
+# Python2 compatibility
 from __future__ import print_function, division
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
+try:
+    range = xrange
+    input = raw_input
+except NameError:
+    pass
     
 import os
 import sys
@@ -157,7 +158,7 @@ def main(args):
         # Get the DRX frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
-        for i in xrange(32):
+        for i in range(32):
             junkFrame = drx.read_frame(fh)
             b,t,p = junkFrame.id
             if p == 0 and t == 1:
@@ -216,9 +217,9 @@ def main(args):
         group1 = outfile.create_group("Time")
         group2 = outfile.create_group("Frequencies")
         group3 = outfile.create_group("Visibilities")
-        out = raw_input("Target Name: ")
+        out = input("Target Name: ")
         outfile.attrs["OBJECT"] = out
-        out = raw_input("Polarization (X/Y): ")
+        out = input("Polarization (X/Y): ")
         outfile.attrs["POLARIZATION"] = out
         dset1 = group1.create_dataset("Timesteps", (nChunks,3), numpy.float64, maxshape=(nChunks,3))
         dset2 = group2.create_dataset("Tuning1", (LFFT,), numpy.float64, maxshape=(LFFT,))
@@ -231,10 +232,10 @@ def main(args):
 
         pb = ProgressBarPlus(max=nChunks)
         tsec = numpy.zeros(1, dtype=numpy.float64)
-        for i in xrange(nChunks):
+        for i in range(nChunks):
             j = 0
             while j < nFrames:
-                for k in xrange(4):
+                for k in range(4):
                     try:
                         cFrame = drx.read_frame(fh)
                         drxBuffer.append( cFrame )
