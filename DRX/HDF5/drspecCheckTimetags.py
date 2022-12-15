@@ -73,7 +73,7 @@ def main(args):
         
         ## If the offset is zero, we are done.  Otherwise, apply the offset
         ## and check the location in the file again/
-        if cOffset is 0:
+        if cOffset == 0:
             break
         fh.seek(cOffset*FRAME_SIZE, 1)
         
@@ -107,7 +107,7 @@ def main(args):
         
         cTime = frame.time
         if i % 1000 == 0:
-            print("Frame %i: %s" % (i, datetime.utcfromtimestamp(cTime))		)
+            print("Frame %i: %s" % (i, cTime.datetime))
             
         try:
             if cTime > oTime + 1.001*tInt:
