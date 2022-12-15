@@ -75,17 +75,17 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
     idf.reset()
     
     t0 = idf.get_info('start_time')
-    tDiff = tStart - datetime.utcfromtimestamp(t0)
+    tDiff = tStart - t0.datetime
     offset = idf.offset( tDiff.total_seconds() )
     t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+    while t0.datetime < tStart or srate != sample_rate:
         offset = idf.offset( 4096./sample_rate )
         t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
-    tDiff = datetime.utcfromtimestamp(t0) - tStart
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.datetime, srate))
+    tDiff = t0.datetime - tStart
     duration = duration - max([0, tDiff.total_seconds()])
     
     # Number of remaining chunks (and the correction to the number of
@@ -205,17 +205,17 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
     idf.reset()
     
     t0 = idf.get_info('start_time')
-    tDiff = tStart - datetime.utcfromtimestamp(t0)
+    tDiff = tStart - t0.datetime
     offset = idf.offset( tDiff.total_seconds() )
     t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+    while t0.datetime < tStart or srate != sample_rate:
         offset = idf.offset( 4096./sample_rate )
         t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
-    tDiff = datetime.utcfromtimestamp(t0) - tStart
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.datetime, srate))
+    tDiff = t0.datetime - tStart
     duration = duration - max([0, tDiff.total_seconds()])
         
     # Number of remaining chunks (and the correction to the number of
