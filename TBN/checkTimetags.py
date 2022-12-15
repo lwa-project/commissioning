@@ -9,7 +9,11 @@ from __future__ import print_function, division
 try:
     range = xrange
 except NameError:
+    pass
+try
     from functools import reduce
+except ImportError:
+    pass
     
 import os
 import sys
