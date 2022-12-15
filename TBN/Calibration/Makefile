@@ -1,4 +1,7 @@
 PYTHON ?= python3
+ifeq (, $(shell which $(PYTHON)))
+	PYTHON = python
+endif
 
 .PHONY: all
 all: fringe.so
