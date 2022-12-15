@@ -503,7 +503,7 @@ def main(args):
         hdfData.fill_from_sdf(f, args.sdf, station=site)
         
     else:
-        obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
+        obsList[1] = (t1.datetime, datetime(2222,12,31,23,59,59), args.duration, srate)
         
         site = 'lwa1'
         if args.lwasv:
