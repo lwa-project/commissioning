@@ -5,6 +5,7 @@ Unit tests for the a small TBN file.
 import unittest
 import os
 import re
+import sys
 import glob
 import numpy
 import subprocess
@@ -58,7 +59,7 @@ def _test_generator(script):
     def test(self):
         with open('script.log', 'w') as logfile:
             try:
-                status = subprocess.check_call(['python', script, _FILENAME], stdout=logfile)
+                status = subprocess.check_call([sys.executable, script, _FILENAME], stdout=logfile)
             except subprocess.CalledProcessError:
                 status = 1
                 
