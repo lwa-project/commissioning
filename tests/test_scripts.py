@@ -89,7 +89,7 @@ def _test_generator(script):
     def test(self):
         pylint_output = StringIO()
         reporter = TextReporter(pylint_output)
-        Run([script, '-E', '--extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl'], reporter=reporter)
+        Run([script, '-E', '--extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl'], reporter=reporter, do_exit=False)
         out = pylint_output.getvalue()
         out_lines = out.split('\n')
         
