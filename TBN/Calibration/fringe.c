@@ -139,7 +139,7 @@ PyMODINIT_FUNC PyInit_fringe(void) {
 
 	// Module definitions and functions
 	static struct PyModuleDef moduledef = {
-		 PyModuleDef_HEAD_INIT, "fringe", fringe_doc, -1, FringMethods
+		 PyModuleDef_HEAD_INIT, "fringe", fringe_doc, -1, FringeMethods
 	};
 	m = PyModule_Create(&moduledef);
 	if( m == NULL ) {
