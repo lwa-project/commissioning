@@ -5,13 +5,6 @@ Simulate fringes for a dipole-dipole data set using the lsl.sim.vis.build_sim_da
 function and the bright sources listed in lsl.sim.vis.srcs.
 """
 
-# Python compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy

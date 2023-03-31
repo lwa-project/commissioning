@@ -1,12 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 """
 Set DRX beams and start a recording.
 """
-
-# Python2 compatibility
-from __future__ import print_function, division
 
 import datetime
 import os
@@ -16,10 +13,7 @@ import string
 import struct
 import subprocess
 import sys
-try:
-    import thread
-except ImportError:
-    import _thread as thread
+import _thread as thread
 import time
 import gain
 import delay

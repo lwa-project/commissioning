@@ -5,13 +5,6 @@ Simple script to read in a MCS binary packed DP gain file (.gf) and print
 out the gains.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy

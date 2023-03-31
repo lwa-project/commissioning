@@ -4,13 +4,6 @@
 Given a DP board status code, decode it into its various parts.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import sys
 import struct
 

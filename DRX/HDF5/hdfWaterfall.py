@@ -5,14 +5,6 @@ Given a DRX file, plot the time averaged spectra for each beam output over some
 period.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-    input = raw_input
-except NameError:
-    pass
-    
 import os
 import sys
 import h5py

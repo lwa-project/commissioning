@@ -5,9 +5,6 @@ Read in SSMIF file and create a set of DRX gain and delay files for a given
 frequency and topogentric pointing center.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import sys
 import numpy
 import argparse

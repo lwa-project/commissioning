@@ -5,14 +5,6 @@ Small script to read in a DR spectrometer binary data file and create a HDF5 in
 the image of hdfWaterfall.py that can be plotted with plotHDF.py
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-    input = raw_input
-except NameError:
-    pass
-    
 import os
 import sys
 import h5py

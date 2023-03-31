@@ -5,14 +5,6 @@ Frank Schinzel's script to fringe special DRX files that have a beam X pol.
 and a dipole on Y pol.  The visibilities are written to an HDF file.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-    input = raw_input
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy
