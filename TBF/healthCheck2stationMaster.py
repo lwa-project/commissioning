@@ -16,7 +16,7 @@ import argparse
 import tempfile
 from datetime import datetime
 from xml.etree import ElementTree
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
     
 
 from lsl.common.stations import parse_ssmif

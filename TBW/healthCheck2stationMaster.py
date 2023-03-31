@@ -28,10 +28,7 @@ def parseIndex(index):
     """
     
     from xml.etree import ElementTree
-    try:
-        from BeautifulSoup import BeautifulSoup
-    except ImportError:
-        from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup
     
     # Find the table
     start = index.find('<table>')
