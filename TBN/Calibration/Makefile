@@ -3,7 +3,7 @@ PYTHON ?= python
 .PHONY: all
 all: fringe.so
 
-fringe.so: fringe.c setup.py
+fringe.so: fringe.cpp setup.py
 	$(PYTHON) setup.py build
 	mv build/lib*/*.so .
 	rm -rf build
