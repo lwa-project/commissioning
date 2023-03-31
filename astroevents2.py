@@ -6,13 +6,6 @@ date in the form of YYYY/MM/DD from the command line to use a as base for
 its calculations.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import pytz
@@ -37,7 +30,9 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
         "HerA,f|J,16:51:08.15,+04:59:33.3,1", 
         "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
         "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
-        "CasA,f|J,23:23:27.94,+58:48:42.4,1", ]
+        "CasA,f|J,23:23:27.94,+58:48:42.4,1", 
+        "B1919+21,f|J,19:21:44.82,+21:53:02.3,1",
+        "B0329+54,f|J,03:32:59.37,+54:34:43.6,1"]
 
 
 def main(args):
@@ -146,7 +141,7 @@ def main(args):
         # List
         for src in srcs:		
             if src.alt <= 0:
-                continue
+               continue
                 
             isRising = False
             if src.az < math.pi:

@@ -6,13 +6,6 @@ topocentric pointing center.  The estimate is based off a simple delay-and-sum
 beam former so it won't be an exact match.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import aipy

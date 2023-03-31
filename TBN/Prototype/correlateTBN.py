@@ -5,9 +5,6 @@ Example script that reads in TBN data and runs a cross-correlation on it.
 The results are saved in the FITS IDI format.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
- 
 import os
 import sys
 import time

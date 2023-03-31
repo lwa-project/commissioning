@@ -6,13 +6,6 @@ various DRX cross-tuning time tag issues because it does comparisons on a tuning
 polarization basis.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import argparse

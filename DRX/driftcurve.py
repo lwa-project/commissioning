@@ -4,9 +4,6 @@
 Predict driftcurve for a given site using a given antenna model.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import os
 import sys
 import math

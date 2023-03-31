@@ -5,13 +5,6 @@ Basic script to take a COR file, apply the station delay model, and write the
 data out as a CASA measurement set.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import aipy

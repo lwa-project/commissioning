@@ -5,13 +5,6 @@ Example script to read in the positions of stands at LWA-1 and make a plot
 of the site.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy

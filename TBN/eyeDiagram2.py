@@ -5,13 +5,6 @@ Given a DRX file, look for glitches in a DRX or TBN data by fitting a sine wave
 to the data.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy

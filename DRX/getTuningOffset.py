@@ -5,13 +5,6 @@ Read in a DRX file and look at the time tag difference between tuning 1 and
 tuning 2 to and if that difference changes throughout a file.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy

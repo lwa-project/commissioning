@@ -5,13 +5,6 @@ Combine the delay differences from a text file with the a priori knowledge of th
 cable model to make a NPZ file that reflects the fully delay of the system.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import sys
 import numpy
 from matplotlib import pyplot as plt

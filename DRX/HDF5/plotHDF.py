@@ -4,13 +4,6 @@
 Given a DRX HDF5 waterfall file, plot it in an interactive way.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import h5py
@@ -355,12 +348,9 @@ class Waterfall_GUI(object):
         try:
             fmt = obs['time'].attrs['format']
             scl = obs['time'].attrs['scale']
-            try:
-                fmt = fmt.decode()
-                scl = scl.decode()
-            except AttributeError:
-                pass
-                
+            fmt = fmt.decode()
+            scl = scl.decode()
+            
             if fmt != 'unix' or scl != 'utc':
                 self.time = [AstroTime(*t, format=fmt, scale=scl) for t in self.time]
                 self.time = [t.utc.unix for t in self.time]
@@ -495,12 +485,9 @@ class Waterfall_GUI(object):
         try:
             fmt = obs['time'].attrs['format']
             scl = obs['time'].attrs['scale']
-            try:
-                fmt = fmt.decode()
-                scl = scl.decode()
-            except AttributeError:
-                pass
-                
+            fmt = fmt.decode()
+            scl = scl.decode()
+            
             if fmt != 'unix' or scl != 'utc':
                 self.timesNPZ = [AstroTime(*t, format=fmt, scale=scl) for t in self.timesNPZ]
                 self.timesNPZ = [t.utc.unix for t in self.timesNPZ]

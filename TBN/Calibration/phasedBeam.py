@@ -5,13 +5,6 @@ Given a reference file for calibration and a pointing azimuth and elevation
 in degrees, create a set of phase-and-sum beamforming coefficients for DRX.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import ephem

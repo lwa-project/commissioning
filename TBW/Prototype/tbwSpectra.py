@@ -4,9 +4,6 @@
 Given a TBW file, plot the time averaged spectra for each digitizer input.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
-
 import os
 import sys
 import math
@@ -215,4 +212,3 @@ if __name__ == "__main__":
                         help='output file name for spectra image')
     args = parser.parse_args()
     main(args)
-

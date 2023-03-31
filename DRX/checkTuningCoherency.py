@@ -4,13 +4,6 @@
 Given a DRX file with both tunings set to the same parameters, check for coherency.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import math

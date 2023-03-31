@@ -6,9 +6,6 @@ voltage over time.  This script is designed to accept multiple files from multip
 rack if needed.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import os
 import re
 import sys

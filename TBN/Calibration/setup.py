@@ -80,7 +80,7 @@ coreExtraFlags.append('-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION')
 coreExtraLibs = openmpLibs
 
 
-ExtensionModules = [Extension('fringe', ['fringe.c',],
+ExtensionModules = [Extension('fringe', ['fringe.cpp',],
                               include_dirs=[numpy.get_include()], libraries=['m'],
                               extra_compile_args=coreExtraFlags, extra_link_args=coreExtraLibs)]
 
