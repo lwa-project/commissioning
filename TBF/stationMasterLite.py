@@ -5,13 +5,6 @@ Given a TBF file, plot the time averaged spectra for each digitizer input.  Save
 the data for later review with smGUI as an NPZ file.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import math

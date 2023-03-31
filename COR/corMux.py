@@ -5,13 +5,6 @@ Given a COR filles created by ADP, combine the files together into a single
 file that can be used like a standard DR-recorded COR file
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import copy

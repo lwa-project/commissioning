@@ -5,13 +5,6 @@ Given a /data/temp.txt file (or one of the rotated backups) plot the temperature
 of all 140 FPGAs in DP.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import sys
 import numpy
 import pytz

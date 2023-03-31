@@ -2,9 +2,6 @@
 Unit tests for the a small TBN file.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
-
 import unittest
 import os
 import re

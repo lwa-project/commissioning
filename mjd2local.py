@@ -5,9 +5,6 @@ For a given MJD value or list of MJD values, return the range of local times
 associated with that MJD.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import sys
 import pytz
 import argparse

@@ -6,13 +6,6 @@ multilateration (http://en.wikipedia.org/wiki/Multilateration) to locate the
 source of the RFI.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import sys
 import numpy
 

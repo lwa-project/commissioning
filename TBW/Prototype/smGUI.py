@@ -4,13 +4,6 @@
 Display NPZ data from stationMaster in an interactive GUI sort of way.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy
@@ -199,12 +192,8 @@ class TBW_GUI(object):
         path, basename = os.path.split(filename)
         self.filename = basename
         self.date = dataDict['date']
-        try:
-            self.date = self.date.tostring().decode()
-        except AttributeError:
-            # Python2 catch
-            pass
-            
+        self.date = self.date.tostring().decode()
+        
         try:
             self.disconnect()
         except:
