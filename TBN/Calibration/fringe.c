@@ -15,9 +15,6 @@
 
 #include "numpy/arrayobject.h"
 
-#include "py3_compat.h"
-
-
 /*
   Simple Fringing of Complex data
 */
@@ -137,23 +134,26 @@ PyDoc_STRVAR(fringe_doc, \
   Module Setup - Initialization
 */
 
-MOD_INIT(fringe) {
+PyMODINIT_FUNC PyInit_fringe(void) {
 	PyObject *m, *all;
 
 	// Module definitions and functions
-	MOD_DEF(m, "fringe", FringeMethods, fringe_doc);
+	static struct PyModuleDef moduledef = {
+		 PyModuleDef_HEAD_INIT, "fringe", fringe_doc, -1, FringMethods
+	};
+	m = PyModule_Create(&moduledef);
 	if( m == NULL ) {
-        return MOD_ERROR_VAL;
+        return NULL;
     }
 	import_array();
 	
 	// Version and revision information
-	PyModule_AddObject(m, "__version__", PyString_FromString("0.1"));
+	PyModule_AddObject(m, "__version__", PyUnicode_FromString("0.1"));
 	
     // Function listings
     all = PyList_New(0);
-    PyList_Append(all, PyString_FromString("Simple"));
+    PyList_Append(all, PyUnicode_FromString("Simple"));
     PyModule_AddObject(m, "__all__", all);
     
-	return MOD_SUCCESS_VAL(m);
+	return m;
 }
