@@ -5,13 +5,6 @@ Given a TBW file, look for the weird RFI bursts that we have been seeing.  The
 bursts are likely 'microsparking' from the powerline.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import math

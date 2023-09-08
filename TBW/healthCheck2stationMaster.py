@@ -6,22 +6,12 @@ Given a binary TBW health check file from PASI/LASI, covnert the data into a
 can be used with the smGUI.py utility.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import re
 import sys
 import numpy
 import struct
-try:
-    from urllib2 import urlopen
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 import argparse
 import tempfile
 from datetime import datetime
@@ -38,10 +28,7 @@ def parseIndex(index):
     """
     
     from xml.etree import ElementTree
-    try:
-        from BeautifulSoup import BeautifulSoup
-    except ImportError:
-        from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup
     
     # Find the table
     start = index.find('<table>')
@@ -133,10 +120,9 @@ class DynamicSSMIF(object):
         
         # Save it to a file
         _, filename = tempfile.mkstemp(suffix='.txt', prefix='SSMIF')
-        fh = open(filename, 'wb')
-        fh.write(contents)
-        fh.close()
-        
+        with open(filename, 'wb') as fh:
+            fh.write(contents)
+            
         # Parse the SSMIF
         station = parse_ssmif(filename)
         
@@ -157,11 +143,7 @@ class DynamicSSMIF(object):
         except AttributeError:
             self._retrieve()
             contents = self.contents
-        try:
-            contents = contents.decode()
-        except AttributeError:
-            # Python2 catch
-            pass
+        contents = contents.decode()
         contents = contents.split('\n')
         
         return contents
@@ -185,11 +167,7 @@ def loadSSMIFCache():
     # Retrieve the list
     ah = urlopen("https://lda10g.alliance.unm.edu/metadata/lwa1/ssmif/")
     index = ah.read()
-    try:
-        index = index.decode()
-    except AttributeError:
-        # Python2 catch
-        pass
+    index = index.decode()
     ah.close()
     
     # Parse
@@ -223,11 +201,11 @@ def loadHealthCheckFile(filename):
     dt = datetime.strptime('%s %s' % (date, time), '%y%m%d %H%M%S')
     
     # Open the file and parse out the spectra
-    fh = open(filename, 'rb')
-    nStands, nchans = struct.unpack('ll', fh.read(16))
-    specs = numpy.fromfile(fh, count=nStands*2*nchans, dtype=numpy.float32)
-    specs = specs.reshape(nStands*2, nchans)
-    
+    with open(filename, 'rb') as fh:
+        nStands, nchans = struct.unpack('ll', fh.read(16))
+        specs = numpy.fromfile(fh, count=nStands*2*nchans, dtype=numpy.float32)
+        specs = specs.reshape(nStands*2, nchans)
+        
     # Get the corresponding frequencies
     freqs = numpy.arange(nchans) / float(nchans - 1) * 196e6 / 2
     return dt, freqs, specs

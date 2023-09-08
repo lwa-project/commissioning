@@ -5,9 +5,6 @@ Check the time tags in a TBN file from the prototype system at the
 north arm.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import os
 import sys
 

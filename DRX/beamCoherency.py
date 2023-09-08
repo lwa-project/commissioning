@@ -5,13 +5,6 @@ Given two or more DRX files from different beams, check for coherency between th
 and make sure that the beams agree with the T_NOM values.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy

@@ -4,21 +4,11 @@
 Check the time tags in a full 520 antenna stand data set.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-try:
-    from functools import reduce
-except ImportError:
-    pass
-    
 import os
 import sys
 import numpy
 import argparse
+from functools import reduce
 
 from lsl import astro
 from lsl.common import stations

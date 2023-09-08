@@ -4,9 +4,6 @@
 Simple script to plot up the NPZ files created by fringeDipole.py/fringeBeam.py.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import os
 import sys
 import glob

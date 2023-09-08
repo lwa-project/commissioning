@@ -7,13 +7,6 @@ missing.  Rather than do this for a whole file, it is done for some small portio
 of the file that is controlled by the -s/--skip and -a/--average flags.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import math

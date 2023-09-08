@@ -11,13 +11,6 @@ Note:  The output of this script is always saved to an NPZ file named
 Usage:
 ./prepareDelayData.py <reference source> <NPZ vis. file> [<NPZ vis. file> [...]]
 """
-
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
     
 import os
 import sys

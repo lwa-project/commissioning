@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """
 Creates delay file for one or all antennas
@@ -6,9 +6,6 @@ Creates delay file for one or all antennas
 # written by Gerald Crichton, Robert Navarro   
 # March 12, 2011                                                        *
 # Copyright 2011, by the California Institute of Technology. ALL RIGHTS RESERVED.
-
-# Python2 compatibility
-from __future__ import print_function, division
 
 import os
 import sys

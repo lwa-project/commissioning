@@ -2,8 +2,6 @@
 Stub module for getting the latest version of DRX/HDF5/data.py
 """
 
-from __future__ import print_function
-
 import os
 import shutil
 
@@ -24,4 +22,3 @@ if copy:
     
 # Load in everything from the module
 from _data import *
-

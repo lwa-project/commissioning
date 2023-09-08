@@ -6,27 +6,17 @@ Given a binary TBW health check file from PASI/LASI, covnert the data into a
 can be used with the smGUI.py utility.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import re
 import sys
 import numpy
 import struct
-try:
-    from urllib2 import urlopen
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 import argparse
 import tempfile
 from datetime import datetime
 from xml.etree import ElementTree
-from BeautifulSoup import BeautifulSoup
+from bs4 import BeautifulSoup
     
 
 from lsl.common.stations import parse_ssmif

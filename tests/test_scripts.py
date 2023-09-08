@@ -4,9 +4,6 @@
 Unit tests for the various commissioning scripts.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
-
 import unittest
 import glob
 import sys
@@ -22,7 +19,9 @@ else:
     
 run_scripts_tests = False
 try:
-    from pylint import epylint as lint
+    from io import StringIO
+    from pylint.lint import Run
+    from pylint.reporters.text import TextReporter
     if MODULE_BUILD is not None:
         run_scripts_tests = True
         
@@ -88,11 +87,11 @@ def _test_generator(script):
     """
     
     def test(self):
-        out, err = lint.py_run("%s -E --extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl" % script, return_std=True)
-        out_lines = out.read().split('\n')
-        err_lines = err.read().split('\n')
-        out.close()
-        err.close()
+        pylint_output = StringIO()
+        reporter = TextReporter(pylint_output)
+        Run([script, '-E', '--extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl'], reporter=reporter, do_exit=False)
+        out = pylint_output.getvalue()
+        out_lines = out.split('\n')
         
         for line in out_lines:
             ignore = False

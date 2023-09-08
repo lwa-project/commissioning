@@ -8,9 +8,6 @@ Usage:
 ./splitMultiVis.py <NPZ multi-vis. file> [<NPZ multi-vis. file> [...]]
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import os
 import sys
 import numpy

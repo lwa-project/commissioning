@@ -5,13 +5,6 @@ Script to fringe special DRX files that have a beam X pol. and a dipole
 on Y pol.  The visibilites are written to a NPZ file.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-try:
-    range = xrange
-except NameError:
-    pass
-    
 import os
 import sys
 import numpy
