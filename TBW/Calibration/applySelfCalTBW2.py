@@ -157,16 +157,13 @@ def main(args):
         dataDict.sort()
         
         # Gather up the polarizations and baselines
-        pols = dataDict['jd'].keys()
-        bls = dataDict['bls'][pols[0]]
+        pols = dataDict.pols
+        bls = dataDict.baselines
         print("The reduced list has %i baselines and %i channels" % (len(bls), len(toWork)))
         
         # Build a list of unique JDs for the data
-        jdList = []
-        for jd in dataDict['jd'][pols[0]]:
-            if jd not in jdList:
-                jdList.append(jd)
-                
+        jdList = [dataDict.jd]
+         
         # Build the simulated visibilities
         print("Building Model")
         simDict = simVis.build_sim_data(aa, simVis.SOURCES, jd=[jdList[0],], pols=pols, baselines=bls)
@@ -174,8 +171,8 @@ def main(args):
         print("Running self cal.")
         simDict  = simDict.sort()
         dataDict = dataDict.sort()
-        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'xx', ref_ant=args.reference, max_iter=60)
-        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'yy', ref_ant=args.reference, max_iter=60)
+        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX', ref_ant=args.reference, max_iter=60)
+        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY', ref_ant=args.reference, max_iter=60)
         fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
         fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
         
@@ -203,30 +200,30 @@ def main(args):
             print("    Gridding")
             toWork = numpy.where((freq>=80e6) & (freq<=82e6))[0]
             try:
-                imgXX = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='xx', chan=toWork)
+                imgXX = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='XX', chan=toWork)
             except:
                 imgXX = None
                 
             try:
-                imgYY = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='yy', chan=toWork)
+                imgYY = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='YY', chan=toWork)
             except:
                 imgYY = None
                 
             try:
-                simgXX = utils.build_gridded_image(simDict, size=80, res=0.5, pol='xx', chan=toWork)
+                simgXX = utils.build_gridded_image(simDict, size=80, res=0.5, pol='XX', chan=toWork)
             except:
                 simgXX = None
             try:
-                simgYY = utils.build_gridded_image(simDict, size=80, res=0.5, pol='yy', chan=toWork)
+                simgYY = utils.build_gridded_image(simDict, size=80, res=0.5, pol='YY', chan=toWork)
             except:
                 simgYY = None
                 
             try:
-                fimgXX = utils.build_gridded_image(fixedFullXX, size=80, res=0.5, pol='xx', chan=toWork)
+                fimgXX = utils.build_gridded_image(fixedFullXX, size=80, res=0.5, pol='XX', chan=toWork)
             except:
                 fimgXX = None
             try:
-                fimgYY = utils.build_gridded_image(fixedFullYY, size=80, res=0.5, pol='yy', chan=toWork)
+                fimgYY = utils.build_gridded_image(fixedFullYY, size=80, res=0.5, pol='YY', chan=toWork)
             except:
                 fimgYY = None
                 
