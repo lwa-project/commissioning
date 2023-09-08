@@ -146,7 +146,10 @@ def main(args):
     for set in range(1, nSets+1):
         print("Set #%i of %i" % (set, nSets))
         fullDict = idi.get_data_set(set)
-        dataDict = fullDict.get_uv_range(min_uv=14.0)
+        if args.min_uv_dist > 0.0:
+            dataDict = fullDict.get_uv_range(min_uv=args.min_uv_dist)
+        else:
+            dataDict = fullDict
         dataDict.sort()
         
         # Gather up the polarizations and baselines
@@ -159,11 +162,12 @@ def main(args):
          
         # Build the simulated visibilities
         print("Building Model")
+        simVis.SOURCES['Sun']._jys *= args.sun_factor
         simDict = simVis.build_sim_data(aa, simVis.SOURCES, jd=[jdList[0],], pols=pols, baselines=bls)
         
         print("Running self cal.")
-        simDict  = simDict.sort()
-        dataDict = dataDict.sort()
+        simDict.sort()
+        dataDict.sort()
         fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX', ref_ant=args.reference, max_iter=60)
         fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY', ref_ant=args.reference, max_iter=60)
         fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
@@ -291,7 +295,11 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--lower', type=aph.positive_float, default=35.0,
                         help='lowest frequency to consider in MHz')
     parser.add_argument('-u', '--upper', type=aph.positive_float, default=85.0,
-                        help='highest frequency to consider in MHz')                  
+                        help='highest frequency to consider in MHz')
+    parser.add_argument('-m', '--min-uv-dist', type=aph.positive_or_zero_float, default=14.0,
+                        help='minimum baseline (u,v) length to use in wavelengths')
+    parser.add_argument('-s', '--sun-factor', type=aph.positive_or_zero_float, default=1.0,
+                        help="scale factor for the Sun's flux - useful for when it is flaring")
     parser.add_argument('-p', '--plot', action='store_true',
                         help='plot the results at the end')
     args = parser.parse_args()
