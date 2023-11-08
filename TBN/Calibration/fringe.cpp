@@ -156,7 +156,7 @@ PyDoc_STRVAR(Simple_doc, \
   Module Setup - Function Definitions and Documentation
 */
 
-static PyMethodDef FringeMethods[] = {
+static PyMethodDef fringe_methods[] = {
 	{"Simple",  (PyCFunction) Simple,  METH_VARARGS, Simple_doc}, 
 	{NULL,      NULL,                  0,            NULL      }
 };
@@ -168,26 +168,36 @@ PyDoc_STRVAR(fringe_doc, \
   Module Setup - Initialization
 */
 
-PyMODINIT_FUNC PyInit_fringe(void) {
-	PyObject *m, *all;
+static int fringe_exec(PyObject* module) {
+		import_array();
+		
+		// Version and revision information
+		PyModule_AddObject(module, "__version__", PyUnicode_FromString("0.1"));
+		
+		// Function listings
+		PyObject* all = PyList_New(0);
+		PyList_Append(all, PyUnicode_FromString("Simple"));
+		PyModule_AddObject(module, "__all__", all);
+		return 0;
+}
 
-	// Module definitions and functions
-	static struct PyModuleDef moduledef = {
-		 PyModuleDef_HEAD_INIT, "fringe", fringe_doc, -1, FringeMethods
-	};
-	m = PyModule_Create(&moduledef);
-	if( m == NULL ) {
-        return NULL;
-    }
-	import_array();
-	
-	// Version and revision information
-	PyModule_AddObject(m, "__version__", PyUnicode_FromString("0.1"));
-	
-    // Function listings
-    all = PyList_New(0);
-    PyList_Append(all, PyUnicode_FromString("Simple"));
-    PyModule_AddObject(m, "__all__", all);
-    
-	return m;
+static PyModuleDef_Slot fringe_slots[] = {
+    {Py_mod_exec, (void *)&fringe_exec},
+    {0,           NULL}
+};
+
+static PyModuleDef fringe_def = {
+    PyModuleDef_HEAD_INIT,    /* m_base */
+    "fringe",                 /* m_name */
+    fringe_doc,               /* m_doc */
+    0,                        /* m_size */
+    fringe_methods,           /* m_methods */
+    fringe_slots,             /* m_slots */
+    NULL,                     /* m_traverse */
+    NULL,                     /* m_clear */
+    NULL,                     /* m_free */
+};
+
+PyMODINIT_FUNC PyInit_fringe(void) {
+	  return PyModuleDef_Init(&fringe_def);
 }
