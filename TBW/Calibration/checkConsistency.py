@@ -96,10 +96,18 @@ def main(args):
     # Merge the delays together
     fh = open(args.output, 'w')
     for stand in order:
-        delayX = robust.mean( delaysX[stand] - msX)
-        dstdX  = robust.std(  delaysX[stand] - msX)
-        delayY = robust.mean( delaysY[stand] - msY)
-        dstdY  = robust.std(  delaysY[stand] - msY)
+        try:
+            delayX = robust.mean( delaysX[stand] - msX)
+            dstdX  = robust.std(  delaysX[stand] - msX)
+        except:
+            delayX = numpy.mean( delaysX[stand] - msX)
+            dstdX  = numpy.std(  delaysX[stand] - msX)
+        try:
+            delayY = robust.mean( delaysY[stand] - msY)
+            dstdY  = robust.std(  delaysY[stand] - msY)
+        except:
+            delayY = numpy.mean( delaysY[stand] - msY)
+            dstdY  = numpy.std(  delaysY[stand] - msY)
         fh.write("%3i  %.2f  %.2f  %.2f  %.2f\n" % (stand, 0.0, delayX, 0.0, delayY))
     fh.close()
     
