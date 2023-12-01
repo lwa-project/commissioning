@@ -2027,7 +2027,7 @@ class MainWindow(wx.Frame):
             for p in data_products:
                 ind = 4*(1-1) + mapper[p]
                 mask1P = mask1.get(p, None)
-                mask1P[o:o+d,:] = self.data.spec.mask[:,ind,:]
+                mask1P[o:o+d,:] = self.data.spec.mask[ind,:,:]
                 
             if mask2 is None:
                 mask2 = tuning2.create_group('Mask')
@@ -2036,7 +2036,7 @@ class MainWindow(wx.Frame):
             for p in data_products:
                 ind = 4*(2-1) + mapper[p]
                 mask2P = mask2.get(p, None)
-                mask2P[o:o+d,:] = self.data.spec.mask[:,ind,:]
+                mask2P[o:o+d,:] = self.data.spec.mask[ind,:,:]
                 
             h.close()
             
@@ -2104,7 +2104,7 @@ class MainWindow(wx.Frame):
             for p in data_products:
                 ind = 4*(1-1) + mapper[p]
                 mask1P = mask1.get(p, None)
-                mask1P[o:o+d,:] = self.data.spec.mask[:,ind,:]
+                mask1P[o:o+d,:] = self.data.spec.mask[ind,:,:]
                 
             if mask2 is None:
                 mask2 = tuning2.create_group('Mask')
@@ -2113,7 +2113,7 @@ class MainWindow(wx.Frame):
             for p in data_products:
                 ind = 4*(2-1) + mapper[p]
                 mask2P = mask2.get(p, None)
-                mask2P[o:o+d,:] = self.data.spec.mask[:,ind,:]
+                mask2P[o:o+d,:] = self.data.spec.mask[ind,:,:]
             
             hNew.close()
             
