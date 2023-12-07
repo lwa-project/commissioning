@@ -2238,7 +2238,7 @@ class MainWindow(wx.Frame):
             name = 'gist_gray'
         elif self.cmapMenu.IsChecked(ID_COLOR_MAP_VIRIDIS):
             name = 'viridis'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_MAGMA)
+        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_MAGMA):
             name = 'magma'
         else:
             name = 'jet'
