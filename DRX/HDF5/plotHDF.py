@@ -348,9 +348,12 @@ class Waterfall_GUI(object):
         try:
             fmt = obs['time'].attrs['format']
             scl = obs['time'].attrs['scale']
-            fmt = fmt.decode()
-            scl = scl.decode()
-            
+            try:
+                fmt = fmt.decode()
+                scl = scl.decode()
+            except AttributeError:
+                pass
+                
             if fmt != 'unix' or scl != 'utc':
                 self.time = [AstroTime(*t, format=fmt, scale=scl) for t in self.time]
                 self.time = [t.utc.unix for t in self.time]
@@ -485,8 +488,11 @@ class Waterfall_GUI(object):
         try:
             fmt = obs['time'].attrs['format']
             scl = obs['time'].attrs['scale']
-            fmt = fmt.decode()
-            scl = scl.decode()
+            try:
+                fmt = fmt.decode()
+                scl = scl.decode()
+            except AttributeError:
+                pass
             
             if fmt != 'unix' or scl != 'utc':
                 self.timesNPZ = [AstroTime(*t, format=fmt, scale=scl) for t in self.timesNPZ]
