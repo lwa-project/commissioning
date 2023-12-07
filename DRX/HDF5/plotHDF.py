@@ -92,6 +92,12 @@ if 'phoenix' in wx.PlatformInfo:
 else:
     AppendMenuItem = lambda x, y: x.AppendItem(y)
     AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
+    
+def wxAppYield():
+    try:
+        wx.GetApp().Yield()
+    except AttributeError:
+        wx.Yield()
 
 
 def findLimits(data, usedB=True):
@@ -2185,7 +2191,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         i = self.data.index
         toUse = numpy.arange(self.data.spec.shape[2]//10, 9*self.data.spec.shape[2]//10)
@@ -2220,7 +2226,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         if self.cmapMenu.IsChecked(ID_COLOR_MAP_PAIRED):
             name = 'Paired'
@@ -2267,7 +2273,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         if self.smapMenu.IsChecked(ID_COLOR_STRETCH_LOG):
             newN = LogNorm
@@ -2296,7 +2302,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 0
         self.data.draw()
@@ -2311,7 +2317,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 1
         self.data.draw()
@@ -2326,7 +2332,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 2
         self.data.draw()
@@ -2341,7 +2347,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 3
         self.data.draw()
@@ -2356,7 +2362,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 4
         self.data.draw()
@@ -2371,7 +2377,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 5
         self.data.draw()
@@ -2386,7 +2392,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 6
         self.data.draw()
@@ -2401,7 +2407,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.index = 7
         self.data.draw()
@@ -2437,7 +2443,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.suggestMask(self.data.index)
             
@@ -2454,7 +2460,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         for i in range(self.data.spec.shape[0]):
             self.data.suggestMask(i)
@@ -2471,7 +2477,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.resetMask(self.data.index)
         
@@ -2487,7 +2493,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         for i in range(self.data.spec.shape[0]):
             self.data.resetMask(i)
@@ -2511,7 +2517,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.bandpass = True
         
@@ -2527,7 +2533,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.bandpass = False
         
@@ -2543,7 +2549,7 @@ class MainWindow(wx.Frame):
         """
         
         wx.BeginBusyCursor()
-        wx.Yield()
+        wxAppYield()
         
         self.data.computeBandpass()
         
