@@ -1580,6 +1580,8 @@ ID_COLOR_MAP_NCAR = 2206
 ID_COLOR_MAP_RAINBOW = 2207
 ID_COLOR_MAP_STERN = 2208
 ID_COLOR_MAP_GRAY = 2209
+ID_COLOR_MAP_VIRIDIS = 2210
+ID_COLOR_MAP_MAGMA = 2211
 ID_COLOR_INVERT = 23
 ID_COLOR_STRETCH_LINEAR = 2400
 ID_COLOR_STRETCH_LOG = 2401
@@ -1684,6 +1686,8 @@ class MainWindow(wx.Frame):
         cmap.AppendRadioItem(ID_COLOR_MAP_RAINBOW, '&Rainbow')
         cmap.AppendRadioItem(ID_COLOR_MAP_STERN, 'S&tern')
         cmap.AppendRadioItem(ID_COLOR_MAP_GRAY, '&Gray')
+        cmap.AppendRadioItem(ID_COLOR_MAP_VIRIDIS, '&Viridis')
+        cmap.AppendRadioItem(ID_COLOR_MAP_MAGMA, '&Magma')
         cmap.AppendSeparator()
         cmap.AppendCheckItem(ID_COLOR_INVERT, 'In&vert')
         AppendMenuMenu(colorMenu, -1, 'Color &Map', cmap)
@@ -1849,6 +1853,8 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_RAINBOW)
         self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_STERN)
         self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_GRAY)
+        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_VIRIDIS)
+        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_MAGMA)
         self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_INVERT)
         self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_LINEAR)
         self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_LOG)
@@ -2230,6 +2236,10 @@ class MainWindow(wx.Frame):
             name = 'gist_stern'
         elif self.cmapMenu.IsChecked(ID_COLOR_MAP_GRAY):
             name = 'gist_gray'
+        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_VIRIDIS):
+            name = 'viridis'
+        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_MAGMA)
+            name = 'magma'
         else:
             name = 'jet'
             
