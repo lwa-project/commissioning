@@ -57,6 +57,10 @@ try:
     nan_median = numpy.nanmedian
 except AttributeError:
     nan_median = numpy.median
+try:
+    nan_percentile = numpy.nanpercentile
+except AttributeError:
+    nan_percentile = numpy.percentile
 
 try:
     import bottleneck
@@ -2187,9 +2191,9 @@ class MainWindow(wx.Frame):
         toUse = numpy.arange(self.data.spec.shape[2]//10, 9*self.data.spec.shape[2]//10)
         
         if self.data.bandpass:
-            self.data.limitsBandpass[i] = numpy.percentile(self.data.specBandpass[i,:,toUse], (5, 99))
+            self.data.limitsBandpass[i] = nan_percentile(self.data.specBandpass[i,:,toUse], (5, 99))
         else:
-            self.data.limits[i] = numpy.percentile(self.data.spec[i,:,:], (5, 99))
+            self.data.limits[i] = nan_percentile(self.data.spec[i,:,:], (5, 99))
             
         if self.data.usedB:
             if self.data.bandpass:
