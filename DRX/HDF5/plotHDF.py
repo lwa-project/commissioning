@@ -2207,6 +2207,21 @@ class MainWindow(wx.Frame):
             else:
                 self.data.limits[i] = [to_dB(v) for v in self.data.limits[i]]
                 
+        if self.data.bandpass:
+            if not numpy.isfinite(self.data.limitsBandpass[i][0]) and not numpy.isfinite(self.data.limitsBandpass[i][1]):
+                self.data.limitsBandpass[i] = [0, 1]
+            elif not numpy.isfinite(self.data.limitsBandpass[i][0]):
+                self.data.limitsBandpass[i] = [self.data.limitsBandpass[i][1]+1, self.data.limitsBandpass[i][1]]
+            elif not numpy.isfinite(self.data.limitsBandpass[i][1]):
+                self.data.limitsBandpass[i] = [self.data.limitsBandpass[i][0], self.data.limitsBandpass[i][0]-1]
+        else:
+            if not numpy.isfinite(self.data.limits[i][0]) and not numpy.isfinite(self.data.limits[i][1]):
+                self.data.limits[i] = [0, 1]
+            elif not numpy.isfinite(self.data.limits[i][0]):
+                self.data.limits[i] = [self.data.limits[i][1]+1, self.data.limits[i][1]]
+            elif not numpy.isfinite(self.data.limits[i][1]):
+                self.data.limits[i] = [self.data.limits[i][0], self.data.limits[i][0]-1]
+                
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
