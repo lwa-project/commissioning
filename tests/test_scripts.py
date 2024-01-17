@@ -7,7 +7,6 @@ Unit tests for the various commissioning scripts.
 import unittest
 import glob
 import sys
-import imp
 import re
 import os
 
