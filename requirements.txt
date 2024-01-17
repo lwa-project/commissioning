@@ -4,6 +4,6 @@ matplotlib
 scipy
 h5py
 lsl
-wxpython <= 4.1.1
+wxpython
 importlib-metadata; python_version < '3.8'
 bottleneck
