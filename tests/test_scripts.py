@@ -36,7 +36,7 @@ __version__  = "0.1"
 __author__   = "Jayce Dowell"
 
 
-_LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>.*?)[\]\)] (?P<info>.*)')
+_LINT_RE = re.compile('(?P<module>.*?):(?P<line>\d+): (error )?[\[\(](?P<type>.*?)[\]\)] (?P<info>.*)')
 
 
 _SAFE_TO_IGNORE = ["Possible",
@@ -89,7 +89,7 @@ def _test_generator(script):
     def test(self):
         pylint_output = StringIO()
         reporter = TextReporter(pylint_output)
-        Run([script, '-E', '--extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl'], reporter=reporter, do_exit=False)
+        Run([script, '-E', '--extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl'], reporter=reporter, exit=False)
         out = pylint_output.getvalue()
         out_lines = out.split('\n')
         
