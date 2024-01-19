@@ -140,7 +140,7 @@ def fill_minimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv', 'ovrolwa'):
+        if station in ('lwa1', 'lwasv', 'lwana', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
@@ -195,6 +195,12 @@ def fill_from_metabundle(f, tarball):
         cds = mbParser.get_command_script(tarball)
         station = 'lwasv'
         
+        ## Check for LWA-NA
+        for cmd in cds:
+            if cmd['subsystem_id'] == 'NDP':
+                station = 'lwana'
+                break
+                
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
     f.attrs['ObserverName'] = project.observer.name
@@ -215,8 +221,13 @@ def fill_from_metabundle(f, tarball):
         
     for i,obsS in enumerate(project.sessions[0].observations):
         # Detailed observation information
-        obsD = mbParser.get_observation_spec(tarball, obs_id=i+1)
-        
+        try:
+            obsD = mbParser.get_observation_spec(tarball, obs_id=i+1)
+        except OSError:
+            ## This currently fails on .tgz files from LWA-NA.  Switch over to
+            ## SDF mode
+            return fill_from_sdf(f, project, station=station)
+            
         # Get the group or create it if it doesn't exist
         grp = f.get('/Observation%i' % (i+1,), None)
         if grp is None:
@@ -280,6 +291,9 @@ def fill_from_metabundle(f, tarball):
                 if station == 'lwasv':
                     nstand = 256
                     label_base = 'ADP'
+                elif station == 'lwana':
+                    nstand = 256
+                    label_base = 'NDP'
                 elif station == 'ovrolwa':
                     nstand = 352
                     label_base = 'OVR'
@@ -330,17 +344,22 @@ def fill_from_metabundle(f, tarball):
     return True
 
 
-def fill_from_sdf(f, sdfFilename, station=None):
+def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
     """
     Fill in a HDF5 file based off an input session definition file.
     """
     
-    # Pull out what we need from the tarball
-    try:
-        project = sdf.parse_sdf(sdfFilename)
-    except Exception as e:
-        project = sdfADP.parse_sdf(sdfFilename)
-        
+    # Pull out what we need from the tarball or maybe we are lucky and we
+    # already have what we need
+    if isinstance(sdf_or_sdfFilename, sdf.Project):
+        project = sdf_or_sdfFilename
+        sdf_or_sdfFilename = 'preparsed_sdf.info'
+    else:
+        try:
+            project = sdf.parse_sdf(sdf_or_sdfFilename)
+        except Exception as e:
+            project = sdfADP.parse_sdf(sdf_or_sdfFilename)
+            
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
     f.attrs['ObserverName'] = project.observer.name
@@ -349,13 +368,13 @@ def fill_from_sdf(f, sdfFilename, station=None):
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv', 'ovrolwa'):
+        if station in ('lwa1', 'lwasv', 'lwana', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
             
     # Input file info.
-    f.attrs['InputMetadata'] = os.path.basename(sdfFilename)
+    f.attrs['InputMetadata'] = os.path.basename(sdf_or_sdfFilename)
     
     # ARX configuration summary
     arx = {'asp_filter': -1, 'asp_atten_1': -1, 'asp_atten_2': -1, 'asp_atten_split': -1}
@@ -428,6 +447,9 @@ def fill_from_sdf(f, sdfFilename, station=None):
                 if station == 'lwasv':
                     nstand = 256
                     label_base = 'ADP'
+                elif station == 'lwana':
+                    nstand = 256
+                    label_base = 'NDP'
                 elif station == 'ovrolwa':
                     nstand = 352
                     label_base = 'OVR'
