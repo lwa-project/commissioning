@@ -192,15 +192,18 @@ def fill_from_metabundle(f, tarball):
     except Exception as e:
         mbParser = metabundleADP
         project = mbParser.get_sdf(tarball)
-        cds = mbParser.get_command_script(tarball)
-        station = 'lwasv'
-        
-        ## Check for LWA-NA
-        for cmd in cds:
-            if cmd['subsystem_id'] == 'NDP':
-                station = 'lwana'
-                break
-                
+        try:
+            cds = mbParser.get_command_script(tarball)
+            station = 'lwasv'
+            
+            ## Check for LWA-NA
+            for cmd in cds:
+                if cmd['subsystem_id'] == 'NDP':
+                    station = 'lwana'
+                    break
+        except Exception as e:
+            station = 'lwana'
+            
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
     f.attrs['ObserverName'] = project.observer.name
