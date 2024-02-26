@@ -59,6 +59,9 @@ def main(args):
     print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
     print(" ")
     
+    # Record the tunings so that we can check for changes
+    last_central_freq1, last_central_freq2 = central_freq1, central_freq2
+    
     # Convert chunk length to total frame count
     chunkLength = int(args.length * srate / 4096 * tunepols)
     chunkLength = int(1.0 * chunkLength / tunepols) * tunepols
@@ -94,6 +97,13 @@ def main(args):
             beam,tune,pol = cFrame.id
             aStand = 2*(tune-1) + pol
             
+            if tune == 1 and cFrame.central_freq != last_central_freq1:
+                sys.stderr.write("WARNING: Tuning 1 changed from %.3f Hz to %.3f Hz\n" % (last_central_freq1, cFrame.central_freq))
+                last_central_freq1 = cFrame.central_freq
+            if tune == 2 and cFrame.central_freq != last_central_freq2:
+                sys.stderr.write("WARNING: Tuning 2 changed from %.3f Hz to %.3f Hz\n" % (last_central_freq2, cFrame.central_freq))
+                last_central_freq2 = cFrame.central_freq
+                
             try:
                 data[aStand, count[aStand]*4096:(count[aStand]+1)*4096] = cFrame.payload.data
                 
