@@ -139,7 +139,7 @@ class RawTBFFrameBuffer(buffer.FrameBufferBase):
         fillFrame[13] = (chan & 0x00FF)
         
         # Zero the data for the fill packet
-        fillFrame[24:] = '\x00'*(12*256*2)
+        fillFrame[24:] = [0,]*(12*256*2)
         
         return fillFrame
 
