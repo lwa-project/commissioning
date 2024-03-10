@@ -70,7 +70,7 @@ def main(args):
         rID = 2*(tune-1) + pol
         currTime = currFrame.payload.timetag
         currDate = currFrame.time.datetime
-        currNumb = prevNum[rID] + 1
+        currNumb = prevNumb[rID] + 1
 
         if tune == 1 and pol == 0 and currNumb % 50000 == 0:
             print("Beam %i, tune %i, pol %i: frame %8i -> %i (%s)" % (beam, tune, pol, currNumb, currTime, currDate))
