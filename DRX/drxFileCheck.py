@@ -98,10 +98,10 @@ def main(args):
             aStand = 2*(tune-1) + pol
             
             if tune == 1 and cFrame.central_freq != last_central_freq1:
-                sys.stderr.write("WARNING: Tuning 1 changed from %.3f Hz to %.3f Hz\n" % (last_central_freq1, cFrame.central_freq))
+                sys.stderr.write("INFO: Tuning 1 changed from %.3f Hz to %.3f Hz\n" % (last_central_freq1, cFrame.central_freq))
                 last_central_freq1 = cFrame.central_freq
             if tune == 2 and cFrame.central_freq != last_central_freq2:
-                sys.stderr.write("WARNING: Tuning 2 changed from %.3f Hz to %.3f Hz\n" % (last_central_freq2, cFrame.central_freq))
+                sys.stderr.write("INFO: Tuning 2 changed from %.3f Hz to %.3f Hz\n" % (last_central_freq2, cFrame.central_freq))
                 last_central_freq2 = cFrame.central_freq
                 
             try:
