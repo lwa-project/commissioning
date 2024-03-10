@@ -217,7 +217,7 @@ def main(args):
     
     # Figure out the parts
     fh = open(filename, 'rb')
-    parts = identify_section(fh, strict=(not args.loose), min_frames=args.min_frames, verbose=args.verbose)
+    parts = identify_section(fh, strict=args.strict, min_frames=args.min_frames, verbose=args.verbose)
     if parts is None:
         print("No valid byte ranges found, exiting")
         sys.exit(1)
@@ -290,8 +290,8 @@ if __name__ == "__main__":
                         help='filename to check')
     parser.add_argument('-v', '--verbose', action='store_true', 
                         help='be verbose')
-    parser.add_argument('-l', '--loose', action='store_true', 
-                        help='do not require exact time flow, good for LWA-SV files')
+    parser.add_argument('-t', '--strict', action='store_true', 
+                        help='require exact time flow similar to what you get at LWA1')
     parser.add_argument('-m', '--min-frames', type=aph.positive_int, default=4096, 
                         help='minimum number of frames to consider')
     parser.add_argument('-s', '--split', action='store_true', 
