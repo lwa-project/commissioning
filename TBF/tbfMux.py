@@ -15,6 +15,7 @@ from collections import deque
 
 from lsl.reader.ldp import TBFFile
 from lsl.reader import tbf, errors, buffer
+from lsl.misc import parser as aph
 
 
 class RawTBFFrame(object):
@@ -159,6 +160,9 @@ def main(args):
         if chans[i] != chans[i-1] + 12:
             raise RuntimeError("Unexpected channel increment: %i != 12" % (chans[i]-chans[i-1],))
             
+    # Downselect
+    chans = list(filter(lambda x: x >= args.lower and x <= args.upper, chans))
+    
     # Setup the buffer
     buffer = RawTBFFrameBuffer(chans=chans, reorder=False)
     
@@ -225,6 +229,10 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to combine')
+    parser.add_argument('-l', '--lower', type=aph.positive_or_zero_int, default=0,
+                        help='minimum channel number to keep')
+    parser.add_argument('-u', '--upper', type=aph.positive_or_zero_int, default=4096,
+                        help='maximum channel number to keep')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the combined file to the provided filename, auto-determine if not provided')
     args = parser.parse_args()
