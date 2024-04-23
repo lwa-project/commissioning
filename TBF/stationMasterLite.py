@@ -64,8 +64,9 @@ def main(args):
     nread = 0
     while len(mapper) < nFramesPerObs:
         cFrame = tbf.read_frame(fh)
-        mapper.append( cFrame.header.first_chan )
-        freq.extend( list(cFrame.header.channel_freqs) )
+        if cFrame.header.first_chan not in mapper:
+            mapper.append( cFrame.header.first_chan )
+            freq.extend( list(cFrame.header.channel_freqs) )
         nread += 1
     fh.seek(-nread*tbf.FRAME_SIZE, 1)
     mapper.sort()

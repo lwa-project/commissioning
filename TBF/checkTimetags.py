@@ -11,7 +11,7 @@ import numpy
 import argparse
 
 from lsl.common import stations
-from lsl.reader import tbf
+from lsl.reader import tbf, ldp
 from lsl.reader import errors
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
@@ -20,8 +20,16 @@ import matplotlib.pyplot as plt
 
 def main(args):
     fh = open(args.filename, "rb")
-    nFrames = os.path.getsize(args.filename) / tbf.FRAME_SIZE
-    
+    try:
+        nFrames = os.path.getsize(args.filename) // tbf.FRAME_SIZE
+        nAnt = 512
+    except AttributeError:
+        # TODO: Kind of hacky
+        idf = ldp.TBFFile(fh=fh)
+        tbf.FRAME_SIZE = idf.get_info('frame_size')
+        nFrames = idf.get_info('nframe')
+        nAnt = idf.get_info('nantenna')
+        
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
     junkFrame = tbf.read_frame(fh)
@@ -35,15 +43,17 @@ def main(args):
     nSamples = 7840
     
     # Figure out how many chunks we need to work with
-    nChunks = nFrames / nFramesPerObs
+    nChunks = nFrames // nFramesPerObs
     
     # Pre-load the channel mapper
     mapper = []
-    for i in range(2*nFramesPerObs):
+    nread = 0
+    while len(mapper) < nFramesPerObs:
         cFrame = tbf.read_frame(fh)
         if cFrame.header.first_chan not in mapper:
             mapper.append( cFrame.header.first_chan )
-    fh.seek(-2*nFramesPerObs*tbf.FRAME_SIZE, 1)
+        nread += 1
+    fh.seek(-nread*tbf.FRAME_SIZE, 1)
     mapper.sort()
     
     # File summary
@@ -143,5 +153,3 @@ if __name__ == "__main__":
                         help='filename to check')
     args = parser.parse_args()
     main(args)
-    
-    
