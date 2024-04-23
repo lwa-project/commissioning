@@ -12,7 +12,7 @@ import numpy
 import argparse
 
 from lsl.common import stations
-from lsl.reader import tbf
+from lsl.reader import tbf, ldp
 from lsl.reader import errors
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
@@ -33,8 +33,16 @@ def main(args):
     antpols = len(antennas)
     
     fh = open(args.filename, "rb")
-    nFrames = os.path.getsize(args.filename) / tbf.FRAME_SIZE
-    
+    try:
+        nFrames = os.path.getsize(args.filename) // tbf.FRAME_SIZE
+        nAnt = 512
+    except AttributeError:
+        # TODO: Kind of hacky
+        idf = ldp.TBFFile(fh=fh)
+        tbf.FRAME_SIZE = idf.get_info('frame_size')
+        nFrames = idf.get_info('nframe')
+        nAnt = idf.get_info('nantenna')
+        
     # Read in the first frame and get the date/time of the first sample 
     # of the frame.  This is needed to get the list of stands.
     junkFrame = tbf.read_frame(fh)
@@ -48,18 +56,21 @@ def main(args):
     nchannels = tbf.get_channel_count(fh)
     
     # Figure out how many chunks we need to work with
-    nChunks = nFrames / nFramesPerObs
+    nChunks = nFrames // nFramesPerObs
     
     # Pre-load the channel mapper
     mapper = []
     freq = []
-    for i in range(2*nFramesPerObs):
+    nread = 0
+    while len(mapper) < nFramesPerObs:
         cFrame = tbf.read_frame(fh)
         mapper.append( cFrame.header.first_chan )
         freq.extend( list(cFrame.header.channel_freqs) )
-    fh.seek(-2*nFramesPerObs*tbf.FRAME_SIZE, 1)
+        nread += 1
+    fh.seek(-nread*tbf.FRAME_SIZE, 1)
     mapper.sort()
     freq.sort()
+    freq = numpy.array(freq)
     
     # File summary
     print("Filename: %s" % args.filename)
@@ -75,7 +86,7 @@ def main(args):
     outfile = "%s.npz" % outfile	
     if (not os.path.exists(outfile)) or args.force:
         # Master loop over all of the file chunks
-        masterSpectra = numpy.zeros((nChunks, 512, nchannels), numpy.float32)
+        masterSpectra = numpy.zeros((nChunks, nAnt, nchannels), numpy.float32)
         
         for i in range(nChunks):
             # Inner loop that actually reads the frames into the data array
@@ -109,7 +120,7 @@ def main(args):
                 
             # Compute the 1 ms average power and the data range within each 1 ms window
             subSize = 1960
-            nsegments = masterSpectra.shape[1] / subSize
+            nsegments = masterSpectra.shape[1] // subSize
             
             print("Computing average power and data range in %i-sample intervals, ADC histogram" % subSize)
             pb = ProgressBar(max=masterSpectra.shape[0])
