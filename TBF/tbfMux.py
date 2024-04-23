@@ -163,6 +163,7 @@ def main(args):
     idf = [TBFFile(filename) for filename in filenames]
     chans = []
     for i in idf:
+        tbf_frame_size = i.get_info('frame_size')
         chans.extend( i.buffer.chans )
     chans.sort()
     for i in range(1, len(chans)):
@@ -204,7 +205,7 @@ def main(args):
         rFrames = deque()
         for i,f in enumerate(fh):
             try:
-                rFrames.append( RawTBFFrame(f.read(tbf.FRAME_SIZE)) )
+                rFrames.append( RawTBFFrame(f.read(tbf_frame_size)) )
             except errors.EOFError:
                 eofFound[i] = True
                 continue
