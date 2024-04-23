@@ -25,7 +25,7 @@ class RawTBFFrame(object):
     
     def __init__(self, contents):
         self.contents = bytearray(contents)
-        if len(self.contents) != tbf.FRAME_SIZE:
+        if len(self.contents) != (12*self.nstand*2 + 24):
             raise errors.EOFError
         if self.contents[0] != 0xDE or self.contents[1] != 0xC0 or self.contents[2] != 0xDE or self.contents[3] != 0x5c:
             raise errors.SyncError
@@ -35,6 +35,15 @@ class RawTBFFrame(object):
         
     def __setitem__(self, key, value):
         self.contents[key] = value
+        
+    @property
+    def nstand(self):
+        nstand = 0
+        nstand |= self.contents[14] << 8
+        nstand |= self.contents[13]
+        if nstand == 0:
+            nstand = 256
+        return nstand
         
     @property
     def timetag(self):
@@ -140,7 +149,7 @@ class RawTBFFrameBuffer(buffer.FrameBufferBase):
         fillFrame[13] = (chan & 0x00FF)
         
         # Zero the data for the fill packet
-        fillFrame[24:] = [0,]*(12*256*2)
+        fillFrame[24:] = [0,]*(12*fillFrame.nstand*2)
         
         return fillFrame
 
