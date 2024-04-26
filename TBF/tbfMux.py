@@ -25,7 +25,7 @@ class RawTBFFrame(object):
     
     def __init__(self, contents):
         self.contents = bytearray(contents)
-        if len(self.contents) != (12*self.nstand*2 + 24):
+        if len(self.contents) == 0 or len(self.contents) != (12*self.nstand*2 + 24):
             raise errors.EOFError
         if self.contents[0] != 0xDE or self.contents[1] != 0xC0 or self.contents[2] != 0xDE or self.contents[3] != 0x5c:
             raise errors.SyncError
@@ -40,7 +40,7 @@ class RawTBFFrame(object):
     def nstand(self):
         nstand = 0
         nstand |= self.contents[14] << 8
-        nstand |= self.contents[13]
+        nstand |= self.contents[15]
         if nstand == 0:
             nstand = 256
         return nstand
