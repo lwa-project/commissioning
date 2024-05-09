@@ -32,9 +32,9 @@ convertDelayToStretch.py, apply the new stretch factors and create a new SSMIF.
 
 estimateSEFD.py
 ---------------
-Given an SSMIF and a collection of TBF files, use the SoftwareDP to form beams at 
-the transit point of a source and estimate the system equivalent flux density (SEFD) 
-and pointing error.
+Given an SSMIF and a collection of TBF files, use phase-and-sum beamforming to make
+a basket weave scan across a source to estimate the system equivalent flux density
+(SEFD) and pointing error.
 
 fitEstimatedSEFD.py
 -------------------
