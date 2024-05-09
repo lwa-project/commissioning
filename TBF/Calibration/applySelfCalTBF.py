@@ -285,7 +285,7 @@ if __name__ == "__main__":
     numpy.seterr(all='ignore')
     
     parser = argparse.ArgumentParser(
-        description="self-calibrate a TBW FITS IDI file",
+        description="self-calibrate a TBF FITS IDI file",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, 
@@ -306,4 +306,3 @@ if __name__ == "__main__":
     args.lower *= 1e6
     args.upper *= 1e6
     main(args)
-    

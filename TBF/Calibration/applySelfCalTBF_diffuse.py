@@ -204,7 +204,7 @@ if __name__ == "__main__":
     numpy.seterr(all='ignore')
     
     parser = argparse.ArgumentParser(
-        description="self-calibrate a TBW FITS IDI file",
+        description="self-calibrate a TBF FITS IDI file using diffuse emission",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, 
