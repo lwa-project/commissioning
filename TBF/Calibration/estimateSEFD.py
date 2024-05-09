@@ -179,17 +179,20 @@ def main(args):
              unx=unx, lst=lst, pwrX=pwrX, pwrY=pwrY, pnts=pnts)
                 
     # Report
-    print("%s" % (args.source.name,))
+    print(f"{args.source.name}:")
     for i in range(lst.size):
-        print("%s:  %s  %s" % (str(ephem.hours(str(lst[i]))), pwrX[i,:], pwrY[i,:]))
+        print(f"{ephem.hours(str(lst[i]))}:", pwrX[i,:], pwrY[i,:])
         
     # Plot
     if args.plots:
         fig = plt.figure()
         ax = fig.gca()
         for i in range(pwrX.shape[0]):
-            ax.plot(np.arange(pwrX.shape[1]), pwrX[i,:], linestyle='-', marker='+')
-            ax.plot(np.arange(pwrY.shape[1]), pwrY[i,:], linestyle='-', marker='x')
+            ax.plot(np.arange(pwrX.shape[1]), pwrX[i,:], linestyle='-', marker='+', label=f"XX@{i+1}")
+            ax.plot(np.arange(pwrY.shape[1]), pwrY[i,:], linestyle='-', marker='x', label=f"YY@{i+1}")
+        ax.set_xlabel('Pointing #')
+        ax.set_ylabel('Power [arb.]')
+        ax.legend(loc=0)
         plt.show()
 
 
