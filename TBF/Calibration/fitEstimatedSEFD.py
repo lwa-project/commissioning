@@ -55,7 +55,7 @@ def main(args):
     dataDict.close()
     
     # Form Stokes I out of X and Y
-    pwrI = pwrY# + pwrY
+    pwrI = pwrX + pwrY
     
     # Get an observer
     _, ssmif, _ = os.path.basename(filename).split('-', 2)
