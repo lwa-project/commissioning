@@ -13,7 +13,7 @@ def main(args):
     # Load in the data
     #
     site     = parse_ssmif(args.ssmif)
-    dataFile = numpy.loadtxt(args.filename)
+    dataFile = [numpy.loadtxt(f) for f in args.filename]
     
     #
     # Gather the station meta-data from its various sources
@@ -25,10 +25,21 @@ def main(args):
     # Calculate the new stretch factors
     #
     output = [[None, None, None, None, None] for ant in antennas]
-    for i in range(dataFile.shape[0]):
+    for i in range(dataFile[0].shape[0]):
         ## Parse the line
-        stand, ampX, addDelayX, ampY, addDelayY = dataFile[i,:]
+        stand, ampX, addDelayX, ampY, addDelayY = dataFile[0][i,:]
+        for df in dataFile[1:]:
+            _, aX, dX, aY, dY = df[i,:]
+            ampX += aX
+            addDelayX += dX
+            ampY += aY
+            addDelayY += dY
         stand = int(stand)
+
+        ampX /= len(dataFile)
+        addDelayX /= len(dataFile)
+        ampY /= len(dataFile)
+        addDelayY /= len(dataFile)
         
         ## Pull out the cables
         digX, digY = None, None
@@ -89,7 +100,10 @@ def main(args):
     fh.write("#                                        #\n")
     fh.write("##########################################\n")
     for entry in output:
-        fh.write("%3i  %6.4f  %6.4f  %6.4f  %6.4f\n" % tuple(entry))
+        try:
+            fh.write("%3i  %6.4f  %6.4f  %6.4f  %6.4f\n" % tuple(entry))
+        except TypeError:
+            pass
         
     if args.output is not None:
         fh.close()
@@ -102,10 +116,9 @@ if __name__ == "__main__":
         )
     parser.add_argument('ssmif', type=str,
                         help='station SSMIF')
-    parser.add_argument('filename', type=str, 
+    parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to convert')
     parser.add_argument('-o', '--output', type=str,
                         help='write output to the specified filename instead of the screen')
     args = parser.parse_args()
     main(args)
-    
