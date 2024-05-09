@@ -12,6 +12,8 @@ from lsl import astro
 from lsl.common.stations import parse_ssmif
 from lsl.reader.ldp import TBFFile
 from lsl.misc import beamformer
+from lsl.misc import parser as aph
+from lsl.common.progress import ProgressBarPlus
 
 from matplotlib import pyplot as plt
 
@@ -36,12 +38,27 @@ def main(args):
     station = parse_ssmif(ssmif)
     antennas = station.antennas
     
+    # Sort out the integration time
+    int_time = args.avg_time
+    if int_time == 0.0:
+        int_time = None
+        
     # Get an observer reader for calculations
     obs = station.get_observer()
     
+    # Load in the sources and pull out the correct one
+    sources = {}
+    for line in _srcs:
+        bdy = ephem.readdb(line)
+        sources[bdy.name] = bdy
+    try:
+        args.source = sources[args.source]
+    except KeyError:
+        raise RuntimeError(f"Unknown target source '{args.source}'")
+        
     # Find the target azimuth/elevation to use
     idf = TBFFile(filenames[0])
-    tStart = datetime.utcfromtimestamp(idf.get_info('start_time'))
+    tStart = idf.get_info('start_time').datetime
     idf.close()
     
     obs.date = tStart.strftime("%Y/%m/%d %H:%M:%S")
@@ -52,11 +69,11 @@ def main(args):
     targetEl = args.source.alt*180/np.pi
     
     # Preliminary report
-    print("Working on %i TBF files using SSMIF '%s'" % (len(filenames), os.path.basename(ssmif)))
-    print("  Source: '%s'" % args.source.name)
-    print("    Transit time: %s" % str(tTransit))
-    print("    Transit azimuth: %.2f degrees" % targetAz)
-    print("    Transet elevation: %.2f degrees" % targetEl)
+    print(f"Working on {len(filenames)} TBF files using SSMIF '{os.path.basename(ssmif)}'")
+    print(f"  Source: '{args.source.name}'")
+    print(f"    Transit time: {tTransit}")
+    print(f"    Transit azimuth: {targetAz:.2f} degrees")
+    print(f"    Transit elevation: {targetEl:.2f} degrees")
     print(" ")
     
     # Loop over input files
@@ -68,21 +85,23 @@ def main(args):
         ## Pull out some metadata and update the observer
         jd = astro.unix_to_utcjd(idf.get_info('start_time'))
         obs.date = ephem.Date(jd - astro.DJD_OFFSET)
+        args.source.compute(obs)
         sample_rate = idf.get_info('sample_rate')
         transitOffset = (obs.date-tTransit)*86400.0
         
         ## Metadata report
-        print("Filename: %s" % os.path.basename(filename))
-        print("  Data type:  %s" % type(idf))
-        print("  Station: %s" % station.name)
-        print("  Date observed: %s" % str(obs.date))
-        print("  MJD: %.5f" % (jd-astro.MJD_OFFSET,))
-        print("  LST: %s" % str(obs.sidereal_time()))
+        print(f"Filename: {os.path.basename(filename)}")
+        print(f"  Data type:  {type(idf)}")
+        print(f"  Station: {station.name}")
+        print(f"  Date observed: {str(obs.date)}")
+        print(f"  MJD: {jd-astro.MJD_OFFSET:.5f}")
+        print(f"  LST: {str(obs.sidereal_time())}")
         print("    %.1f s %s transit" % (abs(transitOffset), 'before' if transitOffset < 0 else 'after'))
+        print(f"  {args.source.name}: az {args.source.az}, el {args.source.alt}")
         print(" ")
         
         ## Load in the data
-        readT, t, data = idf.read()
+        readT, t, data = idf.read(int_time)
         
         ## Downselect to 74 +/- 8 MHz
         freqs = idf.get_info('freq1')
@@ -100,24 +119,25 @@ def main(args):
             pnts.append( (args.source._ra, ephem.degrees(args.source._dec+offset*np.pi/180)) )
         ### Now, RA
         for offset in np.linspace(-pm_range, pm_range, 17):
-            offset = offset / np.cos(src.dec)
-            pnts.append( (ephem.hours(args.source._ra+offset*np.pi/180), src._dec) )
+            offset = offset / np.cos(args.source.dec)
+            pnts.append( (ephem.hours(args.source._ra+offset*np.pi/180), args.source._dec) )
             
         # Come up with the antenna gains
-        gains = np.zeros((len(antennas),1,1), dtype=np.float32)
+        gains = np.ones((len(antennas),1,1), dtype=np.float32)
         for i,ant in enumerate(antennas):
             if ant.combined_status != 33:
                 gains[(i//2)*2+0] = 0
                 gains[(i//2)*2+1] = 0
         gaiX = gains*1.0
-        gaiX[1::2] = 0
+        gaiX[1::2,:,:] = 0
         gaiY = gains*1.0
-        gaiY[0::2] = 0
+        gaiY[0::2,:,:] = 0
         
-        unx.append( idf.get_info('start_time') )
-        lst.append( obs.sidereal_time() * 12/numpy.pi )
+        unx.append( float(idf.get_info('start_time')) )
+        lst.append( obs.sidereal_time() * 12/np.pi )
         pwrX.append( [] )
         pwrY.append( [] )
+        pb = ProgressBarPlus(max=len(pnts))
         for pnt in pnts:
             bdy = ephem.FixedBody()
             bdy._ra = pnt[0]
@@ -125,9 +145,10 @@ def main(args):
             bdy._epoch = ephem.J2000
             bdy.compute(obs)
             
-            dlys = beamformer.calc_delays(antennas, freq=74e6, azimuth=bdy.az*180/np.pi, elevation=bdy.alt*180/np.pi)
+            dlys = beamformer.calc_delay(antennas, freq=74e6, azimuth=bdy.az*180/np.pi, elevation=bdy.alt*180/np.pi)
             dlys.shape = dlys.shape+(1,1)
-            phs = np.exp(-2j*np.pi*freqs*dlys)
+            dlys -= dlys.min()
+            phs = np.exp(2j*np.pi*freqs*dlys)
             
             beamX = (np.abs((gaiX*phs*data).sum(axis=0))**2).sum()
             beamY = (np.abs((gaiY*phs*data).sum(axis=0))**2).sum()
@@ -136,8 +157,15 @@ def main(args):
             pwrX[-1].append( beamX )
             pwrY[-1].append( beamY )
             
+            pb.inc()
+            sys.stdout.write(pb.show()+'\r')
+            sys.stdout.flush()
+            
         ## Done
         idf.close()
+        sys.stdout.write(pb.show()+'\r')
+        sys.stdout.write('\n')
+        sys.stdout.flush()
         
     # Convert to arrays
     unx, lst = np.array(unx), np.array(lst)
@@ -145,10 +173,10 @@ def main(args):
     
     # Save for later (needed for debugging)
     outname = "estimateSEFD-%s-%04i%02i%02i.npz" % (os.path.splitext(os.path.basename(ssmif))[0], tTransit.tuple()[0], tTransit.tuple()[1], tTransit.tuple()[2])
-    print("Saving intermediate data to '%s'" % outname)
+    print(f"Saving intermediate data to '{outname}'")
     print(" ")
     np.savez(outname, source=args.source.name, freq=freqs.mean(), 
-             unx=unx, lst=lst, pwrX=pwrX, pwrY=pwrY)
+             unx=unx, lst=lst, pwrX=pwrX, pwrY=pwrY, pnts=pnts)
                 
     # Report
     print("%s" % (args.source.name,))
@@ -159,8 +187,9 @@ def main(args):
     if args.plots:
         fig = plt.figure()
         ax = fig.gca()
-        ax.plot(lst, pwrX, linestyle='-', marker='+')
-        ax.plot(lst, pwrY, linestyle='-', marker='x')
+        for i in range(pwrX.shape[0]):
+            ax.plot(np.arange(pwrX.shape[1]), pwrX[i,:], linestyle='-', marker='+')
+            ax.plot(np.arange(pwrY.shape[1]), pwrY[i,:], linestyle='-', marker='x')
         plt.show()
 
 
@@ -175,6 +204,8 @@ if __name__ == "__main__":
                         help='filename to process')
     parser.add_argument('-s', '--source', type=str, default='CygA',
                         help='source to use')
+    parser.add_argument('-t', '--avg-time', type=aph.positive_or_zero_float, default=0.0, 
+                        help='integration time for the beam pointings; 0 = integrate the entire file')
     parser.add_argument('-p', '--plots', action='store_true',
                         help='show summary plots at the end')
     args = parser.parse_args()
