@@ -57,7 +57,7 @@ def main(args):
     for set in range(1, nSets+1):
         print("Set #%i of %i" % (set, nSets))
         fullDict = idi.get_data_set(set)
-        dataDict = fullDict.get_uv_range(max_uv=4.0)
+        dataDict = fullDict.get_uv_range(max_uv=args.max_uv_dist)
         dataDict.sort()
         
         # Gather up the polarizations and baselines
@@ -85,8 +85,14 @@ def main(args):
         print("Running self cal.")
         simDict.sort()
         dataDict.sort()
-        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX', ref_ant=args.reference, max_iter=60, delay_cutoff=0.2)
-        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY', ref_ant=args.reference, max_iter=60, delay_cutoff=0.2)
+        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX',
+                                                   ref_ant=args.reference,
+                                                   max_iter=args.max_iterations,
+                                                   delay_cutoff=args.delay_cutoff)
+        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY',
+                                                   ref_ant=args.reference,
+                                                   max_iter=args.max_iterations,
+                                                   delay_cutoff=args.delay_cutoff)
         fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
         fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
        
@@ -214,7 +220,13 @@ if __name__ == "__main__":
     parser.add_argument('-l', '--lower', type=aph.positive_float, default=35.0,
                         help='lowest frequency to consider in MHz')
     parser.add_argument('-u', '--upper', type=aph.positive_float, default=85.0,
-                        help='highest frequency to consider in MHz')                  
+                        help='highest frequency to consider in MHz')
+    parser.add_argument('-m', '--max-uv-dist', type=aph.positive_float, default=4.0,
+                        help='maximimum baseline (u,v) length to use in wavelengths')
+    parser.add_argument('-i', '--max-iterations', type=aph.positive_int, default=60,
+                        help="maximum number of self-cal iterations")
+    parser.add_arugment('-d', '--delay-cutoff', type=aph.positive_float, default=0.2,
+                        help="delay cutoff in ns for the self-cal convergence threshold")       
     parser.add_argument('-p', '--plot', action='store_true',
                         help='plot the results at the end')
     args = parser.parse_args()

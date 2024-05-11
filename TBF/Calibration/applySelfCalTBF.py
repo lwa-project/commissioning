@@ -168,8 +168,14 @@ def main(args):
         print("Running self cal.")
         simDict.sort()
         dataDict.sort()
-        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX', ref_ant=args.reference, max_iter=60)
-        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY', ref_ant=args.reference, max_iter=60)
+        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX',
+                                                   ref_ant=args.reference,
+                                                   max_iter=args.max_iterations,
+                                                   delay_cutoff=args.delay_cutoff)
+        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY',
+                                                   ref_ant=args.reference,
+                                                   max_iter=args.max_iterations,
+                                                   delay_cutoff=args.delay_cutoff)
         fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
         fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
         
@@ -300,6 +306,10 @@ if __name__ == "__main__":
                         help='minimum baseline (u,v) length to use in wavelengths')
     parser.add_argument('-s', '--sun-factor', type=aph.positive_or_zero_float, default=1.0,
                         help="scale factor for the Sun's flux - useful for when it is flaring")
+    parser.add_argument('-i', '--max-iterations', type=aph.positive_int, default=60,
+                        help="maximum number of self-cal iterations")
+    parser.add_arugment('-d', '--delay-cutoff', type=aph.positive_float, default=0.2,
+                        help="delay cutoff in ns for the self-cal convergence threshold")
     parser.add_argument('-p', '--plot', action='store_true',
                         help='plot the results at the end')
     args = parser.parse_args()
