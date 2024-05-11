@@ -225,7 +225,7 @@ if __name__ == "__main__":
                         help='maximimum baseline (u,v) length to use in wavelengths')
     parser.add_argument('-i', '--max-iterations', type=aph.positive_int, default=60,
                         help="maximum number of self-cal iterations")
-    parser.add_arugment('-d', '--delay-cutoff', type=aph.positive_float, default=0.2,
+    parser.add_argument('-d', '--delay-cutoff', type=aph.positive_float, default=0.2,
                         help="delay cutoff in ns for the self-cal convergence threshold")       
     parser.add_argument('-p', '--plot', action='store_true',
                         help='plot the results at the end')
