@@ -8,6 +8,7 @@ import argparse
 from lsl.imaging import utils
 from lsl.astro import DJD_OFFSET
 from lsl.statistics import robust
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
@@ -55,7 +56,7 @@ def main(args):
     # Convert to arrays
     for stand in delaysX.keys():
         delaysX[stand] = numpy.array(delaysX[stand])
-        valid = numpy.where( numpy.isfinite(delaysX[stand]) )[0]
+        valid = numpy.where( numpy.isfinite(delaysX[stand]) & (numpy.abs(delaysX[stand]) <= args.max_delay) )[0]
         if len(valid) < len(delaysX[stand])/2:
             print(stand, 'X')
         if len(valid) > 0:
@@ -63,12 +64,12 @@ def main(args):
                 repl = robust.mean(delaysX[stand][valid])
             except (ValueError, ZeroDivisionError):
                 repl = numpy.mean(delaysX[stand][valid])
-            delaysX[stand][numpy.where(~numpy.isfinite(delaysX[stand]))] = repl
+            delaysX[stand][numpy.where(~numpy.isfinite(delaysX[stand]) | (numpy.abs(delaysX[stand]) > args.max_delay))] = repl
         else:
             delaysX[stand][:] = 0.0
             
         delaysY[stand] = numpy.array(delaysY[stand])
-        valid = numpy.where( numpy.isfinite(delaysY[stand]) )[0]
+        valid = numpy.where( numpy.isfinite(delaysY[stand]) & (numpy.abs(delaysY[stand]) <= args.max_delay) )[0]
         if len(valid) < len(delaysX[stand])/2:
             print(stand, 'Y')
         if len(valid) > 0:
@@ -76,7 +77,7 @@ def main(args):
                 repl = robust.mean(delaysY[stand][valid])
             except (ValueError, ZeroDivisionError):
                 repl = numpy.mean(delaysY[stand][valid])
-            delaysY[stand][numpy.where(~numpy.isfinite(delaysY[stand]))] = repl
+            delaysY[stand][numpy.where(~numpy.isfinite(delaysY[stand]) | (numpy.abs(delaysY[stand]) > args.max_delay))] = repl
         else:
             delaysY[stand][:] = 0.0
             
@@ -94,23 +95,22 @@ def main(args):
     msY = robust.mean(vsY, axis=0)
     
     # Merge the delays together
-    fh = open(args.output, 'w')
-    for stand in order:
-        try:
-            delayX = robust.mean( delaysX[stand] - msX)
-            dstdX  = robust.std(  delaysX[stand] - msX)
-        except:
-            delayX = numpy.mean( delaysX[stand] - msX)
-            dstdX  = numpy.std(  delaysX[stand] - msX)
-        try:
-            delayY = robust.mean( delaysY[stand] - msY)
-            dstdY  = robust.std(  delaysY[stand] - msY)
-        except:
-            delayY = numpy.mean( delaysY[stand] - msY)
-            dstdY  = numpy.std(  delaysY[stand] - msY)
-        fh.write("%3i  %.2f  %.2f  %.2f  %.2f\n" % (stand, 0.0, delayX, 0.0, delayY))
-    fh.close()
-    
+    with open(args.output, 'w') as fh:
+        for stand in order:
+            try:
+                delayX = robust.mean( delaysX[stand] - msX)
+                dstdX  = robust.std(  delaysX[stand] - msX)
+            except:
+                delayX = numpy.mean( delaysX[stand] - msX)
+                dstdX  = numpy.std(  delaysX[stand] - msX)
+            try:
+                delayY = robust.mean( delaysY[stand] - msY)
+                dstdY  = robust.std(  delaysY[stand] - msY)
+            except:
+                delayY = numpy.mean( delaysY[stand] - msY)
+                dstdY  = numpy.std(  delaysY[stand] - msY)
+            fh.write("%3i  %.2f  %.2f  %.2f  %.2f\n" % (stand, 0.0, delayX, 0.0, delayY))
+            
     if args.plot:
         #
         # By LST
@@ -203,8 +203,8 @@ def main(args):
         axJY3.set_xlabel("JD [days - %.1f]" % utcOffset)
         axJY3.set_ylabel("$\\tau_Y-|\\tau_y|$ [ns]")
         
-        print(len(tooHighX), len(tooHighY))
-        print(tooHighX, tooHighY)
+        print(f"RMS >1 ns:  X={len(tooHighX)}, Y={len(tooHighY)}")
+        print(f"X: {tooHighX}, Y: {tooHighY}")
         
         figJ.tight_layout()
         
@@ -218,6 +218,8 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to check')
+    parser.add_argument('-d', '--max-delay', type=aph.positive_float, default=1000,
+                        help='maximum delay in ns to consider valid')
     parser.add_argument('-p', '--plot', action='store_true',
                         help='show diagnostic plots')
     parser.add_argument('-o', '--output', type=str, default='merged.delays',
