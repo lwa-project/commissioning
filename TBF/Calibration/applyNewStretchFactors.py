@@ -34,9 +34,10 @@ def main(args):
         dig, stretch, addDelay, rms, chi2 = dataFile[i,:]
         dig = int(dig)
         antenna = antennas[dig-1]
-        if antenna.stand.id in args.exclude:
-            continue
-            
+        if args.exclude is not None:
+            if antenna.stand.id in args.exclude:
+                continue
+                
         factors[antenna.id-1] = stretch
         
     #
