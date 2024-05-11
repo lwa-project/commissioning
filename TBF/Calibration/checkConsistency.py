@@ -96,6 +96,24 @@ def main(args):
     
     # Merge the delays together
     with open(args.output, 'w') as fh:
+        fh.write("################################\n")
+        fh.write("#                              #\n")
+        fh.write("# Settings:                    #\n")
+        fh.write(f"#  File Count: {len(filenames):4d}            #\n")
+        fh.write(f"#  Max Valid Delay: {args.max_delay:6.2f} ns #\n")
+        fh.write("#                              #\n")
+        fh.write("################################\n")
+        fh.write("#                              #\n")
+        fh.write("# Columns:                     #\n")
+        fh.write("# 1) Stand number              #\n")
+        fh.write("# 2) Zero                      #\n")
+        fh.write("# 3) X pol. delay (ns)         #\n")
+        fh.write("# 4) X pol. delay RMS (ns)     #\n")
+        fh.write("# 5) Zero                      #\n")
+        fh.write("# 6) Y pol. delay (ns)         #\n")
+        fh.write("# 7) Y pol. delay RMS (ns)     #\n")
+        fh.write("#                              #\n")
+        fh.write("################################\n")
         for stand in order:
             try:
                 delayX = robust.mean( delaysX[stand] - msX)
@@ -109,7 +127,7 @@ def main(args):
             except:
                 delayY = numpy.mean( delaysY[stand] - msY)
                 dstdY  = numpy.std(  delaysY[stand] - msY)
-            fh.write("%3i  %.2f  %.2f  %.2f  %.2f\n" % (stand, 0.0, delayX, 0.0, delayY))
+            fh.write("%3i  %.3f  %.3f  %.3f  %.3f  %.3f  %.3f\n" % (stand, 0.0, delayX, dstdX, 0.0, delayY, dstdY))
             
     if args.plot:
         #

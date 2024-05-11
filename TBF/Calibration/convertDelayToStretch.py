@@ -27,7 +27,7 @@ def main(args):
     output = [[None, None, None, None, None] for ant in antennas]
     for i in range(dataFile[0].shape[0]):
         ## Parse the line
-        stand, ampX, addDelayX, ampY, addDelayY = dataFile[0][i,:]
+        stand, ampX, addDelayX, rmsDelayX, ampY, addDelayY, rmsDelayY = dataFile[0][i,:]
         for df in dataFile[1:]:
             _, aX, dX, aY, dY = df[i,:]
             ampX += aX
