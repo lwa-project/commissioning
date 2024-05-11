@@ -113,12 +113,12 @@ def main(args):
         ## Come up with the pattern
         pnts = []
         ### Scale for whether or not it is a mini-station
-        pm_range = 8.0# if args.ministation else 4.0
+        pm_range = args.swing_range
         ### First, declination
-        for offset in np.linspace(-pm_range, pm_range, 17):
+        for offset in np.linspace(-pm_range, pm_range, args.nstep):
             pnts.append( (args.source._ra, ephem.degrees(args.source._dec+offset*np.pi/180)) )
         ### Now, RA
-        for offset in np.linspace(-pm_range, pm_range, 17):
+        for offset in np.linspace(-pm_range, pm_range, args.nstep):
             offset = offset / np.cos(args.source.dec)
             pnts.append( (ephem.hours(args.source._ra+offset*np.pi/180), args.source._dec) )
             
@@ -207,6 +207,10 @@ if __name__ == "__main__":
                         help='filename to process')
     parser.add_argument('-s', '--source', type=str, default='CygA',
                         help='source to use')
+    parser.add_argument('-r', '--swing-range', type=aph.positive_float, default=12.0,
+                        help='+/- swing of each weave track in degrees')
+    parser.add_argument('-n', '--nstep', type=aph.positive_int, default=17,
+                        help='number of steps per weave track')
     parser.add_argument('-t', '--avg-time', type=aph.positive_or_zero_float, default=0.0, 
                         help='integration time for the beam pointings; 0 = integrate the entire file')
     parser.add_argument('-p', '--plots', action='store_true',
