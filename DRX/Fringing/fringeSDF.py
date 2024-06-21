@@ -161,6 +161,12 @@ def main(args):
     for gain in gains:
         newGains.append([[gain[0], gain[1]], [gain[2], gain[3]]])
     gains = newGains
+
+    # Pad out the Gains and Delays to handle mini-stations
+    if len(gains) < 256:
+        gains += (gains + 256 * [[[0,0], [0,0]]])[:256]
+    if len(delays) < 512:
+        delays = (delays + 512 * [0])[:512]
     
     # Create the SDF
     sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if not args.y_pol else 'Y',)
