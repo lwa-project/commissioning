@@ -25,14 +25,17 @@ _MST = pytz.timezone('US/Mountain')
 
 # List of bright radio sources and pulsars in PyEphem format
 _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1", 
-        "TauA,f|J,05:34:32.00,+22:00:52.0,1", 
-        "VirA,f|J,12:30:49.40,+12:23:28.0,1", 
-        "HerA,f|J,16:51:08.15,+04:59:33.3,1", 
-        "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
-        "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
-        "CasA,f|J,23:23:27.94,+58:48:42.4,1", 
-        "B1919+21,f|J,19:21:44.82,+21:53:02.3,1",
-        "B0329+54,f|J,03:32:59.37,+54:34:43.6,1"]
+         "TauA,f|J,05:34:32.00,+22:00:52.0,1", 
+         "VirA,f|J,12:30:49.40,+12:23:28.0,1", 
+         "HerA,f|J,16:51:08.15,+04:59:33.3,1", 
+         "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
+         "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
+         "CasA,f|J,23:23:27.94,+58:48:42.4,1", 
+         "B0329+54,f|J,03:32:59.37,+54:34:43.6,1",
+         "B0950+08,f|J,09:53:09.30,+07:55:36.4,1",
+         "B1133+16,f|J,11:36:03.07,+15:51:15.5,1",
+         "B1919+21,f|J,19:21:44.82,+21:53:02.3,1",
+         "B2217+47,f|J,22:19:48.14,+47:54:53.9,1"]
 
 
 def main(args):
@@ -135,7 +138,7 @@ def main(args):
         
         # Header
         print("")
-        print("%-10s  %-9s  %-9s  %-7s" % ("Source", "  Azimuth", "Elevation", "Rising?"))
+        print("%-10s  %-9s  %-9s  %-7s" % ("Source", "  Azimuth", "Altitude", "Rising?"))
         print("="*(10+2+9+2+9+2+7))
         
         # List
@@ -162,7 +165,7 @@ if __name__ == "__main__":
     parser.add_argument('-u', '--utc', action='store_true',
                         help='display rise, transit, and set times in UTC instead of MST/MDT')
     parser.add_argument('-p', '--position-mode', action='store_true',
-                        help='display the azimuth and elevation of sources above the horizon')
+                        help='display the azimuth and altitude of sources above the horizon')
     sgroup = parser.add_mutually_exclusive_group(required=False)
     sgroup.add_argument('-s', '--lwasv', action='store_true',
                         help='compute for LWA-SV instead of LWA1')
