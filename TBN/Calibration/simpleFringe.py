@@ -187,9 +187,9 @@ def main(args):
         # Simple correlation
         for l in range(520):
             if l % 2 == 0:
-                simpleVis[i,l] = (data[l,:]*data[refX,:].conj()).mean()     # pylint: disable=possibly-used-before-assignment
+                simpleVis[i,l] = (data[l,:]*data[refX,:].conj()).mean()     # pylint: disable=used-before-assignment, possibly-used-before-assignment
             else:
-                simpleVis[i,l] = (data[l,:]*data[refY,:].conj()).mean()     # pylint: disable=possibly-used-before-assignment
+                simpleVis[i,l] = (data[l,:]*data[refY,:].conj()).mean()     # pylint: disable=used-before-assignment, possibly-used-before-assignment
     
     # Save the data
     outname = os.path.split(filename)[1]
