@@ -69,6 +69,7 @@ class scripts_tests(unittest.TestCase):
             path.append('*.py')
             _SCRIPTS.extend(glob.glob(os.path.join(*path)))
         _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
+        _SCRIPTS = list(filter(lambda x: x.find('setup.py') == -1, _SCRIPTS))
         _SCRIPTS.sort()
         for script in _SCRIPTS:
             name = self._name_to_name(script)
