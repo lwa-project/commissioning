@@ -187,16 +187,16 @@ def main(args):
         # Simple correlation
         for l in range(520):
             if l % 2 == 0:
-                simpleVis[i,l] = (data[l,:]*data[refX,:].conj()).mean()     # pylint: disable=used-before-assignment
+                simpleVis[i,l] = (data[l,:]*data[refX,:].conj()).mean()     # pylint: disable=possibly-used-before-assignment
             else:
-                simpleVis[i,l] = (data[l,:]*data[refY,:].conj()).mean()     # pylint: disable=used-before-assignment
+                simpleVis[i,l] = (data[l,:]*data[refY,:].conj()).mean()     # pylint: disable=possibly-used-before-assignment
     
     # Save the data
     outname = os.path.split(filename)[1]
     outname = os.path.splitext(outname)[0]
     outname = "%s-ref%03i-vis.npz" % (outname, args.reference)
     numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, central_freq=central_freq, times=times, 
-            fullVis=fullVis, simpleVis=simpleVis, ssmifContents=ssmifContents)
+                fullVis=fullVis, simpleVis=simpleVis, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":
@@ -216,4 +216,3 @@ if __name__ == "__main__":
                         help='clip level in sqrt(I*I + Q*Q) to use to exclude samples in the time domain; 0 = no excision')
     args = parser.parse_args()
     main(args)
-    

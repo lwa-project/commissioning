@@ -142,7 +142,7 @@ def main(args):
                     print("  -> CC - raw: %i ticks" % (ccOffset - rtOffset))
                     print("  -> CC - cor: %i ticks" % (ccOffset - ctOffset))
                 
-                    ax = fig.add_subplot(2, 2, k+1)     # pylint: disable=used-before-assignment
+                    ax = fig.add_subplot(2, 2, k+1)     # pylint: disable=possibly-used-before-assignment
                     ax.plot(lag[best-50:best+50], cc[best-50:best+50])
                     ax.set_title('Beams %i & %i, Tuning %i, Pol. %i' % (beams[i], beams[j], k/2+1, k%2))
                     ax.set_xlabel('Lag [samples]')

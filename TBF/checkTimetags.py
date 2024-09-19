@@ -97,7 +97,7 @@ def main(args):
             # odd numbers
             if i == 0 and j == 0:
                 refCount = cFrame.header.frame_count
-            count = cFrame.header.frame_count - refCount        # pylint: disable=used-before-assignment
+            count = cFrame.header.frame_count - refCount        # pylint: disable=possibly-used-before-assignment
             timetags[aStand,   count] = cFrame.payload.timetag
             
     # Check for missing frames
