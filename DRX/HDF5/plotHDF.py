@@ -3198,7 +3198,7 @@ class SwitchObservation(wx.Frame):
                 newID = id
                 
         try:
-            if newID != self.parent.data.obsID:
+            if newID != self.parent.data.obsID:     # pylint: disable=used-before-assignment
                 self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename), obsID=newID)
                 self.parent.data.render()
                 self.parent.data.draw()

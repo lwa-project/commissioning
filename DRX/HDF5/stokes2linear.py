@@ -36,11 +36,10 @@ def _cloneStructure(input, output, level=0):
             ### If so, add it and fill it in.
             if ent not in list(output):
                 entityO = output.create_group(ent)
-            _cloneStructure(entity, entityO, level=level+1)
-            continue
-            
+                _cloneStructure(entity, entityO, level=level+1)
+                
         ## Is it a dataset?
-        if type(entity).__name__ == 'Dataset':
+        elif type(entity).__name__ == 'Dataset':
             ### If so, add it and fill it in
             if ent in ('Steps', 'Delays', 'Gains', 'time', 'Saturation', 'freq'):
                 entityO = output.create_dataset(ent, entity.shape, entity.dtype)
