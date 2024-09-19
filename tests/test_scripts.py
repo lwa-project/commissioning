@@ -74,7 +74,7 @@ class scripts_tests(unittest.TestCase):
             with self.subTest(script=name):
                 pylint_output = StringIO()
                 reporter = JSONReporter(pylint_output)
-                Run([script, '-E', '--extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl'], reporter=reporter, exit=False)
+                Run([script, '-E', '--extension-pkg-allow-list=matplotlib.cm'], reporter=reporter, exit=False)
                 results = json.loads(pylint_output.getvalue())
                 
                 for i,entry in enumerate(results):
