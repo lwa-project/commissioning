@@ -57,7 +57,7 @@ jobs:
           run: |
             pip install numpy
             pip install -r requirements.txt
-            pip install pylint
+            pip install bs4 pylint
         - name: Build
           run: |
             cd TBN/Calibration
