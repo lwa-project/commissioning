@@ -222,7 +222,7 @@ def main(args):
             break
         
         # Time-domain blanking and cross-correlation with the outlier
-        simpleVis[i,:] = fringe.Simple(data, refX, refY, args.clip)
+        simpleVis[i,:] = fringe.Simple(data, refX, refY, args.clip)     # pylint: disable=used-before-assignment
     
     fh.close()
     
