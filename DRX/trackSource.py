@@ -134,10 +134,10 @@ def main(args):
         refSource.compute(observer)
         
         pointingAz = refSource.az  * 180.0 / numpy.pi
-        pointingEl = refSource.alt * 180.0 / numpy.pi
+        pointingAlt = refSource.alt * 180.0 / numpy.pi
         
         # Compute the delays
-        delays = calc_delay(antennas, freq=central_freq, azimuth=pointingAz, elevation=pointingEl)
+        delays = calc_delay(antennas, freq=central_freq, azimuth=pointingAz, altitude=pointingAlt)
         delays *= 1e9
         delays = delays.max() - delays
         
@@ -177,7 +177,7 @@ done
 ## Send BAM commands
 tString=`date `
 echo "Sending BAM commands for step #%i at $tString"
-""" % ((s+1), tStart.astimezone(_MST), source, pointingAz, pointingEl, tStart.astimezone(_MST).strftime('%s'), (s+1)))
+""" % ((s+1), tStart.astimezone(_MST), source, pointingAz, pointingAlt, tStart.astimezone(_MST).strftime('%s'), (s+1)))
 
         # Output script command - BAM commands
         for beam in beamsToUse:

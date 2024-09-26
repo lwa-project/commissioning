@@ -244,7 +244,7 @@ def fill_from_metabundle(f, tarball):
         grp.attrs['Dec'] = obsD['dec']
         grp.attrs['Dec_Units'] = 'degrees'
         grp.attrs['Epoch'] = 2000.0
-        grp.attrs['TrackingMode'] = mcs.mode_to_string(obsD['mode'])
+        grp.attrs['TrackingMode'] = obsD['mode'].name
         
         # Observation info
         grp.attrs['ARX_Filter'] = arx['asp_filter']
@@ -257,7 +257,7 @@ def fill_from_metabundle(f, tarball):
         grp.attrs['sampleRate_Units'] = 'samples/s'
         
         # Deal with stepped mode
-        if mcs.mode_to_string(obsD['mode']) == 'STEPPED':
+        if obsD['mode'].name == 'STEPPED':
             stps = grp.create_group('Pointing')
             stps.attrs['StepType'] = 'RA/Dec' if obsD['is_radec'] else 'Az/Alt'
             stps.attrs['col0'] = 'StartTime'

@@ -42,7 +42,7 @@ def main(args):
     gftBase = 'beams_%iMHz_%iaz_%iel_%03ibg' % (args.frequency/1e6, args.azimuth, args.elevation, args.gain*100)
 
     print("Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (args.azimuth, args.elevation, args.frequency/1e6))
-    delays = beamformer.calc_delay(antennas, freq=args.frequency, azimuth=args.azimuth, elevation=args.elevation)
+    delays = beamformer.calc_delay(antennas, freq=args.frequency, azimuth=args.azimuth, altitude=args.elevation)
     delays *= 1e9
     delays = delays.max() - delays
     junk = delay.list2delayfile('.', dftBase, delays)

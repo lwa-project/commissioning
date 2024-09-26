@@ -56,7 +56,7 @@ def main(args):
     except KeyError:
         raise RuntimeError(f"Unknown target source '{args.source}'")
         
-    # Find the target azimuth/elevation to use
+    # Find the target azimuth/altitude to use
     idf = TBFFile(filenames[0])
     tStart = idf.get_info('start_time').datetime
     idf.close()
@@ -66,14 +66,14 @@ def main(args):
     obs.date = tTransit
     args.source.compute(obs)
     targetAz = args.source.az*180/np.pi
-    targetEl = args.source.alt*180/np.pi
+    targetAlt = args.source.alt*180/np.pi
     
     # Preliminary report
     print(f"Working on {len(filenames)} TBF files using SSMIF '{os.path.basename(ssmif)}'")
     print(f"  Source: '{args.source.name}'")
     print(f"    Transit time: {tTransit}")
     print(f"    Transit azimuth: {targetAz:.2f} degrees")
-    print(f"    Transit elevation: {targetEl:.2f} degrees")
+    print(f"    Transit altitude: {targetAlt:.2f} degrees")
     print(" ")
     
     # Loop over input files
@@ -145,7 +145,7 @@ def main(args):
             bdy._epoch = ephem.J2000
             bdy.compute(obs)
             
-            dlys = beamformer.calc_delay(antennas, freq=74e6, azimuth=bdy.az*180/np.pi, elevation=bdy.alt*180/np.pi)
+            dlys = beamformer.calc_delay(antennas, freq=74e6, azimuth=bdy.az*180/np.pi, altitude=bdy.alt*180/np.pi)
             dlys.shape = dlys.shape+(1,1)
             dlys -= dlys.min()
             phs = np.exp(2j*np.pi*freqs*dlys)

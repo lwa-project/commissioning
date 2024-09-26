@@ -47,7 +47,7 @@ def main(args):
     
     # Calculate the beamformer delays in this direction, making sure to
     # do it at 74 MHz and then quantize them.
-    delays =  beamformer.calc_delay(antennas, freq=74e6, azimuth=args.azimuth, elevation=args.elevation)
+    delays =  beamformer.calc_delay(antennas, freq=74e6, azimuth=args.azimuth, altitude=args.elevation)
     delays_int = (delays*fS).astype(numpy.int32)
     delays_fra = (16*(delays*fS - delays_int)).astype(numpy.int16)
     delays_quantized = delays_int / fS + delays_fra / 16.0 / fS

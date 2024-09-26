@@ -55,7 +55,7 @@ def main(args):
     # Setup the beamformer itself
     dp = SoftwareDP(mode='DRX', filter=7, central_freq=74e6)
     
-    # Find the target azimuth/elevation to use
+    # Find the target azimuth/altitude to use
     idf = TBWFile(filenames[0])
     tStart = datetime.utcfromtimestamp(idf.get_info('start_time'))
     idf.close()
@@ -65,14 +65,14 @@ def main(args):
     obs.date = tTransit
     args.source.compute(obs)
     targetAz = args.source.az*180/numpy.pi
-    targetEl = args.source.alt*180/numpy.pi
+    targetAlt = args.source.alt*180/numpy.pi
     
     # Preliminary report
     print("Working on %i TBW files using SSMIF '%s'" % (len(filenames), os.path.basename(ssmif)))
     print("  Source: '%s'" % args.source.name)
     print("    Transit time: %s" % str(tTransit))
     print("    Transit azimuth: %.2f degrees" % targetAz)
-    print("    Transet elevation: %.2f degrees" % targetEl)
+    print("    Transet altitude: %.2f degrees" % targetAlt)
     print(" ")
     
     # Loop over input files
@@ -113,7 +113,7 @@ def main(args):
         
         for offset in (-1, 0, 1):
             ### Compute
-            delays = beamformer.calc_delay(antennas, freq=74.0e6, azimuth=targetAz, elevation=targetEl+offset)
+            delays = beamformer.calc_delay(antennas, freq=74.0e6, azimuth=targetAz, altitude=targetAlt+offset)
             delays *= fS*16
             delays = delays.max() - delays
             ### Decompose into FIFO and FIR

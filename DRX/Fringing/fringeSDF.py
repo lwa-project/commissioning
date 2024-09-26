@@ -120,7 +120,7 @@ def main(args):
         print(" ")
         
         print("Calculating delays for az. %.2f, el. %.2f at %.2f MHz" % (az, el, freq/1e6))
-        delays = beamformer.calc_delay(antennas, freq=freq, azimuth=az, elevation=el)
+        delays = beamformer.calc_delay(antennas, freq=freq, azimuth=az, altitude=el)
         delays *= 1e9
         delays = delays.max() - delays
         delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
