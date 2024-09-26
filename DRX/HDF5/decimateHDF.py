@@ -43,11 +43,10 @@ def _fillHDF(input, output, tDecimation=1, sDecimation=1, level=0):
             ### If so, add it and fill it in.
             if ent not in list(output):
                 entityO = output.create_group(ent)
-            _fillHDF(entity, entityO, tDecimation=tDecimation, sDecimation=sDecimation, level=level+1)
-            continue
-            
+                _fillHDF(entity, entityO, tDecimation=tDecimation, sDecimation=sDecimation, level=level+1)
+                
         ## Is it a dataset?
-        if type(entity).__name__ == 'Dataset':
+        elif type(entity).__name__ == 'Dataset':
             ### If so, add it and fill it in
             if ent in ('Steps', 'Delays', 'Gains'):
                 entity0 = output.create_dataset(ent, entity.shape, entity.dtype)

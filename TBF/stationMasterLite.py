@@ -114,7 +114,7 @@ def main(args):
                 # odd numbers
                 if i == 0 and j == 0:
                     refCount = cFrame.header.frame_count
-                count = cFrame.header.frame_count - refCount
+                count = cFrame.header.frame_count - refCount        # pylint: disable=possibly-used-before-assignment
                 masterSpectra[count,0::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.payload.data[:,:,0], 1) )**2
                 masterSpectra[count,1::2,aStand*12:(aStand+1)*12] = numpy.abs( numpy.rollaxis(cFrame.payload.data[:,:,1], 1) )**2
 

@@ -42,6 +42,7 @@ _PYLINT_IGNORES = [('no-member',              "Module 'wx' has no"),
                    ('no-member',              "Module 'ephem' has no"),
                    ('no-member',              "Instance of 'Group' has no"),
                    ('no-member',              "Module 'datetime' has no 'fromtimestamp' member"),
+                   ('no-member',              "Module 'matplotlib.cm' has no"),
                    ('no-name-in-module',      "No name 'c' in module 'astropy.constants'"),
                    ('bad-string-format-type', "Argument '.ndarray' does not match format")]
 
@@ -68,13 +69,14 @@ class scripts_tests(unittest.TestCase):
             path.append('*.py')
             _SCRIPTS.extend(glob.glob(os.path.join(*path)))
         _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
+        _SCRIPTS = list(filter(lambda x: x.find('setup.py') == -1, _SCRIPTS))
         _SCRIPTS.sort()
         for script in _SCRIPTS:
             name = self._name_to_name(script)
             with self.subTest(script=name):
                 pylint_output = StringIO()
                 reporter = JSONReporter(pylint_output)
-                Run([script, '-E', '--extension-pkg-whitelist=numpy,scipy,ephem,astropy,lsl'], reporter=reporter, exit=False)
+                Run([script, '-E', '--extension-pkg-allow-list=scipy.special,lsl.correlator._core'], reporter=reporter, exit=False)
                 results = json.loads(pylint_output.getvalue())
                 
                 for i,entry in enumerate(results):

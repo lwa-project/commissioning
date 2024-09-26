@@ -222,7 +222,7 @@ def main(args):
             break
         
         # Time-domain blanking and cross-correlation with the outlier
-        simpleVis[i,:] = fringe.Simple(data, refX, refY, args.clip)
+        simpleVis[i,:] = fringe.Simple(data, refX, refY, args.clip)     # pylint: disable=used-before-assignment, possibly-used-before-assignment
     
     fh.close()
     
@@ -231,7 +231,7 @@ def main(args):
     outname = os.path.splitext(outname)[0]
     outname = "%s-ref%03i-multi-vis.npz" % (outname, args.reference)
     numpy.savez(outname, ref=ref, refX=refX, refY=refY, tInt=tInt, central_freqs=central_freqs, times=times, 
-            simpleVis=simpleVis, ssmifContents=ssmifContents)
+                simpleVis=simpleVis, ssmifContents=ssmifContents)
 
 
 if __name__ == "__main__":
@@ -251,4 +251,3 @@ if __name__ == "__main__":
                         help='clip level in sqrt(I*I + Q*Q) to use to exclude samples in the time domain; 0 = no excision')
     args = parser.parse_args()
     main(args)
-    

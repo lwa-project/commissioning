@@ -149,8 +149,6 @@ def main(args):
     ax11 = fig.add_subplot(2, 1, 1)
     ax12 = fig.add_subplot(2, 1, 2)
     for i,(ax1,ax2),f,pwr in zip((1,), ((ax11,ax12),), (freq,), (pwr1,)):
-        if i == 2 and tuning1 is tuning2:
-            continue
         print("Tuning %i @ %.3f MHz" % (i, f/1e6))
         
         ## Dec
@@ -168,7 +166,7 @@ def main(args):
         if toUseAIPY is None:
             print("    1/(P1/P0 - 1): %.3f" % sefdMetricD)
             if srcName == srcs[toUse].name:
-                    sefdEstimateD = np.nan
+                sefdEstimateD = np.nan
         else:
             try:
                 simSrcs[toUseAIPY].compute(observer, afreqs=f/1e9)
@@ -179,8 +177,8 @@ def main(args):
             sefd = srcFlux*sefdMetricD / 1e3
             print("    S / (P1/P0 - 1): %.3f kJy" % sefd)
             if srcName == srcs[toUse].name:
-                    sefdEstimateD = sefd*1e3
-                    
+                sefdEstimateD = sefd*1e3
+                
         ax = ax1
         ax.plot(x, y, linestyle='', marker='+', label='Data')
         ax.plot(xPrime, func(p, xPrime), linestyle='-', label='Fit')
@@ -204,7 +202,7 @@ def main(args):
         if toUseAIPY is None:
             print("    1/(P1/P0 - 1): %.3f" % sefdMetricR)
             if srcName == srcs[toUse].name:
-                    sefdEstimateR = np.nan
+                sefdEstimateR = np.nan
         else:
             try:
                 simSrcs[toUseAIPY].compute(observer, afreqs=f/1e9)
@@ -215,7 +213,7 @@ def main(args):
             sefd = srcFlux*sefdMetricR / 1e3
             print("    S / (P1/P0 - 1): %.3f kJy" % sefd)
             if srcName == srcs[toUse].name:
-                    sefdEstimateR = sefd*1e3
+                sefdEstimateR = sefd*1e3
         
         ax = ax2
         ax.plot(x, y, linestyle='', marker='+', label='Data')
@@ -227,7 +225,7 @@ def main(args):
         
         # Save
         fwhmEstimate = ephem.degrees((fwhmD + fwhmR) / 2.0)
-        sefdEstimate = (sefdEstimateD + sefdEstimateR) / 2.0
+        sefdEstimate = (sefdEstimateD + sefdEstimateR) / 2.0         # pylint: disable=used-before-assignment
         finalResults.append( "%-6s %-19s %6.3f %-10s %-10s %-10s %10.3f %-10s" % \
                             (srcs[toUse].name, datetime.utcfromtimestamp(tTransit).strftime("%Y/%m/%d %H:%M:%S"), f/1e6, zenithAngle, raOffset, decOffset, sefdEstimate, fwhmEstimate) )
         
