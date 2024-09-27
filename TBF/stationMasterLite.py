@@ -16,7 +16,7 @@ from lsl.reader import tbf, ldp
 from lsl.reader import errors
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common.progress import ProgressBar
-from lsl.common.paths import DATA as dataPath
+from lsl.common.data_access import DataAccess
 
 import matplotlib.pyplot as plt
 
@@ -28,7 +28,8 @@ def main(args):
         ssmifContents = open(args.metadata).readlines()
     else:
         station = stations.lwasv
-        ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
+        with DataAccess.open('lwasv-ssmif.txt', 'r') as fh:
+            ssmifContents = fh.readlines()
     antennas = station.antennas
     antpols = len(antennas)
     

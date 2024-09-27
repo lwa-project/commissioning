@@ -13,7 +13,6 @@ import argparse
 
 from lsl import skymap, astro
 from lsl.common import stations
-from lsl.common.paths import DATA as dataPath
 from lsl.misc import parser as aph
 
 __version__  = "0.1"
@@ -139,4 +138,3 @@ if __name__ == '__main__':
                         help='run %(prog)s in verbose mode')
     args = parser.parse_args()
     main(args)
-    

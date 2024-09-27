@@ -22,7 +22,7 @@ from lsl.reader import tbn
 from lsl.reader import errors
 from lsl.reader.buffer import TBNFrameBuffer
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
-from lsl.common.paths import DATA as dataPath
+from lsl.common.data_access import DataAccess
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -65,7 +65,8 @@ def main(args):
         ssmifContents = open(args.metadata).readlines()
     else:
         site = lwa1
-        ssmifContents = open(os.path.join(dataPath, 'lwa1-ssmif.txt')).readlines()
+        with DataAccess.open('lwa1-ssmif.txt', 'r') as fh:
+            ssmifContents = fh.readlines()
     observer = site.get_observer()
     antennas = site.antennas
     

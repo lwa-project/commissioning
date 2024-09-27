@@ -19,7 +19,7 @@ vLight = speedOfLight.to('m/s').value
 from lsl.common.dp import fS
 from lsl.common.stations import parse_ssmif
 from lsl.misc import beamformer
-from lsl.common.paths import DATA as dataPath
+from lsl.common.data_access import DataAccess
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -105,12 +105,9 @@ def main(args):
             
     # Calculate the dipole gain pattern to apply as a correction to the beam pattern
     ## Load in the data
-    dd = numpy.load(os.path.join(dataPath, 'beam-shape.npz'))
-    coeffs = dd['coeffs']
-    try:
-        dd.close()
-    except AttributeError:
-        pass
+    with DataAccess.open('antenna/beam-shape.npz', 'rb') as fh:
+        dd = np.load(fh)
+        coeffs = dd['coeffs'][...]
     ## Calculate how many harmonics are stored in the data set and reorder the data
     ## to AIPY's liking
     deg = coeffs.shape[0]-1
