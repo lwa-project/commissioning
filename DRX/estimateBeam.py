@@ -19,7 +19,7 @@ vLight = speedOfLight.to('m/s').value
 from lsl.common.dp import fS
 from lsl.common.stations import parse_ssmif
 from lsl.misc import beamformer
-from lsl.common.data_access import DataAccess
+from lsl.sim.beam import beam_response
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -104,28 +104,10 @@ def main(args):
             pwrY[i,j] = numpy.abs( numpy.sum(sig[Y]) )**2
             
     # Calculate the dipole gain pattern to apply as a correction to the beam pattern
-    ## Load in the data
-    with DataAccess.open('antenna/beam-shape.npz', 'rb') as fh:
-        dd = np.load(fh)
-        coeffs = dd['coeffs'][...]
-    ## Calculate how many harmonics are stored in the data set and reorder the data
-    ## to AIPY's liking
-    deg = coeffs.shape[0]-1
-    lmax = int((numpy.sqrt(1+8*coeffs.shape[1])-3)/2)
-    beamShapeDict = {}
-    for i in range(deg+1):
-        beamShapeDict[i] = numpy.squeeze(coeffs[-1-i,:])
     ## Build the model
-    dipole = aipy.amp.BeamAlm(numpy.array([args.frequency/1e3]), lmax=lmax, mmax=lmax, deg=deg, nside=128, coeffs=beamShapeDict)
-    ## Calculate the response for X pol.
-    dplX = dipole.response(aipy.coord.azalt2top(numpy.concatenate([[az.ravel()*numpy.pi/180], 
-                                                                   [el.ravel()*numpy.pi/180]])))
-    ## Rotate the azimuth values by 90 degrees to get Y pol.
-    dplY = dipole.response(aipy.coord.azalt2top(numpy.concatenate([[az.ravel()*numpy.pi/180+numpy.pi/2], 
-                                                                   [el.ravel()*numpy.pi/180]])))
-    ## Re-shape to get back to a 2-D array that matches az (and pwrX/Y)
-    dplX.shape = az.shape
-    dplY.shape = az.shape
+    dplX = beam_response('empirical', 'XX', az, el, frequency=args.frequency*1e6)
+    dplY = beam_response('empirical', 'YY', az, el, frequency=args.frequency*1e6)
+    
     ## Apply to the beam pattern
     pwrX *= dplX
     pwrY *= dplY
