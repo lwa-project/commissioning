@@ -492,6 +492,8 @@ def main(args):
         site = 'lwa1'
         if args.lwasv:
             site = 'lwasv'
+        elif args.lwana:
+            site = 'lwana'
         hdfData.fill_from_sdf(f, args.sdf, station=site)
         
     else:
@@ -586,6 +588,8 @@ if __name__ == "__main__":
                         help='data is from LWA-1; needed for -i/--sdf or when no metadata is provided')
     sgroup.add_argument('-v', '--lwasv', action='store_true', 
                         help='data is from LWA-SV; needed for -i/--sdf or when no metadata is provided')
+    sgroup.add_argument('-n', '--lwana', action='store_true', 
+                        help='data is from LWA-NA; needed for -i/--sdf or when no metadata is provided')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwritting of existing HDF5 files')
     parser.add_argument('-k', '--stokes', action='store_true', 
