@@ -475,7 +475,7 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
                         try:
                             dataD[i,1+j] = _valuetoDelay(s.delays[j])
                         except IndexError as e:
-                            warnings.warn("Failed to set step delay value: %s" % str(e))
+                            warnings.warn("Failed to set step delay value for antenna %i: %s" % (j+1, str(e)))
                             
                 # Save the delays
                 dlys[:,:] = dataD
@@ -502,7 +502,7 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
                             dataG[i,1+4*j+2] = _valuetoGain(s.gains[j][1][0])
                             dataG[i,1+4*j+3] = _valuetoGain(s.gains[j][1][1])
                         except IndexError as e:
-                            warnings.warn("Failed to set step gains values: %s" % str(e))
+                            warnings.warn("Failed to set step gains values for stand %i: %s" % (j+1, str(e)))
                             
                 # Save the gains
                 gais[:,:] = dataG
