@@ -5,6 +5,7 @@ Module to help with manipulating HDF5 beam data files.
 import os
 import h5py
 import numpy
+import warnings
 from datetime import datetime
 from collections import defaultdict
 
@@ -13,7 +14,7 @@ from lsl.reader.drx import FILTER_CODES
 from lsl.common import sdfADP, metabundleADP
 
 
-__version__ = "1.0"
+__version__ = "1.1"
 __all__ = ['create_new_file', 'fill_minimum', 'fill_from_metabundle', 'fill_from_sdf', 
            'get_observation_set', 'create_observation_set', 'get_time', 'get_data_set']
 
@@ -471,8 +472,11 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
                 for i,s in enumerate(obsS.steps):
                     dataD[i,0] = t
                     for j in range(2*nstand):
-                        dataD[i,1+j] = _valuetoDelay(s.delays[j])
-                        
+                        try:
+                            dataD[i,1+j] = _valuetoDelay(s.delays[j])
+                        except IndexError as e:
+                            warnings.warn("Failed to set step delay value: %s" % str(e))
+                            
                 # Save the delays
                 dlys[:,:] = dataD
                 
@@ -492,11 +496,14 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
                 for i,s in enumerate(obsS.steps):
                     dataG[i,0] = t
                     for j in range(nstand):
-                        dataG[i,1+4*j+0] = _valuetoGain(s.gains[j][0][0])
-                        dataG[i,1+4*j+1] = _valuetoGain(s.gains[j][0][1])
-                        dataG[i,1+4*j+2] = _valuetoGain(s.gains[j][1][0])
-                        dataG[i,1+4*j+3] = _valuetoGain(s.gains[j][1][1])
-                        
+                        try:
+                            dataG[i,1+4*j+0] = _valuetoGain(s.gains[j][0][0])
+                            dataG[i,1+4*j+1] = _valuetoGain(s.gains[j][0][1])
+                            dataG[i,1+4*j+2] = _valuetoGain(s.gains[j][1][0])
+                            dataG[i,1+4*j+3] = _valuetoGain(s.gains[j][1][1])
+                        except IndexError as e:
+                            warnings.warn("Failed to set step gains values: %s" % str(e))
+                            
                 # Save the gains
                 gais[:,:] = dataG
                 
