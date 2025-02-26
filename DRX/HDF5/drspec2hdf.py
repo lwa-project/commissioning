@@ -32,6 +32,8 @@ def main(args):
         site = 'lwa1'
     elif args.lwasv:
         site = 'lwasv'
+    elif args.lwana:
+        site = 'lwana'
         
     # Open the file and file good data (not raw DRX data)
     fh = open(args.filename, 'rb')
@@ -322,6 +324,8 @@ if __name__ == "__main__":
                         help='data is from LWA1; needed for -d/--sdf or when no metadata is provided')
     sgroup.add_argument('-v', '--lwasv', action='store_true', 
                         help='data is from LWA-SV; needed for -d/--sdf or when no metadata is provided')
+    sgroup.add_argument('-n', '--lwana', action='store_true', 
+                        help='data is from LWA-NA; needed for -d/--sdf or when no metadata is provided')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwritting of existing HDF5 files')
     args = parser.parse_args()
