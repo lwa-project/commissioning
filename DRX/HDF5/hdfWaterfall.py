@@ -588,7 +588,7 @@ if __name__ == "__main__":
                         help='data is from LWA-1; needed for -i/--sdf or when no metadata is provided')
     sgroup.add_argument('-v', '--lwasv', action='store_true', 
                         help='data is from LWA-SV; needed for -i/--sdf or when no metadata is provided')
-    sgroup.add_argument('-n', '--lwana', action='store_true', 
+    sgroup.add_argument('-3', '--lwana', action='store_true', 
                         help='data is from LWA-NA; needed for -i/--sdf or when no metadata is provided')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwritting of existing HDF5 files')
