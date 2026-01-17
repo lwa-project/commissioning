@@ -1577,6 +1577,7 @@ class MainWindow(tk.Tk):
 
         self.cAdjust = None
         self._loading_frame = None
+        self._resize_after_id = None
 
     def showLoading(self, message="Loading..."):
         """Show a loading overlay with a message"""
@@ -1805,11 +1806,15 @@ class MainWindow(tk.Tk):
         self.bind('<Configure>', self.onSize)
 
     def onSize(self, event):
-        """Handle window resize"""
-        self.after(10, self.resizePlots)
+        """Handle window resize with debouncing"""
+        # Cancel any pending resize callback to avoid redundant redraws
+        if self._resize_after_id is not None:
+            self.after_cancel(self._resize_after_id)
+        self._resize_after_id = self.after(150, self.resizePlots)
 
     def resizePlots(self):
         """Resize plots after window resize"""
+        self._resize_after_id = None
         try:
             self.figure1a.tight_layout()
             self.canvas1a.draw()
