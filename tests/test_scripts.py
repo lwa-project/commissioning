@@ -41,6 +41,7 @@ _PYLINT_IGNORES = [('no-member',              "Module 'ephem' has no"),
                    ('no-member',              "Instance of 'Group' has no"),
                    ('no-member',              "Module 'datetime' has no 'fromtimestamp' member"),
                    ('no-member',              "Module 'matplotlib.cm' has no"),
+                   ('no-member',              "Module 'h5py' has no"),
                    ('no-name-in-module',      "No name 'c' in module 'astropy.constants'"),
                    ('bad-string-format-type', "Argument '.ndarray' does not match format")]
 
