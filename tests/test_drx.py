@@ -36,6 +36,8 @@ class drx_tests(unittest.TestCase):
             subprocess.check_call(['curl', _URL, 
                                    '--range', '4128-%i' % (int(_SIZE_MB)*1024*1024), 
                                    '-o', _FILENAME, '--create-dirs'])
+        if os.path.getsize(_FILENAME) != int(_SIZE_MB)*1024*1024:
+            raise RuntimeError(f"File size mis-match on {os.path.basename(_FILENAME)}: expected {int(_SIZE_MB)*1024*1024} B found {os.path.getsize(_FILENAME)} B")
             
     def tearDown(self):
         for filename in glob.glob('*.hdf5'):
