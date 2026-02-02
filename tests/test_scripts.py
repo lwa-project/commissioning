@@ -37,9 +37,7 @@ __version__  = "0.2"
 __author__   = "Jayce Dowell"
 
 
-_PYLINT_IGNORES = [('no-member',              "Module 'wx' has no"),
-                   ('no-member',              "Module 'wx.html' has no"),
-                   ('no-member',              "Module 'ephem' has no"),
+_PYLINT_IGNORES = [('no-member',              "Module 'ephem' has no"),
                    ('no-member',              "Instance of 'Group' has no"),
                    ('no-member',              "Module 'datetime' has no 'fromtimestamp' member"),
                    ('no-member',              "Module 'matplotlib.cm' has no"),
@@ -73,7 +71,7 @@ class scripts_tests(unittest.TestCase):
         _SCRIPTS.sort()
         for script in _SCRIPTS:
             name = self._name_to_name(script)
-            if name in ('smGUI.py', 'plotHDF.py'):
+            if name.endswith('smGUI.py') or name.endswith('plotHDF.py'):
                 continue
                 
             with self.subTest(script=name):
