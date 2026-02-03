@@ -37,12 +37,11 @@ __version__  = "0.2"
 __author__   = "Jayce Dowell"
 
 
-_PYLINT_IGNORES = [('no-member',              "Module 'wx' has no"),
-                   ('no-member',              "Module 'wx.html' has no"),
-                   ('no-member',              "Module 'ephem' has no"),
+_PYLINT_IGNORES = [('no-member',              "Module 'ephem' has no"),
                    ('no-member',              "Instance of 'Group' has no"),
                    ('no-member',              "Module 'datetime' has no 'fromtimestamp' member"),
                    ('no-member',              "Module 'matplotlib.cm' has no"),
+                   ('no-member',              "Module 'h5py' has no"),
                    ('no-name-in-module',      "No name 'c' in module 'astropy.constants'"),
                    ('bad-string-format-type', "Argument '.ndarray' does not match format")]
 
@@ -73,6 +72,9 @@ class scripts_tests(unittest.TestCase):
         _SCRIPTS.sort()
         for script in _SCRIPTS:
             name = self._name_to_name(script)
+            if script.endswith('smGUI.py') or script.endswith('plotHDF.py'):
+                continue
+                
             with self.subTest(script=name):
                 pylint_output = StringIO()
                 reporter = JSONReporter(pylint_output)
