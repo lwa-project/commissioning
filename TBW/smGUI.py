@@ -3,7 +3,7 @@
 """
 Display NPZ data from stationMaster in an interactive GUI sort of way.
 """
-    
+
 import os
 import sys
 import numpy
@@ -13,101 +13,32 @@ import tempfile
 from lsl.common import stations
 from lsl.misc.mathutils import to_dB
 
-import wx
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+
 import matplotlib
-matplotlib.use('WXAgg')
+matplotlib.use('TkAgg')
 matplotlib.interactive(True)
 
-from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk, FigureCanvasTkAgg
 from matplotlib.figure import Figure
-
-
-# Deal with the different wxPython versions
-if 'phoenix' in wx.PlatformInfo:
-    AppendMenuItem = lambda x, y: x.Append(y)
-    AppendMenuMenu = lambda *args, **kwds: args[0].Append(*args[1:], **kwds)
-else:
-    AppendMenuItem = lambda x, y: x.AppendItem(y)
-    AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
-
-
-class PlotPanel(wx.Panel):
-    """
-    The PlotPanel has a Figure and a Canvas. OnSize events simply set a 
-    flag, and the actual resizing of the figure is triggered by an Idle event.
-    
-    From: http://www.scipy.org/Matplotlib_figure_in_a_wx_panel
-    """
-    
-    def __init__(self, parent, color=None, dpi=None, **kwargs):
-        from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg
-        from matplotlib.figure import Figure
-
-        # initialize Panel
-        if 'id' not in kwargs.keys():
-            kwargs['id'] = wx.ID_ANY
-        if 'style' not in kwargs.keys():
-            kwargs['style'] = wx.NO_FULL_REPAINT_ON_RESIZE
-        wx.Panel.__init__(self, parent, **kwargs)
-
-        # initialize matplotlib stuff
-        self.figure = Figure(figsize=(4,4), dpi=dpi)
-        self.canvas = FigureCanvasWxAgg(self, -1, self.figure)
-        self.SetColor(color)
-
-        self._SetSize()
-        self.draw()
-
-        self._resizeflag = False
-
-        self.Bind(wx.EVT_IDLE, self._onIdle)
-        self.Bind(wx.EVT_SIZE, self._onSize)
-
-    def SetColor( self, rgbtuple=None ):
-        """
-        Set figure and canvas colours to be the same.
-        """
-        
-        if rgbtuple is None:
-            rgbtuple = wx.SystemSettings.GetColour( wx.SYS_COLOUR_BTNFACE ).Get()
-        clr = [c/255. for c in rgbtuple]
-        self.figure.set_facecolor(clr)
-        self.figure.set_edgecolor(clr)
-        self.canvas.SetBackgroundColour(wx.Colour(*rgbtuple))
-
-    def _onSize(self, event):
-        self._resizeflag = True
-
-    def _onIdle(self, evt):
-        if self._resizeflag:
-            self._resizeflag = False
-            self._SetSize()
-
-    def _SetSize(self):
-        pixels = tuple(self.parent.GetClientSize())
-        self.SetSize(pixels)
-        self.canvas.SetSize(pixels)
-        self.figure.set_size_inches(float( pixels[0] )/self.figure.get_dpi(), float( pixels[1] )/self.figure.get_dpi())
-
-    def draw(self):
-        pass # abstract, to be overridden by child classes
 
 
 class TBW_GUI(object):
     """
-    Object responsible for drawing and interacting with the two matplotlib 
-    canvas in the main GUI.  
-    
+    Object responsible for drawing and interacting with the two matplotlib
+    canvas in the main GUI.
+
     Arguments:
     * frame - parent window used for displaying
-    
+
     Keyword:
     * antennas - list of Antenna objects that compose the stations
     * freq - array of frequencies (in Hz) for the spectral data
     * spec - 2-D (antennas by channels) array of spectra
     * specTemplate - master spectrum for comparisons
     """
-    
+
     def __init__(self, frame, antennas=None, freq=None, spec=None, specTemplate=None, resFreq=None):
         self.frame = frame
         self.press = None
@@ -123,22 +54,22 @@ class TBW_GUI(object):
         self.resFreq = resFreq
         self.avgPower = None
         self.dataRange = None
-        
+
         self.ax1 = None
         self.ax2 = None
         self.oldMark = None
-        
+
     def loadData(self, filename):
         """
-        Given the filename of an NPZ file created by stationMaster.py, load 
+        Given the filename of an NPZ file created by stationMaster.py, load
         in the NPZ file and set all of the various data attributes used for
         plotting.
         """
-        
+
         dataDict = numpy.load(filename)
         self.freq = dataDict['freq']
         masterSpectra = dataDict['masterSpectra']
-        
+
         self.spec = masterSpectra.mean(axis=0)
         self.specTemplate = numpy.median(self.spec, axis=0)
         self.resFreq = dataDict['resFreq']
@@ -150,7 +81,7 @@ class TBW_GUI(object):
             self.dataRange = dataDict['dataRange']
         except KeyError:
             self.dataRange = None
-            
+
         try:
             self.adcHistogram = dataDict['adcHistogram']
         except KeyError:
@@ -168,33 +99,33 @@ class TBW_GUI(object):
                 for line in ssmifContents:
                     fh.write('%s\n' % line)
                 fh.close()
-                
+
                 station = stations.parse_ssmif(tempSSMIF)
                 self.station = station.name
                 self.antennas = station.antennas
                 os.unlink(tempSSMIF)
-            
+
         except KeyError:
             station = stations.lwa1
             self.station = station.name
             self.antennas = station.antennas
 
-        # Set default colobars
+        # Set default colorbars
         self.limits = []
-        self.limits.append([0, 2])
-        self.limits.append([1, 2])
-        self.limits.append([1, 2])
-        #self.limits.append([0, 0.05])
-        self.limits.append([1, 160])
-        self.limits.append([0, 3])
-        self.limits.append([31, 50])
-        
+        self.limits.append([0, 2])      # 0 - Median Comparison
+        self.limits.append([1, 2])      # 1 - RFI-46 Index
+        self.limits.append([1, 2])      # 2 - RFI-64 Index
+        self.limits.append([1, 160])    # 3 - RFI-76 Index
+        self.limits.append([0, 3])      # 4 - Wiggle Index
+        self.limits.append([1, 3])      # 5 - Antenna Status
+        self.limits.append([31, 50])    # 6 - Resonance Point (MHz)
+
         # Save the filename and data
         path, basename = os.path.split(filename)
         self.filename = basename
         self.date = dataDict['date']
         self.date = self.date.tostring().decode()
-        
+
         try:
             self.disconnect()
         except:
@@ -206,77 +137,78 @@ class TBW_GUI(object):
         self.frame.figure2.clf()
 
         self.connect()
-    
+
     def draw(self):
         """
         Draw the station stand field using the selected colorization scheme.
-        The default scheme is based on the mean ratio between the spectrum 
+        The default scheme is based on the mean ratio between the spectrum
         and the master template (self.specTemplate) between 32 and 50 MHz.
         """
-        
-        wx.BeginBusyCursor()
-        
-        ## Get Stand positions from the Antenna objects.  Select only one 
+
+        self.frame.config(cursor='watch')
+        self.frame.update()
+
+        ## Get Stand positions from the Antenna objects.  Select only one
         ## polarization since that is all we need
         standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in self.antennas if ant.pol == 0])
 
         ## Get the stand quality figure-of-merit
         compLow = 32e6
         compHigh = 50e6
-        
+
         if self.color == 0:
-            # Color by mean ratio between the spectrum and the master template 
+            # Color by mean ratio between the spectrum and the master template
             # (self.specTemplate) between 32 and 50 MHz (default)
             specDiff = numpy.zeros(self.spec.shape[0])
             toCompare = numpy.where( (self.freq>compLow) & (self.freq<compHigh) )[0]
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,toCompare] / self.specTemplate[toCompare]).mean()
-            
+
             cbTitle = '%.0f to %.0f MHz Mean Deviation' % (compLow/1e6, compHigh/1e6)
         elif self.color == 1:
-            # Color by the value of the RFI-46 index.  This index is the maximum 
+            # Color by the value of the RFI-46 index.  This index is the maximum
             # ratio of the spectrum and the master template between 45 and 47 MHz.
-            # The value of RFI-46 is also corrected for any systematic offset 
+            # The value of RFI-46 is also corrected for any systematic offset
             # between the spectrum and the template by looking at the 75 to 77 MHz
             # region.
             specDiff = numpy.zeros(self.spec.shape[0])
             rfi1 = numpy.where( (self.freq>45e6) & (self.freq<47e6) )[0]
             corr = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
-            
+
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi1] / self.specTemplate[rfi1]).max()
                 specDiff[i] /= (self.spec[i,corr] / self.specTemplate[corr]).mean()
-                
+
             cbTitle = 'RFI-46 Index'
         elif self.color == 2:
-            # Color by the value of the RFI-64 index.  This index is the maximum 
+            # Color by the value of the RFI-64 index.  This index is the maximum
             # ratio of the spectrum and the master template between 63 and 65 MHz.
-            # The value of RFI-64 is also corrected for any systematic offset 
+            # The value of RFI-64 is also corrected for any systematic offset
             # between the spectrum and the template by looking at the 75 to 77 MHz
             # region.
             specDiff = numpy.zeros(self.spec.shape[0])
             rfi2 = numpy.where( (self.freq>63e6) & (self.freq<65e6) )[0]
             corr = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
-            
+
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
                 specDiff[i] /= (self.spec[i,corr] / self.specTemplate[corr]).mean()
-                
+
             cbTitle = 'RFI-64 Index'
         elif self.color == 3:
-            # Color by the value of the RFI-76 index.  This index is the maximum 
+            # Color by the value of the RFI-76 index.  This index is the maximum
             # ratio of the spectrum and the master template between 79 and 81 MHz.
-            # The value of RFI-64 is also corrected for any systematic offset 
+            # The value of RFI-64 is also corrected for any systematic offset
             # between the spectrum and the template by looking at the 63 to 65 MHz
             # region.
             specDiff = numpy.zeros(self.spec.shape[0])
             rfi2 = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
             corr = numpy.where( (self.freq>63e6) & (self.freq<65e6) )[0]
-            
+
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
                 specDiff[i] /= numpy.median(self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
-                
+
             cbTitle = 'RFI-76 Index'
         elif self.color == 4:
             # Color by the wiggle index.  This is determined by fitting a line to
@@ -289,20 +221,20 @@ class TBW_GUI(object):
                 specDiff[i] = 17 - int(self.antennas[i].arx.asp_channel % 16) + 1
                 specDiff[i] *= self.antennas[i].cable.length / 10.0
                 print(i, specDiff[i])
-                
+
             cbTitle = 'Wiggle Index'
         elif self.color == 5:
             # Color by antenna status code.
             specDiff = numpy.zeros(self.spec.shape[0])
             for i in range(self.spec.shape[0]):
                 specDiff[i] = self.antennas[i].status
-                
+
             cbTitle = 'Antenna Status'
         else:
-            # Color by the estimated resonance point frequency.  This is done 
-            # by finding the best-fit polynomial in between orders 3 and 12 
+            # Color by the estimated resonance point frequency.  This is done
+            # by finding the best-fit polynomial in between orders 3 and 12
             # for the 31 to 70 MHz spectral region.  The best-fit polynomial is
-            # then evaluated to find its maximum value and that is used as the 
+            # then evaluated to find its maximum value and that is used as the
             # resonance point.
             if self.resFreq is None:
                 specDiff = numpy.zeros(self.spec.shape[0])
@@ -317,14 +249,14 @@ class TBW_GUI(object):
                         if rms < bestRMS:
                             bestOrder = j
                             bestRMS = rms
-                            
+
                     coeff = numpy.polyfit(self.freq[toCompare]/1e6, to_dB(self.spec[i,toCompare]), bestOrder)
-                    fit = numpy.polyval(coeff, self.freq[toCompare]/1e6)	
+                    fit = numpy.polyval(coeff, self.freq[toCompare]/1e6)
                     specDiff[i] = self.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
                 self.resFreq = specDiff
             else:
                 specDiff = self.resFreq
-            
+
             cbTitle = 'Est. Resonance Point (MHz)'
 
         # Clip range
@@ -333,66 +265,70 @@ class TBW_GUI(object):
 
         self.frame.figure1.clf()
         self.ax1 = self.frame.figure1.gca()
-        # Stands 
+        self.ax1.set_aspect('equal')
+        # Stands
         m = self.ax1.scatter(standPos[:,0], standPos[:,1]+0.8, c=specDiff[0::2], s=45.0, alpha=0.80, marker='^')
         self.ax1.scatter(standPos[:,0], standPos[:,1]-0.8, c=specDiff[1::2], s=45.0, alpha=0.80, marker='v')
-        
+
         if self.station == 'LWA1':
             ## Add the fence as a dashed line
-            self.ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827], 
+            self.ax1.plot([-59.827, 59.771, 60.148, -59.700, -59.827],
                           [59.752, 59.864, -59.618, -59.948, 59.752], linestyle='--', color='k')
-            
+
             ## Add the shelter
-            self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863], 
+            self.ax1.plot([55.863, 58.144, 58.062, 55.791, 55.863],
                           [45.946, 45.999, 51.849, 51.838, 45.946], linestyle='-', color='k')
-            
+
             ## Set the limits to just zoom in on the main station and the plot title
             self.ax1.set_xlim([-65, 65])
             self.ax1.set_ylim([-65, 65])
-            
+
         elif self.station == 'LWASV':
             ## Add the awning
-            self.ax1.plot([-30.625, -20.911, -13.498, -23.212, -30.625], 
+            self.ax1.plot([-30.625, -20.911, -13.498, -23.212, -30.625],
                           [107.211, 78.239, 81.013, 109.368, 107.211], linestyle='-', color='k')
-            
+
             ## Add the shelter
-            self.ax1.plot([-29.347, -28.836, -22.956, -23.467, -29.347], 
+            self.ax1.plot([-29.347, -28.836, -22.956, -23.467, -29.347],
                           [86.869, 84.712, 86.253, 88.41, 86.869], linestyle='-', color='k')
 
             ## Set the limits to just zoom in on the main station and the plot title
             self.ax1.set_xlim([-75, 75])
             self.ax1.set_ylim([-50,100])
-            
+
         if self.date is None:
             self.ax1.set_title("Filename: '%s'" % self.filename)
         else:
             self.ax1.set_title('Date: UT %s' % self.date)
-            
+
         ## Set the color bar, its title, and the axis labels
         cm = self.frame.figure1.colorbar(m, ax=self.ax1)
         cm.ax.set_ylabel(cbTitle)
         if cbTitle == 'Antenna Status':
             cm.set_ticks([1, 2, 3])
             cm.set_ticklabels(['Bad', 'Suspect', 'Good'])
-        self.ax1.set_xlabel('$\Delta$ X [m]')
-        self.ax1.set_ylabel('$\Delta$ Y [m]')
-        
-        if self.oldMark is not None:
-            self.ax1.lines.extend(self.oldMark)
-        
+        self.ax1.set_xlabel(r'$\Delta$ X [m]')
+        self.ax1.set_ylabel(r'$\Delta$ Y [m]')
+
+        if self.oldMark is not None and self.bestX != -1:
+            # Redraw the mark at the previously selected stand position
+            xy = [self.antennas[self.bestX-1].stand.x, self.antennas[self.bestX-1].stand.y]
+            self.oldMark = self.ax1.plot([xy[0], xy[0]], [xy[1], xy[1]], linestyle=' ', marker='o', ms=15.0, mfc='None', color='k')
+
         ## Draw it
         self.frame.canvas1.draw()
-        
-        wx.EndBusyCursor()
+        self.frame.canvas1.flush_events()
+
+        self.frame.config(cursor='')
 
     def drawSpectrum(self, clickX, clickY, preferStand=None):
         """
-        Get the spectra (both polarizations) for the antennas connected to 
+        Get the spectra (both polarizations) for the antennas connected to
         the selected stand.
         """
-        
+
         if preferStand is None:
-            ## Figure out who is who and which antennas are closest to the 
+            ## Figure out who is who and which antennas are closest to the
             ## clicked point.  This can be a little slow so the results are
             ## saved to the bestX and bestX attributes (depending on pol.)
             dist = 1e9
@@ -404,7 +340,7 @@ class TBW_GUI(object):
                         self.bestX = ant.digitizer
                     else:
                         self.bestY = ant.digitizer
-                        
+
         else:
             ## Right now 259 and 260 are at 0,0,0 and sit on top of each other.  Using
             ## the preferStand keyword, we can break this at least for searches
@@ -414,22 +350,22 @@ class TBW_GUI(object):
                         self.bestX = ant.digitizer
                     else:
                         self.bestY = ant.digitizer
-                        
-        ## Plot the spectra.  This plot includes the median composite 
-        ## (self.specTemplate) in green, the X polarization in blue, and 
-        ## the Y polarization in red.  
+
+        ## Plot the spectra.  This plot includes the median composite
+        ## (self.specTemplate) in green, the X polarization in blue, and
+        ## the Y polarization in red.
         self.frame.figure2.clf()
         self.ax2 = self.frame.figure2.gca()
         self.ax2.plot(self.freq/1e6, to_dB(self.specTemplate), alpha=0.6, color='g', label='Composite')
         self.ax2.plot(self.freq/1e6, to_dB(self.spec[self.bestX-1,:]), color='b', label='X')
         self.ax2.plot(self.freq/1e6, to_dB(self.spec[self.bestY-1,:]), color='r', label='Y')
-        
+
         ## Set the title, axis labels and add a legend
         self.ax2.set_title('Stand #%i' % self.antennas[self.bestX-1].stand.id)
         self.ax2.set_xlabel('Frequency [MHz]')
         self.ax2.set_ylabel('PSD [dB/RBW]')
         self.ax2.legend(loc=0)
-        
+
         ## Draw and save the click (Why?)
         self.frame.canvas2.draw()
         self.xClick = clickX
@@ -441,18 +377,19 @@ class TBW_GUI(object):
         after drawSpectrum() since that function figures out which stand is
         closest.
         """
-        
+
         if self.oldMark is not None:
             try:
-                del self.ax1.lines[-1]
+                for line in self.oldMark:
+                    line.remove()
             except:
                 pass
-        
+
         ## Figure out who is who
         xy = [self.antennas[self.bestX-1].stand.x, self.antennas[self.bestX-1].stand.y]
 
         self.oldMark = self.ax1.plot([xy[0], xy[0]], [xy[1], xy[1]], linestyle=' ', marker='o', ms=15.0, mfc='None', color='k')
-        
+
         ## Set the limits to just zoom in on the main stations
         if self.station == 'LWA1':
             self.ax1.set_xlim([-65, 65])
@@ -460,419 +397,290 @@ class TBW_GUI(object):
         elif self.station == 'LWASV':
             self.ax1.set_xlim([-75, 75])
             self.ax1.set_ylim([-50,100])
-            
+
         self.frame.canvas1.draw()
-    
+
     def connect(self):
         """
         Connect to all the events we need to interact with the plots.
         """
-        
+
         self.cidpress   = self.frame.figure1.canvas.mpl_connect('button_press_event',  self.on_press)
         self.cidmotion  = self.frame.figure1.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.cidmotion2 = self.frame.figure2.canvas.mpl_connect('motion_notify_event', self.on_motion2)
-    
+
     def on_press(self, event):
         """
-        On a button press we will update the spectrum and mark the closest 
+        On a button press we will update the spectrum and mark the closest
         stand.
         """
-        
+
         if event.inaxes and self.frame.toolbar.mode == '':
             clickX = event.xdata
             clickY = event.ydata
-                
+
             self.drawSpectrum(clickX, clickY)
             self.makeMark(clickX, clickY)
-            
+
     def on_motion(self, event):
         """
-        Deal with motion events in the stand field window.  This involves 
+        Deal with motion events in the stand field window.  This involves
         setting the status bar with the current x and y coordinates as well
         as the stand number of the selected stand (if any).
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
-            self.frame.statusbar.SetStatusText("x=%.3f m, y=%.3f m" % (clickX, clickY))
+
+            self.frame.statusbar.config(text="x=%.3f m, y=%.3f m" % (clickX, clickY))
         else:
-            self.frame.statusbar.SetStatusText("")
-            
+            self.frame.statusbar.config(text="")
+
     def on_motion2(self, event):
         """
-        Deal with motion events in the spectrum window.  This involves 
-        setting the status bar with the current frequency and power values 
+        Deal with motion events in the spectrum window.  This involves
+        setting the status bar with the current frequency and power values
         as well as the stand number of the selected.  If not stand has been
         selected, nothing is shown.
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             if self.bestX == -1:
-                self.frame.status.bar.SetStatusText("")
+                self.frame.statusbar.config(text="")
             else:
-                self.frame.statusbar.SetStatusText("freq=%.3f MHz, PSD=%.3f dB/RBW" % (clickX, clickY))
+                self.frame.statusbar.config(text="freq=%.3f MHz, PSD=%.3f dB/RBW" % (clickX, clickY))
         else:
-            self.frame.statusbar.SetStatusText("")
-            
-    
+            self.frame.statusbar.config(text="")
+
+
     def disconnect(self):
         """
         Disconnect all the stored connection ids.
         """
-        
+
         self.frame.figure1.canvas.mpl_disconnect(self.cidpress)
         self.frame.figure1.canvas.mpl_disconnect(self.cidmotion)
         self.frame.figure2.canvas.mpl_disconnect(self.cidmotion2)
 
 
-ID_OPEN = 10
-ID_SSMIF = 11
-ID_QUIT = 12
-ID_COLOR_0 = 20
-ID_COLOR_1 = 21
-ID_COLOR_2 = 22
-ID_COLOR_3 = 23
-ID_COLOR_4 = 24
-ID_COLOR_5 = 25
-ID_COLOR_6 = 26
-ID_COLOR_ADJUST = 27
-ID_DETAIL_ANT = 30
-ID_DETAIL_STAND = 31
-ID_DETAIL_FEE = 32
-ID_DETAIL_CABLE = 33
-ID_DETAIL_RFI = 34
-ID_DETAIL_CHANGE_STATUS = 35
-ID_AVG_HIST = 40
-ID_AVG_POWER = 41
-ID_AVG_RANGE = 42
-ID_AVG_SUMMARY = 43
-ID_SELECT_DIGITIZER = 50
-ID_SELECT_ANTENNA = 51
-ID_SELECT_STAND = 52
+class MainWindow(tk.Tk):
+    def __init__(self):
+        super().__init__()
 
-class MainWindow(wx.Frame):
-    def __init__(self, parent, id, title):
         self.dirname = ''
         self.data = None
+        self.cAdjust = None
 
-        wx.Frame.__init__(self, parent, id, title=title, size=(600,1200))
-        
+        self.title("Station Master GUI")
+        self.geometry("1200x600")
+
         self.initUI()
         self.initEvents()
-        self.Show()
-        
-        self.cAdjust = None
-        
+
     def initUI(self):
         """
         Start the user interface.
         """
-        
-        self.statusbar = self.CreateStatusBar()
-        
-        font = wx.SystemSettings.GetFont(wx.SYS_SYSTEM_FONT)
-        font.SetPointSize(10)
-        
-        menubar = wx.MenuBar()
-        
-        fileMenu = wx.Menu()
-        colorMenu = wx.Menu()
-        detailMenu = wx.Menu()
-        powerMenu = wx.Menu()
-        selectMenu = wx.Menu()
-        
+
+        # Status bar at bottom
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(fill=tk.X, side=tk.BOTTOM)
+
+        # Menu bar
+        menubar = tk.Menu(self)
+
+        fileMenu = tk.Menu(menubar, tearoff=0)
+        colorMenu = tk.Menu(menubar, tearoff=0)
+        detailMenu = tk.Menu(menubar, tearoff=0)
+        powerMenu = tk.Menu(menubar, tearoff=0)
+        selectMenu = tk.Menu(menubar, tearoff=0)
+
         ## File menu
-        open = wx.MenuItem(fileMenu, ID_OPEN, '&Open')
-        AppendMenuItem(fileMenu, open)
-        ssmif = wx.MenuItem(fileMenu, ID_SSMIF, '&Show SSMIF Status')
-        AppendMenuItem(fileMenu, ssmif)
-        fileMenu.AppendSeparator()
-        quit = wx.MenuItem(fileMenu, ID_QUIT, '&Quit')
-        AppendMenuItem(fileMenu, quit)
-        
-        # Color menu
-        colorMenu.AppendRadioItem(ID_COLOR_0, '&Median Comparison')
-        colorMenu.AppendRadioItem(ID_COLOR_6, '&Resonance Point')
-        colorMenu.AppendRadioItem(ID_COLOR_1, 'RFI-&46 Index')
-        colorMenu.AppendRadioItem(ID_COLOR_2, 'RFI-&64 Index')
-        colorMenu.AppendRadioItem(ID_COLOR_3, 'RFI-&76 Index')
-        colorMenu.AppendRadioItem(ID_COLOR_4, 'Wiggle Index')
-        colorMenu.AppendRadioItem(ID_COLOR_5, 'Antenna Status')
-        colorMenu.AppendSeparator()
-        cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, '&Adjust Contrast')
-        AppendMenuItem(colorMenu, cadj)
-        
-        # Detail menu
-        dant = wx.MenuItem(detailMenu, ID_DETAIL_ANT, '&Antenna')
-        AppendMenuItem(detailMenu, dant)
-        dstd = wx.MenuItem(detailMenu, ID_DETAIL_STAND, '&Stand')
-        AppendMenuItem(detailMenu, dstd)
-        dfee = wx.MenuItem(detailMenu, ID_DETAIL_FEE, '&FEE')
-        AppendMenuItem(detailMenu, dfee)
-        dcbl = wx.MenuItem(detailMenu, ID_DETAIL_CABLE, '&Cable')
-        AppendMenuItem(detailMenu, dcbl)
-        detailMenu.AppendSeparator()
-        dshl = wx.MenuItem(detailMenu, ID_DETAIL_RFI, 'Shelter &RFI Index')
-        AppendMenuItem(detailMenu, dshl)
-        detailMenu.AppendSeparator()
-        dcst = wx.MenuItem(detailMenu, ID_DETAIL_CHANGE_STATUS, 'Change Antenna/FEE Status')
-        AppendMenuItem(detailMenu, dcst)
-        
-        # Power
-        ahst = wx.MenuItem(powerMenu, ID_AVG_HIST, '&Plot ADC Histogram')
-        AppendMenuItem(powerMenu, ahst)
-        apwr = wx.MenuItem(powerMenu, ID_AVG_POWER, '&Plot Power')
-        AppendMenuItem(powerMenu, apwr)
-        drng = wx.MenuItem(powerMenu, ID_AVG_RANGE, '&Plot Data Range')
-        AppendMenuItem(powerMenu, drng)
-        powerMenu.AppendSeparator()
-        spwr = wx.MenuItem(powerMenu, ID_AVG_SUMMARY, '&Summary')
-        AppendMenuItem(powerMenu, spwr)
-        
-        # Select
-        sant = wx.MenuItem(selectMenu, ID_SELECT_ANTENNA, '&Antenna ID')
-        AppendMenuItem(selectMenu, sant)
-        sstd = wx.MenuItem(selectMenu, ID_SELECT_STAND, '&Stand ID')
-        AppendMenuItem(selectMenu, sstd)
-        selectMenu.AppendSeparator()
-        sdig = wx.MenuItem(selectMenu, ID_SELECT_DIGITIZER, '&Digitizer Number')
-        AppendMenuItem(selectMenu, sdig)
-        
-        # Creating the menubar.
-        menubar.Append(fileMenu, '&File')
-        menubar.Append(colorMenu, '&Color Coding')
-        menubar.Append(detailMenu, '&Details')
-        menubar.Append(powerMenu, '&Average Power')
-        menubar.Append(selectMenu, 'F&ind')
-        self.SetMenuBar(menubar)
-        
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        
-        # Add plots
-        panel1 = wx.Panel(self, -1)
-        vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure1 = Figure(figsize=(6,4))
-        self.canvas1 = FigureCanvasWxAgg(panel1, -1, self.figure1)
-        vbox1.Add(self.canvas1, 1, wx.EXPAND)
-        panel1.SetSizer(vbox1)
-        hbox.Add(panel1, 1, wx.EXPAND)
-        
-        # Add a spectrum plot
-        panel2 = wx.Panel(self, -1)
-        vbox2 = wx.BoxSizer(wx.VERTICAL)
-        self.figure2 = Figure(figsize=(6,4))
-        self.canvas2 = FigureCanvasWxAgg(panel2, -1, self.figure2)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
-        self.toolbar.Realize()
-        vbox2.Add(self.canvas2, 1, wx.EXPAND)
-        vbox2.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
-        panel2.SetSizer(vbox2)
-        hbox.Add(panel2, 1, wx.EXPAND)
-        
-        # Use some sizers to see layout options
-        self.SetSizer(hbox)
-        self.SetAutoLayout(1)
-        hbox.Fit(self)
+        fileMenu.add_command(label='Open', command=self.onOpen, accelerator='Ctrl+O')
+        fileMenu.add_command(label='Show SSMIF Status', command=self.onSSMIF)
+        fileMenu.add_separator()
+        fileMenu.add_command(label='Quit', command=self.onQuit, accelerator='Ctrl+Q')
+
+        ## Color menu with radio buttons
+        self.color_var = tk.IntVar(value=0)
+        colorMenu.add_radiobutton(label='Median Comparison', variable=self.color_var,
+                                   value=0, command=self.onColorChange)
+        colorMenu.add_radiobutton(label='Resonance Point', variable=self.color_var,
+                                   value=6, command=self.onColorChange)
+        colorMenu.add_radiobutton(label='RFI-46 Index', variable=self.color_var,
+                                   value=1, command=self.onColorChange)
+        colorMenu.add_radiobutton(label='RFI-64 Index', variable=self.color_var,
+                                   value=2, command=self.onColorChange)
+        colorMenu.add_radiobutton(label='RFI-76 Index', variable=self.color_var,
+                                   value=3, command=self.onColorChange)
+        colorMenu.add_radiobutton(label='Wiggle Index', variable=self.color_var,
+                                   value=4, command=self.onColorChange)
+        colorMenu.add_radiobutton(label='Antenna Status', variable=self.color_var,
+                                   value=5, command=self.onColorChange)
+        colorMenu.add_separator()
+        colorMenu.add_command(label='Adjust Contrast', command=self.onAdjust)
+
+        ## Detail menu
+        detailMenu.add_command(label='Antenna', command=self.onAntenna)
+        detailMenu.add_command(label='Stand', command=self.onStand)
+        detailMenu.add_command(label='FEE', command=self.onFEE)
+        detailMenu.add_command(label='Cable', command=self.onCable)
+        detailMenu.add_separator()
+        detailMenu.add_command(label='Shelter RFI Index', command=self.onRFI)
+        detailMenu.add_separator()
+        detailMenu.add_command(label='Change Antenna/FEE Status', command=self.onStatus)
+
+        ## Power menu
+        powerMenu.add_command(label='Plot ADC Histogram', command=self.onHistogram)
+        powerMenu.add_command(label='Plot Power', command=self.onavgPower)
+        powerMenu.add_command(label='Plot Data Range', command=self.onDataRange)
+        powerMenu.add_separator()
+        powerMenu.add_command(label='Summary', command=self.onavgPowerSummary)
+
+        ## Select menu
+        selectMenu.add_command(label='Antenna ID', command=self.onSelectAntenna)
+        selectMenu.add_command(label='Stand ID', command=self.onSelectStand)
+        selectMenu.add_separator()
+        selectMenu.add_command(label='Digitizer Number', command=self.onSelectDigitizer)
+
+        # Add menus to menubar
+        menubar.add_cascade(label='File', menu=fileMenu)
+        menubar.add_cascade(label='Color Coding', menu=colorMenu)
+        menubar.add_cascade(label='Details', menu=detailMenu)
+        menubar.add_cascade(label='Average Power', menu=powerMenu)
+        menubar.add_cascade(label='Find', menu=selectMenu)
+        self.config(menu=menubar)
+
+        # Main content area with two plot panels
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Left panel - station field plot
+        panel1 = ttk.Frame(main_frame)
+        panel1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.figure1 = Figure(figsize=(6,6))
+        self.canvas1 = FigureCanvasTkAgg(self.figure1, master=panel1)
+        self.canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Right panel - spectrum plot with toolbar
+        panel2 = ttk.Frame(main_frame)
+        panel2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.figure2 = Figure(figsize=(6,4), tight_layout=True)
+        self.canvas2 = FigureCanvasTkAgg(self.figure2, master=panel2)
+        self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Toolbar for the spectrum plot
+        toolbar_frame = ttk.Frame(panel2)
+        toolbar_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        self.toolbar = NavigationToolbar2Tk(self.canvas2, toolbar_frame)
+        self.toolbar.update()
 
     def initEvents(self):
         """
         Set all of the various events in the main window.
         """
-        
-        # File menu events
-        self.Bind(wx.EVT_MENU, self.onOpen, id=ID_OPEN)
-        self.Bind(wx.EVT_MENU, self.onSSMIF, id=ID_SSMIF)
-        self.Bind(wx.EVT_MENU, self.onQuit, id=ID_QUIT)
-        
-        # Color menu events
-        self.Bind(wx.EVT_MENU, self.onColor0, id=ID_COLOR_0)
-        self.Bind(wx.EVT_MENU, self.onColor1, id=ID_COLOR_1)
-        self.Bind(wx.EVT_MENU, self.onColor2, id=ID_COLOR_2)
-        self.Bind(wx.EVT_MENU, self.onColor3, id=ID_COLOR_3)
-        self.Bind(wx.EVT_MENU, self.onColor4, id=ID_COLOR_4)
-        self.Bind(wx.EVT_MENU, self.onColor5, id=ID_COLOR_5)
-        self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
-        
-        # Detail menu events
-        self.Bind(wx.EVT_MENU, self.onAntenna, id=ID_DETAIL_ANT)
-        self.Bind(wx.EVT_MENU, self.onStand, id=ID_DETAIL_STAND)
-        self.Bind(wx.EVT_MENU, self.onFEE, id=ID_DETAIL_FEE)
-        self.Bind(wx.EVT_MENU, self.onCable, id=ID_DETAIL_CABLE)
-        self.Bind(wx.EVT_MENU, self.onRFI, id=ID_DETAIL_RFI)
-        self.Bind(wx.EVT_MENU, self.onStatus, id=ID_DETAIL_CHANGE_STATUS)
-        
-        # Power menu events
-        self.Bind(wx.EVT_MENU, self.onHistogram, id=ID_AVG_HIST)
-        self.Bind(wx.EVT_MENU, self.onavgPower, id=ID_AVG_POWER)
-        self.Bind(wx.EVT_MENU, self.onDataRange, id=ID_AVG_RANGE)
-        self.Bind(wx.EVT_MENU, self.onavgPowerSummary, id=ID_AVG_SUMMARY)
-        
-        # Select menu events
-        self.Bind(wx.EVT_MENU, self.onSelectAntenna, id=ID_SELECT_ANTENNA)
-        self.Bind(wx.EVT_MENU, self.onSelectStand, id=ID_SELECT_STAND)
-        self.Bind(wx.EVT_MENU, self.onSelectDigitizer, id=ID_SELECT_DIGITIZER)
-        
-        # Keyboard events
-        self.Bind(wx.EVT_KEY_UP, self.onKeyPress)
-        
-        # Make the images resizable
-        self.Bind(wx.EVT_PAINT, self.resizePlots)
-    
-    def onOpen(self, event):
+
+        # Keyboard shortcuts
+        self.bind('<Control-o>', lambda e: self.onOpen())
+        self.bind('<Control-q>', lambda e: self.onQuit())
+
+        # Keyboard events for navigation
+        self.bind('<KeyRelease>', self.onKeyPress)
+
+        # Window resize
+        self._resize_job = None
+        self.bind('<Configure>', self._on_configure)
+
+        # Window close
+        self.protocol("WM_DELETE_WINDOW", self.onQuit)
+
+    def _on_configure(self, event):
+        """Handle window resize with debouncing."""
+        # Only handle resize events for the main window, not child widgets
+        if event.widget == self and self.data is not None:
+            if self._resize_job:
+                self.after_cancel(self._resize_job)
+            self._resize_job = self.after(150, self._do_resize)
+
+    def _do_resize(self):
+        """Perform the actual resize - just redraw canvases."""
+        try:
+            self.canvas1.draw_idle()
+            self.canvas2.draw_idle()
+        except:
+            pass
+
+    def onOpen(self):
         """
         Open and load in a new NPZ file created by stationMaster.py.
         """
-        
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "*.*", wx.FD_OPEN)
-        if dlg.ShowModal() == wx.ID_OK:
-            self.filename = dlg.GetFilename()
-            self.dirname = dlg.GetDirectory()
+
+        filepath = filedialog.askopenfilename(
+            initialdir=self.dirname,
+            filetypes=[('NPZ Files', '*.npz'), ('All Files', '*.*')]
+        )
+        if filepath:
+            self.dirname = os.path.dirname(filepath)
+            self.filename = os.path.basename(filepath)
             self.data = TBW_GUI(self)
-            self.data.loadData(os.path.join(self.dirname, self.filename))
+            self.data.loadData(filepath)
             self.data.draw()
-            
+
             if self.cAdjust is not None:
                 try:
-                    self.cAdjust.Close()
+                    self.cAdjust.destroy()
                 except:
                     pass
                 self.cAdjust = None
-        dlg.Destroy()
-        
-    def onSSMIF(self, event):
+
+    def onSSMIF(self):
         """
         Display the SSMIF antenna and FEE status codes.
         """
-        
-        DisplaySSMIF(self)
-        
-    def onQuit(self, event):
+
+        if self.data is not None:
+            DisplaySSMIF(self)
+
+    def onQuit(self):
         """
         Quit station master GUI.
         """
-        
-        self.Close(True)
-        
-    def onColor0(self, event):
+
+        self.destroy()
+
+    def onColorChange(self):
         """
-        Set the stand field color coding to the mean ratio of the antenna
-        PSD to the median spectrum between 32 and 50 MHz.  Re-draw if 
-        necessary.
+        Handle color coding menu selection changes.
         """
-        
-        if self.data.color != 0:
-            self.data.color = 0
+
+        new_color = self.color_var.get()
+        if self.data is not None and self.data.color != new_color:
+            self.data.color = new_color
             self.data.draw()
             if self.cAdjust is not None:
                 try:
-                    self.cAdjust.Close()
+                    self.cAdjust.destroy()
                 except:
                     pass
-            
-    def onColor1(self, event):
-        """
-        Set the stand field color coding to the RFI-46 index.  Re-draw if 
-        necessary.
-        """
-        
-        if self.data.color != 1:
-            self.data.color = 1
-            self.data.draw()
-            if self.cAdjust is not None:
-                try:
-                    self.cAdjust.Close()
-                except:
-                    pass
-            
-    def onColor2(self, event):
-        """
-        Set the stand field color coding to the RFI-64 index.  Re-draw if 
-        necessary.
-        """
-        
-        if self.data.color != 2:
-            self.data.color = 2
-            self.data.draw()
-            if self.cAdjust is not None:
-                try:
-                    self.cAdjust.Close()
-                except:
-                    pass
-                
-    def onColor3(self, event):
-        """
-        Set the stand field color coding to the antenna status.  Re-draw if 
-        necessary.
-        """
-        
-        if self.data.color != 3:
-            self.data.color = 3
-            self.data.draw()
-            if self.cAdjust is not None:
-                try:
-                    self.cAdjust.Close()
-                except:
-                    pass
-            
-    def onColor4(self, event):
-        """
-        Set the stand field color coding to the antenna status.  Re-draw if 
-        necessary.
-        """
-        
-        if self.data.color != 4:
-            self.data.color = 4
-            self.data.draw()
-            if self.cAdjust is not None:
-                try:
-                    self.cAdjust.Close()
-                except:
-                    pass
-            
-    def onColor5(self, event):
-        """
-        Set the stand field color coding to the estimates resonance point
-        frequency in MHz.  Re-draw if necessary.
-        """
-        
-        if self.data.color != 5:
-            self.data.color = 5
-            self.data.draw()
-            if self.cAdjust is not None:
-                try:
-                    self.cAdjust.Close()
-                except:
-                    pass
-                    
-    def onColor6(self, event):
-        """
-        Set the stand field color coding to the estimates resonance point
-        frequency in MHz.  Re-draw if necessary.
-        """
-        
-        if self.data.color != 6:
-            self.data.color = 6
-            self.data.draw()
-            if self.cAdjust is not None:
-                try:
-                    self.cAdjust.Close()
-                except:
-                    pass
-                    
-    def onAdjust(self, event):
+                self.cAdjust = None
+
+    def onAdjust(self):
         """
         Bring up the colorbar adjustment dialog window.
         """
-        
-        if self.data.color != 3:
+
+        # Don't allow contrast adjustment for Antenna Status (color=5)
+        # since it uses discrete categorical values (Bad/Suspect/Good)
+        if self.data is not None and self.data.color != 5:
             ContrastAdjust(self)
-        
-    def onAntenna(self, event):
+
+    def onAntenna(self):
         """
         Display meta-data for the selected antenna pair.  This includes:
         * ID numbers
@@ -882,51 +690,53 @@ class MainWindow(wx.Frame):
         * DP1 digitizer number
         * status code
         """
-        
-        if self.data is None:
-            pass
-        
-        if self.data.bestX != -1:
-            ant1 = self.data.antennas[self.data.bestX-1]
-            ant2 = self.data.antennas[self.data.bestY-1]
-            
-            toCompare = numpy.where( (self.data.freq>31e6) & (self.data.freq<70e6) )[0]
-            
-            i = self.data.bestX-1
-            bestOrder = 0
-            bestRMS = 1e34
-            for j in range(3, 12):
-                coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
-                fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
-                rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()
-                if rms < bestRMS:
-                    bestOrder = j
-                    bestRMS = rms
-                        
-            coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
-            fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)	
-            res1 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
-            if len(res1) < 1:
-                res1 = 0.0
-            
-            i = self.data.bestY-1
-            bestOrder = 0
-            bestRMS = 1e34
-            for j in range(3, 12):
-                coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
-                fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
-                rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()
-                if rms < bestRMS:
-                    bestOrder = j
-                    bestRMS = rms
-                        
-            coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
-            fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)	
-            res2 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
-            if len(res2) < 1:
-                res2 = 0.0
 
-            outString = """Antenna: %i
+        if self.data is None:
+            return
+        if self.data.bestX == -1:
+            messagebox.showinfo("Antenna Details", "Please select a stand first.")
+            return
+
+        ant1 = self.data.antennas[self.data.bestX-1]
+        ant2 = self.data.antennas[self.data.bestY-1]
+
+        toCompare = numpy.where( (self.data.freq>31e6) & (self.data.freq<70e6) )[0]
+
+        i = self.data.bestX-1
+        bestOrder = 0
+        bestRMS = 1e34
+        for j in range(3, 12):
+            coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
+            fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
+            rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()
+            if rms < bestRMS:
+                bestOrder = j
+                bestRMS = rms
+
+        coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
+        fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
+        res1 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
+        if len(res1) < 1:
+            res1 = 0.0
+
+        i = self.data.bestY-1
+        bestOrder = 0
+        bestRMS = 1e34
+        for j in range(3, 12):
+            coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
+            fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
+            rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()
+            if rms < bestRMS:
+                bestOrder = j
+                bestRMS = rms
+
+        coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
+        fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
+        res2 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
+        if len(res2) < 1:
+            res2 = 0.0
+
+        outString = """Antenna: %i
 Polarization: %i
 
 Est. Resonance: %.3f MHz
@@ -953,15 +763,12 @@ ARX Board: %s
 Channel:   %i
 
 Status: %i
-""" % (ant1.id, ant1.pol, res1, ant1.board, ant1.digitizer, ant1.arx.id, ant1.arx.channel, ant1.status, 
-        ant2.id, ant2.pol, res2, ant2.board, ant2.digitizer, ant2.arx.id, ant2.arx.channel, ant2.status)
-        
-            box = wx.MessageDialog(self, outString, "Antenna Details")
-            box.ShowModal()
-        else:
-            pass
-    
-    def onStand(self, event):
+""" % (ant1.id, ant1.pol, res1, ant1.board, ant1.digitizer, ant1.arx.id, ant1.arx.channel, ant1.status,
+       ant2.id, ant2.pol, res2, ant2.board, ant2.digitizer, ant2.arx.id, ant2.arx.channel, ant2.status)
+
+        messagebox.showinfo("Antenna Details", outString)
+
+    def onStand(self):
         """
         Display meta-data about the selected stand.  This includes:
         * ID number
@@ -969,60 +776,62 @@ Status: %i
         * distance from the center of the shelter
         * distance from the fence
         """
-        
+
         if self.data is None:
-            pass
-        
-        if self.data.bestX != -1:
-            std = self.data.antennas[self.data.bestX-1].stand
-            if self.data.station == 'LWA1':
-                shlDist = numpy.sqrt( (std.x - 56.965)**2 + (std.y - 86.623)**2 )
-            elif self.data.station == 'LWASV':
-                shlDist = numpy.sqrt( (std.x + 26.790)**2 + (std.y - 48.908)**2 )
-            else:
-                shlDist = numpy.nan
-                
-            if self.data.station == 'LWA1':
-                fenDistA = numpy.zeros(4)
+            return
+        if self.data.bestX == -1:
+            messagebox.showinfo("Stand Detail", "Please select a stand first.")
+            return
+
+        std = self.data.antennas[self.data.bestX-1].stand
+        if self.data.station == 'LWA1':
+            shlDist = numpy.sqrt( (std.x - 56.965)**2 + (std.y - 86.623)**2 )
+        elif self.data.station == 'LWASV':
+            shlDist = numpy.sqrt( (std.x + 26.790)**2 + (std.y - 48.908)**2 )
+        else:
+            shlDist = numpy.nan
+
+        if self.data.station == 'LWA1':
+            fenDistA = numpy.zeros(4)
+            k = 0
+            for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752)]):
+                x1 = p1[0]
+                y1 = p1[1]
+                x2 = p2[0]
+                y2 = p2[1]
+
+                a = (y2-y1)/(x2-x1)
+                b = (y2*x1-y1*x2)/(x2-x1)
+
+                x3 = std.x
+                y3 = std.y
+
+                x4 = (x3/a + y3 - b)*a / (a**2+1)
+                y4 = a*x4 + b
+
+                fenDistA[k] = numpy.sqrt( (x3-x4)**2 + (y3-y4)**2 )
+                k += 1
+
+            # Catch things outside the fence
+            if abs(std.x) > 60 or abs(std.y) > 60:
                 k = 0
-                for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752)]):
+                for p1 in [(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)]:
                     x1 = p1[0]
                     y1 = p1[1]
-                    x2 = p2[0]
-                    y2 = p2[1]
-                    
-                    a = (y2-y1)/(x2-x1)
-                    b = (y2*x1-y1*x2)/(x2-x1)
-                    
+
                     x3 = std.x
                     y3 = std.y
-                    
-                    x4 = (x3/a + y3 - b)*a / (a**2+1)
-                    y4 = a*x4 + b
-                    
-                    fenDistA[k] = numpy.sqrt( (x3-x4)**2 + (y3-y4)**2 )
+
+                    fenDistA[k] = numpy.sqrt( (x3-x1)**2 + (y3-y1)**2 )
                     k += 1
-                
-                # Catch things outside the fence
-                if abs(std.x) > 60 or abs(std.y) > 60:
-                    k = 0
-                    for p1 in [(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)]:
-                        x1 = p1[0]
-                        y1 = p1[1]
-                        
-                        x3 = std.x
-                        y3 = std.y
-                        
-                        fenDistA[k] = numpy.sqrt( (x3-x1)**2 + (y3-y1)**2 )
-                        k += 1
-                    
-                fenDist = fenDistA.min()
-            elif self.data.station == 'LWASV':
-                fenDist = numpy.nan
-            else:
-                fenDist = numpy.nan
-                
-            outString = """Stand: %i
+
+            fenDist = fenDistA.min()
+        elif self.data.station == 'LWASV':
+            fenDist = numpy.nan
+        else:
+            fenDist = numpy.nan
+
+        outString = """Stand: %i
 
 Coordinates:
 x = %.3f m
@@ -1032,30 +841,29 @@ z = %.3f m
 Shelter Distance: %.3f m
 Fence Distance: %.3f m
 """ % (std.id, std.x, std.y, std.z, shlDist, fenDist)
-            
-            box = wx.MessageDialog(self, outString, "Stand Detail")
-            box.ShowModal()
-        else:
-            pass
-    
-    def onCable(self, event):
+
+        messagebox.showinfo("Stand Detail", outString)
+
+    def onCable(self):
         """
-        Display meta-data about the RPD cables connecting the the selected 
+        Display meta-data about the RPD cables connecting the the selected
         stand/antennas back to the shelter.  This includes:
         * ID names
         * lengths
         * delay at 10 MHz
         * gain at 10 MHz
         """
-        
+
         if self.data is None:
-            pass
-        
-        if self.data.bestX != -1:
-            ant1 = self.data.antennas[self.data.bestX-1]
-            ant2 = self.data.antennas[self.data.bestY-1]
-            
-            outString = """Antenna: %i
+            return
+        if self.data.bestX == -1:
+            messagebox.showinfo("Cable Details", "Please select a stand first.")
+            return
+
+        ant1 = self.data.antennas[self.data.bestX-1]
+        ant2 = self.data.antennas[self.data.bestY-1]
+
+        outString = """Antenna: %i
 Cable: %s
 
 Length: %.1f m
@@ -1072,35 +880,34 @@ Length: %.1f m
 
 Delay @ 10 MHz: %.1f ns
 Gain @ 10 MHz: %.1f dB
-""" % (ant1.id, ant1.cable.id, ant1.cable.length, ant1.cable.delay(10e6, ns=True), to_dB(ant1.cable.gain(10e6)), 
-        ant2.id, ant2.cable.id, ant2.cable.length, ant2.cable.delay(10e6, ns=True), to_dB(ant2.cable.gain(10e6)))
-            
-            box = wx.MessageDialog(self, outString, "Cable Details")
-            box.ShowModal()
-        else:
-            pass
-        
-    def onFEE(self, event):
+""" % (ant1.id, ant1.cable.id, ant1.cable.length, ant1.cable.delay(10e6, ns=True), to_dB(ant1.cable.gain(10e6)),
+       ant2.id, ant2.cable.id, ant2.cable.length, ant2.cable.delay(10e6, ns=True), to_dB(ant2.cable.gain(10e6)))
+
+        messagebox.showinfo("Cable Details", outString)
+
+    def onFEE(self):
         """
-        Display meta-data about the FEE installed in the selected stand.  
+        Display meta-data about the FEE installed in the selected stand.
         This includes:
         * ID name
         * which antennas are connected to which ports
         * gain settings
         * status
         """
-        
+
         if self.data is None:
-            pass
-        
-        if self.data.bestX != -1:
-            fee = self.data.antennas[self.data.bestX-1].fee
-            portXA = self.data.antennas[self.data.bestX-1].id
-            portXP = self.data.antennas[self.data.bestX-1].feePort
-            portYA = self.data.antennas[self.data.bestY-1].id
-            portYP = self.data.antennas[self.data.bestY-1].feePort
-            
-            outString = """FEE: %s
+            return
+        if self.data.bestX == -1:
+            messagebox.showinfo("FEE Detail", "Please select a stand first.")
+            return
+
+        fee = self.data.antennas[self.data.bestX-1].fee
+        portXA = self.data.antennas[self.data.bestX-1].id
+        portXP = self.data.antennas[self.data.bestX-1].fee_port
+        portYA = self.data.antennas[self.data.bestY-1].id
+        portYP = self.data.antennas[self.data.bestY-1].fee_port
+
+        outString = """FEE: %s
 
 Ports:
 %i = antenna %i (X pol.)
@@ -1112,32 +919,31 @@ Gains:
 
 Status: %i
 """ % (fee.id, portXP, portXA, portYP, portYA, fee.gain1, fee.gain2, fee.status)
-            
-            box = wx.MessageDialog(self, outString, "FEE Detail")
-            box.ShowModal()
-        else:
-            pass
-        
-    def onRFI(self, event):
+
+        messagebox.showinfo("FEE Detail", outString)
+
+    def onRFI(self):
         if self.data is None:
-            pass
-        
-        if self.data.bestX != -1:
-            ant1 = self.data.antennas[self.data.bestX-1]
-            ant2 = self.data.antennas[self.data.bestY-1]
-            
-            rfi1 = numpy.where( (self.data.freq>45e6) & (self.data.freq<47e6) )[0]
-            rfi2 = numpy.where( (self.data.freq>63e6) & (self.data.freq<65e6) )[0]
-            corr = numpy.where( (self.data.freq>75e6) & (self.data.freq<77e6) )[0]
-            
-            a1r1 = (self.data.spec[self.data.bestX-1,rfi1] / self.data.specTemplate[rfi1]).max()
-            a1r2 = (self.data.spec[self.data.bestX-1,rfi2] / self.data.specTemplate[rfi2]).max()
-            c1 = (self.data.spec[self.data.bestX-1,corr] / self.data.specTemplate[corr]).mean()
-            a2r1 = (self.data.spec[self.data.bestY-1,rfi1] / self.data.specTemplate[rfi1]).max()
-            a2r2 = (self.data.spec[self.data.bestY-1,rfi2] / self.data.specTemplate[rfi2]).max()
-            c2 = (self.data.spec[self.data.bestY-1,corr] / self.data.specTemplate[corr]).mean()
-            
-            outString = """Antenna: %i
+            return
+        if self.data.bestX == -1:
+            messagebox.showinfo("Shelter RFI Details", "Please select a stand first.")
+            return
+
+        ant1 = self.data.antennas[self.data.bestX-1]
+        ant2 = self.data.antennas[self.data.bestY-1]
+
+        rfi1 = numpy.where( (self.data.freq>45e6) & (self.data.freq<47e6) )[0]
+        rfi2 = numpy.where( (self.data.freq>63e6) & (self.data.freq<65e6) )[0]
+        corr = numpy.where( (self.data.freq>75e6) & (self.data.freq<77e6) )[0]
+
+        a1r1 = (self.data.spec[self.data.bestX-1,rfi1] / self.data.specTemplate[rfi1]).max()
+        a1r2 = (self.data.spec[self.data.bestX-1,rfi2] / self.data.specTemplate[rfi2]).max()
+        c1 = (self.data.spec[self.data.bestX-1,corr] / self.data.specTemplate[corr]).mean()
+        a2r1 = (self.data.spec[self.data.bestY-1,rfi1] / self.data.specTemplate[rfi1]).max()
+        a2r2 = (self.data.spec[self.data.bestY-1,rfi2] / self.data.specTemplate[rfi2]).max()
+        c2 = (self.data.spec[self.data.bestY-1,corr] / self.data.specTemplate[corr]).mean()
+
+        outString = """Antenna: %i
 Polarization: %i
 
 RFI-46 Index:
@@ -1160,581 +966,550 @@ corrected = %.3f
 RFI-64 Index:
 raw = %.3f
 corrected = %.3f
-""" % (ant1.id, ant1.pol, a1r1, a1r1/c1, a1r2, a1r2/c1, 
-        ant2.id, ant2.pol, a2r1, a2r1/c2, a2r2, a2r2/c2)
-        
-            box = wx.MessageDialog(self, outString, "Shelter RFI Details")
-            box.ShowModal()
-        else:
-            pass
-        
-    def onStatus(self, event):
+""" % (ant1.id, ant1.pol, a1r1, a1r1/c1, a1r2, a1r2/c1,
+       ant2.id, ant2.pol, a2r1, a2r1/c2, a2r2, a2r2/c2)
+
+        messagebox.showinfo("Shelter RFI Details", outString)
+
+    def onStatus(self):
         """
         Display the change antenna/FEE status dialog.
         """
-        
-        if self.data.bestX > 0:
+
+        if self.data is not None and self.data.bestX > 0:
             StatusChangeDialog(self)
-            
-        
-    def onHistogram(self, event):
+
+
+    def onHistogram(self):
         """"
         Display the ADC histogram plots.
         """
-        
-        if self.data.adcHistogram is not None and self.data.bestX > 0:
-            ADCHistogramDisplay(self)
-            
-    def onavgPower(self, event):
+
+        if self.data is None:
+            return
+        if self.data.adcHistogram is None:
+            messagebox.showinfo("ADC Histogram", "ADC histogram data is not available in this file.")
+            return
+        if self.data.bestX < 1:
+            messagebox.showinfo("ADC Histogram", "Please select a stand first.")
+            return
+        ADCHistogramDisplay(self)
+
+    def onavgPower(self):
         """
         Display the average power plots.
         """
-        
-        if self.data.avgPower is not None and self.data.bestX > 0:
-            AvgPowerDisplay(self)
-            
-    def onDataRange(self, event):
+
+        if self.data is None:
+            return
+        if self.data.avgPower is None:
+            messagebox.showinfo("Average Power", "Average power data is not available in this file.")
+            return
+        if self.data.bestX < 1:
+            messagebox.showinfo("Average Power", "Please select a stand first.")
+            return
+        AvgPowerDisplay(self)
+
+    def onDataRange(self):
         """
         Display the data range plots.
         """
-        
-        if self.data.dataRange is not None and self.data.bestX > 0:
-            DataRangeDisplay(self)
-        
-    def onavgPowerSummary(self, event):
+
+        if self.data is None:
+            return
+        if self.data.dataRange is None:
+            messagebox.showinfo("Data Range", "Data range information is not available in this file.")
+            return
+        if self.data.bestX < 1:
+            messagebox.showinfo("Data Range", "Please select a stand first.")
+            return
+        DataRangeDisplay(self)
+
+    def onavgPowerSummary(self):
         """
         Display a message box with the average power summary.
         """
-        
+
         if self.data is None:
-            pass
+            return
         if self.data.avgPower is None:
-            pass
-        
-        if self.data.bestX != -1:
-            ant1 = self.data.antennas[self.data.bestX-1]
-            dat1 = self.data.avgPower[self.data.bestX-1,:]
-            ant2 = self.data.antennas[self.data.bestY-1]
-            dat2 = self.data.avgPower[self.data.bestY-1,:]
-        
-            outString = """Antenna: %i
-Polarization: %i
+            messagebox.showinfo("Average Power Summary", "Average power data is not available in this file.")
+            return
+        if self.data.bestX == -1:
+            messagebox.showinfo("Average Power Summary", "Please select a stand first.")
+            return
 
-Global Mean:
-%.2f +/- %.2f
-Global Range:
-%.2f to %.2f
+        ant1 = self.data.antennas[self.data.bestX-1]
+        dat1 = self.data.avgPower[self.data.bestX-1,:]
+        ant2 = self.data.antennas[self.data.bestY-1]
+        dat2 = self.data.avgPower[self.data.bestY-1,:]
 
-Antenna: %i
-Polarization: %i
+        outString = """Antenna: %i,  Polarization: %i
+Global Mean: %.2f +/- %.2f
+Global Range: %.2f to %.2f
 
-Global Mean:
-%.2f +/- %.2f
-Global Range:
-%.2f to %.2f
-""" % (ant1.id, ant1.pol, dat1.mean(), dat1.std(), dat1.min(), dat1.max(), 
-        ant2.id, ant2.pol, dat2.mean(), dat2.std(), dat2.min(), dat2.max())
-        
-            box = wx.MessageDialog(self, outString, "Average Power Details")
-            box.ShowModal()
-        else:
-            pass
-        
-    def onSelectAntenna(self, event):
+Antenna: %i,  Polarization: %i
+Global Mean: %.2f +/- %.2f
+Global Range: %.2f to %.2f""" % (ant1.id, ant1.pol, dat1.mean(), dat1.std(), dat1.min(), dat1.max(),
+                                 ant2.id, ant2.pol, dat2.mean(), dat2.std(), dat2.min(), dat2.max())
+
+        messagebox.showinfo("Average Power Details", outString)
+
+    def onSelectAntenna(self):
         """
         Bring up a dialog box to find an antenna based on its ID number.
         """
-        
+
+        if self.data is None:
+            return
+
         try:
             currAnt = self.data.antennas[self.data.bestX-1].id
         except:
             currAnt = 1
-            
+
         box = SelectBox(self, mode='antenna', current=currAnt)
-        if box.ShowModal() == wx.ID_OK:
-            antID = int(box.input.GetValue())
-            if antID < 1 or antID > 520:
-                pass
-            elif self.data.antennas is None:
-                pass
-            else:
+        self.wait_window(box)
+        if box.result is not None:
+            try:
+                antID = int(box.result)
+                if antID < 1 or antID > 520:
+                    return
+                if self.data.antennas is None:
+                    return
                 for ant in self.data.antennas:
                     if ant.id == antID:
                         self.data.drawSpectrum(ant.stand.x, ant.stand.y)
                         self.data.makeMark(ant.stand.x, ant.stand.y)
                         break
-                
-        box.Destroy()
-    
-    def onSelectStand(self, event):
+            except ValueError:
+                pass
+
+    def onSelectStand(self):
         """
         Bring up a dialog box to find a stand based on its ID number.
         """
-        
+
+        if self.data is None:
+            return
+
         try:
             currStand = self.data.antennas[self.data.bestX-1].stand.id
         except:
-            currStand = None
-            
+            currStand = 1
+
         box = SelectBox(self, mode='stand', current=currStand)
-        if box.ShowModal() == wx.ID_OK:
-            stdID = int(box.input.GetValue())
-            if stdID < 1 or stdID > 260:
-                pass
-            elif self.data.antennas is None:
-                pass
-            else:
+        self.wait_window(box)
+        if box.result is not None:
+            try:
+                stdID = int(box.result)
+                if stdID < 1 or stdID > 260:
+                    return
+                if self.data.antennas is None:
+                    return
                 for ant in self.data.antennas:
                     if ant.stand.id == stdID:
                         self.data.drawSpectrum(ant.stand.x, ant.stand.y, preferStand=stdID)
                         self.data.makeMark(ant.stand.x, ant.stand.y)
                         break
-                
-        box.Destroy()
-    
-    def onSelectDigitizer(self, event):
+            except ValueError:
+                pass
+
+    def onSelectDigitizer(self):
         """
-        Bring up a dialog box to find a antenna associated with a particular 
+        Bring up a dialog box to find a antenna associated with a particular
         digitizer number.
         """
-        
+
+        if self.data is None:
+            return
+
         try:
             currDig = self.data.antennas[self.data.bestX-1].digitizer
         except:
-            currDig = None
-            
+            currDig = 1
+
         box = SelectBox(self, mode='digitizer', current=currDig)
-        if box.ShowModal() == wx.ID_OK:
-            digID = int(box.input.GetValue())
-            if digID < 1 or digID > 520:
-                pass
-            elif self.data.antennas is None:
-                pass
-            else:
+        self.wait_window(box)
+        if box.result is not None:
+            try:
+                digID = int(box.result)
+                if digID < 1 or digID > 520:
+                    return
+                if self.data.antennas is None:
+                    return
                 for ant in self.data.antennas:
                     if ant.digitizer == digID:
                         self.data.drawSpectrum(ant.stand.x, ant.stand.y)
                         self.data.makeMark(ant.stand.x, ant.stand.y)
                         break
-                
-        box.Destroy()
-        
+            except ValueError:
+                pass
+
     def onKeyPress(self, event):
         """
         Use the arrow keys to move around the array.
         """
-        
-        keycode = event.GetKeyCode()
+
+        if self.data is None:
+            return
+
+        keysym = event.keysym
         try:
             currStand = self.data.antennas[self.data.bestX-1].stand.id
         except:
             currStand = 1
-        if keycode == wx.WXK_LEFT and currStand > 1:
+
+        if keysym == 'Left' and currStand > 1:
             ## Left decreases the stand number by 1
             currStand -= 1
-        elif keycode == wx.WXK_RIGHT and currStand < len(self.data.antennas):
+        elif keysym == 'Right' and currStand < len(self.data.antennas):
             ## Right increases the stand number by 1
-            currStand +=1
+            currStand += 1
         else:
-            return False
-            
+            return
+
         for ant in self.data.antennas:
             if ant.stand.id == currStand:
                 self.data.drawSpectrum(ant.stand.x, ant.stand.y, preferStand=currStand)
                 self.data.makeMark(ant.stand.x, ant.stand.y)
                 break
-                
-        return True
 
-    def resizePlots(self, event):
-        w, h = self.GetSize()
-        dpi = self.figure1.get_dpi()
-        newW = 0.5*w/dpi
-        newH1 = 1.0*(h-100)/dpi
-        newH2 = 1.0*(h-130)/dpi
-        self.figure1.set_size_inches((newW, newH1))
-        self.figure1.canvas.draw()
-        self.figure2.set_size_inches((newW, newH2))
-        self.figure2.canvas.draw()
+    def resizePlots(self):
+        """Handle window resize events.
+
+        Note: With tk's pack geometry manager (fill=BOTH, expand=True),
+        the canvas widgets resize automatically. We just need to redraw
+        to update the display, not manually set figure sizes.
+        """
+        if self.data is None:
+            return
+
+        try:
+            self.canvas1.draw_idle()
+            self.canvas2.draw_idle()
+        except:
+            pass
 
     def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
+        # You will need to override GetToolBar if you are using an
         # unmanaged toolbar in your frame
         return self.toolbar
 
 
-ID_CONTRAST_UPR_INC = 100
-ID_CONTRAST_UPR_DEC = 101
-ID_CONTRAST_LWR_INC = 102
-ID_CONTRAST_LWR_DEC = 103
-ID_CONTRAST_OK = 104
+class ContrastAdjust(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title('Contrast Adjustment')
+        self.transient(parent)
+        self.resizable(False, False)
 
-class ContrastAdjust(wx.Frame):
-    def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Contrast Adjustment', size=(330, 175))
-        
         self.parent = parent
-        
+
         self.initUI()
         self.initEvents()
-        self.Show()
-        
+
         self.parent.cAdjust = self
-        
+
     def initUI(self):
-        row = 0
-        panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(5, 5)
-        
-        if self.parent.data.color == 0:
-            mode = 'Median Comparison'
-        elif self.parent.data.color == 1:
-            mode = 'RFI-46 Index'
-        elif self.parent.data.color == 2:
-            mode = 'RFI-64 Index'
-        elif self.parent.data.color == 3:
-            mode = 'Wiggle Index'
-        elif self.parent.data.color == 4:
-            mode = 'Antenna Status'
-        else:
-            mode = 'Resonance Point'
-        typ = wx.StaticText(panel, label='Color Coding Mode: %s' % mode)
-        sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        
-        row += 1
-        
-        upr = wx.StaticText(panel, label='Upper Limit:')
-        uprText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
-        uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
-        
-        lwr = wx.StaticText(panel, label='Lower Limit:')
-        lwrText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
-        lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
-        
-        rng = wx.StaticText(panel, label='Range:')
-        rngText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        
-        sizer.Add(upr,     pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(uprText, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(uprDec,  pos=(row+0, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(uprInc,  pos=(row+0, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwr,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwrText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwrDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwrInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(rng,     pos=(row+2, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(rngText, pos=(row+2, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        
-        line = wx.StaticLine(panel)
-        sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.BOTTOM, border=10)
-        
-        row += 4
-        
-        #
-        # Buttons
-        #
-        
-        ok = wx.Button(panel, ID_CONTRAST_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
-        
-        panel.SetSizerAndFit(sizer)
+        panel = ttk.Frame(self, padding="15")
+        panel.pack(fill=tk.BOTH, expand=True)
 
-        self.uText = uprText
-        self.lText = lwrText
-        self.rText = rngText
-        
-        #
+        mode_names = {
+            0: 'Median Comparison',
+            1: 'RFI-46 Index',
+            2: 'RFI-64 Index',
+            3: 'RFI-76 Index',
+            4: 'Wiggle Index',
+            5: 'Antenna Status',
+            6: 'Resonance Point'
+        }
+        mode = mode_names.get(self.parent.data.color, 'Unknown')
+
+        ttk.Label(panel, text='Color Coding Mode: %s' % mode).grid(
+            row=0, column=0, columnspan=4, sticky='w', padx=5, pady=5)
+
+        # Upper limit
+        ttk.Label(panel, text='Upper Limit:').grid(row=1, column=0, sticky='w', padx=5)
+        self.upr_var = tk.StringVar()
+        self.uprText = ttk.Entry(panel, textvariable=self.upr_var, state='readonly', width=10)
+        self.uprText.grid(row=1, column=1, padx=5)
+        ttk.Button(panel, text='-', width=3, command=self.onUpperDecrease).grid(row=1, column=2, padx=2)
+        ttk.Button(panel, text='+', width=3, command=self.onUpperIncrease).grid(row=1, column=3, padx=2)
+
+        # Lower limit
+        ttk.Label(panel, text='Lower Limit:').grid(row=2, column=0, sticky='w', padx=5)
+        self.lwr_var = tk.StringVar()
+        self.lwrText = ttk.Entry(panel, textvariable=self.lwr_var, state='readonly', width=10)
+        self.lwrText.grid(row=2, column=1, padx=5)
+        ttk.Button(panel, text='-', width=3, command=self.onLowerDecrease).grid(row=2, column=2, padx=2)
+        ttk.Button(panel, text='+', width=3, command=self.onLowerIncrease).grid(row=2, column=3, padx=2)
+
+        # Range
+        ttk.Label(panel, text='Range:').grid(row=3, column=0, sticky='w', padx=5)
+        self.rng_var = tk.StringVar()
+        self.rngText = ttk.Entry(panel, textvariable=self.rng_var, state='readonly', width=10)
+        self.rngText.grid(row=3, column=1, padx=5)
+
+        # Separator
+        ttk.Separator(panel, orient=tk.HORIZONTAL).grid(
+            row=4, column=0, columnspan=4, sticky='ew', pady=10)
+
+        # OK button
+        ttk.Button(panel, text='Ok', command=self.onOk).grid(
+            row=5, column=3, sticky='e', padx=5, pady=5)
+
         # Set current values
-        #
         color = self.parent.data.color
-        self.uText.SetValue('%.1f' % self.parent.data.limits[color][1])
-        self.lText.SetValue('%.1f' % self.parent.data.limits[color][0])
-        self.rText.SetValue('%.1f' % self.__getRange(color))
-        
+        self.upr_var.set('%.1f' % self.parent.data.limits[color][1])
+        self.lwr_var.set('%.1f' % self.parent.data.limits[color][0])
+        self.rng_var.set('%.1f' % self._getRange(color))
+
     def initEvents(self):
-        self.Bind(wx.EVT_BUTTON, self.onUpperDecrease, id=ID_CONTRAST_UPR_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onUpperIncrease, id=ID_CONTRAST_UPR_INC)
-        self.Bind(wx.EVT_BUTTON, self.onLowerDecrease, id=ID_CONTRAST_LWR_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onLowerIncrease, id=ID_CONTRAST_LWR_INC)
-        
-        self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
-        
-    def onUpperDecrease(self, event):
-        color = self.parent.data.color
-        self.parent.data.limits[color][1] -= self.__getIncrement(color)
-        self.uText.SetValue('%.1f' % self.parent.data.limits[color][1])
-        self.rText.SetValue('%.1f' % self.__getRange(color))
+        self.protocol("WM_DELETE_WINDOW", self.onOk)
+
+    def _redraw(self):
+        """Redraw the main plot and force update."""
         self.parent.data.draw()
-        
-    def onUpperIncrease(self, event):
+
+    def onUpperDecrease(self):
         color = self.parent.data.color
-        self.parent.data.limits[color][1] += self.__getIncrement(color)
-        self.uText.SetValue('%.1f' % self.parent.data.limits[color][1])
-        self.rText.SetValue('%.1f' % self.__getRange(color))
-        self.parent.data.draw()
-        
-    def onLowerDecrease(self, event):
+        self.parent.data.limits[color][1] -= self._getIncrement(color)
+        self.upr_var.set('%.1f' % self.parent.data.limits[color][1])
+        self.rng_var.set('%.1f' % self._getRange(color))
+        self._redraw()
+
+    def onUpperIncrease(self):
         color = self.parent.data.color
-        self.parent.data.limits[color][0] -= self.__getIncrement(color)
-        self.lText.SetValue('%.1f' % self.parent.data.limits[color][0])
-        self.rText.SetValue('%.1f' % self.__getRange(color))
-        self.parent.data.draw()
-        
-    def onLowerIncrease(self, event):
+        self.parent.data.limits[color][1] += self._getIncrement(color)
+        self.upr_var.set('%.1f' % self.parent.data.limits[color][1])
+        self.rng_var.set('%.1f' % self._getRange(color))
+        self._redraw()
+
+    def onLowerDecrease(self):
         color = self.parent.data.color
-        self.parent.data.limits[color][0] += self.__getIncrement(color)
-        self.lText.SetValue('%.1f' % self.parent.data.limits[color][0])
-        self.rText.SetValue('%.1f' % self.__getRange(color))
-        self.parent.data.draw()
-        
-    def onOk(self, event):
+        self.parent.data.limits[color][0] -= self._getIncrement(color)
+        self.lwr_var.set('%.1f' % self.parent.data.limits[color][0])
+        self.rng_var.set('%.1f' % self._getRange(color))
+        self._redraw()
+
+    def onLowerIncrease(self):
+        color = self.parent.data.color
+        self.parent.data.limits[color][0] += self._getIncrement(color)
+        self.lwr_var.set('%.1f' % self.parent.data.limits[color][0])
+        self.rng_var.set('%.1f' % self._getRange(color))
+        self._redraw()
+
+    def onOk(self):
         self.parent.cAdjust = None
-        self.Close()
-    
-    def __getRange(self, color):
+        self.destroy()
+
+    def _getRange(self, color):
         return (self.parent.data.limits[color][1] - self.parent.data.limits[color][0])
-        
-    def __getIncrement(self, color):
-        return 0.1*self.__getRange(color)
+
+    def _getIncrement(self, color):
+        return 0.1*self._getRange(color)
 
 
-class AvgPowerDisplay(wx.Frame):
+class AvgPowerDisplay(tk.Toplevel):
     """
     Window for displaying the average power with time for the selected stand.
     """
-    
+
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, title='Time-Averaged Power', size=(400, 375))
-        
+        super().__init__(parent)
+        self.title('Time-Averaged Power')
+        self.geometry('500x400')
+        self.transient(parent)
+
         self.parent = parent
-        
+
         self.initUI()
-        self.initEvents()
-        self.Show()
-        
         self.initPlot()
-        
-    def __nextTen(self, value):
+
+    def _nextTen(self, value):
         """
         Round a positive value to the next highest multiple of ten.
         """
-        
+
         return 10*numpy.ceil(value/10.0)
-        
+
     def initUI(self):
         """
         Start the user interface.
         """
-        
-        self.statusbar = self.CreateStatusBar()
-        
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        
-        # Add plots to panel 1
-        panel1 = wx.Panel(self, -1)
-        vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure(figsize=(4,4))
-        self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-        self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
-        panel1.SetSizer(vbox1)
-        hbox.Add(panel1, 1, wx.EXPAND)
-        
-        # Use some sizers to see layout options
-        self.SetSizer(hbox)
-        self.SetAutoLayout(1)
-        hbox.Fit(self)
-        
-    def initEvents(self):
-        """
-        Set all of the various events in the average power window.
-        """
-        
-        # Make the images resizable
-        self.Bind(wx.EVT_PAINT, self.resizePlots)
-        
+
+        # Status bar
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(fill=tk.X, side=tk.BOTTOM)
+
+        # Toolbar frame
+        toolbar_frame = ttk.Frame(self)
+        toolbar_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Plot frame
+        plot_frame = ttk.Frame(self)
+        plot_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.figure = Figure(tight_layout=True)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=plot_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
+        self.toolbar.update()
+
     def initPlot(self):
         """
         Populate the figure/canvas areas with a plot.  We only need to do this
         once for this type of window.
         """
-        
+
         avgPower = self.parent.data.avgPower
         bestX = self.parent.data.bestX
         bestY = self.parent.data.bestY
-        
+
         if avgPower is None:
             return False
         if bestX < 1:
             return False
-        
+
         self.figure.clf()
         self.ax1 = self.figure.gca()
-        
+
         ant1 = self.parent.data.antennas[bestX-1]
         ant2 = self.parent.data.antennas[bestY-1]
-        
+
         # Average power plot
         tScale = float(round(avgPower.shape[1] / 61.2244898))
         t = numpy.arange(0,avgPower.shape[1])/tScale + 0.5/tScale
-        #self.ax1.plot(t, avgPower[bestX-1,:], label='Pol. %i' % ant1.pol)
-        #self.ax1.plot(t, avgPower[bestY-1,:], label='Pol. %i' % ant2.pol)
         self.ax1.errorbar(t, avgPower[bestX-1,:], xerr=0.5/tScale, linestyle=' ', marker='+', label='Pol. %i' % ant1.pol, capsize=0)
         self.ax1.errorbar(t, avgPower[bestY-1,:], xerr=0.5/tScale, linestyle=' ', marker='+', label='Pol. %i' % ant2.pol, capsize=0)
-        
+
         # Set ranges
         self.ax1.set_xlim([0, 61])
-        self.ax1.set_ylim([0, self.__nextTen(avgPower.max())])
-        
+        self.ax1.set_ylim([0, self._nextTen(avgPower.max())])
+
         # Labels
         self.ax1.set_title('Stand #%i' % ant1.stand.id)
         self.ax1.set_xlabel('Time [ms]')
         self.ax1.set_ylabel('Average Power [counts]')
-        
+
         # Legend
         self.ax1.legend(loc=0)
         self.tScale = tScale
-        
+
         ## Draw and save the click (Why?)
         self.canvas.draw()
         self.connect()
-        
+
     def connect(self):
         """
         Connect to all the events we need to interact with the plots.
         """
-        
-        self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-    
+
+        self.cidmotion = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
     def on_motion(self, event):
         """
-        Deal with motion events in the stand field window.  This involves 
+        Deal with motion events in the stand field window.  This involves
         setting the status bar with the current x and y coordinates as well
         as the stand number of the selected stand (if any).
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             try:
                 tScale = self.tScale
                 ap1 = self.parent.data.avgPower[self.parent.data.bestX-1,int(clickX*tScale)]
                 ap2 = self.parent.data.avgPower[self.parent.data.bestY-1,int(clickX*tScale)]
-                self.statusbar.SetStatusText("t=%.2f ms, X pol. Power=%.2f counts, Y pol. Power=%.2f" % (clickX, ap1, ap2))
+                self.statusbar.config(text="t=%.2f ms, X pol. Power=%.2f counts, Y pol. Power=%.2f" % (clickX, ap1, ap2))
             except IndexError:
-                self.statusbar.SetStatusText("")
+                self.statusbar.config(text="")
         else:
-            self.statusbar.SetStatusText("")
-    
+            self.statusbar.config(text="")
+
     def disconnect(self):
         """
         Disconnect all the stored connection ids.
         """
-        
+
         self.figure.canvas.mpl_disconnect(self.cidmotion)
-        
-    def onCancel(self, event):
-        self.Close()
-        
-    def resizePlots(self, event):
-        w, h = self.GetSize()
-        dpi = self.figure.get_dpi()
-        newW = 1.0*w/dpi
-        newH1 = 1.0*(h/2-100)/dpi
-        newH2 = 1.0*(h/2-75)/dpi
-        self.figure.set_size_inches((newW, newH1))
-        self.figure.canvas.draw()
 
     def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
-        # unmanaged toolbar in your frame
         return self.toolbar
 
 
-class DataRangeDisplay(wx.Frame):
+class DataRangeDisplay(tk.Toplevel):
     """
-    Window for displaying the time series mean, min, and maximum raw data 
+    Window for displaying the time series mean, min, and maximum raw data
     values.
     """
-    
+
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, title='Range of Raw Data', size=(400, 375))
-        
+        super().__init__(parent)
+        self.title('Range of Raw Data')
+        self.geometry('500x400')
+        self.transient(parent)
+
         self.parent = parent
-        
+
         self.initUI()
-        self.initEvents()
-        self.Show()
-        
         self.initPlot()
-        
-    def __nextTen(self, value):
+
+    def _nextTen(self, value):
         """
         Round a positive value to the next highest multiple of ten.
         """
-        
+
         return 10*numpy.ceil(value/10.0)
-        
+
     def initUI(self):
         """
         Start the user interface.
         """
-        
-        self.statusbar = self.CreateStatusBar()
-        
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        
-        # Add plots to panel 1
-        panel1 = wx.Panel(self, -1)
-        vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure(figsize=(4,4))
-        self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-        self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
-        panel1.SetSizer(vbox1)
-        hbox.Add(panel1, 1, wx.EXPAND)
-        
-        # Use some sizers to see layout options
-        self.SetSizer(hbox)
-        self.SetAutoLayout(1)
-        hbox.Fit(self)
-        
-    def initEvents(self):
-        """
-        Set all of the various events in the data range window.
-        """
-        
-        # Make the images resizable
-        self.Bind(wx.EVT_PAINT, self.resizePlots)
-        
+
+        # Status bar
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(fill=tk.X, side=tk.BOTTOM)
+
+        # Toolbar frame
+        toolbar_frame = ttk.Frame(self)
+        toolbar_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Plot frame
+        plot_frame = ttk.Frame(self)
+        plot_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.figure = Figure(tight_layout=True)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=plot_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
+        self.toolbar.update()
+
     def initPlot(self):
         """
         Populate the figure/canvas areas with a plot.  We only need to do this
         once for this type of window.
         """
-        
+
         dataRange = self.parent.data.dataRange
         bestX = self.parent.data.bestX
         bestY = self.parent.data.bestY
-        
+
         if dataRange is None:
             return False
         if bestX < 1:
             return False
-        
+
         self.figure.clf()
         self.ax1 = self.figure.gca()
-        
+
         ant1 = self.parent.data.antennas[bestX-1]
         ant2 = self.parent.data.antennas[bestY-1]
-        
+
         # Data Range
         tScale = float(round(dataRange.shape[1] / 61.2244898))
         t = numpy.arange(0,dataRange.shape[1])/tScale + 0.5/tScale
@@ -1746,642 +1521,485 @@ class DataRangeDisplay(wx.Frame):
         eb2[0,:] = dataRange[bestY-1,:,1] - dataRange[bestY-1,:,0]
         eb2[1,:] = dataRange[bestY-1,:,2] - dataRange[bestY-1,:,1]
         self.ax1.errorbar(t, dataRange[bestY-1,:,1], xerr=0.5/tScale, yerr=eb2, linestyle=' ', marker='+', label='Pol. %i' % ant2.pol)
-        
+
         # Set ranges
         self.ax1.set_xlim([0, 61])
         self.ax1.set_ylim([-2048, 2047])
-        
+
         # Labels
         self.ax1.set_title('Stand #%i' % ant1.stand.id)
         self.ax1.set_xlabel('Time [ms]')
         self.ax1.set_ylabel('Data Range [counts]')
-        
+
         # Legend
         self.ax1.legend(loc=0)
         self.tScale = tScale
-        
+
         ## Draw and save the click (Why?)
         self.canvas.draw()
         self.connect()
-        
+
     def connect(self):
         """
         Connect to all the events we need to interact with the plots.
         """
-        
-        self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-    
+
+        self.cidmotion = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
     def on_motion(self, event):
         """
-        Deal with motion events in the stand field window.  This involves 
+        Deal with motion events in the stand field window.  This involves
         setting the status bar with the current x and y coordinates as well
         as the stand number of the selected stand (if any).
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             try:
                 tScale = self.tScale
                 dr1 = self.parent.data.dataRange[self.parent.data.bestX-1,int(clickX*tScale),:]
                 dr2 = self.parent.data.dataRange[self.parent.data.bestY-1,int(clickX*tScale),:]
-                self.statusbar.SetStatusText("t=%.2f ms, X pol. Range: %+i to %+i, Y Pol. Range: %+i to %+i counts" % (clickX, dr1[0], dr1[2], dr2[0], dr2[2]))
+                self.statusbar.config(text="t=%.2f ms, X pol. Range: %+i to %+i, Y Pol. Range: %+i to %+i counts" % (clickX, dr1[0], dr1[2], dr2[0], dr2[2]))
             except IndexError:
-                self.statusbar.SetStatusText("")
+                self.statusbar.config(text="")
         else:
-            self.statusbar.SetStatusText("")
-    
+            self.statusbar.config(text="")
+
     def disconnect(self):
         """
         Disconnect all the stored connection ids.
         """
-        
+
         self.figure.canvas.mpl_disconnect(self.cidmotion)
-        
-    def onCancel(self, event):
-        self.Close()
-        
-    def resizePlots(self, event):
-        w, h = self.GetSize()
-        dpi = self.figure.get_dpi()
-        newW = 1.0*w/dpi
-        newH1 = 1.0*(h/2-100)/dpi
-        newH2 = 1.0*(h/2-75)/dpi
-        self.figure.set_size_inches((newW, newH1))
-        self.figure.canvas.draw()
 
     def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
-        # unmanaged toolbar in your frame
         return self.toolbar
 
 
-class ADCHistogramDisplay(wx.Frame):
+class ADCHistogramDisplay(tk.Toplevel):
     """
-    Window for displaying the average power with time for the selected stand.
+    Window for displaying the ADC histogram for the selected stand.
     """
-    
+
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, title='ADC Histogram', size=(400, 375))
-        
+        super().__init__(parent)
+        self.title('ADC Histogram')
+        self.geometry('500x400')
+        self.transient(parent)
+
         self.parent = parent
-        
+
         self.initUI()
-        self.initEvents()
-        self.Show()
-        
         self.initPlot()
-        
-    def __nextThousand(self, value):
+
+    def _nextThousand(self, value):
         """
         Round a positive value to the next highest multiple of a thousand.
         """
-        
+
         return 1000*numpy.ceil(value/1000.0)
-        
+
     def initUI(self):
         """
         Start the user interface.
         """
-        
-        self.statusbar = self.CreateStatusBar()
-        
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        
-        # Add plots to panel 1
-        panel1 = wx.Panel(self, -1)
-        vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure(figsize=(4,4))
-        self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-        self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT | wx.EXPAND)
-        panel1.SetSizer(vbox1)
-        hbox.Add(panel1, 1, wx.EXPAND)
-        
-        # Use some sizers to see layout options
-        self.SetSizer(hbox)
-        self.SetAutoLayout(1)
-        hbox.Fit(self)
-        
-    def initEvents(self):
-        """
-        Set all of the various events in the average power window.
-        """
-        
-        # Make the images resizable
-        self.Bind(wx.EVT_PAINT, self.resizePlots)
-        
+
+        # Status bar
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(fill=tk.X, side=tk.BOTTOM)
+
+        # Toolbar frame
+        toolbar_frame = ttk.Frame(self)
+        toolbar_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Plot frame
+        plot_frame = ttk.Frame(self)
+        plot_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.figure = Figure(tight_layout=True)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=plot_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame)
+        self.toolbar.update()
+
     def initPlot(self):
         """
         Populate the figure/canvas areas with a plot.  We only need to do this
         once for this type of window.
         """
-        
+
         adcHistogram = self.parent.data.adcHistogram
         bestX = self.parent.data.bestX
         bestY = self.parent.data.bestY
-        
+
         if adcHistogram is None:
             return False
         if bestX < 1:
             return False
-        
+
         self.figure.clf()
         self.ax1 = self.figure.gca()
-        
+
         ant1 = self.parent.data.antennas[bestX-1]
         ant2 = self.parent.data.antennas[bestY-1]
-        
+
         # Histogram plot
-        histBins = range(-2048, 2049)
+        histBins = list(range(-2048, 2049))
         left, right = histBins[:-1], histBins[1:]
         v = numpy.array([left,right]).T.flatten()
         hX = numpy.array([adcHistogram[bestX-1,:], adcHistogram[bestX-1,:]]).T.flatten()
         hY = numpy.array([adcHistogram[bestY-1,:], adcHistogram[bestY-1,:]]).T.flatten()
-        
+
         self.ax1.plot(v, hX, label='Pol. %i' % ant1.pol)
         self.ax1.plot(v, hY, label='Pol. %i' % ant2.pol)
-        
+
         # Calculate and display the RMS
         rmsX = numpy.sqrt( (numpy.array(histBins[:-1])**2 * adcHistogram[bestX-1,:]).sum() / adcHistogram[bestX-1,:].sum() )
         rmsY = numpy.sqrt( (numpy.array(histBins[:-1])**2 * adcHistogram[bestY-1,:]).sum() / adcHistogram[bestY-1,:].sum() )
         self.ax1.text(0.08, 0.90, 'RMS$_%i$=%.1f' % (ant1.pol, rmsX), transform=self.ax1.transAxes)
         self.ax1.text(0.08, 0.85, 'RMS$_%i$=%.1f' % (ant2.pol, rmsY), transform=self.ax1.transAxes)
-        
+
         # Set ranges
         self.ax1.set_xlim([-2048, 2047])
-        hMax = max([self.__nextThousand(adcHistogram[bestX-1,:].max()), self.__nextThousand(adcHistogram[bestY-1,:].max())])
+        hMax = max([self._nextThousand(adcHistogram[bestX-1,:].max()), self._nextThousand(adcHistogram[bestY-1,:].max())])
         hMax += 5000
         self.ax1.set_ylim([0, hMax])
-        
+
         # Labels
         self.ax1.set_title('Stand #%i' % ant1.stand.id)
         self.ax1.set_xlabel('ADC Value')
         self.ax1.set_ylabel('Number')
-        
+
         # Legend
         self.ax1.legend(loc=0)
         self.histBins = histBins
-        
+
         ## Draw and save the click (Why?)
         self.canvas.draw()
         self.connect()
-        
+
     def connect(self):
         """
         Connect to all the events we need to interact with the plots.
         """
-        
-        self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-    
+
+        self.cidmotion = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
     def on_motion(self, event):
         """
-        Deal with motion events in the stand field window.  This involves 
+        Deal with motion events in the stand field window.  This involves
         setting the status bar with the current x and y coordinates as well
         as the stand number of the selected stand (if any).
         """
-        
+
         if event.inaxes:
             clickX = int(event.xdata)
             clickY = event.ydata
-            
+
             try:
                 idx = self.histBins.index(clickX)
-                
+
                 ap1 = self.parent.data.adcHistogram[self.parent.data.bestX-1,idx]
                 ap2 = self.parent.data.adcHistogram[self.parent.data.bestY-1,idx]
-                self.statusbar.SetStatusText("v=%i, X pol. Count=%i counts, Y pol. Count=%i" % (clickX, ap1, ap2))
-            except IndexError:
-                self.statusbar.SetStatusText("")
+                self.statusbar.config(text="v=%i, X pol. Count=%i counts, Y pol. Count=%i" % (clickX, ap1, ap2))
+            except (IndexError, ValueError):
+                self.statusbar.config(text="")
         else:
-            self.statusbar.SetStatusText("")
-            
+            self.statusbar.config(text="")
+
     def disconnect(self):
         """
         Disconnect all the stored connection ids.
         """
-        
+
         self.figure.canvas.mpl_disconnect(self.cidmotion)
-        
-    def onCancel(self, event):
-        self.Close()
-        
-    def resizePlots(self, event):
-        w, h = self.GetSize()
-        dpi = self.figure.get_dpi()
-        newW = 1.0*w/dpi
-        newH1 = 1.0*(h/2-100)/dpi
-        newH2 = 1.0*(h/2-75)/dpi
-        self.figure.set_size_inches((newW, newH1))
-        self.figure.canvas.draw()
-        
+
     def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
-        # unmanaged toolbar in your frame
         return self.toolbar
 
 
-class SelectBox(wx.Dialog):
+class SelectBox(tk.Toplevel):
     """
     Window for displaying the a simple dialog to find an antenna/stand/digitizer.
     """
-    
+
     def __init__(self, parent, mode='antenna', current=None):
-        wx.Dialog.__init__(self, parent, title='Find %s by ID' % mode.capitalize(), size=(200, 125))
-        
+        super().__init__(parent)
+        self.title('Find %s by ID' % mode.capitalize())
+        self.geometry('200x125')
+        self.transient(parent)
+        self.grab_set()
+
         self.parent = parent
         self.mode = mode
         self.current = current
-        
+        self.result = None
+
         self.initUI()
         self.initEvents()
-        
+
     def initUI(self):
         """
         Start the user interface.
         """
-        
-        panel = wx.Panel(self, -1)
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        
-        wx.StaticBox(panel, -1, '%s ID' % self.mode.capitalize(), (5, 5), (190, 75))
-        self.input = wx.TextCtrl(panel, -1, '', (15, 30))
+
+        # Main frame with label frame
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        lf = ttk.LabelFrame(main_frame, text='%s ID' % self.mode.capitalize())
+        lf.pack(fill=tk.X, pady=5)
+
+        self.input_var = tk.StringVar()
+        self.input = ttk.Entry(lf, textvariable=self.input_var, width=20)
+        self.input.pack(padx=10, pady=5)
+
         if self.mode == 'stand':
-            wx.StaticText(panel, -1, 'Limits: 1 - 260, inclusive', (15, 60))
+            ttk.Label(lf, text='Limits: 1 - 260, inclusive').pack(padx=10, pady=2)
         else:
-            wx.StaticText(panel, -1, 'Limits: 1 - 520, inclusive', (15, 60))
-            
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        okButton = wx.Button(self, wx.ID_OK, 'Ok', size=(70, 30))
-        closeButton = wx.Button(self, wx.ID_CANCEL, 'Close', size=(70, 30))
-        hbox.Add(okButton, 1)
-        hbox.Add(closeButton, 1, wx.LEFT, 5)
-        
-        vbox.Add(panel)
-        vbox.Add(hbox, 1, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 10)
-        
-        self.SetSizer(vbox)
-        
+            ttk.Label(lf, text='Limits: 1 - 520, inclusive').pack(padx=10, pady=2)
+
+        # Button frame
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=10)
+
+        ttk.Button(btn_frame, text='Ok', command=self.onOK).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text='Close', command=self.onCancel).pack(side=tk.LEFT, padx=5)
+
         if self.current is not None:
-            self.input.SetValue('%i' % self.current)
-            
+            self.input_var.set('%i' % self.current)
+
+        self.input.focus_set()
+
     def initEvents(self):
         """
         Bind the events needed to make this run.
         """
-        
-        self.Bind(wx.EVT_KEY_UP, self.onKeyPress)
-        
-    def onKeyPress(self, event):
-        """
-        Work with key presses on the dialog.
-        """
-        
-        keycode = event.GetKeyCode()
-        
-        if keycode == wx.WXK_RETURN: 
-            self.EndModal(wx.ID_OK)
-            
-        elif keycode == wx.WXK_ESCAPE:
-            self.EndModal(wx.ID_CANCEL)
-            
-        elif keycode == wx.WXK_DOWN:
-            try:
-                value = int(self.input.GetValue(), 10)
-                value = max([1, value-1])
-                self.input.SetValue('%i' % value)
-            except ValueError:
-                pass
-                
-        elif keycode == wx.WXK_UP:
-            try:
-                value = int(self.input.GetValue(), 10)
-                maxValue = 260 if self.mode == 'stand' else 520
-                value = min([maxValue, value+1])
-                self.input.SetValue('%i' % value)
-            except ValueError:
-                pass
-                
-        else:
-            event.Skip()
+
+        self.bind('<Return>', lambda e: self.onOK())
+        self.bind('<Escape>', lambda e: self.onCancel())
+        self.bind('<Up>', self.onKeyUp)
+        self.bind('<Down>', self.onKeyDown)
+        self.protocol("WM_DELETE_WINDOW", self.onCancel)
+
+    def onKeyUp(self, event=None):
+        try:
+            value = int(self.input_var.get(), 10)
+            maxValue = 260 if self.mode == 'stand' else 520
+            value = min([maxValue, value+1])
+            self.input_var.set('%i' % value)
+        except ValueError:
+            pass
+
+    def onKeyDown(self, event=None):
+        try:
+            value = int(self.input_var.get(), 10)
+            value = max([1, value-1])
+            self.input_var.set('%i' % value)
+        except ValueError:
+            pass
+
+    def onOK(self):
+        self.result = self.input_var.get()
+        self.destroy()
+
+    def onCancel(self):
+        self.result = None
+        self.destroy()
 
 
-STATUS_CHANGE_OK = 201
-STATUS_CHANGE_CANCEL = 202
-
-class StatusChangeDialog(wx.Frame):
+class StatusChangeDialog(tk.Toplevel):
     """
     Window for changing the status of an antenna or FEE.
     """
-    
-    def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Change Antenna/FEE Status', size=(450, 225))
-        
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title('Change Antenna/FEE Status')
+        self.geometry('450x225')
+        self.transient(parent)
+
         self.parent = parent
-        
+
         self.initUI()
         self.initEvents()
-        self.Show()
-        
+
     def initUI(self):
         bestX = self.parent.data.bestX
         bestY = self.parent.data.bestY
-        
+
         ant1 = self.parent.data.antennas[bestX-1]
         ant2 = self.parent.data.antennas[bestY-1]
-        
+
+        panel = ttk.Frame(self, padding="10")
+        panel.pack(fill=tk.BOTH, expand=True)
+
         row = 0
-        panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(5, 5)
-        
-        std = wx.StaticText(panel, label='Stand #%i' % ant1.stand.id)
-        sizer.Add(std, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+
+        # Stand label
+        ttk.Label(panel, text='Stand #%i' % ant1.stand.id, font=('TkDefaultFont', 10, 'bold')).grid(
+            row=row, column=0, columnspan=5, sticky='w', pady=5)
         row += 1
-        
-        polX = wx.StaticText(panel, label='X Pol.')
-        sizer.Add(polX, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+
+        # X Pol section
+        ttk.Label(panel, text='X Pol.').grid(row=row, column=0, columnspan=5, sticky='w')
         row += 1
-        
-        asX = wx.StaticText(panel, label='Antenna Status')
-        sizer.Add(asX, pos=(row+0, 0), span=(1,1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        self.as10 = wx.RadioButton(panel, -1, 'Not Installed', style=wx.RB_GROUP)
-        self.as11 = wx.RadioButton(panel, -1, 'Bad')
-        self.as12 = wx.RadioButton(panel, -1, 'Suspect')
-        self.as13 = wx.RadioButton(panel, -1, 'Good')
-        sizer.Add(self.as10, pos=(row+0, 1), span=(1,1))
-        sizer.Add(self.as11, pos=(row+0, 2), span=(1,1))
-        sizer.Add(self.as12, pos=(row+0, 3), span=(1,1))
-        sizer.Add(self.as13, pos=(row+0, 4), span=(1,1))
+
+        ttk.Label(panel, text='Antenna Status').grid(row=row, column=0, sticky='w')
+        self.ant1_status = tk.IntVar(value=ant1.status)
+        ttk.Radiobutton(panel, text='Not Installed', variable=self.ant1_status, value=0).grid(row=row, column=1)
+        ttk.Radiobutton(panel, text='Bad', variable=self.ant1_status, value=1).grid(row=row, column=2)
+        ttk.Radiobutton(panel, text='Suspect', variable=self.ant1_status, value=2).grid(row=row, column=3)
+        ttk.Radiobutton(panel, text='Good', variable=self.ant1_status, value=3).grid(row=row, column=4)
         row += 1
-        
-        polY = wx.StaticText(panel, label='Y Pol.')
-        sizer.Add(polY, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
+
+        # Y Pol section
+        ttk.Label(panel, text='Y Pol.').grid(row=row, column=0, columnspan=5, sticky='w')
         row += 1
-        
-        asY = wx.StaticText(panel, label='Antenna Status')
-        sizer.Add(asY, pos=(row+0, 0), span=(1,1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        self.as20 = wx.RadioButton(panel, -1, 'Not Installed', style=wx.RB_GROUP)
-        self.as21 = wx.RadioButton(panel, -1, 'Bad')
-        self.as22 = wx.RadioButton(panel, -1, 'Suspect')
-        self.as23 = wx.RadioButton(panel, -1, 'Good')
-        sizer.Add(self.as20, pos=(row+0, 1), span=(1,1))
-        sizer.Add(self.as21, pos=(row+0, 2), span=(1,1))
-        sizer.Add(self.as22, pos=(row+0, 3), span=(1,1))
-        sizer.Add(self.as23, pos=(row+0, 4), span=(1,1))
+
+        ttk.Label(panel, text='Antenna Status').grid(row=row, column=0, sticky='w')
+        self.ant2_status = tk.IntVar(value=ant2.status)
+        ttk.Radiobutton(panel, text='Not Installed', variable=self.ant2_status, value=0).grid(row=row, column=1)
+        ttk.Radiobutton(panel, text='Bad', variable=self.ant2_status, value=1).grid(row=row, column=2)
+        ttk.Radiobutton(panel, text='Suspect', variable=self.ant2_status, value=2).grid(row=row, column=3)
+        ttk.Radiobutton(panel, text='Good', variable=self.ant2_status, value=3).grid(row=row, column=4)
         row += 1
-        
-        line = wx.StaticLine(panel)
-        sizer.Add(line, pos=(row+0, 0), span=(1, 5), flag=wx.EXPAND|wx.BOTTOM, border=10)
+
+        # Separator
+        ttk.Separator(panel, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=5, sticky='ew', pady=10)
         row += 1
-        
-        fs =  wx.StaticText(panel, label='FEE Status')
-        sizer.Add(fs, pos=(row+0, 0), span=(1,1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        self.fs0 = wx.RadioButton(panel, -1, 'Not Installed', style=wx.RB_GROUP)
-        self.fs1 = wx.RadioButton(panel, -1, 'Bad')
-        self.fs2 = wx.RadioButton(panel, -1, 'Suspect')
-        self.fs3 = wx.RadioButton(panel, -1, 'Good')
-        sizer.Add(self.fs0, pos=(row+0, 1), span=(1,1))
-        sizer.Add(self.fs1, pos=(row+0, 2), span=(1,1))
-        sizer.Add(self.fs2, pos=(row+0, 3), span=(1,1))
-        sizer.Add(self.fs3, pos=(row+0, 4), span=(1,1))
+
+        # FEE Status
+        ttk.Label(panel, text='FEE Status').grid(row=row, column=0, sticky='w')
+        self.fee_status = tk.IntVar(value=ant1.fee.status)
+        ttk.Radiobutton(panel, text='Not Installed', variable=self.fee_status, value=0).grid(row=row, column=1)
+        ttk.Radiobutton(panel, text='Bad', variable=self.fee_status, value=1).grid(row=row, column=2)
+        ttk.Radiobutton(panel, text='Suspect', variable=self.fee_status, value=2).grid(row=row, column=3)
+        ttk.Radiobutton(panel, text='Good', variable=self.fee_status, value=3).grid(row=row, column=4)
         row += 1
-        
-        line = wx.StaticLine(panel)
-        sizer.Add(line, pos=(row+0, 0), span=(1, 5), flag=wx.EXPAND|wx.BOTTOM, border=10)
+
+        # Separator
+        ttk.Separator(panel, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=5, sticky='ew', pady=10)
         row += 1
-        
-        #
+
         # Buttons
-        #
-        ok = wx.Button(panel, STATUS_CHANGE_OK, 'Ok', size=(56, 28))
-        cancel = wx.Button(panel, STATUS_CHANGE_CANCEL, 'Cancel', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 3), flag=wx.RIGHT|wx.BOTTOM, border=5)
-        sizer.Add(cancel, pos=(row+0, 4), flag=wx.RIGHT|wx.BOTTOM, border=5)
-        
-        panel.SetSizerAndFit(sizer)
-        
-        #
-        # Set current values
-        #
-        
-        ## Antenna 1
-        if ant1.status == 0:
-            self.as10.SetValue(True)
-            self.as11.SetValue(False)
-            self.as12.SetValue(False)
-            self.as13.SetValue(False)
-        elif ant1.status == 1:
-            self.as10.SetValue(False)
-            self.as11.SetValue(True)
-            self.as12.SetValue(False)
-            self.as13.SetValue(False)
-        elif ant1.status == 2:
-            self.as10.SetValue(False)
-            self.as11.SetValue(False)
-            self.as12.SetValue(True)
-            self.as13.SetValue(False)
-        else:
-            self.as10.SetValue(False)
-            self.as11.SetValue(False)
-            self.as12.SetValue(False)
-            self.as13.SetValue(True)
-        
-        ## Antenna 2
-        if ant2.status == 0:
-            self.as20.SetValue(True)
-            self.as21.SetValue(False)
-            self.as22.SetValue(False)
-            self.as23.SetValue(False)
-        elif ant2.status == 1:
-            self.as20.SetValue(False)
-            self.as21.SetValue(True)
-            self.as22.SetValue(False)
-            self.as23.SetValue(False)
-        elif ant2.status == 2:
-            self.as20.SetValue(False)
-            self.as21.SetValue(False)
-            self.as22.SetValue(True)
-            self.as23.SetValue(False)
-        else:
-            self.as20.SetValue(False)
-            self.as21.SetValue(False)
-            self.as22.SetValue(False)
-            self.as23.SetValue(True)
-        
-        ## FEE
-        if ant1.fee.status == 0:
-            self.fs0.SetValue(True)
-            self.fs1.SetValue(False)
-            self.fs2.SetValue(False)
-            self.fs3.SetValue(False)
-        elif ant1.fee.status == 1:
-            self.fs0.SetValue(False)
-            self.fs1.SetValue(True)
-            self.fs2.SetValue(False)
-            self.fs3.SetValue(False)
-        elif ant1.fee.status == 2:
-            self.fs0.SetValue(False)
-            self.fs1.SetValue(False)
-            self.fs2.SetValue(True)
-            self.fs3.SetValue(False)
-        else:
-            self.fs0.SetValue(False)
-            self.fs1.SetValue(False)
-            self.fs2.SetValue(False)
-            self.fs3.SetValue(True)
-        
+        btn_frame = ttk.Frame(panel)
+        btn_frame.grid(row=row, column=0, columnspan=5, sticky='e')
+        ttk.Button(btn_frame, text='Ok', command=self.onOk).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text='Cancel', command=self.onCancel).pack(side=tk.LEFT, padx=5)
+
     def initEvents(self):
-        self.Bind(wx.EVT_BUTTON, self.onOk, id=STATUS_CHANGE_OK)
-        self.Bind(wx.EVT_BUTTON, self.onCancel, id=STATUS_CHANGE_CANCEL)
-        
-    def onOk(self, event):
+        self.protocol("WM_DELETE_WINDOW", self.onCancel)
+
+    def onOk(self):
         # Antenna 1
-        if self.as10.GetValue():
-            self.parent.data.antennas[self.parent.data.bestX-1].status = 0
-        elif self.as11.GetValue():
-            self.parent.data.antennas[self.parent.data.bestX-1].status = 1
-        elif self.as12.GetValue():
-            self.parent.data.antennas[self.parent.data.bestX-1].status = 2
-        else:
-            self.parent.data.antennas[self.parent.data.bestX-1].status = 3
-            
+        self.parent.data.antennas[self.parent.data.bestX-1].status = self.ant1_status.get()
+
         # Antenna 2
-        if self.as20.GetValue():
-            self.parent.data.antennas[self.parent.data.bestY-1].status = 0
-        elif self.as21.GetValue():
-            self.parent.data.antennas[self.parent.data.bestY-1].status = 1
-        elif self.as22.GetValue():
-            self.parent.data.antennas[self.parent.data.bestY-1].status = 2
-        else:
-            self.parent.data.antennas[self.parent.data.bestY-1].status = 3
-        
+        self.parent.data.antennas[self.parent.data.bestY-1].status = self.ant2_status.get()
+
         # FEE
-        if self.fs0.GetValue():
-            self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 0
-            self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 0
-        elif self.fs1.GetValue():
-            self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 1
-            self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 1
-        elif self.fs2.GetValue():
-            self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 2
-            self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 2
-        else:
-            self.parent.data.antennas[self.parent.data.bestX-1].fee.status = 3
-            self.parent.data.antennas[self.parent.data.bestY-1].fee.status = 3
-            
+        fee_stat = self.fee_status.get()
+        self.parent.data.antennas[self.parent.data.bestX-1].fee.status = fee_stat
+        self.parent.data.antennas[self.parent.data.bestY-1].fee.status = fee_stat
+
         # Refresh if we are in the antenna status color coding
-        if self.parent.data.color == 3:
+        if self.parent.data.color == 5:
             self.parent.data.draw()
-        
-        self.Close()
-        
-    def onCancel(self, event):
-        self.Close()
+
+        self.destroy()
+
+    def onCancel(self):
+        self.destroy()
 
 
-SSMIF_OK = 301
-
-class DisplaySSMIF(wx.Frame):
+class DisplaySSMIF(tk.Toplevel):
     """
     Text display window for printing out the new SSMIF entries for antenna status.
     FEE status is currently not supported because of a limitation in the LSL SSMIF
     parser.
     """
-    
-    def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='SSMIF Status Codes', size=(600, 600))
-        
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title('SSMIF Status Codes')
+        self.geometry('600x600')
+        self.transient(parent)
+
         self.parent = parent
-        
+
         self.initUI()
         self.initEvents()
         self.generateText()
-        self.Show()
-        
+
     def initUI(self):
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        self.textCtrl = wx.TextCtrl(self, -1, "", style=wx.TE_MULTILINE|wx.TE_READONLY, size=(600,500))
-        vbox.Add(self.textCtrl, 1, wx.LEFT|wx.RIGHT|wx.BOTTOM|wx.TOP|wx.EXPAND, border=5)
-        
-        
-        ok = wx.Button(self, SSMIF_OK, 'Ok', size=(56, 28))
-        vbox.Add(ok, 0, flag=wx.ALIGN_RIGHT|wx.LEFT|wx.RIGHT|wx.BOTTOM, border=5)
-        
-        self.SetSizer(vbox)
-        self.SetAutoLayout(1)
-        vbox.Fit(self)
-            
+        main_frame = ttk.Frame(self, padding="5")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Text widget with scrollbar
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(text_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.textCtrl = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set)
+        self.textCtrl.pack(fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.textCtrl.yview)
+
+        # OK button
+        ttk.Button(main_frame, text='Ok', command=self.onOk).pack(side=tk.RIGHT, pady=5)
+
     def initEvents(self):
-        self.Bind(wx.EVT_BUTTON, self.onOk,  id=SSMIF_OK)
-        
+        self.protocol("WM_DELETE_WINDOW", self.onOk)
+
     def generateText(self):
-        def sortAnts(x, y):
-            """
-            Small function to re-sort a list of Antenna instances by antenna number.
-            """
-            
-            if x.id > y.id:
-                return 1
-            elif x.id < y.id:
-                return -1
-            else:
-                return 0
         # Sort antennas by antenna number
-        ants = sorted(self.parent.data.antennas, cmp=sortAnts)
-        
+        ants = sorted(self.parent.data.antennas, key=lambda x: x.id)
+
         #
         # Antenna status codes
         #
-        
-        self.textCtrl.AppendText('# -----------------------------\n# --- Antenna Status ---\n# -----------------------------\n# Status codes 0-3 summarized defined at end of this document (and in MCS0031)\n# This refers to the *antenna*, not the FEE or some combination of the two.\n# This will be set to 3 ("OK") for any antenna n <= 2*N_STD not identified.\n# *** ANT_STAT[antenna_id] goes here:\n')
+
+        self.textCtrl.insert(tk.END, '# -----------------------------\n# --- Antenna Status ---\n# -----------------------------\n# Status codes 0-3 summarized defined at end of this document (and in MCS0031)\n# This refers to the *antenna*, not the FEE or some combination of the two.\n# This will be set to 3 ("OK") for any antenna n <= 2*N_STD not identified.\n# *** ANT_STAT[antenna_id] goes here:\n')
         for ant in ants:
             if ant.status == 3:
                 continue
-            
+
             if ant.id < 10:
-                self.textCtrl.AppendText('ANT_STAT[%i]    %i\n' % (ant.id, ant.status))
+                self.textCtrl.insert(tk.END, 'ANT_STAT[%i]    %i\n' % (ant.id, ant.status))
             elif ant.id < 100:
-                self.textCtrl.AppendText('ANT_STAT[%i]   %i\n' % (ant.id, ant.status))
+                self.textCtrl.insert(tk.END, 'ANT_STAT[%i]   %i\n' % (ant.id, ant.status))
             else:
-                self.textCtrl.AppendText('ANT_STAT[%i]  %i\n' % (ant.id, ant.status))
-        self.textCtrl.AppendText('\n\n')
-        
-        #
-        # FEE status codes
-        #
-        
-        #self.textCtrl.AppendText('# ----------------------\n# --- FEE Status ---\n# ----------------------\n# Status codes 0-3 summarized defined at end of this document (and in MCS0031)\n# This will be set to 3 ("OK") for any FEE #\'s <= N_FEE not identified\n# *** FEE_STAT[fee_id] goes here:\n')
-        #for ant in ants:
-            #if ant.pol == 0:
-                #self.textCtrl.AppendText('FEE_STAT[%s]  %i\n' % (ant.fee.id, ant.fee.status))
-        #self.textCtrl.AppendText('\n')
-        
-        self.textCtrl.ShowPosition(0)
-        
-    def onOk(self, event):
-        self.Close()
+                self.textCtrl.insert(tk.END, 'ANT_STAT[%i]  %i\n' % (ant.id, ant.status))
+        self.textCtrl.insert(tk.END, '\n\n')
+
+        # Make read-only and scroll to top
+        self.textCtrl.config(state='disabled')
+        self.textCtrl.see('1.0')
+
+    def onOk(self):
+        self.destroy()
 
 
 def main(args):
-    app = wx.App(0)
-    frame = MainWindow(None, -1, "Station Master GUI")
+    app = MainWindow()
     if args.filename is not None:
-        frame.data = TBW_GUI(frame)
-        frame.data.loadData(args.filename)
-        frame.data.draw()
-    app.MainLoop()
+        app.data = TBW_GUI(app)
+        app.data.loadData(args.filename)
+        app.data.draw()
+    app.mainloop()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='display NPZ data from stationMaster in an interactive GUI sort of way', 
+        description='display NPZ data from stationMaster in an interactive GUI sort of way',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
-    parser.add_argument('filename', type=str, 
+    parser.add_argument('filename', type=str, nargs='?', default=None,
                         help='filename to display')
     args = parser.parse_args()
     main(args)
-    

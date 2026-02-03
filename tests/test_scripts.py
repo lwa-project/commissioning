@@ -72,9 +72,7 @@ class scripts_tests(unittest.TestCase):
         _SCRIPTS.sort()
         for script in _SCRIPTS:
             name = self._name_to_name(script)
-            if script.endswith('smGUI.py') or script.endswith('plotHDF.py'):
-                continue
-                
+            
             with self.subTest(script=name):
                 pylint_output = StringIO()
                 reporter = JSONReporter(pylint_output)

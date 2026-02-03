@@ -2,6 +2,7 @@
 
 """
 Given a DRX HDF5 waterfall file, plot it in an interactive way.
+Tkinter version converted from wxPython.
 """
 
 import os
@@ -13,6 +14,7 @@ import numpy
 import ephem
 import argparse
 import subprocess
+import webbrowser
 from datetime import datetime
 from multiprocessing import Pool
 from scipy.interpolate import interp1d
@@ -30,13 +32,14 @@ from lsl.statistics import robust
 from lsl.statistics.kurtosis import spectral_power, std as skStd
 from lsl.misc import parser as aph
 
-import wx
-import wx.html
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+
 import matplotlib
-matplotlib.use('WXAgg')
+matplotlib.use('TkAgg')
 matplotlib.interactive(True)
 
-from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg, FigureCanvasWxAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.colors import Normalize
 from matplotlib.collections import LineCollection
 from matplotlib import cm
@@ -85,47 +88,32 @@ __version__ = "0.3"
 __author__ = "Jayce Dowell"
 
 
-# Deal with the different wxPython versions
-if 'phoenix' in wx.PlatformInfo:
-    AppendMenuItem = lambda x, y: x.Append(y)
-    AppendMenuMenu = lambda *args, **kwds: args[0].Append(*args[1:], **kwds)
-else:
-    AppendMenuItem = lambda x, y: x.AppendItem(y)
-    AppendMenuMenu = lambda *args, **kwds: args[0].AppendMenu(*args[1:], **kwds)
-    
-def wxAppYield():
-    try:
-        wx.GetApp().Yield()
-    except AttributeError:
-        wx.Yield()
-
-
 def findLimits(data, usedB=True):
     """
     Tiny function to speed up the computing of the data range for the colorbar.
     Returns a two-element list of the lowest and highest values.
     """
-    
+
     dMin = nan_min(data)
     dMax = nan_max(data)
-    
+
     if usedB:
         dMin = to_dB(dMin)
     if not numpy.isfinite(dMin):
         dMin = 0
-        
+
     if usedB:
         dMax = to_dB(dMax)
     if not numpy.isfinite(dMax):
         dMax = dMin + 1
-        
+
     return [dMin, dMax]
 
 
 def bestFreqUnits(freq):
     """Given a numpy array of frequencies in Hz, return a new array with the
     frequencies in the best units possible (kHz, MHz, etc.)."""
-    
+
     # Figure out how large the data are
     try:
         scale = int(math.log10(freq.max()))
@@ -143,10 +131,10 @@ def bestFreqUnits(freq):
     else:
         divis = 1
         units = 'Hz'
-        
+
     # Convert the frequency
     newFreq = freq / divis
-    
+
     # Return units and freq
     return (newFreq, units)
 
@@ -155,19 +143,19 @@ class LogNorm(Normalize):
     """
     Normalize a given value to the 0-1 range on a log scale
     """
-    
+
     def __call__(self, value, clip=None):
         value = numpy.ma.asarray(value)
         mask = numpy.ma.getmaskarray(value)
         value = value.filled(self.vmax+1)
         if clip:
             numpy.clip(value, self.vmin, self.vmax)
-            
+
         output = (value - self.vmin) / (self.vmax - self.vmin)
         output *= 9
         output += 1
         output = numpy.log10(output)
-        
+
         output = numpy.ma.array(output, mask=mask)
         if output.shape == () and not mask:
             output = int(output)  # assume python scalar
@@ -178,17 +166,17 @@ class SqrtNorm(Normalize):
     """
     Normalize a given value to the 0-1 range on a square root scale
     """
-    
+
     def __call__(self, value, clip=None):
         value = numpy.ma.asarray(value)
         mask = numpy.ma.getmaskarray(value)
         value = value.filled(self.vmax+1)
         if clip:
             numpy.clip(value, self.vmin, self.vmax)
-            
+
         output = (value - self.vmin) / (self.vmax - self.vmin)
         output = numpy.sqrt(output)
-        
+
         output = numpy.ma.array(output, mask=mask)
         if output.shape == () and not mask:
             output = int(output)  # assume python scalar
@@ -199,17 +187,17 @@ class SqrdNorm(Normalize):
     """
     Normalize a given value to the 0-1 range on a squared scale
     """
-    
+
     def __call__(self, value, clip=None):
         value = numpy.ma.asarray(value)
         mask = numpy.ma.getmaskarray(value)
         value = value.filled(self.vmax+1)
         if clip:
             numpy.clip(value, self.vmin, self.vmax)
-            
+
         output = (value - self.vmin) / (self.vmax - self.vmin)
         output = output**2
-        
+
         output = numpy.ma.array(output, mask=mask)
         if output.shape == () and not mask:
             output = int(output)  # assume python scalar
@@ -220,17 +208,17 @@ class AsinhNorm(Normalize):
     """
     Normalize a given value to the 0-1 range on an inverse hyperbolic sine scale
     """
-    
+
     def __call__(self, value, clip=None):
         value = numpy.ma.asarray(value)
         mask = numpy.ma.getmaskarray(value)
         value = value.filled(self.vmax+1)
         if clip:
             numpy.clip(value, self.vmin, self.vmax)
-            
+
         output = (value - self.vmin) / (self.vmax - self.vmin)
         output = numpy.arcsinh(output*10.0/3.0) / numpy.arcsinh(10.0/3.0)
-        
+
         output = numpy.ma.array(output, mask=mask)
         if output.shape == () and not mask:
             output = int(output)  # assume python scalar
@@ -241,17 +229,17 @@ class SinhNorm(Normalize):
     """
     Normalize a given value to the 0-1 range on an hyperbolic sine scale
     """
-    
+
     def __call__(self, value, clip=None):
         value = numpy.ma.asarray(value)
         mask = numpy.ma.getmaskarray(value)
         value = value.filled(self.vmax+1)
         if clip:
             numpy.clip(value, self.vmin, self.vmax)
-            
+
         output = (value - self.vmin) / (self.vmax - self.vmin)
         output = numpy.sinh(output*10.0/3.0) / numpy.sinh(10.0/3.0)
-        
+
         output = numpy.ma.array(output, mask=mask)
         if output.shape == () and not mask:
             output = int(output)  # assume python scalar
@@ -262,20 +250,20 @@ class HistEqNorm(Normalize):
     """
     Normalize a given value to the 0-1 range using histogram equalization
     """
-    
+
     def __call__(self, value, clip=None):
         value = numpy.ma.asarray(value)
         mask = numpy.ma.getmaskarray(value)
         value = value.filled(self.vmax+1)
         if clip:
             numpy.clip(value, self.vmin, self.vmax)
-            
+
         hist, bins = numpy.histogram(value, bins=256)
         hist = numpy.insert(hist, 0, 0)
         hist = hist.cumsum() / float(hist.sum())
         histeq = interp1d(bins, hist, bounds_error=False, fill_value=0.0)
         output = histeq(value)
-        
+
         output = numpy.ma.array(output, mask=mask)
         if output.shape == () and not mask:
             output = int(output)  # assume python scalar
@@ -286,11 +274,11 @@ class Waterfall_GUI(object):
     def __init__(self, frame, freq=None, spec=None, tInt=None, bandpassType='data', arxFilter='split'):
         self.frame = frame
         self.press = None
-        
+
         self.filename = ''
         self.index = 0
-        self.filenames = None
-        
+        self.filenames = []
+
         self.bandpass = False
         self.freq1 = freq
         self.freq2 = freq
@@ -300,33 +288,33 @@ class Waterfall_GUI(object):
         self.data_products = ['XX', 'YY']
         self.bandpassType = bandpassType
         self.arxFilter = arxFilter
-        
+
         self.ax1a = None
         self.ax1b = None
         self.ax1c = None
         self.ax2 = None
         self.cmap = cm.get_cmap('jet')
         self.norm = Normalize
-        
+
         self.spectrumClick = None
         self._keyPressCache = []
-        
+
         self.bandpassCut = 0.85
         self.driftOrder  = 5
         self.driftCut    = 4
         self.kurtosisSec = 1
         self.kurtosisCut = 4
-        
+
         self.frame.edited = False
-        
+
     def loadData(self, filename, obsID=1):
         """
         Load in data from an NPZ file.
         """
-        
+
         print("Loading file '%s'" % os.path.split(filename)[1])
         tStart = time.time()
-        
+
         # Save the filename
         self.filename = filename
         self.obsID = obsID
@@ -334,20 +322,20 @@ class Waterfall_GUI(object):
         obs = h.get('Observation%i' % obsID, None)
         if obs is None:
             raise RuntimeError("No observation #%i in file '%s'" % (obsID, os.path.basename(self.filename)))
-        
+
         # Load the Data
         print(" %6.3f s - Extracting data for observation #%i" % (time.time() - tStart, obsID))
         self._bpCache = {}
         try:
             arxFilterCode = obs.attrs['ARX_Filter']
-            
+
             if arxFilterCode == 0:
                 self.arxFilter = 'split'
             elif arxFilterCode == 1:
                 self.arxFilter = 'full'
             elif arxFilterCode == 2:
                 self.arxFilter = 'reduced'
-                
+
         except KeyError:
             pass
         self.beam  = obs.attrs['Beam']
@@ -363,23 +351,23 @@ class Waterfall_GUI(object):
                 scl = scl.decode()
             except AttributeError:
                 pass
-                
+
             if fmt != 'unix' or scl != 'utc':
                 self.time = [AstroTime(*t, format=fmt, scale=scl) for t in self.time]
                 self.time = [t.utc.unix for t in self.time]
                 self.time = numpy.array(self.time)
-                
+
             else:
                 self.time = self.time["int"] + self.time["frac"]
-                
+
         except (KeyError, ValueError):
             pass
-            
+
         tuning1 = obs.get('Tuning1', None)
         tuning2 = obs.get('Tuning2', None)
         if tuning2 is None:
             tuning2 = tuning1
-            
+
         data_products = list(tuning1)
         mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
         for exclude in ('freq', 'Mask', 'Saturation', 'SpectralKurtosis'):
@@ -397,7 +385,7 @@ class Waterfall_GUI(object):
         else:
             self.linear = False
             self.usedB = False
-            
+
         # Figure out the selection process
         self.iOffset = int(round(self.frame.offset / self.tInt))
         if self.frame.duration < 0:
@@ -413,36 +401,36 @@ class Waterfall_GUI(object):
         while self.time[self.iOffset+self.iDuration-1] <= 0:
             self.iDuration -= 1
         selection = numpy.s_[self.iOffset:self.iOffset+self.iDuration, :]
-        
+
         if self.iOffset != 0:
             print("            -> Offsetting %i integrations (%.3f s)" % (self.iOffset, self.iOffset*self.tInt))
         print("            -> Displaying %i integrations (%.3f s)" % (self.iDuration, self.iDuration*self.tInt))
-        
+
         self.time = self.time[self.iOffset:self.iOffset+self.iDuration]
         self.time -= self.time[0]
-        
+
         self.freq1 = numpy.zeros(tuning1['freq'].shape, dtype=tuning1['freq'].dtype)
         tuning1['freq'].read_direct(self.freq1)
         self.freq2 = numpy.zeros(tuning2['freq'].shape, dtype=tuning2['freq'].dtype)
         tuning2['freq'].read_direct(self.freq2)
-        
+
         self.spec = numpy.empty((8, self.iDuration, self.freq1.size), dtype=numpy.float32)
-        
+
         for p in data_products:
             ## Tuning 1
             ind = 4*(1-1) + mapper[p]
             part = numpy.empty((self.iDuration, self.freq1.size), dtype=tuning1[p].dtype)
             tuning1[p].read_direct(part, selection)
             self.spec[ind,:,:] = part.astype(numpy.float32)
-            
+
             ## Tuning 2
             ind = 4*(2-1) + mapper[p]
             part = numpy.empty((self.iDuration, self.freq2.size), dtype=tuning2[p].dtype)
             tuning2[p].read_direct(part, selection)
             self.spec[ind,:,:] = part.astype(numpy.float32)
-            
+
             del part
-            
+
         self.sats = numpy.empty((self.iDuration, 4), dtype=numpy.float32)
         try:
             part = numpy.empty((self.iDuration, 2), dtype=tuning1['Saturation'].dtype)
@@ -457,12 +445,12 @@ class Waterfall_GUI(object):
         # Mask out negative saturation values since that indicates the data is
         # not available
         self.sats = numpy.ma.array(self.sats, mask=(self.sats < 0))
-        
+
         mask1 = tuning1.get('Mask', None)
         mask2 = tuning2.get('Mask', None)
-        
+
         mask = numpy.zeros(self.spec.shape, dtype=bool)
-        
+
         for p in data_products:
             if mask1 is not None:
                 ## Tuning 1
@@ -470,26 +458,26 @@ class Waterfall_GUI(object):
                 part = numpy.empty((self.iDuration, self.freq1.size), dtype=mask1[p].dtype)
                 mask1[p].read_direct(part, selection)
                 mask[ind,:,:] = part.astype(numpy.float32)
-                
+
                 del part
-                
+
             if mask2 is not None:
                 ## Tuning 2
                 ind = 4*(2-1) + mapper[p]
                 part = numpy.empty((self.iDuration, self.freq2.size), dtype=mask2[p].dtype)
                 mask2[p].read_direct(part, selection)
                 mask[ind,:,:] = part.astype(numpy.float32)
-                
+
                 del part
-        
+
         self.spec = numpy.ma.array(self.spec, mask=mask)
-        
+
         # Construct frequency and time master masks to prevent some masked things from getting unmasked
         self.freqMask = nan_mean(self.spec.mask, axis=1)
         self.timeMask = nan_mean(self.spec.mask, axis=2)
         self.freqMask = numpy.where(self.freqMask >= 0.5, True, False)
         self.timeMask = numpy.where(self.timeMask >= 0.5, True, False)
-        
+
         # Other data to keep around
         self.timesNPZ = numpy.zeros(obs['time'].shape, dtype=obs['time'].dtype)
         obs['time'].read_direct(self.timesNPZ)
@@ -503,29 +491,29 @@ class Waterfall_GUI(object):
                 scl = scl.decode()
             except AttributeError:
                 pass
-            
+
             if fmt != 'unix' or scl != 'utc':
                 self.timesNPZ = [AstroTime(*t, format=fmt, scale=scl) for t in self.timesNPZ]
                 self.timesNPZ = [t.utc.unix for t in self.timesNPZ]
                 self.timesNPZ = numpy.array(self.timesNPZ)
-                
+
                 self.timesNPZRestricted = [AstroTime(*t, format=obs['time'].attrs['format'], scale=obs['time'].attrs['scale']) for t in self.timesNPZRestricted]
                 self.timesNPZRestricted = [t.utc.unix for t in self.timesNPZRestricted]
                 self.timesNPZRestricted = numpy.array(self.timesNPZRestricted)
-                
+
             else:
                 self.timesNPZ = self.timesNPZ["int"] + self.timesNPZ["frac"]
-                
+
                 self.timesNPZRestricted = self.timesNPZRestricted["int"] + self.timesNPZRestricted["frac"]
-                
+
         except (KeyError, ValueError):
             pass
-        
+
         # Deal with the potential for aggregated files
         self.tIntActual = self.tInt
         self.tIntOriginal = self.tInt
-        self.filenames = None
-        
+        self.filenames = []
+
         # Gather up the target information
         self.data_products = data_products
         self.target = obs.attrs['TargetName']
@@ -536,109 +524,105 @@ class Waterfall_GUI(object):
         self.mode = obs.attrs['TrackingMode']
         self.rbw = obs.attrs['RBW']
         self.rbwUnit = obs.attrs['RBW_Units']
-        
+
         # Close out the file
         h.close()
-        
-        ## Get the filter model
-        #print(" %6.3f s - Building DRX bandpass model" % (time.time() - tStart))
-        #self.bpm = drx_filter(sample_rate=self.srate)(self.freq1)
-        
+
         # Compute the bandpass fit
         print(" %6.3f s - Computing bandpass fits" % (time.time() - tStart))
         self.computeBandpass()
-        
+
         # Find the mean spectra
         print(" %6.3f s - Computing mean spectra" % (time.time() - tStart))
         self.mean = nan_mean(self.spec, axis=1)
         self.meanBandpass = nan_mean(self.specBandpass, axis=1)
-        
+
         # Set default colobars
         print(" %6.3f s - Setting default colorbar ranges" % (time.time() - tStart))
         self.limits = [None,]*self.spec.shape[0]
         self.limitsBandpass = [None,]*self.spec.shape[0]
-        
+
         toUse = range(self.spec.shape[2]//10, 9*self.spec.shape[2]//10+1)
         for i in range(self.spec.shape[0]):
             self.limits[i] = findLimits(self.spec[i,:,:], usedB=self.usedB)
         for i in range(self.spec.shape[0]):
             self.limitsBandpass[i] = findLimits(self.specBandpass[i,:,toUse], usedB=self.usedB)
-            
+
         try:
             self.disconnect()
         except:
             pass
-            
+
         self.frame.edited = False
         self.frame.setSaveButton()
-        
+
         print(" %6.3f s - Finished preparing data" % (time.time() - tStart))
-        
+
     def render(self):
         # Clear the old marks
         self.oldMark = None
-        
+
         # Clear the old figures
         self.frame.figure1a.clf()
         self.frame.figure1b.clf()
         self.frame.figure1c.clf()
         self.frame.figure2.clf()
-        
+
         self.connect()
-        
+
     def computeBandpass(self):
         """
         Compute the bandpass fits.
         """
-        
+
         if self.bandpassType == 'data':
             self.computeBandpassData()
         else:
             self.computeBandpassInstrumental()
-            
+
     def computeBandpassData(self):
         """
         Compute data-based bandpass fits.
         """
-        
+
         meanSpec = nan_median(self.spec, axis=1)
-        
+
         # Come up with an appropriate smoothing window (wd) and order (od)
         ws = int(round(self.spec.shape[2]/10.0))
         ws = min([41, ws])
         if ws % 2 == 0:
             ws += 1
         od = min([9, ws-2])
-        
+
         bpm2 = []
         for i in range(self.spec.shape[0]):
             bpm = savitzky_golay(meanSpec[i,:], ws, od, deriv=0)
             bpm = numpy.ma.array(bpm, mask=~numpy.isfinite(bpm))
-            
+
             if bpm.mean() == 0:
                 bpm += 1
             bpm2.append( [bpm / bpm.mean(),] )
-            
+
         # Apply the bandpass correction
         bpm2 = numpy.array(bpm2)
         self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
         self.specBandpass.data[...] /= bpm2
-                
+
         return True
-        
+
     def computeBandpassInstrumental(self):
         """
         Compute instrument-based bandpass fits.
         """
-        
+
         def getImpedanceMisMatch(freq):
             freq4, imm4 = stations.lwa1.antennas[0].response(dB=False)
-            
+
             immIntp = interp1d(freq4, imm4, kind='cubic', bounds_error=False)
-            
+
             imm = immIntp(freq)
             return imm
-            
+
         def getARXResponse(freq, filter='full', site=stations.lwa1):
             antennas = site.antennas
             f,r = antennas[0].arx.response(filter='split')
@@ -649,38 +633,38 @@ class Waterfall_GUI(object):
                 if antennas[i].combined_status != 33:
                     continue
                 f,r = antennas[i].arx.response(filter=filter, dB=False)
-                
+
                 if antennas[i].pol == 0:
                     respX2 += r
                 else:
                     respY2 += r
             respX2 /= respX2.max()
             respY2 /= respY2.max()
-            
+
             respXIntp = interp1d(freq2, respX2, kind='cubic', bounds_error=False)
             respYIntp = interp1d(freq2, respY2, kind='cubic', bounds_error=False)
-            
+
             respX = respXIntp(freq)
             respY = respYIntp(freq)
             respX = numpy.where(numpy.isfinite(respX), respX, 0)
             respY = numpy.where(numpy.isfinite(respY), respY, 0)
             return respX, respY
-            
+
         def getDRXResponse(freq, filterCode=7):
             srate = FILTER_CODES[filterCode]
             dpf = dp.drx_filter(sample_rate=srate)
-            
+
             rDRX = dpf(freq-freq.mean())
-            
+
             return rDRX
-            
+
         bpm2 = []
         for i in range(self.spec.shape[0]):
             if i // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
-                
+
             BW = freq.max() - freq.min()
             metric = 1e20
             best = 1
@@ -688,13 +672,13 @@ class Waterfall_GUI(object):
                 if numpy.abs(BW-fb) < metric:
                     metric = numpy.abs(BW-fb)
                     best = fc
-                    
+
             try:
                 rIMM = self._bpCache[('IMM', freq[0], freq[-1], freq.size)]
             except KeyError:
                 self._bpCache[('IMM', freq[0], freq[-1], freq.size)] = getImpedanceMisMatch(freq)
                 rIMM = self._bpCache[('IMM', freq[0], freq[-1], freq.size)]
-                
+
             try:
                 rARXX, rARXY = self._bpCache[('ARX', freq[0], freq[-1], freq.size)]
             except KeyError:
@@ -706,64 +690,64 @@ class Waterfall_GUI(object):
                 rARX = rARXY
             else:
                 rARX = 0.5*rARXX + 0.5*rARXY
-                
+
             try:
                 rDRX = self._bpCache[('DRX', freq[0], freq[-1], freq.size)]
             except KeyError:
                 self._bpCache[('DRX', freq[0], freq[-1], freq.size)] = getDRXResponse(freq, filterCode=best)
                 rDRX = self._bpCache[('DRX', freq[0], freq[-1], freq.size)]
-                
+
             bpm = rIMM/rIMM.max() * rARX/rARX.max() * rDRX/rDRX.max()
-            
+
             if bpm.mean() == 0:
                 bpm += 1
             bpm2.append( [bpm / bpm.mean(),] )
-            
+
         # Apply the bandpass correction
         bpm2 = numpy.array(bpm2)
         self.specBandpass = numpy.ma.array(self.spec.data*1.0, mask=self.spec.mask)
         self.specBandpass.data[...] /= bpm2
-                
+
         return True
-        
+
     def draw(self):
         """
         Draw the waterfall diagram and the total power with time.
         """
-        
+
         if self.index // (self.spec.shape[0]//2) == 0:
             freq = self.freq1
         else:
             freq = self.freq2
-        
+
         if self.bandpass:
             spec = self.specBandpass
             limits = self.limitsBandpass
         else:
             spec = self.spec
             limits = self.limits
-            
+
         # Plot 1(a) - Waterfall
         self.frame.figure1a.clf()
         self.ax1a = self.frame.figure1a.gca()
         if self.usedB:
             m = self.ax1a.imshow(to_dB(spec[self.index,:,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
             try:
-                cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+                cbar = self.frame.figure1a.colorbar(m, use_gridspec=True)
             except:
                 if len(self.frame.figure1a.get_axes()) > 1:
                     self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
-                cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
-            cm.ax.set_ylabel('PSD [arb. dB]')
+                cbar = self.frame.figure1a.colorbar(m, ax=self.ax1a)
+            cbar.ax.set_ylabel('PSD [arb. dB]')
         else:
             m = self.ax1a.imshow(spec[self.index,:,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.time[0], self.time[-1]), origin='lower', cmap=self.cmap, norm=self.norm(limits[self.index][0], limits[self.index][1]))
             try:
-                cm = self.frame.figure1a.colorbar(m, use_gridspec=True)
+                cbar = self.frame.figure1a.colorbar(m, use_gridspec=True)
             except TypeError:
                 if len(self.frame.figure1a.get_axes()) > 1:
                     self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
-                cm = self.frame.figure1a.colorbar(m, ax=self.ax1a)
-            cm.ax.set_ylabel('PSD [arb. lin.]')
+                cbar = self.frame.figure1a.colorbar(m, ax=self.ax1a)
+            cbar.ax.set_ylabel('PSD [arb. lin.]')
         self.ax1a.axis('auto')
         self.ax1a.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         self.ax1a.set_ylim((self.time[0], self.time[-1]))
@@ -779,13 +763,13 @@ class Waterfall_GUI(object):
             ind = self.index % 4
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
             self.ax1a.set_title('Tuning %i, %s' % (tun, mapper[ind]))
-            
+
         if self.oldMark is not None:
             self.ax1a.plot([-1e20, 1e20], self.oldMark, color='red')
-            
+
         self.frame.figure1a.tight_layout()
         self.frame.canvas1a.draw()
-        
+
         # Plot 1(b) - Saturation Fraction
         self.frame.figure1b.clf()
         self.ax1b = self.frame.figure1b.gca()
@@ -797,15 +781,15 @@ class Waterfall_GUI(object):
         self.ax1b.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
         self.ax1b.xaxis.set_ticks([0.0, 0.25, 0.5, 0.75, 1.0])
         self.ax1b.xaxis.set_ticklabels(['0', '', '0.5', '', '1'])
-        
+
         if self.oldMark is not None:
             self.ax1b.plot([0, 1], self.oldMark, color='red')
         self.frame.figure1b.tight_layout()
         self.frame.canvas1b.draw()
-        
+
         # Plot 1(c) - Drift
         self.drift = spec[:,:,spec.shape[2]//8:7*spec.shape[2]//8].mean(axis=2)
-        
+
         self.frame.figure1c.clf()
         self.ax1c = self.frame.figure1c.gca()
         if self.usedB:
@@ -824,26 +808,26 @@ class Waterfall_GUI(object):
             self.ax1c.set_xlabel('Inner 75% Mean Power [arb. lin.]')
         self.ax1c.set_ylim((self.time[0], self.time[-1]))
         self.ax1c.set_ylabel('Elapsed Time - %.3f [s]' % (self.iOffset*self.tInt))
-        
+
         if self.oldMark is not None:
             self.ax1c.plot(self.ax1c.get_xlim(), self.oldMark, color='red')
-            
+
         self.frame.figure1c.tight_layout()
         self.frame.canvas1c.draw()
-        
+
     def drawSpectrum(self, clickY, fit=None, fitLabel=None):
         """Get the spectrum at a particular point in time."""
-        
+
         try:
             dataY = int(round(clickY / self.tInt))
         except TypeError:
             return False
-            
+
         if self.index // (self.spec.shape[0]//2) == 0:
             freq = self.freq1
         else:
             freq = self.freq2
-            
+
         if self.bandpass:
             spec = self.specBandpass[self.index,dataY,:]
             medianSpec = self.meanBandpass[self.index,:]
@@ -852,7 +836,7 @@ class Waterfall_GUI(object):
             spec = self.spec[self.index,dataY,:]
             medianSpec = self.mean[self.index,:]
             limits = self.limits
-        
+
         if self.frame.toolbar.mode == 'zoom rect':
             try:
                 oldXlim = self.ax2.get_xlim()
@@ -863,7 +847,7 @@ class Waterfall_GUI(object):
         else:
             oldXlim = [freq[0]/1e6, freq[-1]/1e6]
             oldYlim = limits[self.index]
-        
+
         self.frame.figure2.clf()
         self.ax2 = self.frame.figure2.gca()
         if self.usedB:
@@ -874,22 +858,22 @@ class Waterfall_GUI(object):
             self.ax2.plot(freq/1e6, spec, linestyle=' ', marker='o', label='Current', mec='blue', mfc='None')
             self.ax2.plot(freq/1e6, medianSpec, label='Mean', alpha=0.5, color='green')
             self.ax2.set_ylabel('PSD [arb. lin.]')
-            
+
         if fit is not None:
             if fitLabel is None:
                 fitLabel = 'Fit'
-                
+
             if self.usedB:
                 self.ax2.plot(freq/1e6, to_dB(fit), linestyle='--', label=fitLabel, color='orange')
             else:
                 self.ax2.plot(freq/1e6, fit, linestyle='--', label=fitLabel, color='orange')
-                
+
         self.ax2.set_xlim(oldXlim)
         self.ax2.set_ylim(oldYlim)
         self.ax2.legend(loc=0)
         self.ax2.set_xlabel('Frequency [MHz]')
-        
-        if self.filenames is None:
+
+        if not self.filenames:
             if self.bandpass:
                 self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
             else:
@@ -899,17 +883,17 @@ class Waterfall_GUI(object):
                 self.ax2.set_title("%s + bandpass" % self.filenames[dataY])
             else:
                 self.ax2.set_title(self.filenames[dataY])
-        
+
         self.frame.figure2.tight_layout()
         self.frame.canvas2.draw()
         self.spectrumClick = clickY
-        
+
     def makeMark(self, clickY):
         try:
             dataY = int(round(clickY / self.tInt))
         except TypeError:
             return False
-        
+
         if self.oldMark is not None:
             try:
                 self.ax1a.lines[-1].remove()
@@ -932,16 +916,16 @@ class Waterfall_GUI(object):
                     del self.ax1c.lines[-1]
                 except:
                     pass
-                    
+
         oldXSizeA = self.ax1a.get_xlim()
         oldYSizeA = self.ax1a.get_ylim()
-        
+
         oldXSizeB = self.ax1b.get_xlim()
         oldYSizeB = self.ax1b.get_ylim()
-        
+
         oldXSizeC = self.ax1c.get_xlim()
         oldYSizeC = self.ax1c.get_ylim()
-        
+
         self.oldMark = [self.time[dataY],]*2
         self.ax1a.plot([-1e20, 1e20], self.oldMark, color='red')
         self.ax1b.plot([-1e20, 1e20], self.oldMark, color='red')
@@ -949,85 +933,83 @@ class Waterfall_GUI(object):
 
         self.ax1a.set_xlim(oldXSizeA)
         self.ax1a.set_ylim(oldYSizeA)
-        
+
         self.ax1b.set_xlim(oldXSizeB)
         self.ax1b.set_ylim(oldYSizeB)
-        
+
         self.ax1c.set_xlim(oldXSizeC)
         self.ax1c.set_ylim(oldYSizeC)
-        
+
         self.frame.canvas1a.draw()
         self.frame.canvas1b.draw()
         self.frame.canvas1c.draw()
-        
+
     def suggestMask(self, index):
         """
         Suggest a mask for the current index.
         """
-        
-        nAdjust = {'XX': 1, 'YY': 1, 'XY_real': 2, 'XY_imag': 2, 
+
+        nAdjust = {'XX': 1, 'YY': 1, 'XY_real': 2, 'XY_imag': 2,
                    'I': 2, 'Q': 2, 'U': 2, 'V': 2}
-                
+
         if self.index // (self.spec.shape[0]//2) == 0:
             freq = self.freq1
         else:
             freq = self.freq2
         freqP = freq - freq[len(freq)//2]
-        
+
         bad = numpy.where( (freqP < -self.srate/2*self.bandpassCut) | (freqP > self.srate/2*self.bandpassCut) )[0]
         for b in bad:
             self.spec.mask[index,:,b] = True
             self.specBandpass.mask[index,:,b] = True
             self.freqMask[index,b] = True
-            
+
         spec = self.spec.data[index,:,:]
         drift = spec.sum(axis=1)
         coeff = robust.polyfit(numpy.arange(drift.size), drift, self.driftOrder)
         fit = numpy.polyval(coeff, numpy.arange(drift.size))
         rDrift = drift / fit
-        
+
         try:
             mean = robust.mean(rDrift)
             std  = robust.std(rDrift)
         except ValueError:
             mean = rDrift.mean()
             std  = rDrift.std()
-            
+
         bad = numpy.where( numpy.abs(rDrift - mean) >= self.driftCut*std )[0]
         for b in bad:
             self.spec.mask[index,b,:] = True
             self.specBandpass.mask[index,b,:] = True
             self.timeMask[index,b] = True
-            
+
         if self.linear:
             mapper = {0: 'XX', 1: 'XY_real', 2: 'XY_imag', 3: 'YY'}
         else:
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
         N = self.srate//freq.size*self.tIntActual*nAdjust[mapper[index % 4]]
-        kurtosis = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
-        
+        kurtosis_arr = numpy.zeros((self.kurtosisSec, self.spec.shape[2]))
+
         secSize = self.spec.shape[1]//self.kurtosisSec
         for k in range(self.kurtosisSec):
             tStart = k*secSize
             tStop  = (k+1)*secSize
-            
+
             for j in range(self.spec.shape[2]):
                 channel = self.spec.data[index,tStart:tStop,j]
-                kurtosis[k,j] = spectral_power(channel, N=N)
-                
+                kurtosis_arr[k,j] = spectral_power(channel, N=N)
+
         kMean = 1.0
         kStd  = skStd(secSize, N)
-        # Correction for some averaged data sets - probably not all that valid
-        # for more robust things.  However, this only hits the aggregated files
-        # since `self.filenames` is None for stand-alone files.
-        if self.filenames is not None:
-            kurtosis /= kurtosis.mean()
-            
-        bad = numpy.where( numpy.abs(kurtosis - kMean) >= self.kurtosisCut*kStd )
+        # Correction for some averaged data sets
+        if self.filenames:
+            kurtosis_arr /= kurtosis_arr.mean()
+
+        bad = numpy.where( numpy.abs(kurtosis_arr - kMean) >= self.kurtosisCut*kStd )
         for k,b in zip(bad[0], bad[1]):
             tStart = k*secSize
             tStop  = (k+1)*secSize
-            
+
             try:
                 for j in range(b-2, b+3):
                     self.spec.mask[index,tStart:tStop,j] = True
@@ -1035,33 +1017,32 @@ class Waterfall_GUI(object):
                     self.freqMask[index,j] = True
             except IndexError:
                 pass
-                
-                
+
         self.frame.edited = True
         self.frame.setSaveButton()
-        
+
         return True
-        
+
     def resetMask(self, index):
         """
         Reset the specified mask.
         """
-        
+
         self.spec.mask[index,:,:] = False
         self.specBandpass.mask[index,:,:]= False
         self.timeMask[index,:] = False
         self.freqMask[index,:] = False
-        
+
         self.frame.edited = True
         self.frame.setSaveButton()
-        
+
         return True
-        
+
     def connect(self):
         """
         Connect to all the events we need
         """
-        
+
         self.cidpress1a = self.frame.figure1a.canvas.mpl_connect('button_press_event', self.on_press1a)
         self.cidpress1b = self.frame.figure1b.canvas.mpl_connect('button_press_event', self.on_press1b)
         self.cidpress1c = self.frame.figure1c.canvas.mpl_connect('button_press_event', self.on_press1c)
@@ -1069,151 +1050,151 @@ class Waterfall_GUI(object):
         self.cidkey2    = self.frame.figure2.canvas.mpl_connect('key_press_event', self.on_key2)
         self.cidmotion  = self.frame.figure1a.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.frame.toolbar.update = self.on_update
-        
+
     def on_update(self, *args):
         """
         Override the toolbar 'update' operation.
         """
-        
+
         self.frame.toolbar.set_history_buttons()
-        
+
     def on_press1a(self, event):
         """
         On button press we will see if the mouse is over us and store some data
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             if self.index // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
-                
+
             dataY = int(round(clickY / self.tInt))
-            
+
             if event.button == 1:
                 ## Update the current spectrum
                 self.drawSpectrum(clickY)
                 self.makeMark(clickY)
-                
+
             elif event.button == 2:
                 ## Unmask
                 print("Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
-                
+
                 self.spec.mask[self.index, dataY, :] = self.freqMask[self.index,:]
                 self.specBandpass.mask[self.index, dataY, :] = self.freqMask[self.index,:]
                 self.timeMask[self.index, dataY] = False
-                
+
                 self.draw()
                 self.drawSpectrum(clickY)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             elif event.button == 3:
                 ## Mask
                 print("Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
-                
+
                 self.spec.mask[self.index, dataY, :] = True
                 self.specBandpass.mask[self.index, dataY, :] = True
                 self.timeMask[self.index, dataY] = True
-                
+
                 self.draw()
                 self.drawSpectrum(clickY)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             else:
                 pass
-                
+
     def on_press1b(self, event):
         """
         On button press we will see if the mouse is over us and store some data
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             if self.index // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
-                
+
             dataY = int(round(clickY / self.tInt))
-            
+
             if event.button == 1:
                 ## Update the current spectrum
                 self.drawSpectrum(clickY)
                 self.makeMark(clickY)
-                
+
             elif event.button == 2:
                 ## Unmask
                 print("Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
-                
+
                 self.spec.mask[self.index, dataY, :] = self.freqMask[self.index,:]
                 self.specBandpass.mask[self.index, dataY, :] = self.freqMask[self.index,:]
                 self.timeMask[self.index, dataY] = False
-                
+
                 self.draw()
                 self.drawSpectrum(clickY)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             elif event.button == 3:
                 ## Mask
                 print("Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
-                
+
                 self.spec.mask[self.index, dataY, :] = True
                 self.specBandpass.mask[self.index, dataY, :] = True
                 self.timeMask[self.index, dataY] = True
-                
+
                 self.draw()
                 self.drawSpectrum(clickY)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             else:
                 pass
-                
+
     def on_press1c(self, event):
         """
         On button press we will see if the mouse is over us and store some data
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             if self.index // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
-                
+
             scaleX = self.ax1c.get_xlim()
             rangeX = scaleX[1] - scaleX[0]
-            
+
             scaleY = self.ax1c.get_ylim()
             rangeY = scaleY[1] - scaleY[0]
-            
+
             dataY = int(round(clickY / self.tInt))
             lower = dataY - 200
             lower = 0 if lower < 0 else lower
             upper = dataY + 200
             upper = self.drift.shape[0]-1 if upper > self.drift.shape[0]-1 else upper
-            
+
             if self.usedB:
                 d =  ((clickX - to_dB(self.drift.data[self.index,lower:upper]))/rangeX)**2
                 d += ((clickY - self.time[lower:upper])/rangeY)**2
                 d = numpy.sqrt(d)
                 best = numpy.where( d == d.min() )[0][0] + lower
                 bestD = d[best - lower]
-                
+
                 print("Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, to_dB(self.drift.data[self.index, best]), self.time[best]))
             else:
                 d =  ((clickX - self.drift.data[self.index,lower:upper])/rangeX)**2
@@ -1221,118 +1202,118 @@ class Waterfall_GUI(object):
                 d = numpy.sqrt(d)
                 best = numpy.where( d == d.min() )[0][0] + lower
                 bestD = d[best - lower]
-                
+
                 print("Clicked at %.3f, %.3f => resolved to entry %i at %.3f, %.3f" % (clickX, clickY, best, self.drift.data[self.index, best], self.time[best]))
-                
+
             if event.button == 1:
                 ## Update the current spectrum
                 self.drawSpectrum(clickY)
                 self.makeMark(clickY)
-                
+
             elif event.button == 2:
                 ## Unmask
                 print("Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
-                
+
                 self.spec.mask[self.index, best, :] = self.freqMask[self.index,:]
                 self.specBandpass.mask[self.index, best, :] = self.freqMask[self.index,:]
                 self.timeMask[self.index, best] = False
-                
+
                 self.draw()
                 self.drawSpectrum(clickY)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             elif event.button == 3:
                 ## Mask
                 print("Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
-                
+
                 self.spec.mask[self.index, best, :] = True
                 self.specBandpass.mask[self.index, best, :] = True
                 self.timeMask[self.index, best] = True
-                
+
                 self.draw()
                 self.drawSpectrum(clickY)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             else:
                 pass
-            
+
     def on_press2(self, event):
         """
         On button press we will see if the mouse is over us and store some data
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             if self.index // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
-                
+
             dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
-            
+
             if event.button == 1:
                 ## Nothing right now
                 pass
-                
+
             elif event.button == 2:
                 ## Unmask
                 print("Unmasking %.3f MHz" % (freq[dataX]/1e6,))
-                
+
                 self.spec.mask[self.index, :, dataX] = self.timeMask[self.index,:]
                 self.specBandpass.mask[self.index, :, dataX] = self.timeMask[self.index,:]
                 self.freqMask[self.index, dataX] = False
-                
+
                 self.draw()
                 self.drawSpectrum(self.spectrumClick)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             elif event.button == 3:
                 ## Mask
                 print("Masking %.3f MHz" % (freq[dataX]/1e6,))
-                
+
                 self.spec.mask[self.index, :, dataX] = True
                 self.specBandpass.mask[self.index, :, dataX] = True
                 self.freqMask[self.index, dataX] = True
-                
+
                 self.draw()
                 self.drawSpectrum(self.spectrumClick)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             else:
                 pass
-                
+
     def on_key2(self, event):
         """
         On key press we will see if the mouse is over us and store some data
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             if self.index // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
-                
+
             dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
             dataY = int(round(self.spectrumClick / self.tInt))
-            
+
             if self.bandpass:
                 spec = self.specBandpass
             else:
                 spec = self.spec
-                
+
             if event.key == 'h':
                 ## Help
                 print("Spectrum Window Keys:")
@@ -1344,7 +1325,7 @@ class Waterfall_GUI(object):
                 print("  f - pick a boundary for a power law fit")
                 print("  c - clear the current power law fit")
                 print("  h - print this help message")
-                
+
             elif event.key == 'p':
                 ## Print
                 print("Frequency: %.3f MHz" % (freq[dataX]/1e6,))
@@ -1354,7 +1335,7 @@ class Waterfall_GUI(object):
                     print("Power: %.3f" % spec.data[self.index, dataY, dataX])
                 print("Flagged? %s" % spec.mask[self.index, dataY, dataX])
                 print("===")
-                
+
             elif event.key == 's':
                 ## Statistics
                 print("Frequency: %.3f MHz" % (freq[dataX]/1e6,))
@@ -1365,7 +1346,7 @@ class Waterfall_GUI(object):
                 print("  Skew: %.3f" % skew(spec[self.index, :, dataX]))
                 print("  Kurtosis: %.3f" % kurtosis(spec[self.index, :, dataX]))
                 print("===")
-                
+
             elif event.key == 'w':
                 ## Write
                 outname = "spectrum.txt"
@@ -1384,7 +1365,7 @@ class Waterfall_GUI(object):
                     N += 1
                     outname = "%s%s%s-%i%s" % (outpath, os.path.sep if outpath else '', outname, N, ext)
                 print("Saving to '%s'" % outname)
-                
+
                 fn = os.path.basename(self.filename)
                 if len(fn) > 33:
                     fn = fn[:30]+"..."
@@ -1399,14 +1380,14 @@ class Waterfall_GUI(object):
                     mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
                     pol = mapper[ind]
                 dt = datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
-                
+
                 beam = self.beam
                 srate, sunit = bestFreqUnits(self.srate)
                 tInt = self.tInt
-                isAggregate = False if self.filenames is None else True
+                isAggregate = bool(self.filenames)
                 tIntOrg = self.tIntOriginal
                 tIntAct = self.tIntActual
-        
+
                 target = self.target
                 if self.raUnit.lower().find('h') != -1:
                     ra = ephem.hours(self.ra*numpy.pi/12.0)
@@ -1417,10 +1398,10 @@ class Waterfall_GUI(object):
                 else:
                     dec = ephem.degrees(self.dec*numpy.pi/180.0)
                 mode = self.mode
-                
+
                 rbw = self.rbw
                 rbwu = self.rbwUnit
-                
+
                 fh = open(outname, 'w')
                 fh.write("#############################################\n")
                 fh.write("#                                           #\n")
@@ -1454,41 +1435,41 @@ class Waterfall_GUI(object):
                 for i in range(freq.size):
                     fh.write("%13.5f  %13.6f  %13s\n" % (freq[i], spec.data[self.index,dataY,i], spec.mask[self.index,dataY,i]))
                 fh.close()
-                
+
                 print("===")
-                
+
             elif event.key == 'm':
                 ## Mask
                 print("Masking %.3f MHz" % (freq[dataX]/1e6,))
-                
+
                 self.spec.mask[self.index, :, dataX] = True
                 self.specBandpass.mask[self.index, :, dataX] = True
                 self.freqMask[self.index, dataX] = True
-                
+
                 self.draw()
                 self.drawSpectrum(self.spectrumClick)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             elif event.key == 'u':
                 ## Unmask
                 print("Unmasking %.3f MHz" % (freq[dataX]/1e6,))
-                
+
                 self.spec.mask[self.index, :, dataX] = self.timeMask[self.index,:]
                 self.specBandpass.mask[self.index, :, dataX] = self.timeMask[self.index,:]
                 self.freqMask[self.index, dataX] = False
-                
+
                 self.draw()
                 self.drawSpectrum(self.spectrumClick)
-                
+
                 self.frame.edited = True
                 self.frame.setSaveButton()
-                
+
             elif event.key == 'f':
                 ## Power law fit
                 self._keyPressCache.append( (self.index*1, dataX, dataY) )
-                
+
                 if len(self._keyPressCache) == 2:
                     (i0,f0,t0), (i1,f1,t1) = self._keyPressCache
                     if i0 != i1 or t0 != t1:
@@ -1502,69 +1483,69 @@ class Waterfall_GUI(object):
                         try:
                             x = freq[f0:f1] / freq[f0]
                             y = spec[t0, i0, f0:f1] / spec[t0, i0, f0]
-                            
+
                             coeff = numpy.polyfit(numpy.log10(x), numpy.log10(y), 1)
                             print("Alpha: %.3f" % coeff[0])
                             fit = 10**(numpy.polyval(coeff, numpy.log10(freq / freq[f0]))) * spec[t0, i0, f0]
-                            
+
                             self.draw()
                             self.drawSpectrum(self.spectrumClick, fit=fit, fitLabel='Alpha: %.3f' % coeff[0])
                         except Exception as e:
                             pass
-                            
+
                         self._keyPressCache = []
                 elif len(self._keyPressCache) == 1:
                     print("Move the cursor to the other side of the region to fit push 'f'")
-                    
+
             elif event.key == 'c':
                 ## Clear power law fit
                 fit = None
                 self._keyPressCache = []
-                
+
                 self.draw()
                 self.drawSpectrum(self.spectrumClick, fit=fit, fitLabel=None)
-                
+
             else:
                 pass
-                
+
     def on_motion(self, event):
         """
         On mouse motion display the data value under the cursor
         """
-        
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
+
             if self.index // (self.spec.shape[0]//2) == 0:
                 freq = self.freq1
             else:
                 freq = self.freq2
-                
+
             if self.bandpass:
                 spec = self.specBandpass
             else:
                 spec = self.spec
-                
+
             dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
             dataY = numpy.where(numpy.abs(clickY-self.time) == (numpy.abs(clickY-self.time).min()))[0][0]
             if not self.spec.mask[self.index, dataY, dataX]:
                 if self.usedB:
                     value = to_dB(spec[self.index, dataY, dataX])
-                    self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
+                    self.frame.statusbar.config(text="f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
                 else:
                     value = spec[self.index, dataY, dataX]
-                    self.frame.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f" % (clickX, clickY, value))
+                    self.frame.statusbar.config(text="f=%.4f MHz, t=%.4f s, p=%.2f" % (clickX, clickY, value))
             else:
-                self.frame.statusbar.SetStatusText("")
+                self.frame.statusbar.config(text="")
         else:
-            self.frame.statusbar.SetStatusText("")
-            
+            self.frame.statusbar.config(text="")
+
     def disconnect(self):
         """
         Disconnect all the stored connection ids
         """
-        
+
         self.frame.figure1a.canvas.mpl_disconnect(self.cidpress1a)
         self.frame.figure1b.canvas.mpl_disconnect(self.cidpress1b)
         self.frame.figure1c.canvas.mpl_disconnect(self.cidpress1c)
@@ -1573,66 +1554,10 @@ class Waterfall_GUI(object):
         self.frame.figure1a.canvas.mpl_disconnect(self.cidmotion)
 
 
-ID_OPEN    = 10
-ID_SAVE    = 11
-ID_SAVE_AS = 12
-ID_QUIT    = 13
+class MainWindow(tk.Tk):
+    def __init__(self):
+        super().__init__()
 
-ID_COLOR_AUTO = 20
-ID_COLOR_ADJUST = 21
-ID_COLOR_MAP_PAIRED = 2200
-ID_COLOR_MAP_SPECTRAL = 2201
-ID_COLOR_MAP_BONE = 2202
-ID_COLOR_MAP_JET = 2203
-ID_COLOR_MAP_EARTH = 2204
-ID_COLOR_MAP_HEAT = 2205
-ID_COLOR_MAP_NCAR = 2206
-ID_COLOR_MAP_RAINBOW = 2207
-ID_COLOR_MAP_STERN = 2208
-ID_COLOR_MAP_GRAY = 2209
-ID_COLOR_MAP_VIRIDIS = 2210
-ID_COLOR_MAP_MAGMA = 2211
-ID_COLOR_INVERT = 23
-ID_COLOR_STRETCH_LINEAR = 2400
-ID_COLOR_STRETCH_LOG = 2401
-ID_COLOR_STRETCH_SQRT = 2402
-ID_COLOR_STRETCH_SQRD = 2403
-ID_COLOR_STRETCH_ASINH = 2404
-ID_COLOR_STRETCH_SINH = 2405
-ID_COLOR_STRETCH_HIST = 2406
-
-ID_TUNING1_1 = 30
-ID_TUNING1_2 = 31
-ID_TUNING1_3 = 32
-ID_TUNING1_4 = 33
-ID_TUNING2_1 = 34
-ID_TUNING2_2 = 35
-ID_TUNING2_3 = 36
-ID_TUNING2_4 = 37
-ID_CHANGE_RANGE = 38
-ID_CHANGE_OBSID = 39
-
-ID_MASK_SUGGEST_CURRENT = 40
-ID_MASK_SUGGEST_ALL = 41
-ID_MASK_RESET_CURRENT = 42
-ID_MASK_RESET_ALL = 43
-ID_MASK_TWEAK = 44
-
-ID_BANDPASS_ON = 50
-ID_BANDPASS_OFF = 51
-ID_BANDPASS_RECOMPUTE = 52
-
-ID_DETAIL_SUMMARY = 60
-ID_DETAIL_SUBFILE = 61
-ID_DETAIL_WATERFALL = 62
-ID_DETAIL_DRIFTCURVE = 63
-ID_DETAIL_POWERSPECTRUM = 64
-
-ID_HELP = 70
-ID_ABOUT = 71
-
-class MainWindow(wx.Frame):
-    def __init__(self, parent, id):
         self.dirname = ''
         self.filename = ''
         self.offset = 0.0
@@ -1640,573 +1565,543 @@ class MainWindow(wx.Frame):
         self.data = None
         self.examineFileButton = None
         self.examineWindow = None
-        
+
         self.edited = False
-        
-        wx.Frame.__init__(self, parent, id, title="DRX Waterfall Viewer", size=(1000,600))
-        
+
+        self.title("DRX Waterfall Viewer")
+        self.geometry('1000x600')
+
     def render(self):
         self.initUI()
         self.initEvents()
-        self.Show()
-        
+
         self.cAdjust = None
-        
+        self._loading_frame = None
+        self._resize_after_id = None
+
+    def showLoading(self, message="Loading..."):
+        """Show a loading overlay with a message"""
+        if self._loading_frame is not None:
+            self.hideLoading()
+
+        # Create overlay frame that covers the whole window
+        self._loading_frame = tk.Frame(self, bg='#f0f0f0')
+        self._loading_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+        # Center container
+        container = tk.Frame(self._loading_frame, bg='#f0f0f0')
+        container.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        # Loading message
+        self._loading_label = tk.Label(
+            container,
+            text=message,
+            font=('TkDefaultFont', 14),
+            bg='#f0f0f0',
+            fg='#333333'
+        )
+        self._loading_label.pack(pady=10)
+
+        # Animated dots
+        self._loading_dots = 0
+        self._animateLoading()
+
+        self.update()
+
+    def _animateLoading(self):
+        """Animate the loading indicator"""
+        if self._loading_frame is None:
+            return
+
+        self._loading_dots = (self._loading_dots + 1) % 4
+        dots = '.' * self._loading_dots
+        current_text = self._loading_label.cget('text')
+        base_text = current_text.rstrip('.')
+        self._loading_label.config(text=base_text + dots)
+        self.update_idletasks()
+
+        # Schedule next animation frame
+        self._loading_after_id = self.after(300, self._animateLoading)
+
+    def hideLoading(self):
+        """Hide the loading overlay"""
+        if hasattr(self, '_loading_after_id'):
+            self.after_cancel(self._loading_after_id)
+        if self._loading_frame is not None:
+            self._loading_frame.destroy()
+            self._loading_frame = None
+
     def initUI(self):
-        self.statusbar = self.CreateStatusBar() # A Statusbar in the bottom of the window
-        
-        font = wx.SystemSettings.GetFont(wx.SYS_SYSTEM_FONT)
-        font.SetPointSize(10)
-        
-        menuBar = wx.MenuBar()
-        
-        fileMenu = wx.Menu()
-        colorMenu = wx.Menu()
-        dataMenu = wx.Menu()
-        maskMenu = wx.Menu()
-        bandpassMenu = wx.Menu()
-        detailsMenu = wx.Menu()
-        helpMenu = wx.Menu()
-        
-        ## File Menu
-        open = wx.MenuItem(fileMenu, ID_OPEN, "&Open")
-        AppendMenuItem(fileMenu, open)
-        save = wx.MenuItem(fileMenu, ID_SAVE, "&Save")
-        self.savemenu = save
-        AppendMenuItem(fileMenu, save)
-        saveas = wx.MenuItem(fileMenu, ID_SAVE_AS, "Save &As")
-        AppendMenuItem(fileMenu, saveas)
-        fileMenu.AppendSeparator()
-        exit = wx.MenuItem(fileMenu, ID_QUIT, "E&xit")
-        AppendMenuItem(fileMenu, exit)
-        
-        ## Color Menu
-        auto = wx.MenuItem(colorMenu, ID_COLOR_AUTO, '&Auto-scale Colorbar')
-        AppendMenuItem(colorMenu, auto)
-        cadj = wx.MenuItem(colorMenu, ID_COLOR_ADJUST, 'Adjust &Contrast')
-        AppendMenuItem(colorMenu, cadj)
-        cmap = wx.Menu()
-        cmap.AppendRadioItem(ID_COLOR_MAP_PAIRED, '&Paired')
-        cmap.AppendRadioItem(ID_COLOR_MAP_SPECTRAL, "&Spectral")
-        cmap.AppendRadioItem(ID_COLOR_MAP_BONE, '&Bone')
-        cmap.AppendRadioItem(ID_COLOR_MAP_JET, '&Jet')
-        cmap.AppendRadioItem(ID_COLOR_MAP_EARTH, '&Earth')
-        cmap.AppendRadioItem(ID_COLOR_MAP_HEAT, '&Heat')
-        cmap.AppendRadioItem(ID_COLOR_MAP_NCAR, '&NCAR')
-        cmap.AppendRadioItem(ID_COLOR_MAP_RAINBOW, '&Rainbow')
-        cmap.AppendRadioItem(ID_COLOR_MAP_STERN, 'S&tern')
-        cmap.AppendRadioItem(ID_COLOR_MAP_GRAY, '&Gray')
-        cmap.AppendRadioItem(ID_COLOR_MAP_VIRIDIS, '&Viridis')
-        cmap.AppendRadioItem(ID_COLOR_MAP_MAGMA, '&Magma')
-        cmap.AppendSeparator()
-        cmap.AppendCheckItem(ID_COLOR_INVERT, 'In&vert')
-        AppendMenuMenu(colorMenu, -1, 'Color &Map', cmap)
-        cmap.Check(ID_COLOR_MAP_JET, True)
-        self.cmapMenu = cmap
-        smap = wx.Menu()
-        smap.AppendRadioItem(ID_COLOR_STRETCH_LINEAR, '&Linear')
-        smap.AppendRadioItem(ID_COLOR_STRETCH_LOG, 'Lo&g')
-        smap.AppendRadioItem(ID_COLOR_STRETCH_SQRT, 'Square &Root')
-        smap.AppendRadioItem(ID_COLOR_STRETCH_SQRD, '&Squared')
-        smap.AppendRadioItem(ID_COLOR_STRETCH_ASINH, '&ASinh')
-        smap.AppendRadioItem(ID_COLOR_STRETCH_SINH, '&Sinh')
-        smap.AppendRadioItem(ID_COLOR_STRETCH_HIST, '&Histogram Equalization')
-        AppendMenuMenu(colorMenu, -1, 'Color &Stretch', smap)
-        smap.Check(ID_COLOR_STRETCH_LINEAR, True)
-        self.smapMenu = smap
-        
-        ## Data Menu Stub
-        t1p1 = dataMenu.AppendRadioItem(ID_TUNING1_1, 'Tuning 1, XX')
-        t1p2 = dataMenu.AppendRadioItem(ID_TUNING1_2, 'Tuning 1, Re(XY)')
-        t1p3 = dataMenu.AppendRadioItem(ID_TUNING1_3, 'Tuning 1, Im(XY)')
-        t1p4 = dataMenu.AppendRadioItem(ID_TUNING1_4, 'Tuning 1, YY')
-        t2p1 = dataMenu.AppendRadioItem(ID_TUNING2_1, 'Tuning 2, XX')
-        t2p2 = dataMenu.AppendRadioItem(ID_TUNING2_2, 'Tuning 2, Re(XY)')
-        t2p3 = dataMenu.AppendRadioItem(ID_TUNING2_3, 'Tuning 2, Im(XY)')
-        t2p4 = dataMenu.AppendRadioItem(ID_TUNING2_4, 'Tuning 2, YY')
-        
+        # Status bar at the bottom
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Menu bar
+        menubar = tk.Menu(self)
+
+        # File Menu
+        self.fileMenu = tk.Menu(menubar, tearoff=0)
+        self.fileMenu.add_command(label='Open', command=self.onOpen, accelerator='Ctrl+O')
+        self.fileMenu.add_command(label='Save', command=self.onSave, accelerator='Ctrl+S')
+        self.fileMenu.add_command(label='Save As', command=self.onSaveAs)
+        self.fileMenu.add_separator()
+        self.fileMenu.add_command(label='Exit', command=self.onExit, accelerator='Ctrl+Q')
+        menubar.add_cascade(label='File', menu=self.fileMenu)
+
+        # Color Menu
+        self.colorMenu = tk.Menu(menubar, tearoff=0)
+        self.colorMenu.add_command(label='Auto-scale Colorbar', command=self.onAutoscale)
+        self.colorMenu.add_command(label='Adjust Contrast', command=self.onAdjust)
+
+        # Color Map submenu
+        self.cmapMenu = tk.Menu(self.colorMenu, tearoff=0)
+        self.cmap_var = tk.StringVar(value='jet')
+        self.cmapMenu.add_radiobutton(label='Paired', variable=self.cmap_var, value='Paired', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Spectral', variable=self.cmap_var, value='Spectral', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Bone', variable=self.cmap_var, value='bone', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Jet', variable=self.cmap_var, value='jet', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Earth', variable=self.cmap_var, value='gist_earth', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Heat', variable=self.cmap_var, value='gist_heat', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='NCAR', variable=self.cmap_var, value='gist_ncar', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Rainbow', variable=self.cmap_var, value='gist_rainbow', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Stern', variable=self.cmap_var, value='gist_stern', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Gray', variable=self.cmap_var, value='gist_gray', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Viridis', variable=self.cmap_var, value='viridis', command=self.onColorMap)
+        self.cmapMenu.add_radiobutton(label='Magma', variable=self.cmap_var, value='magma', command=self.onColorMap)
+        self.cmapMenu.add_separator()
+        self.cmap_invert_var = tk.BooleanVar(value=False)
+        self.cmapMenu.add_checkbutton(label='Invert', variable=self.cmap_invert_var, command=self.onColorMap)
+        self.colorMenu.add_cascade(label='Color Map', menu=self.cmapMenu)
+
+        # Color Stretch submenu
+        self.smapMenu = tk.Menu(self.colorMenu, tearoff=0)
+        self.stretch_var = tk.StringVar(value='linear')
+        self.smapMenu.add_radiobutton(label='Linear', variable=self.stretch_var, value='linear', command=self.onColorStretch)
+        self.smapMenu.add_radiobutton(label='Log', variable=self.stretch_var, value='log', command=self.onColorStretch)
+        self.smapMenu.add_radiobutton(label='Square Root', variable=self.stretch_var, value='sqrt', command=self.onColorStretch)
+        self.smapMenu.add_radiobutton(label='Squared', variable=self.stretch_var, value='sqrd', command=self.onColorStretch)
+        self.smapMenu.add_radiobutton(label='ASinh', variable=self.stretch_var, value='asinh', command=self.onColorStretch)
+        self.smapMenu.add_radiobutton(label='Sinh', variable=self.stretch_var, value='sinh', command=self.onColorStretch)
+        self.smapMenu.add_radiobutton(label='Histogram Equalization', variable=self.stretch_var, value='histeq', command=self.onColorStretch)
+        self.colorMenu.add_cascade(label='Color Stretch', menu=self.smapMenu)
+        menubar.add_cascade(label='Color', menu=self.colorMenu)
+
+        # Data Menu
+        self.dataMenu = tk.Menu(menubar, tearoff=0)
+        self.data_product_var = tk.IntVar(value=0)
+        self.dataMenu.add_radiobutton(label='Tuning 1, XX', variable=self.data_product_var, value=0, command=self.onTuning1Product1)
+        self.dataMenu.add_radiobutton(label='Tuning 1, Re(XY)', variable=self.data_product_var, value=1, command=self.onTuning1Product2)
+        self.dataMenu.add_radiobutton(label='Tuning 1, Im(XY)', variable=self.data_product_var, value=2, command=self.onTuning1Product3)
+        self.dataMenu.add_radiobutton(label='Tuning 1, YY', variable=self.data_product_var, value=3, command=self.onTuning1Product4)
+        self.dataMenu.add_separator()
+        self.dataMenu.add_radiobutton(label='Tuning 2, XX', variable=self.data_product_var, value=4, command=self.onTuning2Product1)
+        self.dataMenu.add_radiobutton(label='Tuning 2, Re(XY)', variable=self.data_product_var, value=5, command=self.onTuning2Product2)
+        self.dataMenu.add_radiobutton(label='Tuning 2, Im(XY)', variable=self.data_product_var, value=6, command=self.onTuning2Product3)
+        self.dataMenu.add_radiobutton(label='Tuning 2, YY', variable=self.data_product_var, value=7, command=self.onTuning2Product4)
+        self.dataMenu.add_separator()
+        self.dataMenu.add_command(label='Change Time Range', command=self.onRangeChange)
+        self.dataMenu.add_command(label='Change Observation', command=self.onObservationChange)
+        menubar.add_cascade(label='Data', menu=self.dataMenu)
+
+        # Mask Menu
+        self.maskMenu = tk.Menu(menubar, tearoff=0)
+        self.maskMenu.add_command(label='Suggest Mask - Current', command=self.onMaskSuggestCurrent)
+        self.maskMenu.add_command(label='Suggest Mask - All', command=self.onMaskSuggestAll)
+        self.maskMenu.add_separator()
+        self.maskMenu.add_command(label='Reset Mask - Current', command=self.onMaskResetCurrent)
+        self.maskMenu.add_command(label='Reset Mask - All', command=self.onMaskResetAll)
+        self.maskMenu.add_separator()
+        self.maskMenu.add_command(label='Adjust Masking Parameters', command=self.onMaskTweak)
+        menubar.add_cascade(label='Mask', menu=self.maskMenu)
+
+        # Bandpass Menu
+        self.bandpassMenu = tk.Menu(menubar, tearoff=0)
+        self.bandpass_var = tk.StringVar(value='off')
+        self.bandpassMenu.add_radiobutton(label='Off', variable=self.bandpass_var, value='off', command=self.onBandpassOff)
+        self.bandpassMenu.add_radiobutton(label='On', variable=self.bandpass_var, value='on', command=self.onBandpassOn)
+        self.bandpassMenu.add_separator()
+        self.bandpassMenu.add_command(label='Recompute Fits', command=self.onBandpassRecompute)
+        menubar.add_cascade(label='Bandpass', menu=self.bandpassMenu)
+
+        # Details Menu
+        self.detailsMenu = tk.Menu(menubar, tearoff=0)
+        self.detailsMenu.add_command(label='Current File Info.', command=self.onFileDetails)
+        self.detailsMenu.add_command(label='Examine File', command=self.onExamineFile)
+        self.detailsMenu.add_separator()
+        self.detailsMenu.add_command(label='Zoomable Waterfall', command=self.onZoomableWaterfall)
+        self.detailsMenu.add_command(label='Zoomable Drift Curve', command=self.onZoomableDrift)
+        self.detailsMenu.add_command(label='Zoomable Power Spectrum', command=self.onZoomablePowerSpectrum)
+        menubar.add_cascade(label='Details', menu=self.detailsMenu)
+
+        # Help Menu
+        self.helpMenu = tk.Menu(menubar, tearoff=0)
+        self.helpMenu.add_command(label='plotHDF Handbook', command=self.onHelp, accelerator='F1')
+        self.helpMenu.add_separator()
+        self.helpMenu.add_command(label='About', command=self.onAbout)
+        menubar.add_cascade(label='Help', menu=self.helpMenu)
+
+        self.config(menu=menubar)
+
+        # Main frame for plots
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Top panel with waterfall, saturation, and drift plots
+        panel1 = ttk.Frame(main_frame)
+        panel1.pack(fill=tk.BOTH, expand=True)
+
+        # Waterfall plot
+        self.figure1a = Figure(figsize=(2, 2))
+        self.canvas1a = FigureCanvasTkAgg(self.figure1a, master=panel1)
+        self.canvas1a.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Saturation fraction plot
+        self.figure1b = Figure(figsize=(1, 2))
+        self.canvas1b = FigureCanvasTkAgg(self.figure1b, master=panel1)
+        self.canvas1b.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Total power with time plot
+        self.figure1c = Figure(figsize=(2, 2))
+        self.canvas1c = FigureCanvasTkAgg(self.figure1c, master=panel1)
+        self.canvas1c.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.panel1 = panel1
+
+        # Bottom panel with spectrum plot and toolbar
+        panel3 = ttk.Frame(main_frame)
+        panel3.pack(fill=tk.BOTH, expand=True)
+
+        self.figure2 = Figure(figsize=(5, 2))
+        self.canvas2 = FigureCanvasTkAgg(self.figure2, master=panel3)
+        self.canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.toolbar = NavigationToolbar2Tk(self.canvas2, panel3)
+        self.toolbar.update()
+        self.toolbar.set_message = lambda s: None  # Disable default coordinate display
+
+        self.panel3 = panel3
+
+    def initEvents(self):
+        # Keyboard shortcuts
+        self.bind('<Control-o>', lambda e: self.onOpen())
+        self.bind('<Control-s>', lambda e: self.onSave())
+        self.bind('<Control-q>', lambda e: self.onExit())
+        self.bind('<F1>', lambda e: self.onHelp())
+
+        # Arrow key navigation for spectrum
+        self.bind('<Up>', lambda e: self.onKeyNavForward())
+        self.bind('<Right>', lambda e: self.onKeyNavForward())
+        self.bind('<Down>', lambda e: self.onKeyNavBackward())
+        self.bind('<Left>', lambda e: self.onKeyNavBackward())
+
+        # Mask/unmask keys
+        self.bind('m', lambda e: self.onKeyMask())
+        self.bind('M', lambda e: self.onKeyMask())
+        self.bind('u', lambda e: self.onKeyUnmask())
+        self.bind('U', lambda e: self.onKeyUnmask())
+
+        # Window close
+        self.protocol("WM_DELETE_WINDOW", self.onExit)
+
+        # Resize handling
+        self.bind('<Configure>', self.onSize)
+
+    def onSize(self, event):
+        """Handle window resize with debouncing"""
+        # Cancel any pending resize callback to avoid redundant redraws
+        if self._resize_after_id is not None:
+            self.after_cancel(self._resize_after_id)
+        self._resize_after_id = self.after(150, self.resizePlots)
+
+    def resizePlots(self):
+        """Resize plots after window resize"""
+        self._resize_after_id = None
         try:
-            dataMenu.InsertSeparator(4)
+            self.figure1a.tight_layout()
+            self.canvas1a.draw()
+            self.figure1b.tight_layout()
+            self.canvas1b.draw()
+            self.figure1c.tight_layout()
+            self.canvas1c.draw()
+            self.figure2.tight_layout()
+            self.canvas2.draw()
         except:
             pass
-        dataMenu.AppendSeparator()
-        self.changeRangeButton = wx.MenuItem(colorMenu, ID_CHANGE_RANGE, 'Change Time &Range')
-        self.changeObservationButton = wx.MenuItem(colorMenu, ID_CHANGE_OBSID, 'Change &Observation')
-        AppendMenuItem(dataMenu, self.changeRangeButton)
-        AppendMenuItem(dataMenu, self.changeObservationButton)
-        
-        t1p1.Enable(False)
-        t1p2.Enable(False)
-        t1p3.Enable(False)
-        t1p4.Enable(False)
-        t2p1.Enable(False)
-        t2p2.Enable(False)
-        t2p3.Enable(False)
-        t2p4.Enable(False)
-        self.dataMenuOptions = [t1p1, t1p2, t1p3, t1p4, t2p1, t2p2, t2p3, t2p4]
-        
-        ## Mask Menu
-        suggestC = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_CURRENT, 'Suggest Mask - Current')
-        AppendMenuItem(maskMenu, suggestC)
-        suggestA = wx.MenuItem(maskMenu, ID_MASK_SUGGEST_ALL, 'Suggest Mask - All')
-        AppendMenuItem(maskMenu, suggestA)
-        maskMenu.AppendSeparator()
-        resetC = wx.MenuItem(maskMenu, ID_MASK_RESET_CURRENT, 'Reset Mask - Current')
-        AppendMenuItem(maskMenu, resetC)
-        resetA = wx.MenuItem(maskMenu, ID_MASK_RESET_ALL, 'Reset Mask - All')
-        AppendMenuItem(maskMenu, resetA)
-        maskMenu.AppendSeparator()
-        tweak = wx.MenuItem(maskMenu, ID_MASK_TWEAK, 'Adjust Masking Parameters')
-        AppendMenuItem(maskMenu, tweak)
-        
-        ## Bandpass Menu
-        bandpassMenu.AppendRadioItem(ID_BANDPASS_OFF, 'Off')
-        bandpassMenu.AppendRadioItem(ID_BANDPASS_ON,  'On')
-        bandpassMenu.AppendSeparator()
-        recompute = wx.MenuItem(bandpassMenu, ID_BANDPASS_RECOMPUTE, 'Recompute Fits')
-        AppendMenuItem(bandpassMenu, recompute)
-        
-        ## Details Menu
-        cf = wx.MenuItem(detailsMenu, ID_DETAIL_SUMMARY, 'Current File Info.')
-        AppendMenuItem(detailsMenu, cf)
-        self.examineFileButton = wx.MenuItem(detailsMenu, ID_DETAIL_SUBFILE, 'Examine File')
-        AppendMenuItem(detailsMenu, self.examineFileButton)
-        detailsMenu.AppendSeparator()
-        zm = wx.MenuItem(detailsMenu, ID_DETAIL_WATERFALL, 'Zoomable Waterfall')
-        AppendMenuItem(detailsMenu, zm)
-        zd = wx.MenuItem(detailsMenu, ID_DETAIL_DRIFTCURVE, 'Zoomable Drift Curve')
-        AppendMenuItem(detailsMenu, zd)
-        zp = wx.MenuItem(detailsMenu, ID_DETAIL_POWERSPECTRUM, 'Zoomable Power Spectrum')
-        AppendMenuItem(detailsMenu, zp)
-        
-        # Help menu items
-        help = wx.MenuItem(helpMenu, ID_HELP, 'plotHDF Handbook\tF1')
-        AppendMenuItem(helpMenu, help)
-        helpMenu.AppendSeparator()
-        about = wx.MenuItem(helpMenu, ID_ABOUT, '&About')
-        AppendMenuItem(helpMenu, about)
-        
-        # Creating the menubar.
-        menuBar.Append(fileMenu,"&File") # Adding the "filemenu" to the MenuBar
-        menuBar.Append(colorMenu, "&Color")
-        menuBar.Append(dataMenu, "&Data")
-        menuBar.Append(maskMenu, "&Mask")
-        menuBar.Append(bandpassMenu, "&Bandpass")
-        menuBar.Append(detailsMenu, "D&etails")
-        menuBar.Append(helpMenu, "&Help")
-        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
-        
-        # Save the various menus so that we can disable them if need be
-        self.fileMenu = fileMenu
-        self.colorMenu = colorMenu
-        self.dataMenu = dataMenu
-        self.maskMenu = maskMenu
-        self.bandpassMenu = bandpassMenu
-        self.detailsMenu = detailsMenu
-        self.helpMenu = helpMenu
-        
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        
-        # Add waterfall plot
-        panel1 = wx.Panel(self, -1)
-        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.figure1a = Figure(figsize=(2,2))
-        self.canvas1a = FigureCanvasWxAgg(panel1, -1, self.figure1a)
-        hbox1.Add(self.canvas1a, 3, wx.EXPAND)
-        
-        # Add a saturation fraction plot
-        self.figure1b = Figure(figsize=(1,2))
-        self.canvas1b = FigureCanvasWxAgg(panel1, -1, self.figure1b)
-        hbox1.Add(self.canvas1b, 1, wx.EXPAND)
-        
-        # Add a total power with time plot
-        self.figure1c = Figure(figsize=(2,2))
-        self.canvas1c = FigureCanvasWxAgg(panel1, -1, self.figure1c)
-        hbox1.Add(self.canvas1c, 3, wx.EXPAND)
-        panel1.SetSizer(hbox1)
-        vbox.Add(panel1, 1, wx.ALIGN_LEFT | wx.EXPAND)
-        self.panel1 = panel1
-        
-        # Add a spectrum plot (with toolbar)
-        panel3 = wx.Panel(self, -1)
-        hbox3 = wx.BoxSizer(wx.VERTICAL)
-        self.figure2 = Figure(figsize=(5,2))
-        self.canvas2 = FigureCanvasWxAgg(panel3, -1, self.figure2)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas2)
-        self.toolbar.Realize()
-        hbox3.Add(self.canvas2, 1, wx.ALIGN_LEFT | wx.EXPAND)
-        hbox3.Add(self.toolbar, 0, wx.ALIGN_LEFT)
-        panel3.SetSizer(hbox3)
-        vbox.Add(panel3, 1, wx.ALIGN_LEFT | wx.EXPAND)
-        self.panel3 = panel3
-        
-        # Use some sizers to see layout options
-        self.SetSizer(vbox)
-        self.SetAutoLayout(1)
-        vbox.Fit(self)
-        
-    def initEvents(self):
-        self.Bind(wx.EVT_MENU, self.onOpen, id=ID_OPEN)
-        self.Bind(wx.EVT_MENU, self.onSave, id=ID_SAVE)
-        self.Bind(wx.EVT_MENU, self.onSaveAs, id=ID_SAVE_AS)
-        self.Bind(wx.EVT_MENU, self.onExit, id=ID_QUIT)
-        
-        self.Bind(wx.EVT_MENU, self.onAutoscale, id=ID_COLOR_AUTO)
-        self.Bind(wx.EVT_MENU, self.onAdjust, id=ID_COLOR_ADJUST)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_PAIRED)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_SPECTRAL)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_BONE)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_JET)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_EARTH)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_HEAT)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_NCAR)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_RAINBOW)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_STERN)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_GRAY)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_VIRIDIS)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_MAP_MAGMA)
-        self.Bind(wx.EVT_MENU, self.onColorMap, id=ID_COLOR_INVERT)
-        self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_LINEAR)
-        self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_LOG)
-        self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SQRT)
-        self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SQRD)
-        self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_ASINH)
-        self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_SINH)
-        self.Bind(wx.EVT_MENU, self.onColorStretch, id=ID_COLOR_STRETCH_HIST)
-        
-        self.Bind(wx.EVT_MENU, self.onTuning1Product1, id=ID_TUNING1_1)
-        self.Bind(wx.EVT_MENU, self.onTuning1Product2, id=ID_TUNING1_2)
-        self.Bind(wx.EVT_MENU, self.onTuning1Product3, id=ID_TUNING1_3)
-        self.Bind(wx.EVT_MENU, self.onTuning1Product4, id=ID_TUNING1_4)
-        self.Bind(wx.EVT_MENU, self.onTuning2Product1, id=ID_TUNING2_1)
-        self.Bind(wx.EVT_MENU, self.onTuning2Product2, id=ID_TUNING2_2)
-        self.Bind(wx.EVT_MENU, self.onTuning2Product3, id=ID_TUNING2_3)
-        self.Bind(wx.EVT_MENU, self.onTuning2Product4, id=ID_TUNING2_4)
-        self.Bind(wx.EVT_MENU, self.onRangeChange, id=ID_CHANGE_RANGE)
-        self.Bind(wx.EVT_MENU, self.onObservationchange, id=ID_CHANGE_OBSID)
-        
-        self.Bind(wx.EVT_MENU, self.onMaskSuggestCurrent, id=ID_MASK_SUGGEST_CURRENT)
-        self.Bind(wx.EVT_MENU, self.onMaskSuggestAll, id=ID_MASK_SUGGEST_ALL)
-        self.Bind(wx.EVT_MENU, self.onMaskResetCurrent, id=ID_MASK_RESET_CURRENT)
-        self.Bind(wx.EVT_MENU, self.onMaskResetAll, id=ID_MASK_RESET_ALL)
-        self.Bind(wx.EVT_MENU, self.onMaskTweak, id=ID_MASK_TWEAK)
-        
-        self.Bind(wx.EVT_MENU, self.onBandpassOn, id=ID_BANDPASS_ON)
-        self.Bind(wx.EVT_MENU, self.onBandpassOff, id=ID_BANDPASS_OFF)
-        self.Bind(wx.EVT_MENU, self.onBandpassRecompute, id=ID_BANDPASS_RECOMPUTE)
-        
-        self.Bind(wx.EVT_MENU, self.onFileDetails, id=ID_DETAIL_SUMMARY)
-        self.Bind(wx.EVT_MENU, self.onExamineFile, id=ID_DETAIL_SUBFILE)
-        self.Bind(wx.EVT_MENU, self.onZoomWaterfall, id=ID_DETAIL_WATERFALL)
-        self.Bind(wx.EVT_MENU, self.onZoomDrift, id=ID_DETAIL_DRIFTCURVE)
-        self.Bind(wx.EVT_MENU, self.onZoomPowerSpectrum, id=ID_DETAIL_POWERSPECTRUM)
-        
-        self.Bind(wx.EVT_MENU, self.onHelp, id=ID_HELP)
-        self.Bind(wx.EVT_MENU, self.onAbout, id=ID_ABOUT)
-        
-        # Key events
-        self.canvas1a.Bind(wx.EVT_KEY_UP, self.onKeyPress)
-        self.canvas1b.Bind(wx.EVT_KEY_UP, self.onKeyPress)
-        self.canvas2.Bind(wx.EVT_KEY_UP,  self.onKeyPress)
-        
-        # Make the plots re-sizable
-        #self.Bind(wx.EVT_PAINT, self.resizePlots)
-        self.Bind(wx.EVT_SIZE, self.onSize)
-        
-        # Window manager close
-        self.Bind(wx.EVT_CLOSE, self.onExit)
-        
+
+    def onKeyNavForward(self):
+        """Move the spectrum display forward by one integration time"""
+        if self.data is None or self.data.spectrumClick is None:
+            return
+
+        newClick = self.data.spectrumClick + self.data.tInt
+        if newClick <= self.data.time[-1]:
+            self.data.spectrumClick = newClick
+            self.data.drawSpectrum(newClick)
+            self.data.makeMark(newClick)
+
+    def onKeyNavBackward(self):
+        """Move the spectrum display backward by one integration time"""
+        if self.data is None or self.data.spectrumClick is None:
+            return
+
+        newClick = self.data.spectrumClick - self.data.tInt
+        if newClick >= self.data.time[0]:
+            self.data.spectrumClick = newClick
+            self.data.drawSpectrum(newClick)
+            self.data.makeMark(newClick)
+
+    def onKeyMask(self):
+        """Mask the current integration"""
+        if self.data is None or self.data.spectrumClick is None:
+            return
+
+        dataY = int(round(self.data.spectrumClick / self.data.tInt))
+
+        self.data.spec.mask[self.data.index, dataY, :] = True
+        self.data.specBandpass.mask[self.data.index, dataY, :] = True
+        self.data.timeMask[self.data.index, dataY] = True
+
+        self.data.draw()
+        self.data.drawSpectrum(self.data.spectrumClick)
+
+        self.edited = True
+        self.setSaveButton()
+
+    def onKeyUnmask(self):
+        """Unmask the current integration"""
+        if self.data is None or self.data.spectrumClick is None:
+            return
+
+        dataY = int(round(self.data.spectrumClick / self.data.tInt))
+
+        self.data.spec.mask[self.data.index, dataY, :] = self.data.freqMask[self.data.index, :]
+        self.data.specBandpass.mask[self.data.index, dataY, :] = self.data.freqMask[self.data.index, :]
+        self.data.timeMask[self.data.index, dataY] = False
+
+        self.data.draw()
+        self.data.drawSpectrum(self.data.spectrumClick)
+
+        self.edited = True
+        self.setSaveButton()
+
     def setSaveButton(self):
-        """
-        Control that data of the various 'save' options based on the value of
-        self.edited.
-        """
-        
+        """Update Save menu item state based on edited flag"""
         if self.edited:
-            self.savemenu.Enable(True)
+            self.fileMenu.entryconfig(1, state='normal')  # Save
         else:
-            self.savemenu.Enable(False)
-            
+            self.fileMenu.entryconfig(1, state='disabled')  # Save
+
     def setDataMenuOptions(self):
-        """
-        Control what is shown in the Data menu and if it is active or not.
-        """
-        
-        # Turn them all off to start with
-        for item in self.dataMenuOptions:
-            item.Enable(False)
-            
-        # Update the text for the current mode
+        """Enable/disable data menu items based on available data products"""
+        if self.data is None:
+            return
+
+        # First, disable all (skip index 4 which is a separator)
+        for i in [0, 1, 2, 3, 5, 6, 7, 8]:
+            self.dataMenu.entryconfig(i, state='disabled')
+
+        # Enable based on data products
+        mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
+        for dp in self.data.data_products:
+            idx = mapper.get(dp, -1)
+            if idx >= 0:
+                # Tuning 1
+                self.dataMenu.entryconfig(idx, state='normal')
+                # Tuning 2
+                self.dataMenu.entryconfig(idx + 5, state='normal')  # +5 accounts for separator
+
+        # Set labels based on linear/Stokes
         if self.data.linear:
-            self.dataMenuOptions[0].SetItemLabel('Tuning 1, XX')
-            self.dataMenuOptions[1].SetItemLabel('Tuning 1, Re(XY)')
-            self.dataMenuOptions[2].SetItemLabel('Tuning 1, Im(XY)')
-            self.dataMenuOptions[3].SetItemLabel('Tuning 1, YY')
-            self.dataMenuOptions[4].SetItemLabel('Tuning 2, XX')
-            self.dataMenuOptions[5].SetItemLabel('Tuning 2, Re(XY)')
-            self.dataMenuOptions[6].SetItemLabel('Tuning 2, Im(XY)')
-            self.dataMenuOptions[7].SetItemLabel('Tuning 2, YY')
+            labels = ['Tuning 1, XX', 'Tuning 1, Re(XY)', 'Tuning 1, Im(XY)', 'Tuning 1, YY',
+                      'Tuning 2, XX', 'Tuning 2, Re(XY)', 'Tuning 2, Im(XY)', 'Tuning 2, YY']
         else:
-            self.dataMenuOptions[0].SetItemLabel('Tuning 1, I')
-            self.dataMenuOptions[1].SetItemLabel('Tuning 1, Q')
-            self.dataMenuOptions[2].SetItemLabel('Tuning 1, U')
-            self.dataMenuOptions[3].SetItemLabel('Tuning 1, V')
-            self.dataMenuOptions[4].SetItemLabel('Tuning 2, I')
-            self.dataMenuOptions[5].SetItemLabel('Tuning 2, Q')
-            self.dataMenuOptions[6].SetItemLabel('Tuning 2, U')
-            self.dataMenuOptions[7].SetItemLabel('Tuning 2, V')
-            
-        # Now re-enable
+            labels = ['Tuning 1, I', 'Tuning 1, Q', 'Tuning 1, U', 'Tuning 1, V',
+                      'Tuning 2, I', 'Tuning 2, Q', 'Tuning 2, U', 'Tuning 2, V']
+
+        for i, label in enumerate(labels):
+            idx = i if i < 4 else i + 1  # Account for separator
+            self.dataMenu.entryconfig(idx, label=label)
+
+    # File menu handlers
+    def onOpen(self):
+        """Open a HDF5 file"""
+        filename = filedialog.askopenfilename(
+            initialdir=self.dirname,
+            title="Select HDF5 Waterfall File",
+            filetypes=[("HDF5 files", "*.hdf5"), ("All files", "*.*")]
+        )
+        if filename:
+            self.dirname = os.path.dirname(filename)
+            self.filename = filename
+
+            self.config(cursor='watch')
+            self.showLoading("Loading " + os.path.basename(filename))
+
+            try:
+                self.data.loadData(filename, obsID=1)
+                self.data.render()
+                self.data.draw()
+
+                # Enable menus
+                self._enableMenus(True)
+                self.setDataMenuOptions()
+
+                self.edited = False
+                self.setSaveButton()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load file: {e}")
+
+            self.hideLoading()
+            self.config(cursor='')
+
+    def onSave(self):
+        """Save mask to current file"""
+        if not self.filename:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
+        try:
+            self._saveMask(self.filename)
+            self.edited = False
+            self.setSaveButton()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save: {e}")
+
+        self.config(cursor='')
+
+    def onSaveAs(self):
+        """Save mask to a new file"""
+        filename = filedialog.asksaveasfilename(
+            initialdir=self.dirname,
+            title="Save HDF5 File As",
+            filetypes=[("HDF5 files", "*.hdf5"), ("All files", "*.*")],
+            defaultextension=".hdf5"
+        )
+        if filename:
+            self.config(cursor='watch')
+            self.update()
+
+            try:
+                # Copy file first if different
+                if filename != self.filename:
+                    import shutil
+                    shutil.copy2(self.filename, filename)
+
+                self._saveMask(filename)
+                self.filename = filename
+                self.dirname = os.path.dirname(filename)
+                self.edited = False
+                self.setSaveButton()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save: {e}")
+
+            self.config(cursor='')
+
+    def _saveMask(self, filename):
+        """Save mask data to HDF5 file"""
+        h = h5py.File(filename, 'a')
+        obs = h.get('Observation%i' % self.data.obsID, None)
+
+        tuning1 = obs.get('Tuning1', None)
+        tuning2 = obs.get('Tuning2', None)
+        if tuning2 is None:
+            tuning2 = tuning1
+
+        mask1 = tuning1.get('Mask', None)
+        mask2 = tuning2.get('Mask', None)
+
+        mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
+
         for p in self.data.data_products:
-            if p in ('I', 'XX'):
-                self.dataMenuOptions[0].Enable(True)
-                self.dataMenuOptions[4].Enable(True)
-            elif p in ('Q', 'XY_real'):
-                self.dataMenuOptions[1].Enable(True)
-                self.dataMenuOptions[5].Enable(True)
-            elif p in ('U', 'XY_imag'):
-                self.dataMenuOptions[2].Enable(True)
-                self.dataMenuOptions[6].Enable(True)
-            else:
-                self.dataMenuOptions[3].Enable(True)
-                self.dataMenuOptions[7].Enable(True)
-                
-    def onOpen(self, event):
-        """
-        Open a file.
-        """
-        
+            ind1 = 4*(1-1) + mapper[p]
+            ind2 = 4*(2-1) + mapper[p]
+
+            selection = numpy.s_[self.data.iOffset:self.data.iOffset+self.data.iDuration, :]
+
+            if mask1 is not None:
+                mask1[p].write_direct(self.data.spec.mask[ind1,:,:].astype(mask1[p].dtype), dest_sel=selection)
+            if mask2 is not None:
+                mask2[p].write_direct(self.data.spec.mask[ind2,:,:].astype(mask2[p].dtype), dest_sel=selection)
+
+        h.close()
+
+    def onExit(self):
+        """Exit the application"""
         if self.edited:
-            dialog = wx.MessageDialog(self, 'The current RFI mask has changes that have not been saved.\n\nOpen a new file anyways?', 'Confirm Open', style=wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
-            
-            if dialog.ShowModal() == wx.ID_YES:
-                pass
-            else:
-                return False
-                
-        dlg = wx.FileDialog(self, "Choose a file", self.dirname, "", "HDF5 (*.hdf5;*.h5)|*.hdf5;*.h5|All Files|*", wx.FD_OPEN)
-        if dlg.ShowModal() == wx.ID_OK:
-            self.filename = dlg.GetFilename()
-            self.dirname = dlg.GetDirectory()
-            self.data = Waterfall_GUI(self)
-            
-            # Display the time range dialog box and update the image
-            self.onRangeChange(None)
-            
-            if self.cAdjust is not None:
-                try:
-                    self.cAdjust.Close()
-                except:
-                    pass
-                self.cAdjust = None
-                
-        dlg.Destroy()
-        
-    def onSave(self, event):
-        """
-        Save the data mask to a new NPZ file.
-        """
-        
-        if self.data.filename == '':
-            self.onSaveAs(event)
-            
-        else:
-            wx.BeginBusyCursor()
-            
-            h = h5py.File(self.data.filename, 'a')
-            obs = h.get('Observation%i' % self.data.obsID, None)
-            
-            tuning1 = obs.get('Tuning1', None)
-            tuning2 = obs.get('Tuning2', None)
-            
-            data_products = list(tuning1)
+            result = messagebox.askyesnocancel("Unsaved Changes",
+                "You have unsaved changes. Do you want to save before exiting?")
+            if result is None:  # Cancel
+                return
+            elif result:  # Yes
+                self.onSave()
+
+        self.destroy()
+
+    def _enableMenus(self, enable):
+        """Enable or disable menus"""
+        state = 'normal' if enable else 'disabled'
+
+        # Color menu
+        for i in range(self.colorMenu.index('end') + 1):
             try:
-                del data_products[data_products.index('Mask')]
-            except ValueError:
+                self.colorMenu.entryconfig(i, state=state)
+            except:
                 pass
+
+        # Data menu
+        for i in range(self.dataMenu.index('end') + 1):
             try:
-                del data_products[data_products.index('SpectralKurtosis')]
-            except ValueError:
+                self.dataMenu.entryconfig(i, state=state)
+            except:
                 pass
-            mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
-            for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
-                try:
-                    ind = data_products.index(exclude)
-                    del data_products[ind]
-                except ValueError:
-                    pass
-            
-            o = self.data.iOffset
-            d = self.data.iDuration
-            
-            mask1 = tuning1.get('Mask', None)
-            mask2 = tuning2.get('Mask', None)
-            
-            if mask1 is None:
-                mask1 = tuning1.create_group('Mask')
-                for p in data_products:
-                    mask1.create_dataset(p, tuning1[p].shape, 'bool')
-            for p in data_products:
-                ind = 4*(1-1) + mapper[p]
-                mask1P = mask1.get(p, None)
-                mask1P[o:o+d,:] = self.data.spec.mask[ind,:,:]
-                
-            if mask2 is None:
-                mask2 = tuning2.create_group('Mask')
-                for p in data_products:
-                    mask2.create_dataset(p, tuning1[p].shape, 'bool')
-            for p in data_products:
-                ind = 4*(2-1) + mapper[p]
-                mask2P = mask2.get(p, None)
-                mask2P[o:o+d,:] = self.data.spec.mask[ind,:,:]
-                
-            h.close()
-            
-            wx.EndBusyCursor()
-            
-            self.edited = False
-            self.setSaveButton()
-            
-    def onSaveAs(self, event):
-        """
-        Save the current observation to a new SD file.
-        """
-        
-        dialog = wx.FileDialog(self, "Select Output File", self.dirname, '', 'HDF5 Files (*.hdf5;*.h5)|*.hdf5;*.h5|All Files|*', wx.SAVE|wx.FD_OVERWRITE_PROMPT)
-            
-        if dialog.ShowModal() == wx.ID_OK:
-            wx.BeginBusyCursor()
-            
-            self.dirname = dialog.GetDirectory()
-            self.filename = dialog.GetPath()
-            
-            hOld = h5py.File(self.data.filename, 'r')
-            hNew = h5py.File(self.filename, 'w')
-            
-            for name in hOld.attrs.keys():
-                hNew.attrs[name] = hOld.attrs[name]
-            
-            for name in hOld.keys():
-                hOld.copy(name, hNew)
-                
-            hOld.close()
-            
-            obs = hNew.get('Observation%i' % self.data.obsID, None)
-            
-            tuning1 = obs.get('Tuning1', None)
-            tuning2 = obs.get('Tuning2', None)
-            
-            data_products = list(tuning1)
+
+        # Mask menu
+        for i in range(self.maskMenu.index('end') + 1):
             try:
-                del data_products[data_products.index('Mask')]
-            except ValueError:
+                self.maskMenu.entryconfig(i, state=state)
+            except:
                 pass
+
+        # Bandpass menu
+        for i in range(self.bandpassMenu.index('end') + 1):
             try:
-                del data_products[data_products.index('SpectralKurtosis')]
-            except ValueError:
+                self.bandpassMenu.entryconfig(i, state=state)
+            except:
                 pass
-            mapper = {'XX': 0, 'I': 0, 'XY_real': 1, 'Q': 1, 'XY_imag': 2, 'U': 2, 'YY': 3, 'V': 3}
-            for exclude in ('freq', 'Saturation', 'SpectralKurtosis'):
-                try:
-                    ind = data_products.index(exclude)
-                    del data_products[ind]
-                except ValueError:
-                    pass
-            
-            o = self.data.iOffset
-            d = self.data.iDuration
-            
-            mask1 = tuning1.get('Mask', None)
-            mask2 = tuning2.get('Mask', None)
-            
-            if mask1 is None:
-                mask1 = tuning1.create_group('Mask')
-                for p in data_products:
-                    mask1.create_dataset(p, tuning1[p].shape, 'bool')
-            for p in data_products:
-                ind = 4*(1-1) + mapper[p]
-                mask1P = mask1.get(p, None)
-                mask1P[o:o+d,:] = self.data.spec.mask[ind,:,:]
-                
-            if mask2 is None:
-                mask2 = tuning2.create_group('Mask')
-                for p in data_products:
-                    mask2.create_dataset(p, tuning1[p].shape, 'bool')
-            for p in data_products:
-                ind = 4*(2-1) + mapper[p]
-                mask2P = mask2.get(p, None)
-                mask2P[o:o+d,:] = self.data.spec.mask[ind,:,:]
-            
-            hNew.close()
-            
-            wx.EndBusyCursor()
-            
-            self.edited = False
-            self.setSaveButton()
-            
-        dialog.Destroy()
-        
-    def onHelp(self, event):
-        """
-        Display the help window.
-        """
-        
-        HelpWindow(self)
-        
-    def onAbout(self, event):
-        """
-        Display a very very very brief 'about' window.
-        """
-        
-        dialog = wx.AboutDialogInfo()
-        
-        #dialog.SetIcon(wx.Icon(os.path.join(self.scriptPath, 'icons', 'lwa.png'), wx.BITMAP_TYPE_PNG))
-        dialog.SetName('plotHDF')
-        dialog.SetVersion(__version__)
-        dialog.SetDescription("""GUI for plotting HDF5 data from the Long Wavelength Array.\n\nLSL Version: %s""" % lsl.version.version)
-        dialog.SetWebSite('http://lwa.unm.edu')
-        dialog.AddDeveloper(__author__)
-        
-        wx.AboutBox(dialog)
-        
-    def onExit(self, event):
-        """
-        Quit plotWaterfall.
-        """
-        
-        
-        if self.edited:
-            dialog = wx.MessageDialog(self, 'The current RFI mask has changes that have not been saved.\n\nExit anyways?', 'Confirm Exit', style=wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
-            
-            if dialog.ShowModal() == wx.ID_YES:
+
+        # Details menu
+        for i in range(self.detailsMenu.index('end') + 1):
+            try:
+                self.detailsMenu.entryconfig(i, state=state)
+            except:
                 pass
-            else:
-                return False
-                
-        self.Destroy()
-        
-    def onAutoscale(self, event):
-        """
-        Auto-scale the current data display.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+    # Color menu handlers
+    def onAutoscale(self):
+        """Auto-scale the colorbar using 5th/99th percentile"""
+        if self.data is None:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
         i = self.data.index
         toUse = numpy.arange(self.data.spec.shape[2]//10, 9*self.data.spec.shape[2]//10)
-        
+
         if self.data.bandpass:
-            self.data.limitsBandpass[i] = nan_percentile(self.data.specBandpass[i,:,toUse], (5, 99))
+            self.data.limitsBandpass[i] = list(nan_percentile(self.data.specBandpass[i,:,toUse], (5, 99)))
         else:
-            self.data.limits[i] = nan_percentile(self.data.spec[i,:,:], (5, 99))
-            
+            self.data.limits[i] = list(nan_percentile(self.data.spec[i,:,:], (5, 99)))
+
+        # Convert to dB if needed
         if self.data.usedB:
             if self.data.bandpass:
                 self.data.limitsBandpass[i] = [to_dB(v) for v in self.data.limitsBandpass[i]]
             else:
                 self.data.limits[i] = [to_dB(v) for v in self.data.limits[i]]
-                
+
+        # Handle NaN/infinity cases
         if self.data.bandpass:
             if not numpy.isfinite(self.data.limitsBandpass[i][0]) and not numpy.isfinite(self.data.limitsBandpass[i][1]):
                 self.data.limitsBandpass[i] = [0, 1]
@@ -2221,375 +2116,227 @@ class MainWindow(wx.Frame):
                 self.data.limits[i] = [self.data.limits[i][1]+1, self.data.limits[i][1]]
             elif not numpy.isfinite(self.data.limits[i][1]):
                 self.data.limits[i] = [self.data.limits[i][0], self.data.limits[i][0]-1]
-                
+
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
-        
-        wx.EndBusyCursor()
-        
-    def onAdjust(self, event):
-        """
-        Bring up the colorbar adjustment dialog window.
-        """
-        
-        ContrastAdjust(self)
-        
-    def onColorMap(self, event):
-        """
-        Set the colormap to the specified value and refresh the plots.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        if self.cmapMenu.IsChecked(ID_COLOR_MAP_PAIRED):
-            name = 'Paired'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_SPECTRAL):
-            name = 'Spectral'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_BONE):
-            name = 'bone'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_EARTH):
-            name = 'gist_earth'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_HEAT):
-            name = 'gist_heat'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_NCAR):
-            name = 'gist_ncar'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_RAINBOW):
-            name = 'gist_rainbow'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_STERN):
-            name = 'gist_stern'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_GRAY):
-            name = 'gist_gray'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_VIRIDIS):
-            name = 'viridis'
-        elif self.cmapMenu.IsChecked(ID_COLOR_MAP_MAGMA):
-            name = 'magma'
-        else:
-            name = 'jet'
-            
-        # Check for inversion
-        if self.cmapMenu.IsChecked(ID_COLOR_INVERT):
-            if name == 'gist_gray':
-                name = 'gist_yarg'
-            else:
-                name = '%s_r' % name
-                
-        newCM = cm.get_cmap(name)
-        if self.data.cmap != newCM:
-            self.data.cmap = newCM
-            self.data.draw()
-            
-        wx.EndBusyCursor()
-        
-    def onColorStretch(self, event):
-        """
-        Set the color stretch to the specified scheme and refresh the plots.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        if self.smapMenu.IsChecked(ID_COLOR_STRETCH_LOG):
-            newN = LogNorm
-        elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_SQRT):
-            newN = SqrtNorm
-        elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_SQRD):
-            newN = SqrdNorm
-        elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_ASINH):
-            newN = AsinhNorm
-        elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_SINH):
-            newN = SinhNorm
-        elif self.smapMenu.IsChecked(ID_COLOR_STRETCH_HIST):
-            newN = HistEqNorm
-        else:
-            newN = Normalize
-            
-        if self.data.norm != newN:
-            self.data.norm = newN
-            self.data.draw()
-            
-        wx.EndBusyCursor()
-        
-    def onTuning1Product1(self, event):
-        """
-        Display tuning 1, data product 1 (XX or I)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 0
+
+        self.config(cursor='')
+
+    def onAdjust(self):
+        """Open contrast adjustment dialog"""
+        if self.data is None:
+            return
+
+        if self.cAdjust is not None:
+            self.cAdjust.lift()
+            return
+
+        self.cAdjust = ContrastAdjust(self)
+
+    def onColorMap(self):
+        """Change the color map"""
+        if self.data is None:
+            return
+
+        cmap_name = self.cmap_var.get()
+        if self.cmap_invert_var.get():
+            cmap_name = cmap_name + '_r'
+
+        self.data.cmap = cm.get_cmap(cmap_name)
+        self.data.draw()
+
+    def onColorStretch(self):
+        """Change the color stretch"""
+        if self.data is None:
+            return
+
+        stretch = self.stretch_var.get()
+        stretch_map = {
+            'linear': Normalize,
+            'log': LogNorm,
+            'sqrt': SqrtNorm,
+            'sqrd': SqrdNorm,
+            'asinh': AsinhNorm,
+            'sinh': SinhNorm,
+            'histeq': HistEqNorm
+        }
+        self.data.norm = stretch_map.get(stretch, Normalize)
+        self.data.draw()
+
+    # Data menu handlers
+    def _switchProduct(self, index):
+        """Switch to a different data product"""
+        if self.data is None:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
+        self.data.index = index
         self.data.draw()
         if self.data.spectrumClick is not None:
             self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onTuning1Product2(self, event):
-        """
-        Display tuning 1, data product 1 (XY_real or Q)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 1
-        self.data.draw()
-        if self.data.spectrumClick is not None:
-            self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onTuning1Product3(self, event):
-        """
-        Display tuning 1, data product 3 (XY_imag or U)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 2
-        self.data.draw()
-        if self.data.spectrumClick is not None:
-            self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onTuning1Product4(self, event):
-        """
-        Display tuning 1, data product 4 (YY or V)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 3
-        self.data.draw()
-        if self.data.spectrumClick is not None:
-            self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onTuning2Product1(self, event):
-        """
-        Display tuning 2, data product 1 (XX or I)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 4
-        self.data.draw()
-        if self.data.spectrumClick is not None:
-            self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onTuning2Product2(self, event):
-        """
-        Display tuning 2, data product 1 (XY_real or Q)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 5
-        self.data.draw()
-        if self.data.spectrumClick is not None:
-            self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onTuning2Product3(self, event):
-        """
-        Display tuning 2, data product 3 (XY_imag or U)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 6
-        self.data.draw()
-        if self.data.spectrumClick is not None:
-            self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onTuning2Product4(self, event):
-        """
-        Display tuning 2, data product 4 (YY or V)
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
-        self.data.index = 7
-        self.data.draw()
-        if self.data.spectrumClick is not None:
-            self.data.drawSpectrum(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onRangeChange(self, event):
-        """
-        Display a dialog box to change the time range displayed.
-        """
-        
-        if event is None:
-            mode = 'New'
-        else:
-            mode = 'Adjust'
-            
-        TimeRangeAdjust(self, mode=mode)
-        
-    def onObservationchange(self, event):
-        """
-        Display a dialog box to change the observation currently being 
-        displayed.
-        """
-        
+
+        self.config(cursor='')
+
+    def onTuning1Product1(self):
+        self._switchProduct(0)
+
+    def onTuning1Product2(self):
+        self._switchProduct(1)
+
+    def onTuning1Product3(self):
+        self._switchProduct(2)
+
+    def onTuning1Product4(self):
+        self._switchProduct(3)
+
+    def onTuning2Product1(self):
+        self._switchProduct(4)
+
+    def onTuning2Product2(self):
+        self._switchProduct(5)
+
+    def onTuning2Product3(self):
+        self._switchProduct(6)
+
+    def onTuning2Product4(self):
+        self._switchProduct(7)
+
+    def onRangeChange(self):
+        """Open time range adjustment dialog"""
+        if self.data is None:
+            return
+        TimeRangeAdjust(self, mode='Adjust')
+
+    def onObservationChange(self):
+        """Open observation change dialog"""
+        if self.data is None:
+            return
         SwitchObservation(self)
-        
-    def onMaskSuggestCurrent(self, event):
-        """
-        Suggest a series of frequency and time-based masks to apply to 
-        the current tuning/polarization.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+    # Mask menu handlers
+    def onMaskSuggestCurrent(self):
+        """Suggest mask for current data product"""
+        if self.data is None:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
         self.data.suggestMask(self.data.index)
-            
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
-        
-        wx.EndBusyCursor()
-    
-    def onMaskSuggestAll(self, event):
-        """
-        Suggest a series of frequency and time-based masks to apply to
-        all data streams.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+        self.config(cursor='')
+
+    def onMaskSuggestAll(self):
+        """Suggest mask for all data products"""
+        if self.data is None:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
         for i in range(self.data.spec.shape[0]):
             self.data.suggestMask(i)
-            
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
-        
-        wx.EndBusyCursor()
-    
-    def onMaskResetCurrent(self, event):
-        """
-        Reset the current mask.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+        self.config(cursor='')
+
+    def onMaskResetCurrent(self):
+        """Reset mask for current data product"""
+        if self.data is None:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
         self.data.resetMask(self.data.index)
-        
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
-        
-        wx.EndBusyCursor()
-        
-    def onMaskResetAll(self, event):
-        """
-        Reset all masks.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+        self.config(cursor='')
+
+    def onMaskResetAll(self):
+        """Reset mask for all data products"""
+        if self.data is None:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
         for i in range(self.data.spec.shape[0]):
             self.data.resetMask(i)
-        
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
-        
-        wx.EndBusyCursor()
-        
-    def onMaskTweak(self, event):
-        """
-        Tweak the masking parameters.
-        """
-        
+
+        self.config(cursor='')
+
+    def onMaskTweak(self):
+        """Open masking parameters dialog"""
+        if self.data is None:
+            return
         MaskingAdjust(self)
-    
-    def onBandpassOn(self, event):
-        """
-        Enable bandpass correction.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+    # Bandpass menu handlers
+    def onBandpassOn(self):
+        """Turn on bandpass correction"""
+        if self.data is None:
+            return
+
         self.data.bandpass = True
-        
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
-        
-        wx.EndBusyCursor()
-        
-    def onBandpassOff(self, event):
-        """
-        Disable bandpass correction.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+    def onBandpassOff(self):
+        """Turn off bandpass correction"""
+        if self.data is None:
+            return
+
         self.data.bandpass = False
-        
         self.data.draw()
         self.data.drawSpectrum(self.data.spectrumClick)
         self.data.makeMark(self.data.spectrumClick)
-        
-        wx.EndBusyCursor()
-        
-    def onBandpassRecompute(self, event):
-        """
-        Recompute the bandpass fits and redraw the plots if needed.
-        """
-        
-        wx.BeginBusyCursor()
-        wxAppYield()
-        
+
+    def onBandpassRecompute(self):
+        """Recompute bandpass fits"""
+        if self.data is None:
+            return
+
+        self.config(cursor='watch')
+        self.update()
+
         self.data.computeBandpass()
-        
+        self.data.meanBandpass = nan_mean(self.data.specBandpass, axis=1)
+
+        toUse = range(self.data.spec.shape[2]//10, 9*self.data.spec.shape[2]//10+1)
+        for i in range(self.data.spec.shape[0]):
+            self.data.limitsBandpass[i] = findLimits(self.data.specBandpass[i,:,toUse], usedB=self.data.usedB)
+
+        self.data.draw()
         if self.data.bandpass:
-            self.data.draw()
             self.data.drawSpectrum(self.data.spectrumClick)
             self.data.makeMark(self.data.spectrumClick)
-            
-        wx.EndBusyCursor()
-        
-    def onFileDetails(self, event):
-        """
-        Display a small info. window about the current file.
-        """
-        
-        # Get some basic parameter
-        filename = self.data.filename
+        self.config(cursor='')
+
+    # Details menu handlers
+    def onFileDetails(self):
+        """Show file details"""
+        if self.data is None:
+            return
+
         beam = self.data.beam
         srate, sunit = bestFreqUnits(self.data.srate)
         tInt = self.data.tInt
-        nInt = self.data.spec.shape[1]
-        isAggregate = False if self.data.filenames is None else True
-        tIntOrg = self.data.tIntOriginal
-        tIntAct = self.data.tIntActual
-        
+
         target = self.data.target
         if self.data.raUnit.lower().find('h') != -1:
             ra = ephem.hours(self.data.ra*numpy.pi/12.0)
@@ -2600,1252 +2347,881 @@ class MainWindow(wx.Frame):
         else:
             dec = ephem.degrees(self.data.dec*numpy.pi/180.0)
         mode = self.data.mode
-        
+
         rbw = self.data.rbw
         rbwu = self.data.rbwUnit
-        
-        # Build the message string
-        outString = """Filename: %s
 
-Target Name: %s
-RA: %s
-Dec: %s
-Observing Mode: %s
+        info = f"""File: {os.path.basename(self.filename)}
 
-Beam:  %i
-Sample Rate: %.3f %s
+Target: {target}
+RA: {ra}
+Dec: {dec}
+Tracking Mode: {mode}
 
-Integration Time:  %.3f seconds
-RBW: %.3f %s
-Number of Integrations:  %i
+Beam: {beam}
+Sample Rate: {srate:.4f} {sunit}
+Integration Time: {tInt:.6f} s
+Resolution Bandwidth: {rbw:.6f} {rbwu}
 
-Aggregate File?  %s""" % (filename, target, ra, dec, mode, beam, srate, sunit, tInt, rbw, rbwu, nInt, isAggregate)
+Channels: {self.data.freq1.size}
+Integrations: {self.data.spec.shape[1]}
+"""
 
-        # Expound on aggregate files
-        if isAggregate:
-            outString = """%s
-Number of files contained:  %i
-Original Integration Time:  %.3f seconds
-Actual Integration Time:  %.3f seconds""" % (outString, len(self.data.filenames), tIntOrg, tIntAct)
-        
-        # Show the box
-        box = wx.MessageDialog(self, outString, "File Details")
-        box.ShowModal()
-        
-    def onExamineFile(self, event):
+        messagebox.showinfo("File Information", info)
+
+    def onExamineFile(self):
         """
-        For aggregated data sets, open a new plotWaterfall to look at the
-        current file.
+        For aggregated data sets, open a new plotHDF window to examine the
+        sub-file at the current time selection.
         """
-        
-        # Make sure we have something to do
-        if self.data.filenames is not None:
-            # Make sure there is not another window running already.
-            if self.examineWindow is not None:
-                self.examineWindow.poll()
-                if self.examineWindow.returncode is None:
-                    print("ERROR: another sub-file examination window is already running")
-                    return False
-                else:
-                    self.examineWindow = None
-                    
-            # Make sure we actually have a aggregated file first
-            if self.data.filenames is None:
-                print("ERROR: current file is not an aggregated file")
-                return False
-                
-            # Make sure we have clicked
-            try:
-                dataY = int(round(self.data.spectrumClick / self.data.tInt))
-            except:
-                print("ERROR: no sub-file currently selected")
-                return False
-                
-            # Make sure the target file exists
-            filename = self.data.filenames[dataY]
+        if self.data is None or not self.data.filenames:
+            messagebox.showinfo("Info", "No sub-files to examine")
+            return
+
+        # Check if another examine window is already running
+        if self.examineWindow is not None:
+            self.examineWindow.poll()
+            if self.examineWindow.returncode is None:
+                messagebox.showwarning("Warning",
+                    "Another sub-file examination window is already running")
+                return
+            else:
+                self.examineWindow = None
+
+        # Make sure we have clicked to select a time
+        if self.data.spectrumClick is None:
+            messagebox.showinfo("Info", "Please click on the waterfall to select a time first")
+            return
+
+        try:
+            dataY = int(round(self.data.spectrumClick / self.data.tInt))
+        except:
+            messagebox.showinfo("Info", "No sub-file currently selected")
+            return
+
+        # Make sure dataY is within bounds
+        if dataY < 0 or dataY >= len(self.data.filenames):
+            messagebox.showerror("Error", "Selected time is out of range")
+            return
+
+        # Get the filename and check if it exists
+        filename = self.data.filenames[dataY]
+        if not os.path.exists(filename):
+            # Try the path relative to the current file
+            basepath = os.path.dirname(self.data.filename)
+            basename = os.path.basename(self.data.filenames[dataY])
+            filename = os.path.join(basepath, basename)
+
             if not os.path.exists(filename):
-                print("ERROR: cannot find file '%s', trying NPZ path" % filename)
-                basepath, junk = os.path.split(self.data.filename)
-                junk, filename = os.path.split(self.data.filenames[dataY])
-                filename = os.path.join(basepath, filename)
-                
-                if not os.path.exists(filename):
-                    print("ERROR: cannot find file '%s'" % filename)
-                    return False
-                    
-            # Get the current plotWaterfall.py path
-            script = sys.argv[0]
-            
-            # Go
-            self.examineWindow = subprocess.Popen([sys.executable, script, filename])
-            
-    def onZoomWaterfall(self, event):
-        """
-        Create a zoomable waterfall plot window.
-        """
-        
+                messagebox.showerror("Error", f"Cannot find file: {filename}")
+                return
+
+        # Get the current script path
+        script = sys.argv[0]
+
+        # Launch new instance
+        self.examineWindow = subprocess.Popen([sys.executable, script, filename])
+
+    def onZoomableWaterfall(self):
+        """Open zoomable waterfall window"""
+        if self.data is None:
+            return
         WaterfallDisplay(self)
-    
-    def onZoomDrift(self, event):
-        """
-        Create a zoomable drift curve plot window.
-        """
-        
+
+    def onZoomableDrift(self):
+        """Open zoomable drift curve window"""
+        if self.data is None:
+            return
         DriftCurveDisplay(self)
-        
-    def onZoomPowerSpectrum(self, event):
-        """
-        Create a zoomable power spectrum plot window.
-        """
-        
+
+    def onZoomablePowerSpectrum(self):
+        """Open zoomable power spectrum window"""
+        if self.data is None:
+            return
         PowerSpectrumDisplay(self)
-        
-    def onKeyPress(self, event):
-        """
-        Move the current spectra mark up and down with a keypress.
-        """
-        
-        keycode = event.GetKeyCode()
-        if keycode < 256:
-            keycode = chr(keycode)
-            
-        if keycode == wx.WXK_UP or keycode == wx.WXK_RIGHT:
-            ## Move forward one integration time
-            if self.data.spectrumClick is not None:
-                self.data.drawSpectrum(self.data.spectrumClick + self.data.tInt)
-                self.data.makeMark(self.data.spectrumClick + self.data.tInt)
-                self.data.spectrumClick += self.data.tInt
-        elif keycode == wx.WXK_DOWN or keycode == wx.WXK_LEFT:
-            ## Move backward one integration time
-            if self.data.spectrumClick is not None:
-                self.data.drawSpectrum(self.data.spectrumClick - self.data.tInt)
-                self.data.makeMark(self.data.spectrumClick - self.data.tInt)
-                self.data.spectrumClick -= self.data.tInt
-        elif keycode == 'M':
-            ## Mask the current integration
-            if self.data.spectrumClick is not None:
-                dataY = int(round(self.data.spectrumClick / self.data.tInt ))
-                
-                self.data.spec.mask[self.data.index, dataY, :] = True
-                self.data.specBandpass.mask[self.data.index, dataY, :] = True
-                self.data.timeMask[self.data.index, dataY] = True
-                
-                self.data.draw()
-                self.data.drawSpectrum(self.data.spectrumClick)
-                
-                self.edited = True
-                self.setSaveButton()
-        elif keycode == 'U':
-            ## Unmask the current integration
-            if self.data.spectrumClick is not None:
-                dataY = int(round(self.data.spectrumClick / self.data.tInt ))
-                
-                self.data.spec.mask[self.data.index, dataY, :] = self.data.freqMask[self.data.index,:]
-                self.data.specBandpass.mask[self.data.index, dataY, :] = self.data.freqMask[self.data.index,:]
-                self.data.timeMask[self.data.index, dataY] = False
-                
-                self.data.draw()
-                self.data.drawSpectrum(self.data.spectrumClick)
-                
-                self.edited = True
-                self.setSaveButton()
-        else:
-            pass
-            
-        event.Skip()
-        
-    def onSize(self, event):
-        event.Skip()
-        wx.CallAfter(self.resizePlots)
-        
-    def resizePlots(self, event=None):
-        # Get the current size of the window and the navigation toolbar
-        w, h = self.GetClientSize()
-        wt, ht = self.toolbar.GetSize()
-        
-        # Come up with new figure sizes in inches.
-        # NOTE:  The height of the spectrum plot at the bottom needs to be
-        #        corrected for the height of the toolbar
-        dpi = self.figure1a.get_dpi()
-        newW0 = 1.0*w/dpi
-        newW1 = 1.0*(3.*w/7)/dpi
-        newW2 = 1.0*(1.*w/7)/dpi
-        newW3 = 1.0*(3.*w/7)/dpi
-        newH0 = 1.0*(h/2)/dpi
-        newH1 = 1.0*(h/2-ht)/dpi
-        
-        # Set the figure sizes and redraw
-        self.figure1a.set_size_inches((newW1, newH0))
-        self.figure1a.tight_layout()
-        self.figure1a.canvas.draw()
-        
-        self.figure1b.set_size_inches((newW2, newH0))
-        self.figure1b.tight_layout()
-        self.figure1b.canvas.draw()
-        
-        self.figure1c.set_size_inches((newW3, newH0))
-        self.figure1c.tight_layout()
-        self.figure1c.canvas.draw()
-        
-        self.figure2.set_size_inches((newW0, newH1))
-        self.figure2.tight_layout()
-        self.figure2.canvas.draw()
-        
-        self.panel1.Refresh()
-        self.panel3.Refresh()
-        
-    def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
-        # unmanaged toolbar in your frame
+
+    # Help menu handlers
+    def onHelp(self):
+        """Show help window"""
+        HelpWindow(self)
+
+    def onAbout(self):
+        """Show about dialog"""
+        about_text = f"""plotHDF - DRX HDF5 Waterfall Viewer
+
+Version: {__version__}
+Author: {__author__}
+
+A tool for viewing and editing DRX waterfall HDF5 files.
+
+Tkinter version converted from wxPython."""
+
+        messagebox.showinfo("About plotHDF", about_text)
+
+    def getToolBar(self):
         return self.toolbar
 
 
-ID_CONTRAST_UPR_INC = 100
-ID_CONTRAST_UPR_DEC = 101
-ID_CONTRAST_LWR_INC = 102
-ID_CONTRAST_LWR_DEC = 103
-ID_CONTRAST_OK = 104
+class ContrastAdjust(tk.Toplevel):
+    """Dialog for adjusting contrast limits"""
 
-class ContrastAdjust(wx.Frame):
-    def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Contrast Adjustment')
-        
+    def __init__(self, parent):
+        super().__init__(parent)
         self.parent = parent
-        
-        self.initUI()
-        self.initEvents()
-        self.Show()
-        
+
+        self.title("Contrast Adjustment")
+        self.transient(parent)
+
+        self.protocol("WM_DELETE_WINDOW", self.onClose)
+
+        self._build_ui()
         self.parent.cAdjust = self
-        
-    def initUI(self):
-        row = 0
-        panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(0, 0)
-        
-        if self.parent.data.bandpass:
-            typ = wx.StaticText(panel, label='Tuning %i, Pol. %i - Bandpass' % (self.parent.data.index//2+1, self.parent.data.index%2))
-        else:
-            typ = wx.StaticText(panel, label='Tuning %i, Pol. %i' % (self.parent.data.index//2+1, self.parent.data.index%2))
-        sizer.Add(typ, pos=(row+0, 0), span=(1,4), flag=wx.EXPAND|wx.ALL, border=5)
-        
-        row += 1
-        
-        upr = wx.StaticText(panel, label='Upper Limit:')
-        uprText = wx.TextCtrl(panel)
-        uprDec = wx.Button(panel, ID_CONTRAST_UPR_DEC, '-', size=(56, 28))
-        uprInc = wx.Button(panel, ID_CONTRAST_UPR_INC, '+', size=(56, 28))
-        
-        lwr = wx.StaticText(panel, label='Lower Limit:')
-        lwrText = wx.TextCtrl(panel)
-        lwrDec = wx.Button(panel, ID_CONTRAST_LWR_DEC, '-', size=(56, 28))
-        lwrInc = wx.Button(panel, ID_CONTRAST_LWR_INC, '+', size=(56, 28))
-        
-        rng = wx.StaticText(panel, label='Range:')
-        rngText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        
-        sizer.Add(upr,     pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(uprText, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(uprDec,  pos=(row+0, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(uprInc,  pos=(row+0, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwr,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwrText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwrDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(lwrInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(rng,     pos=(row+2, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(rngText, pos=(row+2, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        
-        line = wx.StaticLine(panel)
-        sizer.Add(line, pos=(row+3, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
-        
-        row += 4
-        
-        #
-        # Buttons
-        #
-        
-        ok = wx.Button(panel, ID_CONTRAST_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 3), flag=wx.ALL, border=5)
-        
-        panel.SetSizer(sizer)
-        sizer.Fit(self)
 
-        self.uText = uprText
-        self.lText = lwrText
-        self.rText = rngText
-        
-        #
-        # Set current values
-        #
-        index = self.parent.data.index
-        if self.parent.data.bandpass:
-            self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
-            self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
-            self.rText.SetValue('%.1f' % self.__getRange(index))
+        # Bind Enter key to apply
+        self.bind('<Return>', self.onKeyPress)
+
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Get current limits
+        data = self.parent.data
+        if data.bandpass:
+            limits = data.limitsBandpass[data.index]
+            label_text = 'Tuning %i, Pol. %i - Bandpass' % (data.index//2+1, data.index%2)
         else:
-            self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
-            self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
-            self.rText.SetValue('%.1f' % self.__getRange(index))
-        
-    def initEvents(self):
-        self.Bind(wx.EVT_BUTTON, self.onUpperDecrease, id=ID_CONTRAST_UPR_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onUpperIncrease, id=ID_CONTRAST_UPR_INC)
-        self.Bind(wx.EVT_BUTTON, self.onLowerDecrease, id=ID_CONTRAST_LWR_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onLowerIncrease, id=ID_CONTRAST_LWR_INC)
-        
-        self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_CONTRAST_OK)
-        
-        self.Bind(wx.EVT_KEY_UP, self.onKeyPress)
-        
+            limits = data.limits[data.index]
+            label_text = 'Tuning %i, Pol. %i' % (data.index//2+1, data.index%2)
+
+        # Title label
+        ttk.Label(frame, text=label_text).grid(row=0, column=0, columnspan=4, sticky=tk.W, pady=5)
+
+        # Upper Limit
+        ttk.Label(frame, text="Upper Limit:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.upper_var = tk.StringVar(value='%.1f' % limits[1])
+        self.upper_entry = ttk.Entry(frame, textvariable=self.upper_var, width=12)
+        self.upper_entry.grid(row=1, column=1, pady=5, padx=5)
+        ttk.Button(frame, text="-", width=3, command=self.onUpperDecrease).grid(row=1, column=2, pady=5, padx=2)
+        ttk.Button(frame, text="+", width=3, command=self.onUpperIncrease).grid(row=1, column=3, pady=5, padx=2)
+
+        # Lower Limit
+        ttk.Label(frame, text="Lower Limit:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.lower_var = tk.StringVar(value='%.1f' % limits[0])
+        self.lower_entry = ttk.Entry(frame, textvariable=self.lower_var, width=12)
+        self.lower_entry.grid(row=2, column=1, pady=5, padx=5)
+        ttk.Button(frame, text="-", width=3, command=self.onLowerDecrease).grid(row=2, column=2, pady=5, padx=2)
+        ttk.Button(frame, text="+", width=3, command=self.onLowerIncrease).grid(row=2, column=3, pady=5, padx=2)
+
+        # Range (read-only)
+        ttk.Label(frame, text="Range:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        self.range_var = tk.StringVar(value='%.1f' % self._getRange())
+        self.range_entry = ttk.Entry(frame, textvariable=self.range_var, width=12, state='readonly')
+        self.range_entry.grid(row=3, column=1, pady=5, padx=5)
+
+        # Separator
+        ttk.Separator(frame, orient=tk.HORIZONTAL).grid(row=4, column=0, columnspan=4, sticky='ew', pady=10)
+
+        # Ok button
+        ttk.Button(frame, text="Ok", command=self.onOk).grid(row=5, column=3, pady=5)
+
+    def _getRange(self):
+        data = self.parent.data
+        index = data.index
+        if data.bandpass:
+            return data.limitsBandpass[index][1] - data.limitsBandpass[index][0]
+        else:
+            return data.limits[index][1] - data.limits[index][0]
+
+    def _getIncrement(self):
+        return 0.1 * self._getRange()
+
+    def _updateRange(self):
+        self.range_var.set('%.1f' % self._getRange())
+
+    def onUpperDecrease(self):
+        data = self.parent.data
+        index = data.index
+        increment = self._getIncrement()
+        if data.bandpass:
+            data.limitsBandpass[index][1] -= increment
+            self.upper_var.set('%.1f' % data.limitsBandpass[index][1])
+        else:
+            data.limits[index][1] -= increment
+            self.upper_var.set('%.1f' % data.limits[index][1])
+        self._updateRange()
+        data.draw()
+
+    def onUpperIncrease(self):
+        data = self.parent.data
+        index = data.index
+        increment = self._getIncrement()
+        if data.bandpass:
+            data.limitsBandpass[index][1] += increment
+            self.upper_var.set('%.1f' % data.limitsBandpass[index][1])
+        else:
+            data.limits[index][1] += increment
+            self.upper_var.set('%.1f' % data.limits[index][1])
+        self._updateRange()
+        data.draw()
+
+    def onLowerDecrease(self):
+        data = self.parent.data
+        index = data.index
+        increment = self._getIncrement()
+        if data.bandpass:
+            data.limitsBandpass[index][0] -= increment
+            self.lower_var.set('%.1f' % data.limitsBandpass[index][0])
+        else:
+            data.limits[index][0] -= increment
+            self.lower_var.set('%.1f' % data.limits[index][0])
+        self._updateRange()
+        data.draw()
+
+    def onLowerIncrease(self):
+        data = self.parent.data
+        index = data.index
+        increment = self._getIncrement()
+        if data.bandpass:
+            data.limitsBandpass[index][0] += increment
+            self.lower_var.set('%.1f' % data.limitsBandpass[index][0])
+        else:
+            data.limits[index][0] += increment
+            self.lower_var.set('%.1f' % data.limits[index][0])
+        self._updateRange()
+        data.draw()
+
     def onKeyPress(self, event):
-        keycode = event.GetKeyCode()
-        
-        if keycode == wx.WXK_RETURN:
-            index = self.parent.data.index
-            if self.parent.data.bandpass:
-                self.parent.data.limitsBandpass[index][0] = float(self.lText.GetValue())
-                self.parent.data.limitsBandpass[index][1] = float(self.uText.GetValue())
+        """Apply values when Enter is pressed"""
+        try:
+            data = self.parent.data
+            index = data.index
+            lower_val = float(self.lower_var.get())
+            upper_val = float(self.upper_var.get())
+            if data.bandpass:
+                data.limitsBandpass[index][0] = lower_val
+                data.limitsBandpass[index][1] = upper_val
             else:
-                self.parent.data.limits[index][0] = float(self.lText.GetValue())
-                self.parent.data.limits[index][1] = float(self.uText.GetValue())
-            self.rText.SetValue('%.1f' % self.__getRange(index))
-            self.parent.data.draw()
-        else:
+                data.limits[index][0] = lower_val
+                data.limits[index][1] = upper_val
+            self._updateRange()
+            data.draw()
+        except ValueError:
             pass
-        
-    def onUpperDecrease(self, event):
-        index = self.parent.data.index
-        if self.parent.data.bandpass:
-            self.parent.data.limitsBandpass[index][1] -= self.__getIncrement(index)
-            self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
-        else:
-            self.parent.data.limits[index][1] -= self.__getIncrement(index)
-            self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
-        self.rText.SetValue('%.1f' % self.__getRange(index))
-        self.parent.data.draw()
-        
-    def onUpperIncrease(self, event):
-        index = self.parent.data.index
-        if self.parent.data.bandpass:
-            self.parent.data.limitsBandpass[index][1] += self.__getIncrement(index)
-            self.uText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][1])
-        else:
-            self.parent.data.limits[index][1] += self.__getIncrement(index)
-            self.uText.SetValue('%.1f' % self.parent.data.limits[index][1])
-        self.rText.SetValue('%.1f' % self.__getRange(index))
-        self.parent.data.draw()
-        
-    def onLowerDecrease(self, event):
-        index = self.parent.data.index
-        if self.parent.data.bandpass:
-            self.parent.data.limitsBandpass[index][0] -= self.__getIncrement(index)
-            self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
-        else:
-            self.parent.data.limits[index][0] -= self.__getIncrement(index)
-            self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
-        self.rText.SetValue('%.1f' % self.__getRange(index))
-        self.parent.data.draw()
-        
-    def onLowerIncrease(self, event):
-        index = self.parent.data.index
-        if self.parent.data.bandpass:
-            self.parent.data.limitsBandpass[index][0] += self.__getIncrement(index)
-            self.lText.SetValue('%.1f' % self.parent.data.limitsBandpass[index][0])
-        else:
-            self.parent.data.limits[index][0] += self.__getIncrement(index)
-            self.lText.SetValue('%.1f' % self.parent.data.limits[index][0])
-        self.rText.SetValue('%.1f' % self.__getRange(index))
-        self.parent.data.draw()
-        
-    def onOk(self, event):
-        needToRedraw = False
-        
-        index = self.parent.data.index
-        if self.parent.data.bandpass:
-            if float(self.lText.GetValue()) != self.parent.data.limitsBandpass[index][0]:
-                self.parent.data.limitsBandpass[index][0] = float(self.lText.GetValue())
-                needToRedraw = True
-            if float(self.uText.GetValue()) != self.parent.data.limitsBandpass[index][1]:
-                self.parent.data.limitsBandpass[index][1] = float(self.uText.GetValue())
-                needToRedraw = True
-                
-        else:
-            if float(self.lText.GetValue()) != self.parent.data.limits[index][0]:
-                self.parent.data.limits[index][0] = float(self.lText.GetValue())
-                needToRedraw = True
-            if float(self.uText.GetValue()) != self.parent.data.limits[index][1]:
-                self.parent.data.limits[index][1] = float(self.uText.GetValue())
-                needToRedraw = True
-                
-        if needToRedraw:
-            self.parent.data.draw()
-            
+
+    def onOk(self):
+        try:
+            data = self.parent.data
+            index = data.index
+            lower_val = float(self.lower_var.get())
+            upper_val = float(self.upper_var.get())
+            if data.bandpass:
+                data.limitsBandpass[index][0] = lower_val
+                data.limitsBandpass[index][1] = upper_val
+            else:
+                data.limits[index][0] = lower_val
+                data.limits[index][1] = upper_val
+            data.draw()
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid numbers")
+            return
+
         self.parent.cAdjust = None
-        self.Close()
-        
-    def __getRange(self, index):
-        if self.parent.data.bandpass:
-            return (self.parent.data.limitsBandpass[index][1] - self.parent.data.limitsBandpass[index][0])
-        else:
-            return (self.parent.data.limits[index][1] - self.parent.data.limits[index][0])
-        
-    def __getIncrement(self, index):
-        return 0.1*self.__getRange(index)
+        self.destroy()
+
+    def onClose(self):
+        self.parent.cAdjust = None
+        self.destroy()
 
 
-ID_RANGE_WHOLE = 100
-ID_RANGE_OK = 101
-ID_RANGE_CANCEL = 102
+class TimeRangeAdjust(tk.Toplevel):
+    """Dialog for adjusting time range"""
 
-class TimeRangeAdjust(wx.Frame):
-    def __init__ (self, parent, mode='Adjust'):	
-        wx.Frame.__init__(self, parent, title='Time Range to Display', style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
-        
+    def __init__(self, parent, mode='Adjust'):
+        super().__init__(parent)
         self.parent = parent
         self.mode = mode
-        
-        self.initUI()
-        self.initEvents()
-        self.Show()
-        
-    def initUI(self):
-        row = 0
-        panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(0, 0)
-        
-        offL = wx.StaticText(panel, label='Offset from file start:')
-        sizer.Add(offL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=10)
-        row += 1
-        
-        self.offsetText = wx.TextCtrl(panel)
-        offU = wx.StaticText(panel, label='seconds')
-        sizer.Add(self.offsetText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(offU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        row += 1
-        
-        durL = wx.StaticText(panel, label='Duration after offset:')
-        sizer.Add(durL, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        row += 1
-        
-        self.durationText = wx.TextCtrl(panel)
-        durU = wx.StaticText(panel, label='seconds')
-        sizer.Add(self.durationText, pos=(row+0, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(durU, pos=(row+0, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        row += 1
-        
-        self.wholeFileButton = wx.CheckBox(panel, ID_RANGE_WHOLE, 'Display whole observation')
-        sizer.Add(self.wholeFileButton, pos=(row+0, 0), span=(1, 2), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        row += 1
-        
-        #
+
+        self.title("Adjust Time Range")
+        self.transient(parent)
+        self.geometry('300x180')
+
+        self._build_ui()
+
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Offset
+        ttk.Label(frame, text="Offset (s):").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.offset_var = tk.StringVar(value=str(self.parent.offset))
+        self.offset_entry = ttk.Entry(frame, textvariable=self.offset_var, width=15)
+        self.offset_entry.grid(row=0, column=1, pady=5)
+
+        # Duration
+        ttk.Label(frame, text="Duration (s):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        dur = self.parent.duration if self.parent.duration > 0 else -1
+        self.duration_var = tk.StringVar(value=str(dur))
+        self.duration_entry = ttk.Entry(frame, textvariable=self.duration_var, width=15)
+        self.duration_entry.grid(row=1, column=1, pady=5)
+
+        ttk.Label(frame, text="(-1 for all)").grid(row=1, column=2, sticky=tk.W, pady=5)
+
+        # Whole observation checkbox
+        self.whole_obs_var = tk.BooleanVar(value=(self.parent.offset == 0 and self.parent.duration < 0))
+        self.whole_obs_check = ttk.Checkbutton(
+            frame, text="Display whole observation",
+            variable=self.whole_obs_var, command=self.onWholeObsToggle
+        )
+        self.whole_obs_check.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=5)
+
+        # Set initial state of entries based on checkbox
+        if self.whole_obs_var.get():
+            self.offset_entry.config(state='disabled')
+            self.duration_entry.config(state='disabled')
+
         # Buttons
-        #
-        
-        ok = wx.Button(panel, ID_RANGE_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 0), flag=wx.ALL, border=5)
-        cancel = wx.Button(panel, ID_RANGE_CANCEL, 'Cancel', size=(56, 28))
-        sizer.Add(cancel, pos=(row+0, 1),  flag=wx.ALL, border=5)
-        
-        #
-        # Fill in values
-        #
-        self.offsetText.SetValue("%.3f" % self.parent.offset)
-        self.durationText.SetValue("%.3f" % self.parent.duration)
-        if self.parent.offset == 0 and self.parent.duration < 0:
-            self.wholeFileButton.SetValue(True)
-            self.offsetText.Disable()
-            self.durationText.Disable()
-            
-        #
-        # Set the operational mode
-        #
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=3, column=0, columnspan=3, pady=10)
+
+        ttk.Button(btn_frame, text="Apply", command=self.onApply).pack(side=tk.LEFT, padx=5)
+        cancel_btn = ttk.Button(btn_frame, text="Cancel", command=self.destroy)
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+
+        # Disable cancel in 'New' mode
         if self.mode != 'Adjust':
-            cancel.Disable()
-        
-        panel.SetSizer(sizer)
-        sizer.Fit(self)
-        
-    def initEvents(self):
-        self.Bind(wx.EVT_CHECKBOX, self.onWholeFileToggle, id=ID_RANGE_WHOLE)
-        
-        self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_RANGE_OK)
-        self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_RANGE_CANCEL)
-        
-    def onWholeFileToggle(self, event):
-        if self.wholeFileButton.GetValue():
-            self.offsetText.Disable()
-            self.durationText.Disable()
+            cancel_btn.config(state='disabled')
+
+    def onWholeObsToggle(self):
+        """Enable/disable offset and duration entries based on checkbox"""
+        if self.whole_obs_var.get():
+            self.offset_entry.config(state='disabled')
+            self.duration_entry.config(state='disabled')
         else:
-            self.offsetText.Enable()
-            self.durationText.Enable()
-        
-    def onOk(self, event):
-        # Get values
-        if self.wholeFileButton.GetValue():
-            newOffset = 0.0
-            newDuration = -1.0
-        else:
-            newOffset = float(self.offsetText.GetValue())
-            newDuration = float(self.durationText.GetValue())
-        
-        # Figure out if we need to update
-        needToUpdate = False
-        if self.parent.offset != newOffset:
-            needToUpdate = True
-            self.parent.offset = newOffset
-        if self.parent.duration != newDuration:
-            needToUpdate = True
-            self.parent.duration = newDuration
-        
+            self.offset_entry.config(state='normal')
+            self.duration_entry.config(state='normal')
+
+    def onApply(self):
         try:
-            if needToUpdate or self.mode == 'New':
-                self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename))
-                self.parent.data.render()
-                self.parent.data.draw()
-                
-                for menuItem in self.parent.fileMenu.GetMenuItems():
-                    if menuItem.GetItemLabel().find('Save') != -1:
-                        menuItem.Enable(True)
-                for menu in (self.parent.colorMenu, self.parent.dataMenu, self.parent.maskMenu, self.parent.bandpassMenu, self.parent.detailsMenu):
-                    for menuItem in menu.GetMenuItems():
-                        menuItem.Enable(True)
-                        
-                if self.parent.data.filenames is None: 
-                    self.parent.examineFileButton.Enable(False) 
-                else: 
-                    self.parent.examineFileButton.Enable(True)
-                    
-                self.parent.setDataMenuOptions()
-                
-                self.parent.edited = False
-                self.parent.setSaveButton()
-                
-        except Exception as e:
-            print("ERROR: %s" % str(e))
-        else:
-            self.Close()
-        
-    def onCancel(self, event):
-        self.Close()
-
-
-ID_OBSID_OK = 101
-ID_OBSID_CANCEL = 102
-
-class SwitchObservation(wx.Frame):
-    def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Observation to Display', style=wx.STAY_ON_TOP|wx.FRAME_FLOAT_ON_PARENT)
-        
-        self.parent = parent
-        
-        self.initUI()
-        self.initEvents()
-        
-        h,w = self.GetEffectiveMinSize()
-        self.SetSize((h,w))
-        self.Fit()
-        
-        self.Show()
-        
-    def initUI(self):
-        obsList = self.getCurrentObsList()
-        
-        row = 0
-        panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(0, 0)
-        
-        self.rbList = []
-        for i,obs in enumerate(obsList):
-            if i == 0:
-                rb = wx.RadioButton(panel, -1, '%s in mode %s (#%i)' % (obs[1], obs[2], obs[0]), style=wx.RB_GROUP)
+            if self.whole_obs_var.get():
+                offset = 0.0
+                duration = -1.0
             else:
-                rb = wx.RadioButton(panel, -1, '%s in mode %s (#%i)' % (obs[1], obs[2], obs[0]))
-                
-            sizer.Add(rb, pos=(row+0, 0), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-            row += 1
-            self.rbList.append((rb,obs[0]))
-            
-        #
-        # Buttons
-        #
-        
-        ok = wx.Button(panel, ID_OBSID_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 0), flag=wx.ALL, border=5)
-        cancel = wx.Button(panel, ID_OBSID_CANCEL, 'Cancel', size=(56, 28))
-        sizer.Add(cancel, pos=(row+0, 1), flag=wx.ALL, border=5)
-        
-        #
-        # Fill in values
-        #
-        currObsID = self.parent.data.obsID
-        for rb,id in self.rbList:
-            if id == currObsID:
-                rb.SetValue(True)
-            else:
-                rb.SetValue(False)
-                
-        panel.SetSizer(sizer)
-        sizer.Fit(self)
-        
-    def initEvents(self):
-        self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_OBSID_OK)
-        self.Bind(wx.EVT_BUTTON, self.onCancel, id=ID_OBSID_CANCEL)
-        
-    def onOk(self, event):
-        # Get values
-        for rb,id in self.rbList:
-            if rb.GetValue():
-                newID = id
-                
-        try:
-            if newID != self.parent.data.obsID:     # pylint: disable=possibly-used-before-assignment
-                self.parent.data.loadData(os.path.join(self.parent.dirname, self.parent.filename), obsID=newID)
-                self.parent.data.render()
-                self.parent.data.draw()
-        except Exception as e:
-            print("ERROR: %s" % str(e))
-        else:
-            self.Close()
-        
-    def onCancel(self, event):
-        self.Close()
-        
-    def getCurrentObsList(self):
-        """
-        Return a list of tuples, one for each observation in the current file.
-        """
-        
-        obsList = []
-        
-        h = h5py.File(self.parent.data.filename)
-        for obsID in list(h):
-            id = int(obsID[11:])
-            obs = h.get(obsID, None)
-            obsList.append( (id, obs.attrs['TargetName'], obs.attrs['TrackingMode']) )
-        h.close()
-        
-        return obsList
+                offset = float(self.offset_var.get())
+                duration = float(self.duration_var.get())
+
+            self.parent.offset = offset
+            self.parent.duration = duration
+
+            # Reload data
+            self.parent.config(cursor='watch')
+            self.parent.update()
+
+            self.parent.data.loadData(self.parent.filename, obsID=self.parent.data.obsID)
+            self.parent.data.render()
+            self.parent.data.draw()
+
+            self.parent.config(cursor='')
+            self.destroy()
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid numbers")
 
 
-ID_BANDPASS_CUT_INC = 100
-ID_BANDPASS_CUT_DEC = 101
-ID_DRIFT_POLY_INC = 102
-ID_DRIFT_POLY_DEC = 103
-ID_DRIFT_CUT_INC  = 104
-ID_DRIFT_CUT_DEC  = 105
-ID_SK_SEC_INC = 106
-ID_SK_SEC_DEC = 107
-ID_SK_CUT_INC = 108
-ID_SK_CUT_DEC = 109
-ID_MASKING_OK = 110
+class SwitchObservation(tk.Toplevel):
+    """Dialog for switching observations"""
 
-class MaskingAdjust(wx.Frame):
-    def __init__ (self, parent):	
-        wx.Frame.__init__(self, parent, title='Masking Adjustment')
-        
-        self.parent = parent
-        
-        self.initUI()
-        self.initEvents()
-        self.Show()
-        
-        self.parent.cAdjust = self
-        
-    def initUI(self):
-        row = 0
-        panel = wx.Panel(self)
-        sizer = wx.GridBagSizer(0, 0)
-        
-        bp = wx.StaticText(panel, label='Bandpass Rention:')
-        bpR = wx.StaticText(panel, label='Inner:')
-        bpRText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        bpRDec = wx.Button(panel, ID_BANDPASS_CUT_DEC, '-', size=(56, 28))
-        bpRInc = wx.Button(panel, ID_BANDPASS_CUT_INC, '+', size=(56, 28))
-        
-        dc = wx.StaticText(panel, label='Drift Curve:')
-        dcP = wx.StaticText(panel, label='Fit order:')
-        dcPText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        dcPDec = wx.Button(panel, ID_DRIFT_POLY_DEC, '-', size=(56, 28))
-        dcPInc = wx.Button(panel, ID_DRIFT_POLY_INC, '+', size=(56, 28))
-        
-        dcC = wx.StaticText(panel, label='Threshold:')
-        dcCText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        dcCDec = wx.Button(panel, ID_DRIFT_CUT_DEC, '-', size=(56, 28))
-        dcCInc = wx.Button(panel, ID_DRIFT_CUT_INC, '+', size=(56, 28))
-        
-        sk = wx.StaticText(panel, label='Spectral Kurtosis:')
-        skS = wx.StaticText(panel, label='Sections:')
-        skSText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        skSDec = wx.Button(panel, ID_SK_SEC_DEC, '-', size=(56, 28))
-        skSInc = wx.Button(panel, ID_SK_SEC_INC, '+', size=(56, 28))
-        
-        skC = wx.StaticText(panel, label='Threshold:')
-        skCText = wx.TextCtrl(panel, style=wx.TE_READONLY)
-        skCDec = wx.Button(panel, ID_SK_CUT_DEC, '-', size=(56, 28))
-        skCInc = wx.Button(panel, ID_SK_CUT_INC, '+', size=(56, 28))
-        
-        sizer.Add(bp,      pos=(row+0, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
-        sizer.Add(bpR,     pos=(row+1, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(bpRText, pos=(row+1, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(bpRDec,  pos=(row+1, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(bpRInc,  pos=(row+1, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        
-        sizer.Add(dc,      pos=(row+2, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
-        sizer.Add(dcP,     pos=(row+3, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(dcPText, pos=(row+3, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(dcPDec,  pos=(row+3, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(dcPInc,  pos=(row+3, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(dcC,     pos=(row+4, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(dcCText, pos=(row+4, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(dcCDec,  pos=(row+4, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(dcCInc,  pos=(row+4, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        
-        sizer.Add(sk,      pos=(row+5, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
-        sizer.Add(skS,     pos=(row+6, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(skSText, pos=(row+6, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(skSDec,  pos=(row+6, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(skSInc,  pos=(row+6, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(skC,     pos=(row+7, 0), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(skCText, pos=(row+7, 1), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(skCDec,  pos=(row+7, 2), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        sizer.Add(skCInc,  pos=(row+7, 3), span=(1, 1), flag=wx.EXPAND|wx.LEFT|wx.RIGHT, border=5)
-        
-        line = wx.StaticLine(panel)
-        sizer.Add(line, pos=(row+8, 0), span=(1, 4), flag=wx.EXPAND|wx.ALL, border=5)
-        
-        row += 9
-        
-        #
-        # Buttons
-        #
-        
-        ok = wx.Button(panel, ID_MASKING_OK, 'Ok', size=(56, 28))
-        sizer.Add(ok, pos=(row+0, 3), flag=wx.ALL, border=5)
-        
-        panel.SetSizer(sizer)
-        sizer.Fit(self)
-
-        self.bpRText = bpRText
-        self.dcPText = dcPText
-        self.dcCText = dcCText
-        self.skSText = skSText
-        self.skCText = skCText
-        
-        #
-        # Set current values
-        #
-        self.bpRText.SetValue('%.2f' % self.parent.data.bandpassCut)
-        self.dcPText.SetValue('%i'   % self.parent.data.driftOrder)
-        self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
-        self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
-        self.skCText.SetValue('%i'   % self.parent.data.kurtosisCut)
-        
-    def initEvents(self):
-        self.Bind(wx.EVT_BUTTON, self.onBPRDecrease, id=ID_BANDPASS_CUT_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onBPRIncrease, id=ID_BANDPASS_CUT_INC)
-        
-        self.Bind(wx.EVT_BUTTON, self.onDCPDecrease, id=ID_DRIFT_POLY_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onDCPIncrease, id=ID_DRIFT_POLY_INC)
-        self.Bind(wx.EVT_BUTTON, self.onDCCDecrease, id=ID_DRIFT_CUT_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onDCCIncrease, id=ID_DRIFT_CUT_INC)
-        
-        self.Bind(wx.EVT_BUTTON, self.onSKSDecrease, id=ID_SK_SEC_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onSKSIncrease, id=ID_SK_SEC_INC)
-        self.Bind(wx.EVT_BUTTON, self.onSKCDecrease, id=ID_SK_CUT_DEC)
-        self.Bind(wx.EVT_BUTTON, self.onSKCIncrease, id=ID_SK_CUT_INC)
-        
-        self.Bind(wx.EVT_BUTTON, self.onOk, id=ID_MASKING_OK)
-        
-    def onBPRDecrease(self, event):
-        if self.parent.data.bandpassCut > 0.05:
-            self.parent.data.bandpassCut -= 0.05
-            self.bpRText.SetValue('%.2f' % self.parent.data.bandpassCut)
-        
-    def onBPRIncrease(self, event):
-        if self.parent.data.bandpassCut < 1:
-            self.parent.data.bandpassCut += 0.05
-            self.bpRText.SetValue('%.2f' % self.parent.data.bandpassCut)
-        
-    def onDCPDecrease(self, event):
-        if self.parent.data.driftOrder > 1:
-            self.parent.data.driftOrder -= 1
-            self.dcPText.SetValue('%i'   % self.parent.data.driftOrder)
-        
-    def onDCPIncrease(self, event):
-        if self.parent.data.driftOrder < 12:
-            self.parent.data.driftOrder += 1
-            self.dcPText.SetValue('%i'   % self.parent.data.driftOrder)
-    
-    def onDCCDecrease(self, event):
-        if self.parent.data.driftCut > 2:
-            self.parent.data.driftCut -= 1
-            self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
-        
-    def onDCCIncrease(self, event):
-        if self.parent.data.driftOrder < numpy.ceil(self.parent.data.spec.shape[1]/300):
-            self.parent.data.driftCut += 1
-            self.dcCText.SetValue('%i'   % self.parent.data.driftCut)
-            
-    def onSKSDecrease(self, event):
-        if self.parent.data.kurtosisSec > 1:
-            self.parent.data.kurtosisSec -= 1
-            self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
-        
-    def onSKSIncrease(self, event):
-        if self.parent.data.kurtosisSec < 45:
-            self.parent.data.kurtosisSec += 1
-            self.skSText.SetValue('%i'   % self.parent.data.kurtosisSec)
-    
-    def onSKCDecrease(self, event):
-        if self.parent.data.kurtosisCut > 2:
-            self.parent.data.kurtosisCut -= 1
-            self.skCText.SetValue('%i'   % self.parent.data.kurtosisCut)
-        
-    def onSKCIncrease(self, event):
-        if self.parent.data.kurtosisCut < 12:
-            self.parent.data.kurtosisCut += 1
-            self.skCText.SetValue('%i'   % self.parent.data.kurtosisCut)
-    
-    def onOk(self, event):
-        self.parent.cAdjust = None
-        self.Close()
-
-
-class WaterfallDisplay(wx.Frame):
-    """
-    Window for displaying the waterfall data in a zoomable fashion
-    """
-    
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, title='Waterfall', size=(400, 375))
-        
+        super().__init__(parent)
         self.parent = parent
-        
-        self.initUI()
-        self.initEvents()
-        self.Show()
-        
-        self.initPlot()
-        
-    def initUI(self):
-        """
-        Start the user interface.
-        """
-        
-        self.statusbar = self.CreateStatusBar()
-        
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        
-        # Add plots to panel 1
-        panel1 = wx.Panel(self, -1)
-        vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
-        self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-        self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.ALIGN_LEFT | wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT)
-        panel1.SetSizer(vbox1)
-        hbox.Add(panel1, 1, wx.EXPAND)
-        self.panel1 = panel1
-        
-        # Use some sizers to see layout options
-        self.SetSizer(hbox)
-        self.SetAutoLayout(1)
-        hbox.Fit(self)
-        
-    def initEvents(self):
-        """
-        Set all of the various events in the data range window.
-        """
-        
-        # Make the images resizable
-        self.Bind(wx.EVT_SIZE, self.onSize)
-        
-    def initPlot(self):
-        """
-        Populate the figure/canvas areas with a plot.  We only need to do this
-        once for this type of window.
-        """
 
-        if self.parent.data.index // (self.parent.data.spec.shape[0]//2) == 0:
-            freq = self.parent.data.freq1
+        self.title("Switch Observation")
+        self.transient(parent)
+
+        self._build_ui()
+
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Get observation list with details
+        self.obs_list = self._getObsList()
+
+        # Radio button variable
+        self.obs_var = tk.IntVar(value=self.parent.data.obsID)
+
+        # Create radio buttons for each observation
+        for i, (obs_id, target_name, tracking_mode) in enumerate(self.obs_list):
+            label = f"{target_name} in mode {tracking_mode} (#{obs_id})"
+            rb = ttk.Radiobutton(frame, text=label, variable=self.obs_var, value=obs_id)
+            rb.grid(row=i, column=0, sticky=tk.W, pady=2)
+
+        # Buttons
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=len(self.obs_list), column=0, pady=10)
+
+        ttk.Button(btn_frame, text="Ok", command=self.onSwitch).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT, padx=5)
+
+    def _getObsList(self):
+        """Return a list of tuples (obsID, TargetName, TrackingMode) for each observation"""
+        obs_list = []
+        h = h5py.File(self.parent.data.filename, 'r')
+        for key in sorted(h.keys()):
+            if key.startswith('Observation'):
+                obs_id = int(key[11:])
+                obs = h.get(key, None)
+                target_name = obs.attrs.get('TargetName', 'Unknown')
+                if isinstance(target_name, bytes):
+                    target_name = target_name.decode('utf-8')
+                tracking_mode = obs.attrs.get('TrackingMode', 'Unknown')
+                if isinstance(tracking_mode, bytes):
+                    tracking_mode = tracking_mode.decode('utf-8')
+                obs_list.append((obs_id, target_name, tracking_mode))
+        h.close()
+        return obs_list
+
+    def onSwitch(self):
+        obs_id = self.obs_var.get()
+
+        if obs_id == self.parent.data.obsID:
+            # No change needed
+            self.destroy()
+            return
+
+        self.parent.config(cursor='watch')
+        self.parent.update()
+
+        try:
+            self.parent.data.loadData(self.parent.filename, obsID=obs_id)
+            self.parent.data.render()
+            self.parent.data.draw()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to switch observation: {e}")
+
+        self.parent.config(cursor='')
+        self.destroy()
+
+
+class MaskingAdjust(tk.Toplevel):
+    """Dialog for adjusting masking parameters"""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+
+        self.title("Masking Parameters")
+        self.transient(parent)
+
+        self._build_ui()
+
+        self.parent.cAdjust = self
+
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        data = self.parent.data
+        row = 0
+
+        # Bandpass Retention section
+        ttk.Label(frame, text="Bandpass Retention:", font=('TkDefaultFont', 10, 'bold')).grid(
+            row=row, column=0, columnspan=4, sticky=tk.W, pady=(5, 2))
+        row += 1
+
+        ttk.Label(frame, text="Inner:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.bp_var = tk.StringVar(value='%.2f' % data.bandpassCut)
+        self.bp_entry = ttk.Entry(frame, textvariable=self.bp_var, width=10, state='readonly')
+        self.bp_entry.grid(row=row, column=1, pady=2, padx=2)
+        ttk.Button(frame, text="-", width=3, command=self.onBPDecrease).grid(row=row, column=2, pady=2, padx=2)
+        ttk.Button(frame, text="+", width=3, command=self.onBPIncrease).grid(row=row, column=3, pady=2, padx=2)
+        row += 1
+
+        # Drift Curve section
+        ttk.Label(frame, text="Drift Curve:", font=('TkDefaultFont', 10, 'bold')).grid(
+            row=row, column=0, columnspan=4, sticky=tk.W, pady=(10, 2))
+        row += 1
+
+        ttk.Label(frame, text="Fit order:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.drift_order_var = tk.StringVar(value='%i' % data.driftOrder)
+        self.drift_order_entry = ttk.Entry(frame, textvariable=self.drift_order_var, width=10, state='readonly')
+        self.drift_order_entry.grid(row=row, column=1, pady=2, padx=2)
+        ttk.Button(frame, text="-", width=3, command=self.onDriftOrderDecrease).grid(row=row, column=2, pady=2, padx=2)
+        ttk.Button(frame, text="+", width=3, command=self.onDriftOrderIncrease).grid(row=row, column=3, pady=2, padx=2)
+        row += 1
+
+        ttk.Label(frame, text="Threshold:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.drift_cut_var = tk.StringVar(value='%i' % data.driftCut)
+        self.drift_cut_entry = ttk.Entry(frame, textvariable=self.drift_cut_var, width=10, state='readonly')
+        self.drift_cut_entry.grid(row=row, column=1, pady=2, padx=2)
+        ttk.Button(frame, text="-", width=3, command=self.onDriftCutDecrease).grid(row=row, column=2, pady=2, padx=2)
+        ttk.Button(frame, text="+", width=3, command=self.onDriftCutIncrease).grid(row=row, column=3, pady=2, padx=2)
+        row += 1
+
+        # Spectral Kurtosis section
+        ttk.Label(frame, text="Spectral Kurtosis:", font=('TkDefaultFont', 10, 'bold')).grid(
+            row=row, column=0, columnspan=4, sticky=tk.W, pady=(10, 2))
+        row += 1
+
+        ttk.Label(frame, text="Sections:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.kurt_sec_var = tk.StringVar(value='%i' % data.kurtosisSec)
+        self.kurt_sec_entry = ttk.Entry(frame, textvariable=self.kurt_sec_var, width=10, state='readonly')
+        self.kurt_sec_entry.grid(row=row, column=1, pady=2, padx=2)
+        ttk.Button(frame, text="-", width=3, command=self.onKurtSecDecrease).grid(row=row, column=2, pady=2, padx=2)
+        ttk.Button(frame, text="+", width=3, command=self.onKurtSecIncrease).grid(row=row, column=3, pady=2, padx=2)
+        row += 1
+
+        ttk.Label(frame, text="Threshold:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.kurt_cut_var = tk.StringVar(value='%i' % data.kurtosisCut)
+        self.kurt_cut_entry = ttk.Entry(frame, textvariable=self.kurt_cut_var, width=10, state='readonly')
+        self.kurt_cut_entry.grid(row=row, column=1, pady=2, padx=2)
+        ttk.Button(frame, text="-", width=3, command=self.onKurtCutDecrease).grid(row=row, column=2, pady=2, padx=2)
+        ttk.Button(frame, text="+", width=3, command=self.onKurtCutIncrease).grid(row=row, column=3, pady=2, padx=2)
+        row += 1
+
+        # Separator
+        ttk.Separator(frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=4, sticky='ew', pady=10)
+        row += 1
+
+        # Ok button
+        ttk.Button(frame, text="Ok", command=self.onOk).grid(row=row, column=3, pady=5)
+
+    def onBPDecrease(self):
+        data = self.parent.data
+        if data.bandpassCut > 0.05:
+            data.bandpassCut -= 0.05
+            self.bp_var.set('%.2f' % data.bandpassCut)
+
+    def onBPIncrease(self):
+        data = self.parent.data
+        if data.bandpassCut < 1.0:
+            data.bandpassCut += 0.05
+            self.bp_var.set('%.2f' % data.bandpassCut)
+
+    def onDriftOrderDecrease(self):
+        data = self.parent.data
+        if data.driftOrder > 1:
+            data.driftOrder -= 1
+            self.drift_order_var.set('%i' % data.driftOrder)
+
+    def onDriftOrderIncrease(self):
+        data = self.parent.data
+        if data.driftOrder < 12:
+            data.driftOrder += 1
+            self.drift_order_var.set('%i' % data.driftOrder)
+
+    def onDriftCutDecrease(self):
+        data = self.parent.data
+        if data.driftCut > 2:
+            data.driftCut -= 1
+            self.drift_cut_var.set('%i' % data.driftCut)
+
+    def onDriftCutIncrease(self):
+        data = self.parent.data
+        import math
+        max_cut = math.ceil(data.spec.shape[1] / 300)
+        if data.driftCut < max_cut:
+            data.driftCut += 1
+            self.drift_cut_var.set('%i' % data.driftCut)
+
+    def onKurtSecDecrease(self):
+        data = self.parent.data
+        if data.kurtosisSec > 1:
+            data.kurtosisSec -= 1
+            self.kurt_sec_var.set('%i' % data.kurtosisSec)
+
+    def onKurtSecIncrease(self):
+        data = self.parent.data
+        if data.kurtosisSec < 45:
+            data.kurtosisSec += 1
+            self.kurt_sec_var.set('%i' % data.kurtosisSec)
+
+    def onKurtCutDecrease(self):
+        data = self.parent.data
+        if data.kurtosisCut > 2:
+            data.kurtosisCut -= 1
+            self.kurt_cut_var.set('%i' % data.kurtosisCut)
+
+    def onKurtCutIncrease(self):
+        data = self.parent.data
+        if data.kurtosisCut < 12:
+            data.kurtosisCut += 1
+            self.kurt_cut_var.set('%i' % data.kurtosisCut)
+
+    def onOk(self):
+        self.parent.cAdjust = None
+        self.destroy()
+
+
+class WaterfallDisplay(tk.Toplevel):
+    """Zoomable waterfall display window"""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+
+        self.title("Zoomable Waterfall")
+        self.geometry('800x600')
+
+        self._build_ui()
+        self._draw()
+        self._connect()
+
+    def _build_ui(self):
+        # Status bar at bottom
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        frame = ttk.Frame(self)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        self.figure = Figure(figsize=(8, 6))
+        self.canvas = FigureCanvasTkAgg(self.figure, master=frame)
+
+        # Create toolbar first so it reserves space at bottom
+        self.toolbar = NavigationToolbar2Tk(self.canvas, frame)
+        self.toolbar.update()
+        self.toolbar.set_message = lambda s: None  # Disable default coordinate display
+
+        # Then pack canvas to fill remaining space
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    def _draw(self):
+        data = self.parent.data
+
+        if data.index // (data.spec.shape[0]//2) == 0:
+            self.freq = data.freq1
         else:
-            freq = self.parent.data.freq2
-        
-        if self.parent.data.bandpass:
-            spec = self.parent.data.specBandpass
-            limits = self.parent.data.limitsBandpass
+            self.freq = data.freq2
+
+        if data.bandpass:
+            spec = data.specBandpass
+            limits = data.limitsBandpass
         else:
-            spec = self.parent.data.spec
-            limits = self.parent.data.limits
-        
-        # Plot Waterfall
+            spec = data.spec
+            limits = data.limits
+
         self.figure.clf()
-        self.ax1 = self.figure.gca()
-        if self.parent.data.usedB:
-            m = self.ax1.imshow(to_dB(spec[self.parent.data.index,:,:]), interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', cmap=self.parent.data.cmap, norm=self.parent.data.norm(limits[self.parent.data.index][0], limits[self.parent.data.index][1]))
-            try:
-                cm = self.figure.colorbar(m, use_gridspec=True)
-            except:
-                if len(self.frame.figure1a.get_axes()) > 1:
-                    self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
-                cm = self.figure.colorbar(m)
-            cm.ax.set_ylabel('PSD [arb. dB]')
-        else:
-            m = self.ax1.imshow(spec[self.parent.data.index,:,:], interpolation='nearest', extent=(freq[0]/1e6, freq[-1]/1e6, self.parent.data.time[0], self.parent.data.time[-1]), origin='lower', cmap=self.parent.data.cmap, norm=self.parent.data.norm(limits[self.parent.data.index][0], limits[self.parent.data.index][1]))
-            try:
-                cm = self.figure.colorbar(m, use_gridspec=True)
-            except:
-                if len(self.frame.figure1a.get_axes()) > 1:
-                    self.frame.figure1a.delaxes( self.frame.figure1a.get_axes()[-1] )
-                cm = self.figure.colorbar(m)
-            cm.ax.set_ylabel('PSD [arb. lin.]')
-        self.ax1.axis('auto')
-        self.ax1.set_xlim((freq[0]/1e6, freq[-1]/1e6))
-        self.ax1.set_ylim((self.parent.data.time[0], self.parent.data.time[-1]))
-        self.ax1.set_xlabel('Frequency [MHz]')
-        self.ax1.set_ylabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
-        if self.parent.data.linear:
-            tun = self.parent.data.index // 4 + 1
-            ind = self.parent.data.index % 4
-            mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
-            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
-        else:
-            tun = self.parent.data.index // 4 + 1
-            ind = self.parent.data.index % 4
-            mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
-            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
-            
-        ## Draw and save the click (Why?)
-        self.canvas.draw()
-        self.connect()
-        
-    def connect(self):
-        """
-        Connect to all the events we need to interact with the plots.
-        """
-        
-        self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-    
-    def on_motion(self, event):
-        """
-        Deal with motion events in the stand field window.  This involves 
-        setting the status bar with the current x and y coordinates as well
-        as the stand number of the selected stand (if any).
-        """
+        ax = self.figure.gca()
 
-        if self.parent.data.index // (self.parent.data.spec.shape[0]//2) == 0:
-            freq = self.parent.data.freq1
+        if data.usedB:
+            m = ax.imshow(to_dB(spec[data.index,:,:]), interpolation='nearest',
+                          extent=(self.freq[0]/1e6, self.freq[-1]/1e6, data.time[0], data.time[-1]),
+                          origin='lower', cmap=data.cmap,
+                          norm=data.norm(limits[data.index][0], limits[data.index][1]))
+            cbar = self.figure.colorbar(m)
+            cbar.ax.set_ylabel('PSD [arb. dB]')
         else:
-            freq = self.parent.data.freq2
-        
+            m = ax.imshow(spec[data.index,:,:], interpolation='nearest',
+                          extent=(self.freq[0]/1e6, self.freq[-1]/1e6, data.time[0], data.time[-1]),
+                          origin='lower', cmap=data.cmap,
+                          norm=data.norm(limits[data.index][0], limits[data.index][1]))
+            cbar = self.figure.colorbar(m)
+            cbar.ax.set_ylabel('PSD [arb. lin.]')
+
+        ax.axis('auto')
+        ax.set_xlabel('Frequency [MHz]')
+        ax.set_ylabel('Elapsed Time [s]')
+
+        if data.linear:
+            tun = data.index // 4 + 1
+            ind = data.index % 4
+            mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
+            ax.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+        else:
+            tun = data.index // 4 + 1
+            ind = data.index % 4
+            mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
+            ax.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+
+        self.figure.tight_layout()
+        self.canvas.draw()
+
+    def _connect(self):
+        """Connect to motion events for coordinate display"""
+        self.cidmotion = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
+    def on_motion(self, event):
+        """Update status bar with coordinates"""
+        data = self.parent.data
+
         if event.inaxes:
             clickX = event.xdata
             clickY = event.ydata
-            
-            dataX = numpy.where(numpy.abs(clickX-freq/1e6) == (numpy.abs(clickX-freq/1e6).min()))[0][0]
-            dataY = numpy.where(numpy.abs(clickY-self.parent.data.time) == (numpy.abs(clickY-self.parent.data.time).min()))[0][0]
-            
-            if self.parent.data.usedB:
-                value = to_dB(self.parent.data.spec[self.parent.data.index, dataY, dataX])
-                self.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
+
+            dataX = numpy.where(numpy.abs(clickX - self.freq/1e6) == (numpy.abs(clickX - self.freq/1e6).min()))[0][0]
+            dataY = numpy.where(numpy.abs(clickY - data.time) == (numpy.abs(clickY - data.time).min()))[0][0]
+
+            if data.usedB:
+                value = to_dB(data.spec[data.index, dataY, dataX])
+                self.statusbar.config(text="f=%.4f MHz, t=%.4f s, p=%.2f dB" % (clickX, clickY, value))
             else:
-                value = self.parent.data.spec[self.parent.data.index, dataY, dataX]
-                self.statusbar.SetStatusText("f=%.4f MHz, t=%.4f s, p=%.2f" % (clickX, clickY, value))
+                value = data.spec[data.index, dataY, dataX]
+                self.statusbar.config(text="f=%.4f MHz, t=%.4f s, p=%.2f" % (clickX, clickY, value))
         else:
-            self.statusbar.SetStatusText("")
-    
-    def disconnect(self):
-        """
-        Disconnect all the stored connection ids.
-        """
-        
-        self.figure.canvas.mpl_disconnect(self.cidmotion)
-        
-    def onCancel(self, event):
-        self.Close()
-        
-    def onSize(self, event):
-        event.Skip()
-        wx.CallAfter(self.resizePlots)
-        
-    def resizePlots(self, event=None):
-        # Get the current size of the window and the navigation toolbar
-        w, h = self.GetClientSize()
-        wt, ht = self.toolbar.GetSize()
-        
-        # Come up with new figure size in inches.
-        # NOTE:  The height of the plot at the bottom needs to be
-        #        corrected for the height of the toolbar
-        dpi = self.figure.get_dpi()
-        newW = 1.0*w/dpi
-        newH = 1.0*(h-ht)/dpi
-        self.figure.set_size_inches((newW, newH))
-        self.figure.tight_layout()
-        self.figure.canvas.draw()
-        
-        self.panel1.Refresh()
-
-    def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
-        # unmanaged toolbar in your frame
-        return self.toolbar
+            self.statusbar.config(text="")
 
 
-class DriftCurveDisplay(wx.Frame):
-    """
-    Window for displaying the waterfall data in a zoomable fashion
-    """
-    
+class DriftCurveDisplay(tk.Toplevel):
+    """Zoomable drift curve display window"""
+
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, title='Waterfall', size=(400, 375))
-        
+        super().__init__(parent)
         self.parent = parent
-        
-        self.initUI()
-        self.initEvents()
-        self.Show()
-        
-        self.initPlot()
-        
+
+        self.title("Zoomable Drift Curve")
+        self.geometry('800x600')
+
+        self._build_ui()
+        self._draw()
+        self._connect()
+
+        # Set up observer for LST calculation
         self.site = stations.lwa1.get_observer()
-        
-    def initUI(self):
-        """
-        Start the user interface.
-        """
-        
-        self.statusbar = self.CreateStatusBar()
-        
-        hbox = wx.BoxSizer(wx.VERTICAL)
-        
-        # Add plots to panel 1
-        panel1 = wx.Panel(self, -1)
-        vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
-        self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-        self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.ALIGN_LEFT | wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT)
-        panel1.SetSizer(vbox1)
-        hbox.Add(panel1, 1, wx.EXPAND)
-        self.panel1 = panel1
-        
-        # Use some sizers to see layout options
-        self.SetSizer(hbox)
-        self.SetAutoLayout(1)
-        hbox.Fit(self)
-        
-    def initEvents(self):
-        """
-        Set all of the various events in the data range window.
-        """
-        
-        # Make the images resizable
-        self.Bind(wx.EVT_SIZE, self.onSize)
-        
-    def initPlot(self):
-        """
-        Populate the figure/canvas areas with a plot.  We only need to do this
-        once for this type of window.
-        """
-        
-        if self.parent.data.bandpass:
-            spec = self.parent.data.specBandpass
-            limits = self.parent.data.limitsBandpass
+
+    def _build_ui(self):
+        # Status bar at bottom
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        frame = ttk.Frame(self)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        self.figure = Figure(figsize=(8, 6))
+        self.canvas = FigureCanvasTkAgg(self.figure, master=frame)
+
+        # Create toolbar first so it reserves space at bottom
+        self.toolbar = NavigationToolbar2Tk(self.canvas, frame)
+        self.toolbar.update()
+        self.toolbar.set_message = lambda s: None  # Disable default coordinate display
+
+        # Then pack canvas to fill remaining space
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    def _draw(self):
+        data = self.parent.data
+
+        if data.bandpass:
+            spec = data.specBandpass
         else:
-            spec = self.parent.data.spec
-            limits = self.parent.data.limits
-        
-        # Plot Drift Curve
-        self.figure.clf()
-        self.ax1 = self.figure.gca()
-        
+            spec = data.spec
+
         self.drift = spec[:,:,spec.shape[2]//8:7*spec.shape[2]//8].mean(axis=2)
-        
-        if self.parent.data.usedB:
-            z = to_dB(self.drift[self.parent.data.index,:])
-            self.ax1.scatter(self.parent.data.time, z, c=z, marker='x', cmap=self.parent.data.cmap)
-            self.ax1.set_ylabel('Inner 75% Mean Power [arb. dB]')
+
+        self.figure.clf()
+        ax = self.figure.gca()
+
+        if data.usedB:
+            z = to_dB(self.drift[data.index,:])
+            ax.scatter(data.time, z, c=z, marker='x', cmap=data.cmap)
+            ax.set_ylabel('Inner 75% Mean Power [arb. dB]')
         else:
-            z = self.drift[self.parent.data.index,:]
-            self.ax1.scatter(self.parent.data.time, z, c=z, marker='x', cmap=self.parent.data.cmap)
-            self.ax1.set_ylabel('Inner 75% Mean Power [arb. lin.]')
-            
+            z = self.drift[data.index,:]
+            ax.scatter(data.time, z, c=z, marker='x', cmap=data.cmap)
+            ax.set_ylabel('Inner 75% Mean Power [arb. lin.]')
+
+        # Add line segments connecting points
         levels = []
         segments = []
         for i in range(1, z.size):
-                levels.append( 0.5*(z[i-1]+z[i]) )
-                segments.append( [(self.parent.data.time[i-1],z[i-1]), (self.parent.data.time[i],z[i])] )
-        segments = LineCollection(segments)
-        segments.set_array(numpy.array(levels))
-        segments.set_norm(Normalize(vmin=z.min(), vmax=z.max()))
-        segments.set_cmap(self.parent.data.cmap)
-        self.ax1.add_collection(segments)
-        
-        self.ax1.set_xlim((self.parent.data.time[0], self.parent.data.time[-1]))
-        self.ax1.set_xlabel('Elapsed Time - %.3f [s]' % (self.parent.data.iOffset*self.parent.data.tInt))
-        if self.parent.data.linear:
-            tun = self.parent.data.index // 4 + 1
-            ind = self.parent.data.index % 4
+            levels.append(0.5*(z[i-1]+z[i]))
+            segments.append([(data.time[i-1], z[i-1]), (data.time[i], z[i])])
+        from matplotlib.collections import LineCollection
+        from matplotlib.colors import Normalize
+        lc = LineCollection(segments)
+        lc.set_array(numpy.array(levels))
+        lc.set_norm(Normalize(vmin=z.min(), vmax=z.max()))
+        lc.set_cmap(data.cmap)
+        ax.add_collection(lc)
+
+        ax.set_xlim((data.time[0], data.time[-1]))
+        ax.set_xlabel('Elapsed Time [s]')
+
+        if data.linear:
+            tun = data.index // 4 + 1
+            ind = data.index % 4
             mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
-            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+            ax.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
-            tun = self.parent.data.index // 4 + 1
-            ind = self.parent.data.index % 4
+            tun = data.index // 4 + 1
+            ind = data.index % 4
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
-            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
-            
-        ## Draw and save the click (Why?)
+            ax.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+
+        self.figure.tight_layout()
         self.canvas.draw()
-        self.connect()
-        
-    def connect(self):
-        """
-        Connect to all the events we need to interact with the plots.
-        """
-        
-        self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-    
+
+    def _connect(self):
+        """Connect to motion events for coordinate display"""
+        self.cidmotion = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
     def on_motion(self, event):
-        """
-        Deal with motion events in the stand field window.  This involves 
-        setting the status bar with the current x and y coordinates as well
-        as the stand number of the selected stand (if any).
-        """
-        
+        """Update status bar with coordinates"""
+        data = self.parent.data
+
         if event.inaxes:
             clickX = event.xdata
-            clickY = event.ydata
-            
-            dataX = numpy.where(numpy.abs(clickX-self.parent.data.time) == (numpy.abs(clickX-self.parent.data.time).min()))[0][0]
-            
-            ts = datetime.utcfromtimestamp(self.parent.data.timesNPZRestricted[dataX])
+
+            dataX = numpy.where(numpy.abs(clickX - data.time) == (numpy.abs(clickX - data.time).min()))[0][0]
+
+            ts = datetime.utcfromtimestamp(data.timesNPZRestricted[dataX])
             self.site.date = ts.strftime('%Y/%m/%d %H:%M:%S')
             lst = self.site.sidereal_time()
-            
-            if self.parent.data.usedB:
-                value = to_dB(self.drift[self.parent.data.index,dataX])
-                self.statusbar.SetStatusText("t=%s, LST=%s, p=%.2f dB" % (ts, lst, value))
+
+            if data.usedB:
+                value = to_dB(self.drift[data.index, dataX])
+                self.statusbar.config(text="t=%s, LST=%s, p=%.2f dB" % (ts, lst, value))
             else:
-                value = self.drift[self.parent.data.index,dataX]
-                self.statusbar.SetStatusText("t=%s, LST=%s, p=%.2f" % (ts, lst, value))
+                value = self.drift[data.index, dataX]
+                self.statusbar.config(text="t=%s, LST=%s, p=%.2f" % (ts, lst, value))
         else:
-            self.statusbar.SetStatusText("")
-    
-    def disconnect(self):
-        """
-        Disconnect all the stored connection ids.
-        """
-        
-        self.figure.canvas.mpl_disconnect(self.cidmotion)
-        
-    def onCancel(self, event):
-        self.Close()
-        
-    def onSize(self, event):
-        event.Skip()
-        wx.CallAfter(self.resizePlots)
-        
-    def resizePlots(self, event=None):
-       # Get the current size of the window and the navigation toolbar
-        w, h = self.GetClientSize()
-        wt, ht = self.toolbar.GetSize()
-        
-        # Come up with new figure size in inches.
-        # NOTE:  The height of the plot at the bottom needs to be
-        #        corrected for the height of the toolbar
-        dpi = self.figure.get_dpi()
-        newW = 1.0*w/dpi
-        newH = 1.0*(h-ht)/dpi
-        self.figure.set_size_inches((newW, newH))
-        self.figure.tight_layout()
-        self.figure.canvas.draw()
-        
-        self.panel1.Refresh()
-        
-    def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
-        # unmanaged toolbar in your frame
-        return self.toolbar
+            self.statusbar.config(text="")
 
 
-class PowerSpectrumDisplay(wx.Frame):
-    """
-    Window for displaying the drift curve power spectrum in a zoomable fashion
-    """
-    
+class PowerSpectrumDisplay(tk.Toplevel):
+    """Zoomable power spectrum display window (FFT of drift curve)"""
+
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, title='Power Spectrum', size=(400, 375))
-        
+        super().__init__(parent)
         self.parent = parent
-        
-        self.initUI()
-        self.initEvents()
-        self.Show()
-        
-        self.initPlot()
-        
-        self.site = stations.lwa1.get_observer()
-        
-    def initUI(self):
-        """
-        Start the user interface.
-        """
-        
-        self.statusbar = self.CreateStatusBar()
-        
-        hbox = wx.BoxSizer(wx.VERTICAL)
-        
-        # Add plots to panel 1
-        panel1 = wx.Panel(self, -1)
-        vbox1 = wx.BoxSizer(wx.VERTICAL)
-        self.figure = Figure()
-        self.canvas = FigureCanvasWxAgg(panel1, -1, self.figure)
-        self.toolbar = NavigationToolbar2WxAgg(self.canvas)
-        self.toolbar.Realize()
-        vbox1.Add(self.canvas,  1, wx.ALIGN_LEFT | wx.EXPAND)
-        vbox1.Add(self.toolbar, 0, wx.ALIGN_LEFT)
-        panel1.SetSizer(vbox1)
-        hbox.Add(panel1, 1, wx.EXPAND)
-        self.panel1 = panel1
-        
-        # Use some sizers to see layout options
-        self.SetSizer(hbox)
-        self.SetAutoLayout(1)
-        hbox.Fit(self)
-        
-    def initEvents(self):
-        """
-        Set all of the various events in the data range window.
-        """
-        
-        # Make the images resizable
-        self.Bind(wx.EVT_SIZE, self.onSize)
-        
-    def initPlot(self):
-        """
-        Populate the figure/canvas areas with a plot.  We only need to do this
-        once for this type of window.
-        """
-        
-        if self.parent.data.bandpass:
-            spec = self.parent.data.specBandpass
-            limits = self.parent.data.limitsBandpass
+
+        self.title("Zoomable Power Spectrum")
+        self.geometry('800x600')
+
+        self._build_ui()
+        self._draw()
+        self._connect()
+
+    def _build_ui(self):
+        # Status bar at bottom
+        self.statusbar = ttk.Label(self, text="", relief=tk.SUNKEN, anchor=tk.W)
+        self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        frame = ttk.Frame(self)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        self.figure = Figure(figsize=(8, 6))
+        self.canvas = FigureCanvasTkAgg(self.figure, master=frame)
+
+        # Create toolbar first so it reserves space at bottom
+        self.toolbar = NavigationToolbar2Tk(self.canvas, frame)
+        self.toolbar.update()
+        self.toolbar.set_message = lambda s: None  # Disable default coordinate display
+
+        # Then pack canvas to fill remaining space
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    def _draw(self):
+        data = self.parent.data
+
+        if data.bandpass:
+            spec = data.specBandpass
         else:
-            spec = self.parent.data.spec
-            limits = self.parent.data.limits
-        
-        # Plot Drift Curve
-        self.figure.clf()
-        self.ax1 = self.figure.gca()
-        
-        self.drift = spec[:,:,spec.shape[2]//8:7*spec.shape[2]//8].mean(axis=2)
-        self.fft = numpy.abs(numpy.fft.fft(self.drift, axis=1))**2
+            spec = data.spec
+
+        # Compute FFT of drift curve
+        drift = spec[:,:,spec.shape[2]//8:7*spec.shape[2]//8].mean(axis=2)
+        self.fft = numpy.abs(numpy.fft.fft(drift, axis=1))**2
         self.fft_freq = numpy.fft.fftfreq(self.fft.shape[1],
-                                          d=(self.parent.data.time[1]-self.parent.data.time[0]))
+                                          d=(data.time[1] - data.time[0]))
         self.fft = self.fft[:,:self.fft.shape[1]//2]
         self.fft_freq = self.fft_freq[:self.fft_freq.size//2]
         self.fft_units = 'Hz'
@@ -3855,132 +3231,78 @@ class PowerSpectrumDisplay(wx.Frame):
         elif self.fft_freq.max() > 1000:
             self.fft_freq /= 1000.0
             self.fft_units = 'kHz'
-            
-        z = to_dB(self.fft[self.parent.data.index,:])
-        self.ax1.scatter(self.fft_freq, z, c=z, marker='x', cmap=self.parent.data.cmap)
-        self.ax1.set_ylabel('PS of Inner 75% Mean Power [arb. dB]')
-        
+
+        self.figure.clf()
+        ax = self.figure.gca()
+
+        z = to_dB(self.fft[data.index,:])
+        ax.scatter(self.fft_freq, z, c=z, marker='x', cmap=data.cmap)
+        ax.set_ylabel('PS of Inner 75% Mean Power [arb. dB]')
+
+        # Add line segments connecting points
         levels = []
         segments = []
         for i in range(1, z.size):
-                levels.append( 0.5*(z[i-1]+z[i]) )
-                segments.append( [(self.fft_freq[i-1],z[i-1]), (self.fft_freq[i],z[i])] )
-        segments = LineCollection(segments)
-        segments.set_array(numpy.array(levels))
-        segments.set_norm(Normalize(vmin=z.min(), vmax=z.max()))
-        segments.set_cmap(self.parent.data.cmap)
-        self.ax1.add_collection(segments)
-        
-        self.ax1.set_xlim((self.fft_freq[0], self.fft_freq[-1]))
-        self.ax1.set_xlabel('Frequency [%s]' % self.fft_units)
-        if self.parent.data.linear:
-            tun = self.parent.data.index // 4 + 1
-            ind = self.parent.data.index % 4
+            levels.append(0.5*(z[i-1]+z[i]))
+            segments.append([(self.fft_freq[i-1], z[i-1]), (self.fft_freq[i], z[i])])
+        from matplotlib.collections import LineCollection
+        from matplotlib.colors import Normalize
+        lc = LineCollection(segments)
+        lc.set_array(numpy.array(levels))
+        lc.set_norm(Normalize(vmin=z.min(), vmax=z.max()))
+        lc.set_cmap(data.cmap)
+        ax.add_collection(lc)
+
+        ax.set_xlim((self.fft_freq[0], self.fft_freq[-1]))
+        ax.set_xlabel('Frequency [%s]' % self.fft_units)
+
+        if data.linear:
+            tun = data.index // 4 + 1
+            ind = data.index % 4
             mapper = {0: 'XX', 1: 'Re(XY)', 2: 'Im(XY)', 3: 'YY'}
-            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+            ax.set_title('Tuning %i, %s' % (tun, mapper[ind]))
         else:
-            tun = self.parent.data.index // 4 + 1
-            ind = self.parent.data.index % 4
+            tun = data.index // 4 + 1
+            ind = data.index % 4
             mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
-            self.ax1.set_title('Tuning %i, %s' % (tun, mapper[ind]))
-            
-        ## Draw and save the click (Why?)
+            ax.set_title('Tuning %i, %s' % (tun, mapper[ind]))
+
+        self.figure.tight_layout()
         self.canvas.draw()
-        self.connect()
-        
-    def connect(self):
-        """
-        Connect to all the events we need to interact with the plots.
-        """
-        
-        self.cidmotion  = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
-    
+
+    def _connect(self):
+        """Connect to motion events for coordinate display"""
+        self.cidmotion = self.figure.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
     def on_motion(self, event):
-        """
-        Deal with motion events in the stand field window.  This involves 
-        setting the status bar with the current x and y coordinates as well
-        as the stand number of the selected stand (if any).
-        """
-        
+        """Update status bar with coordinates"""
+        data = self.parent.data
+
         if event.inaxes:
             clickX = event.xdata
-            clickY = event.ydata
-            
-            dataX = numpy.where(numpy.abs(clickX-self.fft_freq) == (numpy.abs(clickX-self.fft_freq).min()))[0][0]
+
+            dataX = numpy.where(numpy.abs(clickX - self.fft_freq) == (numpy.abs(clickX - self.fft_freq).min()))[0][0]
             fft_freq = self.fft_freq[dataX]
-            
-            value = to_dB(self.fft[self.parent.data.index,dataX])
-            self.statusbar.SetStatusText("f=%.3f %s, p=%.2f dB" % (fft_freq, self.fft_units, value))
+
+            value = to_dB(self.fft[data.index, dataX])
+            self.statusbar.config(text="f=%.3f %s, p=%.2f dB" % (fft_freq, self.fft_units, value))
         else:
-            self.statusbar.SetStatusText("")
-    
-    def disconnect(self):
-        """
-        Disconnect all the stored connection ids.
-        """
-        
-        self.figure.canvas.mpl_disconnect(self.cidmotion)
-        
-    def onCancel(self, event):
-        self.Close()
-        
-    def onSize(self, event):
-        event.Skip()
-        wx.CallAfter(self.resizePlots)
-        
-    def resizePlots(self, event=None):
-       # Get the current size of the window and the navigation toolbar
-        w, h = self.GetClientSize()
-        wt, ht = self.toolbar.GetSize()
-        
-        # Come up with new figure size in inches.
-        # NOTE:  The height of the plot at the bottom needs to be
-        #        corrected for the height of the toolbar
-        dpi = self.figure.get_dpi()
-        newW = 1.0*w/dpi
-        newH = 1.0*(h-ht)/dpi
-        self.figure.set_size_inches((newW, newH))
-        self.figure.tight_layout()
-        self.figure.canvas.draw()
-        
-        self.panel1.Refresh()
-        
-    def GetToolBar(self):
-        # You will need to override GetToolBar if you are using an 
-        # unmanaged toolbar in your frame
-        return self.toolbar
+            self.statusbar.config(text="")
 
 
-class HtmlWindow(wx.html.HtmlWindow): 
-    def __init__(self, parent): 
-        wx.html.HtmlWindow.__init__(self, parent, style=wx.NO_FULL_REPAINT_ON_RESIZE|wx.SUNKEN_BORDER) 
-        
-        if "gtk2" in wx.PlatformInfo: 
-            self.SetStandardFonts()
-            
-    def OnLinkClicked(self, link): 
-        a = link.GetHref()
-        if a.startswith('#'): 
-            wx.html.HtmlWindow.OnLinkClicked(self, link) 
-        else: 
-            wx.LaunchDefaultBrowser(link.GetHref())
+class HelpWindow(tk.Toplevel):
+    """
+    Help window displaying HTML documentation.
 
+    Provides basic HTML rendering using tk.Text with tags, supporting:
+    - Headers (h4, h6)
+    - Bold, italic, underline text
+    - Unordered and ordered lists
+    - Internal anchor links (scrolls to section)
+    - External links (opens in browser)
+    """
 
-class HelpWindow(wx.Frame):
-    def __init__(self, parent):
-        wx.Frame.__init__(self, parent, -1, 'plotHDF Handbook', size=(570, 400))
-        
-        self.initUI()
-        self.Show()
-        
-    def initUI(self):
-        panel = wx.Panel(self, -1, style=wx.BORDER_SUNKEN)
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        
-        help = HtmlWindow(panel)
-        #help.LoadPage(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'docs/help.html'))
-        help.SetPage("""<html>
-
+    HELP_HTML = """<html>
 <body>
 <a name="top"><h4>Table of Contents</h4></a>
 <ul>
@@ -3994,8 +3316,8 @@ class HelpWindow(wx.Frame):
 <p>
 <a name="intro">
 <h6>Introduction</h6>
-plotHDF is a graphical interface for working with HDF5 files created by the hdfWaterfall or drspec2hdf 
-scripts.  This script allows the user to look at dynamic waterfalls, examine the power as a function 
+plotHDF is a graphical interface for working with HDF5 files created by the hdfWaterfall or drspec2hdf
+scripts.  This script allows the user to look at dynamic waterfalls, examine the power as a function
 of time, mask RFI, and fit power laws to the data.
 <br /><a href="#top">Top</a>
 </a>
@@ -4004,11 +3326,11 @@ of time, mask RFI, and fit power laws to the data.
 <p>
 <a name="layout">
 <h6>Window Layout</h6>
-The plotHDF window is broken into two vertical sections.  The top section shows, from left to right, the 
-dynamic waterfall, the X and Y polarization data saturation fraction, and the frequency-integrated power 
+The plotHDF window is broken into two vertical sections.  The top section shows, from left to right, the
+dynamic waterfall, the X and Y polarization data saturation fraction, and the frequency-integrated power
 as a function of time.  Any of these three panels can be clicked with the mouse to select a particular
 time section to be detailed in the lower section.<br /><br />
-The lower section also allows the users to interact with the spectrum, e.g., shifted, zoomed, etc., using the 
+The lower section also allows the users to interact with the spectrum, e.g., shifted, zoomed, etc., using the
 standard matplotlib toolbar.
 <br /><a href="#top">Top</a>
 </a>
@@ -4017,20 +3339,20 @@ standard matplotlib toolbar.
 <p>
 <a name="usage">
 <h6>Usage</h6>
-After the HDF5 file has been loaded there are a variety of menu, <a href="#mouse">mouse</a>, and 
+After the HDF5 file has been loaded there are a variety of menu, <a href="#mouse">mouse</a>, and
 <a href="#keyboard">keyboard commands</a> that can be used to interact with the data.  The menus are:
 <ul>
     <li>Color - Adjust the color stretch, map, and transfer function used in the dynamic waterfall</li>
     <li>Data - Change which tuning and data product is currently displayed</li>
-    <li>Mask - Use (pseudo) spectral kurtosis to generate a radio frequency interference (RFI) mask and 
+    <li>Mask - Use (pseudo) spectral kurtosis to generate a radio frequency interference (RFI) mask and
     apply it to the data.  The masking parameters can also be tweaked in this menu.</li>
     <li>Bandpass - Apply a data or instrumental spectral bandpass to the data.</li>
-    <li>Details - Get metadata about the current HDF5 file and how the data were reduced and display 
+    <li>Details - Get metadata about the current HDF5 file and how the data were reduced and display
     zoom-able dynamic waterfall, drift curve, and drift curve power spectrum plots.</li>
     <li>Help - Show this help message.</li>
 </ul>
 <br /><br />
-<b>Note:</b> The RFI masks generated either through the "Mask" menu or the mouse/keyboard can be saved 
+<b>Note:</b> The RFI masks generated either through the "Mask" menu or the mouse/keyboard can be saved
 to the HDF5 file at any time using the "File" menu.
 <br /><a href="#top">Top</a>
 </a>
@@ -4059,17 +3381,17 @@ In the lower section:
 <p>
 <a name="keyboard">
 <h6>Keyboard Interaction</h6>
-The keyboard can also be used to interact with any of the plotting panels.  The keyboard commands 
+The keyboard can also be used to interact with any of the plotting panels.  The keyboard commands
 are:
 <ul>
-    <li>Up or Right Arrow - Move the spectrum display forward by one time step <it>(upper section only)</it></li>
-    <li>Down or Left Arrow - Move the spectrum display backward by one time step <it>(upper section only)</it></li>
+    <li>Up or Right Arrow - Move the spectrum display forward by one time step <i>(upper section only)</i></li>
+    <li>Down or Left Arrow - Move the spectrum display backward by one time step <i>(upper section only)</i></li>
     <li>m - Mask the current timestamp (upper section) or frequency bin (lower section)</li>
     <li>u - Unmask the current timestamp (upper section) or frequency bin (lower section)</li>
-    <li>p - Print the power for the current frequency bin <it>(lower section only)</it></li>
-    <li>s - Print statistics about the current frequency bin <it>(lower section only)</it></li>
-    <li>f - Pick a frequency boundary for a power law fit <it>(lower section only)</it>  <b>Note:</b> This needs to be be done twice to perform the fit</li>
-    <li>c - Clear the current power law fit <it>(lower section only)</it></li>
+    <li>p - Print the power for the current frequency bin <i>(lower section only)</i></li>
+    <li>s - Print statistics about the current frequency bin <i>(lower section only)</i></li>
+    <li>f - Pick a frequency boundary for a power law fit <i>(lower section only)</i>  <b>Note:</b> This needs to be be done twice to perform the fit</li>
+    <li>c - Clear the current power law fit <i>(lower section only)</i></li>
 </ul>
 <br /><br />
 <b>Note:</b> In order to interact with the lower section you will need to click in the axes with the left mouse button.
@@ -4078,102 +3400,367 @@ are:
 </p>
 
 </body>
+</html>"""
 
-</html>""")
-        vbox.Add(help, 1, wx.EXPAND)
-        
-        self.CreateStatusBar()
-        
-        panel.SetSizerAndFit(vbox)
-        
-def main(args):
-    # Turn off all NumPy warnings to keep stdout clean
-    errs = numpy.geterr()
-    numpy.seterr(invalid='ignore', divide='ignore')
-    
-    # Parse the command line options
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+
+        self.title("plotHDF Handbook")
+        self.geometry('600x500')
+
+        # Store anchor positions for internal navigation
+        self.anchors = {}
+
+        self._build_ui()
+
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=5)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Scrollable text widget
+        text_frame = ttk.Frame(frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.text = tk.Text(text_frame, wrap=tk.WORD, padx=10, pady=10,
+                           yscrollcommand=scrollbar.set)
+        self.text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.text.yview)
+
+        # Configure text tags for HTML rendering
+        self._configure_tags()
+
+        # Render help content
+        self._render_html(self.HELP_HTML)
+        self.text.config(state='disabled')
+
+    def _configure_tags(self):
+        """Configure text tags for HTML-like formatting."""
+        import tkinter.font as tkfont
+
+        # Get default font and create variants
+        default_font = tkfont.nametofont('TkDefaultFont')
+        base_size = default_font.cget('size')
+        base_family = default_font.cget('family')
+
+        # Header tags
+        self.text.tag_configure('h4', font=(base_family, base_size + 4, 'bold'),
+                                spacing1=10, spacing3=5)
+        self.text.tag_configure('h6', font=(base_family, base_size + 2, 'bold'),
+                                spacing1=8, spacing3=3)
+
+        # Text formatting tags
+        self.text.tag_configure('bold', font=(base_family, base_size, 'bold'))
+        self.text.tag_configure('italic', font=(base_family, base_size, 'italic'))
+        self.text.tag_configure('underline', underline=True)
+
+        # Superscript and subscript (adjust offset)
+        self.text.tag_configure('sup', offset=4, font=(base_family, base_size - 2))
+        self.text.tag_configure('sub', offset=-4, font=(base_family, base_size - 2))
+
+        # List item tags (with indent)
+        self.text.tag_configure('listitem', lmargin1=20, lmargin2=35)
+        self.text.tag_configure('olitem', lmargin1=20, lmargin2=35)
+
+        # Link tags
+        self.text.tag_configure('link', foreground='blue', underline=True)
+        self.text.tag_bind('link', '<Enter>', lambda e: self.text.config(cursor='hand2'))
+        self.text.tag_bind('link', '<Leave>', lambda e: self.text.config(cursor=''))
+
+    def _render_html(self, html_content):
+        """Parse and render HTML content to the text widget."""
+        import re
+
+        # Process the HTML content
+        # Normalize multiple whitespace to single space, collapse newlines
+        html_content = re.sub(r'\s+', ' ', html_content)
+
+        # Find all tags and text segments
+        pattern = r'(<[^>]+>|[^<]+)'
+        segments = re.findall(pattern, html_content)
+
+        # Stack to track active formatting
+        format_stack = []
+
+        # Link tracking
+        current_link_href = None
+        link_counter = 0
+
+        # Ordered list tracking
+        ol_counter = 0
+        in_ol = False
+
+        # Track if we just inserted a newline (to avoid redundant spaces after newlines)
+        last_was_newline = True
+
+        for segment in segments:
+            if not segment or not segment.strip():
+                continue
+
+            if segment.startswith('<'):
+                # Strip whitespace from tags only
+                segment = segment.strip()
+                tag_match = re.match(r'<(/?)(\w+)([^>]*)/?>', segment)
+                if not tag_match:
+                    continue
+
+                is_closing = tag_match.group(1) == '/'
+                tag_name = tag_match.group(2).lower()
+                tag_attrs = tag_match.group(3)
+
+                # Handle different tags
+                if tag_name in ('html', 'body'):
+                    continue
+
+                elif tag_name == 'h4':
+                    if not is_closing:
+                        format_stack.append('h4')
+                    else:
+                        if 'h4' in format_stack:
+                            format_stack.remove('h4')
+                        self.text.insert(tk.END, '\n')
+                        last_was_newline = True
+
+                elif tag_name == 'h6':
+                    if not is_closing:
+                        format_stack.append('h6')
+                    else:
+                        if 'h6' in format_stack:
+                            format_stack.remove('h6')
+                        self.text.insert(tk.END, '\n')
+                        last_was_newline = True
+
+                elif tag_name == 'b':
+                    if not is_closing:
+                        format_stack.append('bold')
+                    elif 'bold' in format_stack:
+                        format_stack.remove('bold')
+
+                elif tag_name == 'i':
+                    if not is_closing:
+                        format_stack.append('italic')
+                    elif 'italic' in format_stack:
+                        format_stack.remove('italic')
+
+                elif tag_name == 'u':
+                    if not is_closing:
+                        format_stack.append('underline')
+                    elif 'underline' in format_stack:
+                        format_stack.remove('underline')
+
+                elif tag_name == 'sup':
+                    if not is_closing:
+                        format_stack.append('sup')
+                    elif 'sup' in format_stack:
+                        format_stack.remove('sup')
+
+                elif tag_name == 'sub':
+                    if not is_closing:
+                        format_stack.append('sub')
+                    elif 'sub' in format_stack:
+                        format_stack.remove('sub')
+
+                elif tag_name == 'ul':
+                    if not is_closing:
+                        self.text.insert(tk.END, '\n')
+                        last_was_newline = True
+                    else:
+                        self.text.insert(tk.END, '\n')
+                        last_was_newline = True
+
+                elif tag_name == 'ol':
+                    if not is_closing:
+                        in_ol = True
+                        ol_counter = 0
+                        self.text.insert(tk.END, '\n')
+                        last_was_newline = True
+                    else:
+                        in_ol = False
+                        self.text.insert(tk.END, '\n')
+                        last_was_newline = True
+
+                elif tag_name == 'li':
+                    if not is_closing:
+                        if in_ol:
+                            ol_counter += 1
+                            self.text.insert(tk.END, f'\n  {ol_counter}. ', 'olitem')
+                        else:
+                            self.text.insert(tk.END, '\n  \u2022 ', 'listitem')
+                        last_was_newline = False  # We have content after the bullet
+
+                elif tag_name == 'br':
+                    self.text.insert(tk.END, '\n')
+                    last_was_newline = True
+
+                elif tag_name == 'p':
+                    if is_closing:
+                        self.text.insert(tk.END, '\n\n')
+                        last_was_newline = True
+
+                elif tag_name == 'a':
+                    if not is_closing:
+                        # Extract href and name attributes
+                        href_match = re.search(r'href=["\']([^"\']+)["\']', tag_attrs)
+                        name_match = re.search(r'name=["\']([^"\']+)["\']', tag_attrs)
+
+                        if name_match:
+                            # This is an anchor definition - store current position
+                            anchor_name = name_match.group(1)
+                            self.anchors[anchor_name] = self.text.index(tk.END)
+
+                        if href_match:
+                            # This is a link - add 'link' to format stack and track href
+                            current_link_href = href_match.group(1)
+                            link_counter += 1
+                            # Create unique tag for this specific link
+                            link_tag = f'link_{link_counter}'
+                            format_stack.append('link')
+                            format_stack.append(link_tag)
+
+                            # Pre-configure the click binding for this link tag
+                            if current_link_href.startswith('#'):
+                                anchor_name = current_link_href[1:]
+                                self.text.tag_bind(link_tag, '<Button-1>',
+                                    lambda e, a=anchor_name: self._scroll_to_anchor(a))
+                            else:
+                                url = current_link_href
+                                self.text.tag_bind(link_tag, '<Button-1>',
+                                    lambda e, u=url: webbrowser.open(u))
+                    else:
+                        # Remove link tags from format stack
+                        if current_link_href:
+                            # Remove the unique link tag
+                            for tag in list(format_stack):
+                                if tag.startswith('link_'):
+                                    format_stack.remove(tag)
+                                    break
+                            # Remove 'link' tag
+                            if 'link' in format_stack:
+                                format_stack.remove('link')
+                            current_link_href = None
+
+            else:
+                # This is text content - decode HTML entities
+                text = segment
+                text = text.replace('&quot;', '"')
+                text = text.replace('&amp;', '&')
+                text = text.replace('&lt;', '<')
+                text = text.replace('&gt;', '>')
+                text = text.replace('&nbsp;', ' ')
+
+                if text.strip():
+                    # Handle leading space - preserve it unless we just had a newline
+                    if text.startswith(' ') and not last_was_newline:
+                        leading_space = ' '
+                        text = text.lstrip()
+                    else:
+                        leading_space = ''
+                        text = text.lstrip()
+
+                    # Preserve trailing space
+                    trailing_space = ' ' if segment.endswith(' ') else ''
+                    text = text.rstrip()
+
+                    # Apply current formatting tags
+                    tags = tuple(format_stack) if format_stack else ()
+                    if leading_space:
+                        self.text.insert(tk.END, leading_space)
+                    self.text.insert(tk.END, text, tags)
+                    if trailing_space:
+                        self.text.insert(tk.END, trailing_space)
+
+                    last_was_newline = False
+
+    def _scroll_to_anchor(self, anchor_name):
+        """Scroll to an internal anchor."""
+        if anchor_name in self.anchors:
+            self.text.see(self.anchors[anchor_name])
+
+
+def main():
+    """Main entry point"""
+    parser = argparse.ArgumentParser(
+        description='View and edit DRX HDF5 waterfall files',
+        epilog='NOTE: The bandpass provided by the -I/--instrumental flag is based on '
+               'the current "best knowledge" of LWA1 but may not remove all bandpass-related '
+               'features in the data.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('filename', type=str, nargs='?',
+                        help='HDF5 file to open')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0,
+                        help='skip period in seconds before displaying')
+    parser.add_argument('-d', '--duration', type=aph.positive_float, default=-1,
+                        help='number of seconds to display')
+    parser.add_argument('-o', '--observation', type=aph.positive_int, default=1,
+                        help='plot the specified observation')
+    parser.add_argument('-I', '--instrumental', action='store_true',
+                        help='use an instrument-based bandpass composed of the antenna '
+                             'impedance mis-match, the ARX response, and the DRX filter '
+                             'coefficients')
+    fgroup = parser.add_mutually_exclusive_group(required=False)
+    fgroup.add_argument('-n', '--split', action='store_true', default=True,
+                        help='take ARX to be in the split bandwidth setting for the '
+                             'instrument-based bandpass')
+    fgroup.add_argument('-f', '--full', action='store_true',
+                        help='take ARX to be in the full bandwidth setting for the '
+                             'instrument-based bandpass')
+    fgroup.add_argument('-r', '--reduced', action='store_true',
+                        help='take ARX to be in the reduced bandwidth setting for the '
+                             'instrument-based bandpass')
+    args = parser.parse_args()
+
+    # Determine bandpass type
     bandpassType = 'data'
     if args.instrumental:
         bandpassType = 'instrumental'
+
+    # Determine ARX filter
     arxFilter = 'split'
     if args.full:
         arxFilter = 'full'
     elif args.reduced:
         arxFilter = 'reduced'
-        
-    # Go!
-    app = wx.App(0)
-    frame = MainWindow(None, -1)
-    frame.offset = args.skip
-    frame.duration = args.duration
-    frame.data = Waterfall_GUI(frame, bandpassType=bandpassType, arxFilter=arxFilter)
-    frame.render()
-    if args.filename is not None:
-        ## If there is a filename on the command line, load it
-        frame.filename = args.filename
-        frame.data.loadData(args.filename, obsID=args.observation)
-        frame.data.render()
-        frame.data.draw()
-        
-        for menuItem in frame.fileMenu.GetMenuItems():
-            if menuItem.GetItemLabel().find('Save') != -1:
-                menuItem.Enable(True)
-        for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
-            for menuItem in menu.GetMenuItems():
-                menuItem.Enable(True)
-                if menuItem.IsSubMenu():
-                    for menuItem2 in menuItem.GetSubMenu().GetMenuItems():
-                        menuItem2.Enable(True)
-                
-        if frame.data.filenames is None: 
-            frame.examineFileButton.Enable(False) 
-        else: 
-            frame.examineFileButton.Enable(True) 
-            
-        frame.setDataMenuOptions()
-        
-        frame.edited = False
-        frame.setSaveButton()
-    else:
-        ## Otherwise, disable the various menus that only do something if there is 
-        ## a file to look at
-        for menuItem in frame.fileMenu.GetMenuItems():
-            print(type(menuItem))
-            if menuItem.GetItemLabelText().find('Save') != -1:
-                menuItem.Enable(False)
-        for menu in (frame.colorMenu, frame.dataMenu, frame.maskMenu, frame.bandpassMenu, frame.detailsMenu):
-            for menuItem in menu.GetMenuItems():
-                menuItem.Enable(False)
-                if menuItem.IsSubMenu():
-                    for menuItem2 in menuItem.GetSubMenu().GetMenuItems():
-                        menuItem2.Enable(False)
-                        
-    app.MainLoop()
+
+    app = MainWindow()
+    app.offset = args.skip
+    app.duration = args.duration
+
+    app.render()
+
+    # Create data handler
+    app.data = Waterfall_GUI(app, bandpassType=bandpassType, arxFilter=arxFilter)
+
+    # Disable menus until file is loaded
+    app._enableMenus(False)
+    app.setSaveButton()
+
+    # Load file if provided
+    if args.filename:
+        app.dirname = os.path.dirname(args.filename)
+        app.filename = args.filename
+
+        app.config(cursor='watch')
+        app.showLoading("Loading " + os.path.basename(args.filename))
+
+        try:
+            app.data.loadData(args.filename, obsID=args.observation)
+            app.data.render()
+            app.data.draw()
+
+            app._enableMenus(True)
+            app.setDataMenuOptions()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load file: {e}")
+
+        app.hideLoading()
+        app.config(cursor='')
+
+    app.mainloop()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='read in a HDF5 waterfall file and plot it interactively', 
-        epilog='NOTE:  The bandpass provides by the -i/--instrumental flag is based on the current "best knowledge" of LWA1 but may not remove all bandpass-related features in the data.', 
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-        )
-    parser.add_argument('filename', type=str, nargs='?', 
-                        help='filename to display')
-    parser.add_argument('-s', '--skip', type=aph.positive_float, default=0.0, 
-                        help='skip period in seconds before displaying')
-    parser.add_argument('-d', '--duration', type=float, default=-1.0, 
-                        help='number of seconds to display')
-    parser.add_argument('-o', '--observation', type=aph.positive_int, default=1, 
-                        help='plot the specified observation')
-    parser.add_argument('-i', '--instrumental', action='store_true', 
-                        help='use an instrument-based bandpass composed of the antenna impedance mis-match, the ARX response, and the DRX filter coefficients')
-    fgroup = parser.add_mutually_exclusive_group(required=False)
-    fgroup.add_argument('-n', '--split', action='store_true', default=True, 
-                        help='take ARX to be in the full bandwidth setting for the instrument-based bandpass')
-    fgroup.add_argument('-f', '--full', action='store_true', 
-                        help='take ARX to be in the full bandwidth setting for the instrument-based bandpass')
-    fgroup.add_argument('-r', '--reduced', action='store_true', 
-                        help='take ARX to be in the reduced bandwidth setting for the instrument-based bandpass')
-    args = parser.parse_args()
-    main(args)
-    
+if __name__ == '__main__':
+    main()
