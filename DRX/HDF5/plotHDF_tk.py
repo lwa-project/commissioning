@@ -277,7 +277,7 @@ class Waterfall_GUI(object):
 
         self.filename = ''
         self.index = 0
-        self.filenames = None
+        self.filenames = []
 
         self.bandpass = False
         self.freq1 = freq
@@ -512,7 +512,7 @@ class Waterfall_GUI(object):
         # Deal with the potential for aggregated files
         self.tIntActual = self.tInt
         self.tIntOriginal = self.tInt
-        self.filenames = None
+        self.filenames = []
 
         # Gather up the target information
         self.data_products = data_products
@@ -873,7 +873,7 @@ class Waterfall_GUI(object):
         self.ax2.legend(loc=0)
         self.ax2.set_xlabel('Frequency [MHz]')
 
-        if self.filenames is None:
+        if not self.filenames:
             if self.bandpass:
                 self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
             else:
@@ -1002,7 +1002,7 @@ class Waterfall_GUI(object):
         kMean = 1.0
         kStd  = skStd(secSize, N)
         # Correction for some averaged data sets
-        if self.filenames is not None:
+        if self.filenames:
             kurtosis_arr /= kurtosis_arr.mean()
 
         bad = numpy.where( numpy.abs(kurtosis_arr - kMean) >= self.kurtosisCut*kStd )
@@ -1384,7 +1384,7 @@ class Waterfall_GUI(object):
                 beam = self.beam
                 srate, sunit = bestFreqUnits(self.srate)
                 tInt = self.tInt
-                isAggregate = False if self.filenames is None else True
+                isAggregate = bool(self.filenames)
                 tIntOrg = self.tIntOriginal
                 tIntAct = self.tIntActual
 
@@ -2374,7 +2374,7 @@ Integrations: {self.data.spec.shape[1]}
         For aggregated data sets, open a new plotHDF window to examine the
         sub-file at the current time selection.
         """
-        if self.data is None or self.data.filenames is None:
+        if self.data is None or not self.data.filenames:
             messagebox.showinfo("Info", "No sub-files to examine")
             return
 
