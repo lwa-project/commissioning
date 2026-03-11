@@ -11,7 +11,7 @@ import aipy
 import time
 import numpy
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from astropy.constants import c as speedOfLight
 speedOfLight = speedOfLight.to('m/s').value
 
@@ -81,7 +81,7 @@ def main(args):
                 
             freqs = idf.get_info('freq1')
             beginJD = astro.unix_to_utcjd( tStart )
-            beginTime = datetime.utcfromtimestamp( tStart )
+            beginTime = datetime.fromtimestamp( tStart, tz=timezone.utc )
             
             if freqs[0] != phase_freq_range[0] or freqs[-1] != phase_freq_range[1]:
                 print("Updating phasing for %.3f to %.3f MHz" % (freqs[0]/1e6, freqs[-1]/1e6))

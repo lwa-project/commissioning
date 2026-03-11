@@ -8,9 +8,12 @@ date/time is used.
 
 import sys
 import math
-import pytz
 import argparse
-import datetime
+from datetime import datetime, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
 
 from lsl.common.stations import lwa1
 from lsl.common.mcs import datetime_to_mjdmpm
@@ -48,12 +51,10 @@ def _getEquinoxEquation(jd):
 
 def main(args):
     obs = lwa1.get_observer()
-    MST = pytz.timezone('US/Mountain')
-    UTC = pytz.utc
+    MST = zoneinfo.ZoneInfo('America/Denver')
     
     if args.date is None or args.time is None:
-        dt = datetime.datetime.utcnow()
-        dt = UTC.localize(dt)
+        dt = datetime.now(tz=timezone.utc)
     else:
         year, month, day = args.date.split('/', 2)
         hour, minute, second = args.time.split(':', 2)
@@ -62,7 +63,7 @@ def main(args):
         
         if args.utc:
             # UTC
-            dt = UTC.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
+            dt = datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds, tzinfo=timezone.utc)
             
         elif args.sidereal:
             # LST
@@ -113,19 +114,19 @@ def main(args):
             microsecond = int(int(microsecond/1000.0)*1000)
             
             ## Localize as the appropriate time zone
-            dt = UTC.localize(datetime.datetime(year, month, day, hour, minute, second, microsecond))
+            dt = datetime(year, month, day, hour, minute, second, microsecond, tzinfo=timezone.utc)
             
         else:
             # Mountain time
-            dt = MST.localize(datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds))
+            dt = datetime(int(year), int(month), int(day), int(hour), int(minute), iSeconds, mSeconds, tzinfo=MST)
             
-        dt = dt.astimezone(UTC)
+        dt = dt.astimezone(timezone.utc)
         
-    obs.date = dt.astimezone(UTC).strftime("%Y/%m/%d %H:%M:%S.%f")
+    obs.date = dt.astimezone(timezone.utc).strftime("%Y/%m/%d %H:%M:%S.%f")
     mjd, mpm = datetime_to_mjdmpm(dt)
     
     print("Localtime: %s" % dt.astimezone(MST).strftime("%B %d, %Y at %H:%M:%S %Z"))
-    print("UTC: %s" % dt.astimezone(UTC).strftime("%B %d, %Y at %H:%M:%S %Z"))
+    print("UTC: %s" % dt.astimezone(timezone.utc).strftime("%B %d, %Y at %H:%M:%S %Z"))
     print("LST: %s" % obs.sidereal_time())
     print("MJD: %i" % mjd)
     print("MPM: %i" % mpm)

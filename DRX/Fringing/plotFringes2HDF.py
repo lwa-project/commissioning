@@ -11,7 +11,7 @@ import numpy
 import h5py
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
@@ -66,7 +66,7 @@ def main(args):
     tInt = time[0][1]
     
     for i in range(time.shape[0]):
-        times.append(datetime.utcfromtimestamp(time[i][0]))
+        times.append(datetime.fromtimestamp(time[i][0], tz=timezone.utc))
         vis1.append(infile['Visibilities']['Tuning1'][i, 1,:])
         vis2.append(infile['Visibilities']['Tuning2'][i, 1,:])
     

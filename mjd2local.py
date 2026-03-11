@@ -6,33 +6,33 @@ associated with that MJD.
 """
 
 import sys
-import pytz
 import argparse
-from datetime import datetime
-
+from datetime import datetime, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
+    
 from lsl.common.mcs import mjdmpm_to_datetime
 from lsl.misc import parser as aph
 
-MST = pytz.timezone('US/Mountain')
-UTC = pytz.utc
+_MST = zoneinfo.ZoneInfo('America/Denver')
 
 
 def main(args):
-    otz = MST
+    otz = _MST
     if args.utc:
-        otz = UTC
+        otz = timezone.utc
         
     if not args.pairs:
         for arg in args.mjd:
             mjd1 = int(arg)
             mjd2 = float(mjd1) + 0.99999
 
-            d1 = mjdmpm_to_datetime(mjd1, 0)
-            d1 = UTC.localize(d1)
+            d1 = mjdmpm_to_datetime(mjd1, 0, tz=timezone.utc)
             d1  = d1.astimezone(otz)
 
-            d2 = mjdmpm_to_datetime(mjd2, 0)
-            d2 = UTC.localize(d2)
+            d2 = mjdmpm_to_datetime(mjd2, 0, tz=timezone.utc)
             d2  = d2.astimezone(otz)
             
             tzname = d1.strftime('%Z')
@@ -42,8 +42,7 @@ def main(args):
     else:
         for arg in zip(args.mjd[0::2], args.mjd[1::2]):
             mjd, mpm = [int(i) for i in arg]
-            d = mjdmpm_to_datetime(mjd, mpm)
-            d = UTC.localize(d)
+            d = mjdmpm_to_datetime(mjd, mpm, tz=timezone.utc)
             d = d.astimezone(otz)
             
             tzname = d.strftime('%Z')

@@ -8,15 +8,18 @@ shelter temperature (in F) as a function of time.
 import os
 import sys
 import numpy
-import pytz
-from datetime import datetime
-
+from datetime import datetime, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
+    
 from matplotlib import pyplot as plt
 from matplotlib import pyplot as plt
 from matplotlib.dates import *
 from matplotlib.ticker import *
 
-MST7MDT = pytz.timezone('US/Mountain')
+_MST = zoneinfo.ZoneInfo('America/Denver')
 
 
 def main(args):
@@ -48,7 +51,7 @@ def main(args):
     order = numpy.argsort(data[:,0])
     data = data[order,:]
     
-    dates = [MST7MDT.localize(datetime.fromtimestamp(t)) for t in data[:,0]]
+    dates = [datetime.fromtimestamp(t, tz=timezone.utc).astimezone(_MST) for t in data[:,0]]
     print('File spans %s to %s with %i measurements' % (dates[0], dates[-1], len(dates)))
     
     # Convert to degree F if needed
@@ -58,7 +61,7 @@ def main(args):
     # Plot
     fig = plt.figure()
     ax1 = fig.add_subplot(1, 1, 1)
-    ax1.plot_date(dates, data[:,1], fmt='-', tz=MST7MDT, marker='x', linestyle=' ')
+    ax1.plot_date(dates, data[:,1], fmt='-', tz=_MST, marker='x', linestyle=' ')
 
     # Label and format dates
     ax1.set_title('Shelter Temperature')

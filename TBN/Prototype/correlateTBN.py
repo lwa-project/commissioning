@@ -11,7 +11,7 @@ import time
 import ephem
 import numpy
 import argparse
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 
 from lsl import astro
 from lsl.reader.ldp import LWA1DataFile
@@ -85,7 +85,7 @@ def process_chunk(idf, site, good, filename, int_time=5.0, LFFT=64, overlap=1, p
             ref_time = setTime
             
         # Setup the set time as a python datetime instance so that it can be easily printed
-        setDT = datetime.utcfromtimestamp(setTime)
+        setDT = datetime.fromtimestamp(setTime, tz=timezone.utc)
         setDT.replace(tzinfo=UTC())
         print("Working on set #%i (%.3f seconds after set #1 = %s)" % ((s+1), (setTime-ref_time), setDT.strftime("%Y/%m/%d %H:%M:%S.%f")))
         

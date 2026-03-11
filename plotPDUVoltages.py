@@ -10,15 +10,18 @@ import os
 import re
 import sys
 import numpy
-import pytz
-from datetime import datetime
-
+from datetime import datetime, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
+    
 from matplotlib import pyplot as plt
 from matplotlib import pyplot as plt
 from matplotlib.dates import *
 from matplotlib.ticker import *
 
-MST7MDT = pytz.timezone('US/Mountain')
+_MST = zoneinfo.ZoneInfo('America/Denver')
 
 filenameRE = re.compile(r'rack(?P<rack>\d{1,2}).txt')
 
@@ -55,7 +58,7 @@ def main(args):
         order = numpy.argsort(data[k][:,0])
         data[k] = data[k][order,:]
     
-        dates[k] = [MST7MDT.localize(datetime.fromtimestamp(t)) for t in data[k][:,0]]
+        dates[k] = [datetime.fromtimestamp(t, tz=timezone.utc).astimezone(_MST) for t in data[k][:,0]]
         if i == 0:
             print('File spans %s to %s with %i measurements' % (dates[k][0], dates[k][-1], len(dates[k])))
     
@@ -63,7 +66,7 @@ def main(args):
     fig = plt.figure()
     ax1 = fig.add_subplot(1, 1, 1)
     for k in dates.keys():
-        ax1.plot_date(dates[k], data[k][:,2], fmt='-', tz=MST7MDT, marker='x', linestyle=' ', label='Rack #%i' % k)
+        ax1.plot_date(dates[k], data[k][:,2], fmt='-', tz=_MST, marker='x', linestyle=' ', label='Rack #%i' % k)
 
     # Label and format dates
     ax1.legend(loc=0)

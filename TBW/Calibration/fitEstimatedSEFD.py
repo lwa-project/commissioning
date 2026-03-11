@@ -7,7 +7,7 @@ import ephem
 import numpy
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 from scipy.optimize import leastsq
 
 from lsl.common.stations import lwa1
@@ -269,7 +269,7 @@ def main(args):
         for src in srcs.keys():
             if src.lower() == srcName.lower():
                 toUse = src
-                observer.date = datetime.utcfromtimestamp( data[srcName]['t'][0] )
+                observer.date = datetime.fromtimestamp( data[srcName]['t'][0], tz=timezone.utc )
                 break;
     if toUse is None:
         raise RuntimeError("Unknown source in input files")
@@ -295,7 +295,7 @@ def main(args):
         bestT = 0.0
         bestV = 1e6
         for t in data[name]['t']:
-            observer.date = datetime.utcfromtimestamp(t).strftime("%Y/%m/%d %H:%M:%S")
+            observer.date = datetime.fromtimestamp(t, tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S")
             srcs[toUse].compute(observer)
             
             sep = ephem.separation((srcs[toUse].az, srcs[toUse].alt), (az,el))
@@ -303,7 +303,7 @@ def main(args):
                 bestT = t
                 bestV = sep
     tTransit = bestT
-    observer.date = datetime.utcfromtimestamp(tTransit).strftime("%Y/%m/%d %H:%M:%S")
+    observer.date = datetime.fromtimestamp(tTransit, tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S")
     zenithAngle = ephem.degrees(ephem.degrees('90:00:00') - el)
     
     # Plot
@@ -359,8 +359,8 @@ def main(args):
         print('Target: %s' % name)
         print('  Tuning 1 @ %.2f MHz' % (f1.mean()/1e6,))
         print('    FWHM: %.2f s (%.2f deg)' % (obsFWHM1, obsFWHM1/3600.*15.*numpy.cos(srcs[toUse]._dec)))
-        print('    Observed Transit: %s' % datetime.utcfromtimestamp(obsTransit1))
-        print('    Expected Transit: %s' % datetime.utcfromtimestamp(tTransit))
+        print('    Observed Transit: %s' % datetime.fromtimestamp(obsTransit1, tz=timezone.utc))
+        print('    Expected Transit: %s' % datetime.fromtimestamp(tTransit, tz=timezone.utc))
         print('    -> Difference: %.2f s' % diff1)
         if toUseAIPY is None:
             print('    1/(P1/P0 - 1): %.3f' % sefdMetric1)
@@ -426,7 +426,7 @@ def main(args):
         raOffset = ephem.hours('00:00:%f' % bestOffset)
         decOffset = ephem.degrees('%f' % decOffset)
         fwhmEstimate = ephem.degrees('%f' % bestFWHM)
-        print("%-6s %-19s %6.3f %-10s %-10s %-10s %10.3f %-10s" % (srcs[toUse].name, datetime.utcfromtimestamp(tTransit).strftime("%Y/%m/%d %H:%M:%S"), f/1e6, zenithAngle, raOffset, decOffset, sefdEstimate, fwhmEstimate))
+        print("%-6s %-19s %6.3f %-10s %-10s %-10s %10.3f %-10s" % (srcs[toUse].name, datetime.fromtimestamp(tTransit, tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S"), f/1e6, zenithAngle, raOffset, decOffset, sefdEstimate, fwhmEstimate))
         
     plt.show()
 

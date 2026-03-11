@@ -20,7 +20,7 @@ import argparse
 import tempfile
 
 from hashlib import md5
-from datetime import datetime
+from datetime import datetime, timezone
 
 from astropy.constants import c as speedOfLight
 vLight = speedOfLight.to('m/s').value
@@ -160,7 +160,7 @@ def main(args):
         
         ssmifContents = dataDict['ssmifContents']
         
-        beginDate = datetime.utcfromtimestamp(times[0])
+        beginDate = datetime.fromtimestamp(times[0], tz=timezone.utc)
         observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
         
         # Make sure we aren't mixing reference antennas
@@ -290,7 +290,7 @@ def main(args):
                 jd = time[i,k]
                 
                 try:
-                    currDate = datetime.utcfromtimestamp(utcjd_to_unix(jd))
+                    currDate = datetime.fromtimestamp(utcjd_to_unix(jd), tz=timezone.utc)
                 except ValueError:
                     pass
                 observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
@@ -315,7 +315,7 @@ def main(args):
                 jd = time[i,k]
                 
                 try:
-                    currDate = datetime.utcfromtimestamp(utcjd_to_unix(jd))
+                    currDate = datetime.fromtimestamp(utcjd_to_unix(jd), tz=timezone.utc)
                 except ValueError:
                     pass
                 observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")

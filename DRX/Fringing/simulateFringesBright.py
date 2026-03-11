@@ -10,7 +10,7 @@ import sys
 import numpy
 import argparse
 from calendar import timegm
-from datetime import datetime
+from datetime import datetime, timezone
 
 import aipy
 
@@ -30,7 +30,7 @@ def main(args):
     for filename in filenames:
         dataDict = numpy.load(filename)
 
-        tStart = datetime.utcfromtimestamp(dataDict['tStart'])
+        tStart = datetime.fromtimestamp(dataDict['tStart'], tz=timezone.utc)
         tInt = dataDict['tInt']
         try:
             srate = dataDict['srate']

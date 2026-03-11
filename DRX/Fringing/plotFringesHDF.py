@@ -11,7 +11,7 @@ import numpy
 import h5py
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from matplotlib import pyplot as plt
 
@@ -41,7 +41,7 @@ def main(args):
     infile['Frequencies']['Tuning2'].read_direct(freq2)
     
     for i in range(time.shape[0]):
-        times.append(datetime.utcfromtimestamp(time[i][0]))
+        times.append(datetime.fromtimestamp(time[i][0], tz=timezone.utc))
         
         vis1 = infile['Visibilities']['Tuning1'][i, 1,freq1.size//4:freq1.size*3//4]
         auto11 = infile['Visibilities']['Tuning1'][i, 0,freq1.size//4:freq1.size*3//4]

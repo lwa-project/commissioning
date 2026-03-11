@@ -10,7 +10,7 @@ import glob
 import numpy
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
@@ -52,7 +52,7 @@ def main(args):
     for filename in filenames:
         dataDict = numpy.load(filename)
 
-        tStart = datetime.utcfromtimestamp(dataDict['tStart'])
+        tStart = datetime.fromtimestamp(dataDict['tStart'], tz=timezone.utc)
         tInt = dataDict['tInt']
         try:
             srate = dataDict['srate']

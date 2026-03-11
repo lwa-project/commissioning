@@ -13,7 +13,7 @@ import os
 import sys
 import ephem
 import numpy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from scipy.signal import triang
 
@@ -89,7 +89,7 @@ def main(args):
     phase = dataDict['simpleVis']
     
     # Get the start time as a datetime object and build up the list of sources
-    beginDate = datetime.utcfromtimestamp(times[0])
+    beginDate = datetime.fromtimestamp(times[0], tz=timezone.utc)
     observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
     srcs = [ephem.Sun(),]
     for line in _srcs:
@@ -135,7 +135,7 @@ def main(args):
         # Compute the fringe rates across all time
         fRate = [None,]*phase.shape[0]
         for i in range(phase.shape[0]):
-            currDate = datetime.utcfromtimestamp(times[i])
+            currDate = datetime.fromtimestamp(times[i], tz=timezone.utc)
             observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
         
             if l % 2 == 0:
@@ -176,7 +176,7 @@ def main(args):
     
     aln = numpy.zeros_like(phase2)
     for l in range(phase2.shape[1]):
-        currDate = datetime.utcfromtimestamp(times[0])
+        currDate = datetime.fromtimestamp(times[0], tz=timezone.utc)
         observer.date = currDate.strftime("%Y/%m/%d %H:%M:%S")
         refSrc.compute(observer)
         

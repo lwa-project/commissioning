@@ -10,18 +10,20 @@ trackSource <SSMIF> <source_name> <start date> <start time> <duration in hr>
 
 import os
 import sys
-import pytz
 import ephem
 import numpy
-from datetime import datetime, timedelta
-
+from datetime import datetime, timedelta, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
+    
 from lsl.common import stations
 from lsl.misc.beamformer import calc_delay
 
 
 # Time zones
-_UTC = pytz.utc
-_MST = pytz.timezone('US/Mountain')
+_MST = zoneinfo.ZoneInfo('America/Denver')
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -69,8 +71,8 @@ def main(args):
     minute = int(minute)
     second = int(second)
         
-    tStart = _MST.localize(datetime(year, month, day, hour, minute, second))
-    tStart = tStart.astimezone(_UTC)
+    tStart = datetime(year, month, day, hour, minute, second, tzinfo=_MST)
+    tStart = tStart.astimezone(timezone.utc)
     
     # Load the SSMIF
     station = stations.parse_ssmif(filename)

@@ -13,7 +13,7 @@ import sys
 import numpy
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.statistics import robust
 from lsl.misc import parser as aph
@@ -47,7 +47,7 @@ def main(args):
         print("  Found %i unique frequencies from %.3f to %.3f MHz" % (len(uFreq), uFreq.min()/1e6, uFreq.max()/1e6))
     
         # Report on the start time
-        beginDate = datetime.utcfromtimestamp(times[0])
+        beginDate = datetime.fromtimestamp(times[0], tz=timezone.utc)
         print("  Start date/time of data: %s UTC" % beginDate)
         
         # Gather

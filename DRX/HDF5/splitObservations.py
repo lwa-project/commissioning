@@ -16,7 +16,7 @@ import sys
 import h5py
 import numpy
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def main(args):
@@ -77,7 +77,7 @@ def main(args):
                     hOut.attrs[name] = h.attrs[name]
                 for i,obsID in enumerate(obsIDs):
                     h.copy("Observation%i" % obsID, hOut, name='Observation%i' % (i+1))
-                hOut.attrs['FileCreation'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
+                hOut.attrs['FileCreation'] = datetime.now(timezone.utc).strftime("UTC %Y/%m/%d %H:%M:%S")
                 hOut.close()
                 
         else:
@@ -105,7 +105,7 @@ def main(args):
                 for name in h.attrs.keys():
                     hOut.attrs[name] = h.attrs[name]
                 h.copy(obsName, hOut, name='Observation1')
-                hOut.attrs['FileCreation'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
+                hOut.attrs['FileCreation'] = datetime.now(timezone.utc).strftime("UTC %Y/%m/%d %H:%M:%S")
                 hOut.close()
                 
     h.close()

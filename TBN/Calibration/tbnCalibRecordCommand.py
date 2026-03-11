@@ -6,7 +6,7 @@ import pytz
 import math
 import ephem
 import getopt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from lsl.common.stations import lwa1
 from lsl.common.mcs import datetime_to_mjdmpm
@@ -115,7 +115,7 @@ def main(args):
         tNow = _UTC.localize(datetime(year, month, day))
         
     else:
-        tNow = _UTC.localize(datetime.utcnow())
+        tNow = datetime.now(timezone.utc)
     observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
     print("Current time is %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z"))
     print("Current LST at %s is %s" % (lwa1.name, observer.sidereal_time()))

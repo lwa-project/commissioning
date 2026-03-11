@@ -15,7 +15,7 @@ import ephem
 import argparse
 import subprocess
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timezone
 from multiprocessing import Pool
 from scipy.interpolate import interp1d
 from scipy.stats import scoreatpercentile as percentile, skew, kurtosis
@@ -875,9 +875,9 @@ class Waterfall_GUI(object):
 
         if not self.filenames:
             if self.bandpass:
-                self.ax2.set_title("%s UTC + bandpass" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                self.ax2.set_title("%s UTC + bandpass" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
             else:
-                self.ax2.set_title("%s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                self.ax2.set_title("%s UTC" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
         else:
             if self.bandpass:
                 self.ax2.set_title("%s + bandpass" % self.filenames[dataY])
@@ -1081,7 +1081,7 @@ class Waterfall_GUI(object):
 
             elif event.button == 2:
                 ## Unmask
-                print("Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                print("Unmasking %s UTC" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
 
                 self.spec.mask[self.index, dataY, :] = self.freqMask[self.index,:]
                 self.specBandpass.mask[self.index, dataY, :] = self.freqMask[self.index,:]
@@ -1095,7 +1095,7 @@ class Waterfall_GUI(object):
 
             elif event.button == 3:
                 ## Mask
-                print("Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                print("Masking %s UTC" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
 
                 self.spec.mask[self.index, dataY, :] = True
                 self.specBandpass.mask[self.index, dataY, :] = True
@@ -1133,7 +1133,7 @@ class Waterfall_GUI(object):
 
             elif event.button == 2:
                 ## Unmask
-                print("Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                print("Unmasking %s UTC" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
 
                 self.spec.mask[self.index, dataY, :] = self.freqMask[self.index,:]
                 self.specBandpass.mask[self.index, dataY, :] = self.freqMask[self.index,:]
@@ -1147,7 +1147,7 @@ class Waterfall_GUI(object):
 
             elif event.button == 3:
                 ## Mask
-                print("Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                print("Masking %s UTC" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
 
                 self.spec.mask[self.index, dataY, :] = True
                 self.specBandpass.mask[self.index, dataY, :] = True
@@ -1212,7 +1212,7 @@ class Waterfall_GUI(object):
 
             elif event.button == 2:
                 ## Unmask
-                print("Unmasking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                print("Unmasking %s UTC" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
 
                 self.spec.mask[self.index, best, :] = self.freqMask[self.index,:]
                 self.specBandpass.mask[self.index, best, :] = self.freqMask[self.index,:]
@@ -1226,7 +1226,7 @@ class Waterfall_GUI(object):
 
             elif event.button == 3:
                 ## Mask
-                print("Masking %s UTC" % datetime.utcfromtimestamp(self.timesNPZRestricted[dataY]))
+                print("Masking %s UTC" % datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc))
 
                 self.spec.mask[self.index, best, :] = True
                 self.specBandpass.mask[self.index, best, :] = True
@@ -1379,7 +1379,7 @@ class Waterfall_GUI(object):
                     ind = self.index % 4
                     mapper = {0: 'I', 1: 'Q', 2: 'U', 3: 'V'}
                     pol = mapper[ind]
-                dt = datetime.utcfromtimestamp(self.timesNPZRestricted[dataY])
+                dt = datetime.fromtimestamp(self.timesNPZRestricted[dataY], tz=timezone.utc)
 
                 beam = self.beam
                 srate, sunit = bestFreqUnits(self.srate)
@@ -3162,7 +3162,7 @@ class DriftCurveDisplay(tk.Toplevel):
 
             dataX = numpy.where(numpy.abs(clickX - data.time) == (numpy.abs(clickX - data.time).min()))[0][0]
 
-            ts = datetime.utcfromtimestamp(data.timesNPZRestricted[dataX])
+            ts = datetime.fromtimestamp(data.timesNPZRestricted[dataX], tz=timezone.utc)
             self.site.date = ts.strftime('%Y/%m/%d %H:%M:%S')
             lst = self.site.sidereal_time()
 

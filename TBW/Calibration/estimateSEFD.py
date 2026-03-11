@@ -6,7 +6,7 @@ import time
 import ephem
 import numpy
 import argparse
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 
 from lsl import astro
 from lsl.common.stations import parse_ssmif
@@ -57,7 +57,7 @@ def main(args):
     
     # Find the target azimuth/altitude to use
     idf = TBWFile(filenames[0])
-    tStart = datetime.utcfromtimestamp(idf.get_info('start_time'))
+    tStart = datetime.fromtimestamp(idf.get_info('start_time'), tz=timezone.utc)
     idf.close()
     
     obs.date = tStart.strftime("%Y/%m/%d %H:%M:%S")

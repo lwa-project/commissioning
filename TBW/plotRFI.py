@@ -8,7 +8,7 @@ import os
 import sys
 import h5py
 import numpy
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.misc.mathutils import to_dB
 from lsl.statistics import kurtosis
@@ -19,7 +19,7 @@ from matplotlib import pyplot as plt
 def main(args):
     filename = args[0]
     h = h5py.File(filename, 'r')
-    tStart = datetime.utcfromtimestamp(h.attrs['startTime'])
+    tStart = datetime.fromtimestamp(h.attrs['startTime'], tz=timezone.utc)
     
     print("Filename: %s" % filename)
     print("Date: %s" % tStart)

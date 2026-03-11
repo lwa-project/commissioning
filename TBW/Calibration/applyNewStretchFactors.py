@@ -80,5 +80,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', type=str,
                         help='write output to the specified filename instead of the screen')
     args = parser.parse_args()
+    if args.exclude is None:
+        args.exclude = []
     main(args)
     

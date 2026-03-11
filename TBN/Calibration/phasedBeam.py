@@ -9,7 +9,7 @@ import os
 import sys
 import ephem
 import numpy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from scipy.signal import triang
 
@@ -72,7 +72,7 @@ def main(args):
     print("Central frequency: %.3f Hz" % central_freq)
     
     # Build the source list
-    beginDate = datetime.utcfromtimestamp(times[0])
+    beginDate = datetime.fromtimestamp(times[0], tz=timezone.utc)
     observer.date = beginDate.strftime("%Y/%m/%d %H:%M:%S")
     srcs = [ephem.Sun(),]
     for line in _srcs:

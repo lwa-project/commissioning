@@ -19,7 +19,7 @@ import sys
 import h5py
 import numpy
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.statistics import robust, kurtosis
 from lsl.misc import parser as aph
@@ -99,7 +99,7 @@ def main(args):
                 
                 # Save the pSK information to the HDF5 file if we need to
                 if (not args.no_update):
-                    h.attrs['FileLastUpdated'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
+                    h.attrs['FileLastUpdated'] = datetime.now(timezone.utc).strftime("UTC %Y/%m/%d %H:%M:%S")
                     
                     if args.generate_mask:
                         ## Calculate the expected pSK limits for the threshold

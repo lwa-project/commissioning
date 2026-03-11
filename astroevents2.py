@@ -8,19 +8,21 @@ its calculations.
 
 import os
 import sys
-import pytz
 import math
 import ephem
 import argparse
-from datetime import datetime
-
+from datetime import datetime, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
+    
 from lsl.common import stations
 from lsl.misc import parser as aph
 
 
 # Time zones
-_UTC = pytz.utc
-_MST = pytz.timezone('US/Mountain')
+_MST = zoneinfo.ZoneInfo('America/Denver')
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -64,22 +66,22 @@ def main(args):
         minute = int(minute)
         second = int(float(second))
         
-        tNow = _MST.localize(datetime(year, month, day, hour, minute, second))
-        tNow = tNow.astimezone(_UTC)
+        tNow = datetime(year, month, day, hour, minute, second, tzinfo=_MST)
+        tNow = tNow.astimezone(timezone.utc)
         
     elif args.date is not None:
         year, month, day = args.date.split('/', 2)
         year = int(year)
         month = int(month)
         day = int(day)
-        tNow = _MST.localize(datetime(year, month, day))
-        tNow = tNow.astimezone(_UTC)
+        tNow = datetime(year, month, day, tzinfo=_MST)
+        tNow = tNow.astimezone(timezone.utc)
         
     else:
-        tNow = _UTC.localize(datetime.utcnow())
+        tNow = datetime.now(timezone.utc)
     observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
     print("Current time is %s" % tNow.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z"))
-    print("                %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z"))
+    print("                %s" % tNow.astimezone(timezone.utc).strftime("%Y/%m/%d %H:%M:%S %Z"))
     print("Current LST at %s is %s" % (station.name, observer.sidereal_time()))
     
     # Load in the sources and compute
@@ -107,20 +109,20 @@ def main(args):
                 
             try:
                 nR = str(observer.next_rising(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
-                nR = _UTC.localize( datetime.strptime(nR, "%Y/%m/%d %H:%M:%S") )
+                nR = datetime.strptime(nR, "%Y/%m/%d %H:%M:%S").replace(tzinfo=timezone.utc)
                 if not args.utc:
                     nR = nR.astimezone(_MST)
             except ephem.AlwaysUpError:
                 nR = None
                 
             nT = str(observer.next_transit(src, start=tNow.strftime("%Y/%m/%d %H:%M:%S")))
-            nT = _UTC.localize( datetime.strptime(nT, "%Y/%m/%d %H:%M:%S") )
+            nT = datetime.strptime(nT, "%Y/%m/%d %H:%M:%S").replace(tzinfo=timezone.utc)
             if not args.utc:
                 nT = nT.astimezone(_MST)
                 
             try:
                 nS = str(observer.next_setting(src, tNow.strftime("%Y/%m/%d %H:%M:%S")))
-                nS = _UTC.localize( datetime.strptime(nS, "%Y/%m/%d %H:%M:%S") )
+                nS = datetime.strptime(nS, "%Y/%m/%d %H:%M:%S").replace(tzinfo=timezone.utc)
                 if not args.utc:
                     nS = nS.astimezone(_MST)
             except ephem.AlwaysUpError:

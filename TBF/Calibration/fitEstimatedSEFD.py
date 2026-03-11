@@ -7,7 +7,7 @@ import ephem
 import numpy as np
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 from scipy.optimize import leastsq
 
 from lsl.common.stations import parse_ssmif
@@ -72,7 +72,7 @@ def main(args):
     for src in srcs.keys():
         if src.lower() == srcName.lower():
             toUse = src
-            observer.date = datetime.utcfromtimestamp( unx[unx.size//2] )
+            observer.date = datetime.fromtimestamp( unx[unx.size//2], tz=timezone.utc )
             break
     if toUse is None:
         raise RuntimeError("Unknown source in input files")
@@ -89,7 +89,7 @@ def main(args):
     # Find out when the source should have transitted the beam
     tTransit = 0.0
     zenithAngle = ephem.degrees('180:00:00')
-    observer.date = datetime.utcfromtimestamp(unx[0]).strftime("%Y/%m/%d %H:%M:%S")
+    observer.date = datetime.fromtimestamp(unx[0], tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S")
     srcs[toUse].compute(observer)
     az = srcs[toUse].az
     el = srcs[toUse].alt
@@ -98,7 +98,7 @@ def main(args):
     bestT = 0.0
     bestV = 1e6
     for v in unx:
-        observer.date = datetime.utcfromtimestamp(v).strftime("%Y/%m/%d %H:%M:%S")
+        observer.date = datetime.fromtimestamp(v, tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S")
         srcs[toUse].compute(observer)
         
         sep = ephem.separation((srcs[toUse].az, srcs[toUse].alt), (az,el))
@@ -106,7 +106,7 @@ def main(args):
             bestT = v
             bestV = sep
     tTransit = bestT
-    observer.date = datetime.utcfromtimestamp(tTransit).strftime("%Y/%m/%d %H:%M:%S")
+    observer.date = datetime.fromtimestamp(tTransit, tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S")
     zenithAngle = ephem.degrees(ephem.degrees('90:00:00') - el)
     
     # Convert the scales to unit flux
@@ -227,7 +227,7 @@ def main(args):
         fwhmEstimate = ephem.degrees((fwhmD + fwhmR) / 2.0)
         sefdEstimate = (sefdEstimateD + sefdEstimateR) / 2.0         # pylint: disable=used-before-assignment
         finalResults.append( "%-6s %-19s %6.3f %-10s %-10s %-10s %10.3f %-10s" % \
-                            (srcs[toUse].name, datetime.utcfromtimestamp(tTransit).strftime("%Y/%m/%d %H:%M:%S"), f/1e6, zenithAngle, raOffset, decOffset, sefdEstimate, fwhmEstimate) )
+                            (srcs[toUse].name, datetime.fromtimestamp(tTransit, tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S"), f/1e6, zenithAngle, raOffset, decOffset, sefdEstimate, fwhmEstimate) )
         
     plt.show()
     

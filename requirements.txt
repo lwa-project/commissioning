@@ -5,4 +5,5 @@ scipy
 h5py
 lsl
 importlib-metadata; python_version < '3.8'
+backports.zoneinfo; python_version < '3.9'
 bottleneck

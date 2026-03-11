@@ -6,7 +6,7 @@ import ephem
 import numpy
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.astro import unix_to_utcjd, utcjd_to_unix
 from lsl.common.stations import parse_ssmif, lwa1
@@ -77,7 +77,7 @@ def main(args):
         tNow = datetime(year, month, day, hour, minute, second)
         
     else:
-        tNow = datetime.utcnow()
+        tNow = datetime.now(timezone.utc)
     observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
     print("Current time is %s" % tNow.strftime("%Y/%m/%d %H:%M:%S UTC"))
     print("Current LST at %s is %s" % (lwa1.name, observer.sidereal_time()))

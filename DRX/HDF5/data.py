@@ -6,7 +6,7 @@ import os
 import h5py
 import numpy
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 
 from lsl.common import dp, mcs, sdf, metabundle
@@ -124,7 +124,7 @@ def create_new_file(filename):
     f.attrs['StationName'] = ''
     
     # File creation time
-    f.attrs['FileCreation'] = datetime.utcnow().strftime("UTC %Y/%m/%d %H:%M:%S")
+    f.attrs['FileCreation'] = datetime.now(timezone.utc).strftime("UTC %Y/%m/%d %H:%M:%S")
     f.attrs['FileGenerator'] = ''
     
     # Input file info.

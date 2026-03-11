@@ -10,7 +10,7 @@ import glob
 import numpy
 import argparse
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from matplotlib import pyplot as plt
 
@@ -31,7 +31,7 @@ def main(args):
 
         srate = dataDict['srate']
         tStart = dataDict['tStart']
-        tStart = datetime.utcfromtimestamp(tStart)
+        tStart = datetime.fromtimestamp(tStart, tz=timezone.utc)
         
         freq1 = dataDict['freq1']
         vis1 = dataDict['vis1'][1,freq1.size//4:freq1.size*3//4]
