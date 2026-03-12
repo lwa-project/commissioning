@@ -13,9 +13,8 @@ import argparse
 
 from scipy.special import erf
 
-import lsl.reader.drx as drx
-import lsl.reader.errors as errors
-import lsl.statistics.robust as robust
+from lsl.reader import drx, errors
+from lsl.statistics import robust
 from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
