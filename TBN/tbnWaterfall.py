@@ -11,7 +11,7 @@ import h5py
 import math
 import numpy
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.reader import tbn, errors
 from lsl.reader.ldp import LWA1DataFile
@@ -67,17 +67,17 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
     idf.reset()
     
     t0 = idf.get_info('start_time')
-    tDiff = tStart - t0.datetime
+    tDiff = tStart - t0.utc_datetime
     offset = idf.offset( tDiff.total_seconds() )
     t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
-    while t0.datetime < tStart or srate != sample_rate:
+    while t0.utc_datetime < tStart or srate != sample_rate:
         offset = idf.offset( 512./sample_rate )
         t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.datetime, srate))
-    tDiff = t0.datetime - tStart
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.utc_datetime, srate))
+    tDiff = t0.utc_datetime - tStart
     duration = duration - max([0, tDiff.total_seconds()])
     
     # Number of remaining chunks (and the correction to the number of
@@ -87,7 +87,7 @@ def process_data_to_linear(idf, antennas, tStart, duration, sample_rate, args, d
         nChunks = 1
         
     # Date & Central Frequency
-    beginDate = t0.datetime
+    beginDate = t0.utc_datetime
     central_freq1 = idf.get_info('freq1')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
     
@@ -169,17 +169,17 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
     idf.reset()
     
     t0 = idf.get_info('start_time')
-    tDiff = tStart - t0.datetime
+    tDiff = tStart - t0.utc_datetime
     offset = idf.offset( tDiff.total_seconds() )
     t0 = idf.get_info('start_time')
     srate = idf.get_info('sample_rate')
-    while t0.datetime < tStart or srate != sample_rate:
+    while t0.utc_datetime < tStart or srate != sample_rate:
         offset = idf.offset( 512./sample_rate )
         t0 = idf.get_info('start_time')
         srate = idf.get_info('sample_rate')
         
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.datetime, srate))
-    tDiff = t0.datetime - tStart
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, t0.utc_datetime, srate))
+    tDiff = t0.utc_datetime - tStart
     duration = duration - max([0, tDiff.total_seconds()])
         
     # Number of remaining chunks (and the correction to the number of
@@ -195,7 +195,7 @@ def process_data_to_stokes(idf, antennas, tStart, duration, sample_rate, args, d
         nChunks = 1
         
     # Date & Central Frequency
-    beginDate = t0.datetime
+    beginDate = t0.utc_datetime
     central_freq1 = idf.get_info('freq1')
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
     
@@ -305,7 +305,7 @@ def main(args):
     
     # Date & Central Frequency
     t1  = idf.get_info('start_time')
-    beginDate = t1.datetime
+    beginDate = t1.utc_datetime
     central_freq1 = idf.get_info('freq1')
     
     # File summary
@@ -376,8 +376,8 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, 5))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm, tz=timezone.utc)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur, tz=timezone.utc)
             obsDur   = obs.dur/1000.0
             obsSR    = tbn.FILTER_CODES[obs.filter]
             
@@ -402,8 +402,8 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, 5))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm, tz=timezone.utc)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur, tz=timezone.utc)
             obsDur   = obs.dur/1000.0
             obsSR    = tbn.FILTER_CODES[obs.filter]
             
@@ -415,7 +415,7 @@ def main(args):
         hdfData.fill_from_sdf(f, args.sdf, station=site)
         
     else:
-        obsList[1] = (t1.datetime, datetime(2222,12,31,23,59,59), args.duration, srate)
+        obsList[1] = (t1.utc_datetime, datetime(2222,12,31,23,59,59, tzinfo=timezone.utc), args.duration, srate)
         
         site = 'lwa1'
         if args.lwasv:

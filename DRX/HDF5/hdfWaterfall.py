@@ -455,8 +455,8 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm, tz=timezone.utc)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur, tz=timezone.utc)
             obsDur   = obs.dur/1000.0
             obsSR    = drx.FILTER_CODES[obs.filter]
             
@@ -482,8 +482,8 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm, tz=timezone.utc)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur, tz=timezone.utc)
             obsDur   = obs.dur/1000.0
             obsSR    = drx.FILTER_CODES[obs.filter]
             
