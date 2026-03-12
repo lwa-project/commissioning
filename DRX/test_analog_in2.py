@@ -102,7 +102,7 @@ def parseOptions(args):
 def get_time():
 
     # determine current time
-    dt = datetime.datetime.utcnow()
+    dt = datetime.datetime.now(datetime.timezone.utc)
     year        = dt.year             
     month       = dt.month      
     day         = dt.day    

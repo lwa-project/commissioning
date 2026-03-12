@@ -2,11 +2,14 @@
 
 import os
 import sys
-import pytz
 import math
 import ephem
 import getopt
 from datetime import datetime, timedelta, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
 
 from lsl.common.stations import lwa1
 from lsl.common.mcs import datetime_to_mjdmpm
@@ -15,8 +18,7 @@ from lsl.reader.tbn import FILTER_CODES as tbn_filters
 
 
 # Time zones
-_UTC = pytz.utc
-_MST = pytz.timezone('US/Mountain')
+_MST = zoneinfo.ZoneInfo('America/Denver')
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -112,12 +114,12 @@ def main(args):
         year = int(year)
         month = int(month)
         day = int(day)
-        tNow = _UTC.localize(datetime(year, month, day))
+        tNow = datetime(year, month, day, tzinfo=timezone.utc)
         
     else:
         tNow = datetime.now(timezone.utc)
     observer.date = tNow.strftime("%Y/%m/%d %H:%M:%S")
-    print("Current time is %s" % tNow.astimezone(_UTC).strftime("%Y/%m/%d %H:%M:%S %Z"))
+    print("Current time is %s" % tNow.astimezone(timezone.utc).strftime("%Y/%m/%d %H:%M:%S %Z"))
     print("Current LST at %s is %s" % (lwa1.name, observer.sidereal_time()))
     
     # Load in the sources and compute
@@ -143,7 +145,7 @@ def main(args):
             found = True
             
             nT = str(observer.next_transit(src, start=tNow.strftime("%Y/%m/%d %H:%M:%S")))
-            nT = _UTC.localize( datetime.strptime(nT, "%Y/%m/%d %H:%M:%S") )
+            nT = datetime.strptime(nT, "%Y/%m/%d %H:%M:%S").replace(tzinfo=timezone.utc)
             
             print("%-10s %-23s" % (src.name, nT.strftime("%Y/%m/%d %H:%M:%S %Z")))
             print("%-10s %-23s" % ("", nT.astimezone(_MST).strftime("%Y/%m/%d %H:%M:%S %Z")))

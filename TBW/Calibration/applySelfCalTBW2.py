@@ -4,7 +4,6 @@ import os
 import sys
 import aipy
 import copy
-import pytz
 import numpy
 import argparse
 from calendar import timegm
@@ -23,9 +22,6 @@ from lsl.sim import vis as simVis
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 
-
-MST = pytz.timezone('US/Mountain')
-UTC = pytz.UTC
 
 
 def graticle(ax, lst, lat, label=True):
