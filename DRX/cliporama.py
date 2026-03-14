@@ -167,8 +167,8 @@ def main(args):
             # Plot possible clip-o-rama and flag it
             print("Computing power derivatives w.r.t. time")
             deriv = numpy.zeros_like(data)
-            for i in range(data.shape[0]):
-                deriv[i,:] = numpy.roll(data[i,:], -1) - data[i,:]
+            for j in range(data.shape[0]):
+                deriv[j,:] = numpy.roll(data[j,:], -1) - data[j,:]
             
             # The plots:  This is setup for the current configuration of 20 beampols
             print("Plotting")
@@ -176,27 +176,27 @@ def main(args):
             figsX = int(round(math.sqrt(beampols)))
             figsY = beampols // figsX
             
-            for i in range(data.shape[0]):
-                ax = fig.add_subplot(figsX,figsY,i+1)
-                ax.plot(args.offset + numpy.arange(0,data.shape[1])/srate, data[i,:])
+            for j in range(data.shape[0]):
+                ax = fig.add_subplot(figsX,figsY,j+1)
+                ax.plot(args.offset + numpy.arange(0,data.shape[1])/srate, data[j,:])
                 
                 ## Mark areas of crazy derivatives
-                bad = numpy.where( deriv[i,:] > 20*stds[i]*numpy.sqrt(2) )[0]
-                for j in bad:
-                    fh.write("Clip-o-rama on tuning %i, pol. %i at %.6f seconds\n" % (i//2+1, i%2, args.offset + j/srate))
-                    print("Clip-o-rama on tuning %i, pol. %i at %.6f seconds" % (i//2+1, i%2, args.offset + j/srate))
-                    ax.vlines(args.offset + j/srate, -10, 100, linestyle='--', color='red', linewidth=2.0)
+                bad = numpy.where( deriv[j,:] > 20*stds[i]*numpy.sqrt(2) )[0]
+                for k in bad:
+                    fh.write("Clip-o-rama on tuning %i, pol. %i at %.6f seconds\n" % (j//2+1, j%2, args.offset + k/srate))
+                    print("Clip-o-rama on tuning %i, pol. %i at %.6f seconds" % (j//2+1, j%2, args.offset + k/srate))
+                    ax.vlines(args.offset + k/srate, -10, 100, linestyle='--', color='red', linewidth=2.0)
                 
                 ## Mark areas of crazy power levels
-                bad = numpy.where( data[i,:] == 98 )[0]
-                for j in bad:
-                    fh.write("Saturation on tuning %i, pol. %i at %.6f seconds\n" % (i//2+1, i%2, args.offset + j/srate))
-                    print("Saturation on tuning %i, pol. %i at %.6f seconds" % (i//2+1, i%2, args.offset + j/srate))
-                    ax.vlines(args.offset + j/srate, -10, 100, linestyle='-.', color='red')
+                bad = numpy.where( data[j,:] == 98 )[0]
+                for k in bad:
+                    fh.write("Saturation on tuning %i, pol. %i at %.6f seconds\n" % (j//2+1, j%2, args.offset + k/srate))
+                    print("Saturation on tuning %i, pol. %i at %.6f seconds" % (j//2+1, j%2, args.offset + k/srate))
+                    ax.vlines(args.offset + k/srate, -10, 100, linestyle='-.', color='red')
                 
                 ax.set_ylim([-10, 100])
                 
-                ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, i//2+1,i%2))
+                ax.set_title('Beam %i, Tune. %i, Pol. %i' % (beam, j//2+1,j%2))
                 ax.set_xlabel('Time [seconds]')
                 ax.set_ylabel('I$^2$ + Q$^2$')
                 
