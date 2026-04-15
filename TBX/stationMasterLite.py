@@ -43,17 +43,17 @@ def main(args):
     nChunks = 1
     
     # File summary
-    print("Filename: %s" % args.filename)
-    print("Date of First Frame: %s" % str(beginDate))
-    print("Frames per Observation: %i" % nFramesPerObs)
-    print("Channel Count: %i" % nchannels)
-    print("Frames: %i" % nFrames)
+    print(f"Filename: {args.filename}")
+    print(f"Date of First Frame: {str(beginDate)}")
+    print(f"Frames per Observation: {nFramesPerObs}")
+    print(f"Channel Count: {nchannels}")
+    print(f"Frames: {nFrames}")
     print("===")
-    print("Chunks: %i" % nChunks)
+    print(f"Chunks: {nChunks}")
     
     outfile = os.path.split(args.filename)[1]
     outfile = os.path.splitext(outfile)[0]
-    outfile = "%s.npz" % outfile	
+    outfile = f"{outfile}.npz"
     if (not os.path.exists(outfile)) or args.force:
         # Master loop over all of the file chunks
         masterSpectra = np.zeros((nChunks, nAnt, nchannels), np.float32)
@@ -66,7 +66,7 @@ def main(args):
         subSize = 1960
         nsegments = masterSpectra.shape[1] // subSize
         
-        print("Computing average power and data range in %i-sample intervals, ADC histogram" % subSize)
+        print(f"Computing average power and data range in {subSize}-sample intervals, ADC histogram")
         pb = ProgressBar(max=masterSpectra.shape[0])
         avgPower = np.zeros((antpols, nsegments), dtype=np.float32)
         dataRange = np.zeros((antpols, nsegments, 3), dtype=np.int16)
@@ -152,7 +152,7 @@ def main(args):
         ax2 = fig.add_subplot(1, 2, 2)
         ax2.plot(freq/1e6, np.log10(specTemplate)*10, alpha=0.50)
         
-        print("RBW: %.1f Hz" % (freq[1]-freq[0]))
+        print(f"RBW: {freq[1]-freq[0]:.1f} Hz")
         plt.show()
 
 
