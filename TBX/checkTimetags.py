@@ -50,13 +50,13 @@ def main(args):
     mapper.sort()
     
     # File summary
-    print("Filename: %s" % args.filename)
-    print("Date of First Frame: %s" % str(beginDate))
-    print("Frames per Observation: %i" % nFramesPerObs)
-    print("Channel Count: %i" % nchannels)
-    print("Frames: %i" % nFrames)
+    print(f"Filename: {args.filename}")
+    print(f"Date of First Frame: {str(beginDate)}")
+    print(f"Frames per Observation: {nFramesPerObs}")
+    print(f"Channel Count: {nchannels}")
+    print(f"Frames: {nFrames}")
     print("===")
-    print("Chunks: %i" % nChunks)
+    print(f"Chunks: {nChunks}")
     
     # Master loop over all of the file chunks
     timetags = np.zeros((nFramesPerObs, nChunks), dtype=np.int64) - 1
@@ -69,7 +69,7 @@ def main(args):
             except errors.EOFError:
                 break
             except errors.SyncError:
-                print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbx.FRAME_SIZE-1))
+                print(f"WARNING: Mark 5C sync error on frame #{fh.tell()//tbx.FRAME_SIZE-1}")
                 continue
             if not cFrame.header.is_tbx:
                 continue
@@ -84,7 +84,7 @@ def main(args):
                 aStand = mapper.index(first_chan)
             
             if cFrame.header.frame_count % 10000 == 0:
-                print("%4i -> %4i  %7i  %i" % (first_chan, aStand, cFrame.header.frame_count, cFrame.payload.timetag))
+                print(f"{first_chan:4d} -> {aStand:4d}  {cFrame.header.frame_count:7d}  {cFrame.payload.timetag}")
                 
             # Actually load the data.  x pol goes into the even numbers, y pol into the 
             # odd numbers
@@ -95,10 +95,10 @@ def main(args):
             
     # Check for missing frames
     missing = np.where( timetags < 0 )
-    if len(missing) != 0:
-        print("Found %i missing frames.  Missing data from:" % len(missing[0]))
+    if len(missing[0]) != 0:
+        print(f"Found {len(missing[0])} missing frames.  Missing data from:")
         for i,f in zip(missing[0], missing[1]):
-            print("  channel set %4i @ frame %5i" % (mapper[i], f+1))
+            print(f"  channel set {mapper[i]:4d} @ frame {f+1:5d}")
             
     # Check time tags to make sure every ant/pol as the same time as each frame
     for f in range(timetags.shape[1]):
@@ -112,8 +112,8 @@ def main(args):
 
         ## Report any errors
         for m in missing:
-            print("ERROR: t.t. %i @ frame %i != frame median of %i" % (timetags[m,f], f+1, frameTime))
-            print("       -> difference: %i" % (timetags[m,f]-frameTime,))
+            print(f"ERROR: t.t. {timetags[m,f]} @ frame {f+1} != frame median of {frameTime}")
+            print(f"       -> difference: {timetags[m,f]-frameTime}")
 
     # Check time tags to make sure the times increment correctly between frames
     for i in range(timetags.shape[0]):
@@ -126,12 +126,12 @@ def main(args):
             ## is a discrepancy between the two modulo the expected skip.
             if timetags[i,f] > (timetags[i,f-1] + nSamples):
                 ## Too far into the future
-                print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f))
-                print("       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],))
+                print(f"ERROR: t.t. {timetags[i,f]} @ frame {f+1} > t.t. {timetags[i,f-1]} @ frame {f} + skip")
+                print(f"       -> difference: {timetags[i,f]-timetags[i,f-1]}")
             elif timetags[i,f] < (timetags[i,f-1] + nSamples):
                 ## Not far enough into the future
-                print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + skip" % (timetags[i,f], f+1, timetags[i,f-1], f))
-                print("       -> difference: %i" % (timetags[i,f]-timetags[i,f-1],))
+                print(f"ERROR: t.t. {timetags[i,f]} @ frame {f+1} < t.t. {timetags[i,f-1]} @ frame {f} + skip")
+                print(f"       -> difference: {timetags[i,f]-timetags[i,f-1]}")
             else:
                 ## Everything is good if we make it here
                 pass
