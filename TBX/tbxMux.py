@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Given a TBF filles created by the on-line triggering system on ADP, combine 
+Given a TBX filles created by the on-line triggering system on NDP, combine 
 the files together into a single file that can be used like a standard 
-DR-recorded TBF file
+DR-recorded TBX file
 """
 
 import os
@@ -13,19 +13,19 @@ import struct
 import argparse
 from collections import deque
 
-from lsl.reader.ldp import TBFFile
-from lsl.reader import tbf, errors, buffer
+from lsl.reader.ldp import TBXFile
+from lsl.reader import tbx, errors, buffer
 from lsl.misc import parser as aph
 
 
-class RawTBFFrame(object):
+class RawTBXFrame(object):
     """
-    Class to help hold and work with a raw (packed) TBF frame.
+    Class to help hold and work with a raw (packed) TBX frame.
     """
     
     def __init__(self, contents):
         self.contents = bytearray(contents)
-        if len(self.contents) == 0 or len(self.contents) != (12*self.nstand*2 + 24):
+        if len(self.contents) == 0 or len(self.contents) != (self.nchan*self.nstand*2 + 28):
             raise errors.EOFError
         if self.contents[0] != 0xDE or self.contents[1] != 0xC0 or self.contents[2] != 0xDE or self.contents[3] != 0x5c:
             raise errors.SyncError
@@ -39,34 +39,44 @@ class RawTBFFrame(object):
     @property
     def nstand(self):
         nstand = 0
-        nstand |= self.contents[14] << 8
-        nstand |= self.contents[15]
+        nstand |= self.contents[16] << 8
+        nstand |= self.contents[17]
         if nstand == 0:
             nstand = 256
         return nstand
         
     @property
+    def nchan(self):
+        nchan = 0
+        nchan |= self.contents[18] << 8
+        nchan |= self.contents[19]
+        return nchan
+        
+    @property
     def timetag(self):
         timetag = 0
-        timetag |= self.contents[16] << 56
-        timetag |= self.contents[17] << 48
-        timetag |= self.contents[18] << 40
-        timetag |= self.contents[19] << 32
-        timetag |= self.contents[20] << 24
-        timetag |= self.contents[21] << 16
-        timetag |= self.contents[22] <<  8
-        timetag |= self.contents[23]
+        timetag |= self.contents[20] << 56
+        timetag |= self.contents[21] << 48
+        timetag |= self.contents[22] << 40
+        timetag |= self.contents[23] << 32
+        timetag |= self.contents[24] << 24
+        timetag |= self.contents[25] << 16
+        timetag |= self.contents[26] <<  8
+        timetag |= self.contents[17]
         return timetag
         
     @property
     def first_chan(self):
-        chan0 = (self.contents[12] << 8) | self.contents[13]
+        chan0 = (self.contents[12] << 24) \
+                | (self.contents[13] << 16) \
+                | (self.contents[14] << 8) \
+                | self.contents[15]
         return chan0
 
 
-class RawTBFFrameBuffer(buffer.FrameBufferBase):
+class RawTBXFrameBuffer(buffer.FrameBufferBase):
     """
-    A sub-type of FrameBufferBase specifically for dealing with raw (packed) TBF
+    A sub-type of FrameBufferBase specifically for dealing with raw (packed) TBX
     frames.  See :class:`lsl.reader.buffer.FrameBufferBase` for a description of 
     how the buffering is implemented.
     
@@ -101,7 +111,7 @@ class RawTBFFrameBuffer(buffer.FrameBufferBase):
     """
     
     def __init__(self, chans, nsegments=25, reorder=False):
-        super(RawTBFFrameBuffer, self).__init__(mode='TBF', chans=chans, nsegments=nsegments, reorder=reorder)
+        super(RawTBXFrameBuffer, self).__init__(mode='TBX', chans=chans, nsegments=nsegments, reorder=reorder)
         
     def get_max_frames(self):
         """
@@ -121,7 +131,7 @@ class RawTBFFrameBuffer(buffer.FrameBufferBase):
         
     def get_figure_of_merit(self, frame):
         """
-        Figure of merit for sorting frames.  For TBF this is:
+        Figure of merit for sorting frames.  For TBX this is:
         frame.payload.timetag
         """
         
@@ -141,15 +151,17 @@ class RawTBFFrameBuffer(buffer.FrameBufferBase):
         """
 
         # Get a template based on the first frame for the current buffer
-        fillFrame = RawTBFFrame( copy.deepcopy(self.buffer[key][0].contents) )
+        fillFrame = RawTBXFrame( copy.deepcopy(self.buffer[key][0].contents) )
         
         # Get out the frame parameters and fix-up the header
         chan = frameParameters
-        fillFrame[12] = (chan & 0xFF00) >> 8
-        fillFrame[13] = (chan & 0x00FF)
+        fillFrame[12] = (chan & 0xFF000000) >> 24
+        fillFrame[13] = (chan & 0x00FF0000) >> 16
+        fillFrame[14] = (chan & 0x0000FF00) >> 8
+        fillFrame[15] = (chan & 0x000000FF)
         
         # Zero the data for the fill packet
-        fillFrame[24:] = [0,]*(12*fillFrame.nstand*2)
+        fillFrame[28:] = [0,]*(fillFrame.nchan*fillFrame.nstand*2)
         
         return fillFrame
 
@@ -160,21 +172,22 @@ def main(args):
     filenames.sort()
     
     # Open them up and make sure we have a continuous range of frequencies
-    idf = [TBFFile(filename) for filename in filenames]
+    idf = [TBXFile(filename) for filename in filenames]
     chans = []
     for i in idf:
-        tbf_frame_size = i.get_info('frame_size')
+        tbx_frame_size = i.get_info('frame_size')
+        tbx_nchan_frame = i.get_info('frame_channel_count')
         chans.extend( i.buffer.chans )
     chans.sort()
     for i in range(1, len(chans)):
-        if chans[i] != chans[i-1] + 12:
-            raise RuntimeError("Unexpected channel increment: %i != 12" % (chans[i]-chans[i-1],))
+        if chans[i] != chans[i-1] + tbx_nchan_frame:
+            raise RuntimeError("Unexpected channel increment: %i != tbx_nchan_frame" % (chans[i]-chans[i-1],))
             
     # Downselect
     chans = list(filter(lambda x: x >= args.lower and x <= args.upper, chans))
     
     # Setup the buffer
-    buffer = RawTBFFrameBuffer(chans=chans, reorder=False)
+    buffer = RawTBXFrameBuffer(chans=chans, reorder=False)
     
     # Setup the output filename
     if args.output is None:
@@ -205,7 +218,7 @@ def main(args):
         rFrames = deque()
         for i,f in enumerate(fh):
             try:
-                rFrames.append( RawTBFFrame(f.read(tbf_frame_size)) )
+                rFrames.append( RawTBXFrame(f.read(tbx_frame_size)) )
             except errors.EOFError:
                 eofFound[i] = True
                 continue
@@ -234,7 +247,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='given a TBF files created by the on-line triggering system on ADP, combine the files together into a single file that can be used like a standard DR-recorded TBF file', 
+        description='given a TBX files created by the on-line triggering system on NDP, combine the files together into a single file that can be used like a standard DR-recorded TBX file', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, nargs='+', 
@@ -247,4 +260,3 @@ if __name__ == "__main__":
                         help='write the combined file to the provided filename, auto-determine if not provided')
     args = parser.parse_args()
     main(args)
-    

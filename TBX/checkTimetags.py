@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
 """
-Given a TBF file, check the time tags.
+Given a TBX file, check the time tags.
 """
 
 import os
 import sys
 import math
-import numpy
+import numpy as np
 import argparse
 
 from lsl.common import stations
-from lsl.reader import tbf, ldp
-from lsl.reader import errors
+from lsl.reader import tbx, errors
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
 import matplotlib.pyplot as plt
@@ -20,27 +19,21 @@ import matplotlib.pyplot as plt
 
 def main(args):
     fh = open(args.filename, "rb")
-    try:
-        nFrames = os.path.getsize(args.filename) // tbf.FRAME_SIZE
-        nAnt = 512
-    except AttributeError:
-        # TODO: Kind of hacky
-        idf = ldp.TBFFile(fh=fh)
-        tbf.FRAME_SIZE = idf.get_info('frame_size')
-        nFrames = idf.get_info('nframe')
-        nAnt = idf.get_info('nantenna')
-        
-    # Read in the first frame and get the date/time of the first sample 
-    # of the frame.  This is needed to get the list of stands.
-    junkFrame = tbf.read_frame(fh)
+    tbx.FRAME_SIZE = tbx.get_frame_size(fh)
+    nFrames = os.path.getsize(args.filename) // tbx.FRAME_SIZE
+    
+    # Read in the first frame and get the number of stands and date/time of
+    # the first sample of the frame.  This is needed to get the list of stands.
+    junkFrame = tbx.read_frame(fh)
+    nAnt = junkFrame.nstand
     fh.seek(0)
     beginDate = junkFrame.time.datetime
     
     # Figure out how many frames there are per observation and the number of
     # channels that are in the file
-    nFramesPerObs = tbf.get_frames_per_obs(fh)
-    nchannels = tbf.get_channel_count(fh)
-    nSamples = 7840
+    nFramesPerObs = tbx.get_frames_per_obs(fh)
+    nchannels = tbx.get_channel_count(fh)
+    nSamples = 8192
     
     # Figure out how many chunks we need to work with
     nChunks = nFrames // nFramesPerObs
@@ -49,11 +42,11 @@ def main(args):
     mapper = []
     nread = 0
     while len(mapper) < nFramesPerObs:
-        cFrame = tbf.read_frame(fh)
+        cFrame = tbx.read_frame(fh)
         if cFrame.header.first_chan not in mapper:
             mapper.append( cFrame.header.first_chan )
         nread += 1
-    fh.seek(-nread*tbf.FRAME_SIZE, 1)
+    fh.seek(-nread*tbx.FRAME_SIZE, 1)
     mapper.sort()
     
     # File summary
@@ -66,19 +59,19 @@ def main(args):
     print("Chunks: %i" % nChunks)
     
     # Master loop over all of the file chunks
-    timetags = numpy.zeros((nFramesPerObs, nChunks), dtype=numpy.int64) - 1
+    timetags = np.zeros((nFramesPerObs, nChunks), dtype=np.int64) - 1
     for i in range(nChunks):
         # Inner loop that actually reads the frames into the data array
         for j in range(nFramesPerObs):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = tbf.read_frame(fh)
+                cFrame = tbx.read_frame(fh)
             except errors.EOFError:
                 break
             except errors.SyncError:
-                print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbf.FRAME_SIZE-1))
+                print("WARNING: Mark 5C sync error on frame #%i" % (int(fh.tell())/tbx.FRAME_SIZE-1))
                 continue
-            if not cFrame.header.is_tbf:
+            if not cFrame.header.is_tbx:
                 continue
                 
             first_chan = cFrame.header.first_chan
@@ -101,7 +94,7 @@ def main(args):
             timetags[aStand,   count] = cFrame.payload.timetag
             
     # Check for missing frames
-    missing = numpy.where( timetags < 0 )
+    missing = np.where( timetags < 0 )
     if len(missing) != 0:
         print("Found %i missing frames.  Missing data from:" % len(missing[0]))
         for i,f in zip(missing[0], missing[1]):
@@ -111,11 +104,11 @@ def main(args):
     for f in range(timetags.shape[1]):
         ## For each frame count value, get the median time tag and use this for comparison.
         ## If things are really bad, we will get a lot of errors.
-        frameTime = numpy.median( timetags[:,f] )
+        frameTime = np.median( timetags[:,f] )
 
         ## Compare all of the antpols at a particular frame count, ignoring the ones that
         ## are missing.
-        missing = numpy.where( (timetags[:,f] != frameTime) & (timetags[:,f]>=0) )[0]
+        missing = np.where( (timetags[:,f] != frameTime) & (timetags[:,f]>=0) )[0]
 
         ## Report any errors
         for m in missing:
@@ -146,7 +139,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='given a TBF file, check the time tags', 
+        description='given a TBX file, check the time tags', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, 
