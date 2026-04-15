@@ -181,7 +181,7 @@ def main(args):
     chans.sort()
     for i in range(1, len(chans)):
         if chans[i] != chans[i-1] + tbx_nchan_frame:
-            raise RuntimeError("Unexpected channel increment: %i != tbx_nchan_frame" % (chans[i]-chans[i-1],))
+            raise RuntimeError(f"Unexpected channel increment: {chans[i]-chans[i-1]} != {tbx_nchan_frame}")
             
     # Downselect
     chans = list(filter(lambda x: x >= args.lower and x <= args.upper, chans))
@@ -207,7 +207,7 @@ def main(args):
             common = common[1:]
         args.output = common
         
-    print("Writing combined file to '%s'" % os.path.basename(args.output))
+    print(f"Writing combined file to '{os.path.basename(args.output)}'")
     oh = open(args.output, 'wb')
     
     # Go!
