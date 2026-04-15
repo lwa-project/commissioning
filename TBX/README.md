@@ -18,6 +18,10 @@ smGUI.py
 GUI that interfaces with a NPZ file created by stationMasterLite.py that makes looking
 for problems with dipoles/mappings/etc. a point-and-click exercise.
 
+tbxFileCheck.py
+---------------
+Simple script to print out basic power and clipping information for a TBX file.
+
 tbxMux.py
 ---------
 Combine multiple single-server TBX files from the NDP triggering system into a single
