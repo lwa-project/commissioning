@@ -6,7 +6,7 @@ Display NPZ data from stationMaster in an interactive GUI sort of way.
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 import tempfile
 
@@ -66,12 +66,12 @@ class TBW_GUI(object):
         plotting.
         """
 
-        dataDict = numpy.load(filename)
+        dataDict = np.load(filename)
         self.freq = dataDict['freq']
         masterSpectra = dataDict['masterSpectra']
 
         self.spec = masterSpectra.mean(axis=0)
-        self.specTemplate = numpy.median(self.spec, axis=0)
+        self.specTemplate = np.median(self.spec, axis=0)
         self.resFreq = dataDict['resFreq']
         try:
             self.avgPower = dataDict['avgPower']
@@ -150,7 +150,7 @@ class TBW_GUI(object):
 
         ## Get Stand positions from the Antenna objects.  Select only one
         ## polarization since that is all we need
-        standPos = numpy.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in self.antennas if ant.pol == 0])
+        standPos = np.array([[ant.stand.x, ant.stand.y, ant.stand.z] for ant in self.antennas if ant.pol == 0])
 
         ## Get the stand quality figure-of-merit
         compLow = 32e6
@@ -159,8 +159,8 @@ class TBW_GUI(object):
         if self.color == 0:
             # Color by mean ratio between the spectrum and the master template
             # (self.specTemplate) between 32 and 50 MHz (default)
-            specDiff = numpy.zeros(self.spec.shape[0])
-            toCompare = numpy.where( (self.freq>compLow) & (self.freq<compHigh) )[0]
+            specDiff = np.zeros(self.spec.shape[0])
+            toCompare = np.where( (self.freq>compLow) & (self.freq<compHigh) )[0]
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,toCompare] / self.specTemplate[toCompare]).mean()
 
@@ -171,9 +171,9 @@ class TBW_GUI(object):
             # The value of RFI-46 is also corrected for any systematic offset
             # between the spectrum and the template by looking at the 75 to 77 MHz
             # region.
-            specDiff = numpy.zeros(self.spec.shape[0])
-            rfi1 = numpy.where( (self.freq>45e6) & (self.freq<47e6) )[0]
-            corr = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
+            specDiff = np.zeros(self.spec.shape[0])
+            rfi1 = np.where( (self.freq>45e6) & (self.freq<47e6) )[0]
+            corr = np.where( (self.freq>75e6) & (self.freq<77e6) )[0]
 
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi1] / self.specTemplate[rfi1]).max()
@@ -186,9 +186,9 @@ class TBW_GUI(object):
             # The value of RFI-64 is also corrected for any systematic offset
             # between the spectrum and the template by looking at the 75 to 77 MHz
             # region.
-            specDiff = numpy.zeros(self.spec.shape[0])
-            rfi2 = numpy.where( (self.freq>63e6) & (self.freq<65e6) )[0]
-            corr = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
+            specDiff = np.zeros(self.spec.shape[0])
+            rfi2 = np.where( (self.freq>63e6) & (self.freq<65e6) )[0]
+            corr = np.where( (self.freq>75e6) & (self.freq<77e6) )[0]
 
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
@@ -201,22 +201,22 @@ class TBW_GUI(object):
             # The value of RFI-64 is also corrected for any systematic offset
             # between the spectrum and the template by looking at the 63 to 65 MHz
             # region.
-            specDiff = numpy.zeros(self.spec.shape[0])
-            rfi2 = numpy.where( (self.freq>75e6) & (self.freq<77e6) )[0]
-            corr = numpy.where( (self.freq>63e6) & (self.freq<65e6) )[0]
+            specDiff = np.zeros(self.spec.shape[0])
+            rfi2 = np.where( (self.freq>75e6) & (self.freq<77e6) )[0]
+            corr = np.where( (self.freq>63e6) & (self.freq<65e6) )[0]
 
             for i in range(self.spec.shape[0]):
                 specDiff[i] = (self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
-                specDiff[i] /= numpy.median(self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
+                specDiff[i] /= np.median(self.spec[i,rfi2] / self.specTemplate[rfi2]).max()
 
             cbTitle = 'RFI-76 Index'
         elif self.color == 4:
             # Color by the wiggle index.  This is determined by fitting a line to
             # the log(spectra) between 65 and 70 MHz and looking at the RMS.
-            specDiff = numpy.zeros(self.spec.shape[0])
-            wgl = numpy.where( (self.freq>65e6) & (self.freq<70e6) )[0]
+            specDiff = np.zeros(self.spec.shape[0])
+            wgl = np.where( (self.freq>65e6) & (self.freq<70e6) )[0]
             for i in range(self.spec.shape[0]):
-                junk = numpy.log10( self.spec[i,wgl] / self.specTemplate[wgl] )
+                junk = np.log10( self.spec[i,wgl] / self.specTemplate[wgl] )
                 specDiff[i] = junk.std()
                 specDiff[i] = 17 - int(self.antennas[i].arx.asp_channel % 16) + 1
                 specDiff[i] *= self.antennas[i].cable.length / 10.0
@@ -225,7 +225,7 @@ class TBW_GUI(object):
             cbTitle = 'Wiggle Index'
         elif self.color == 5:
             # Color by antenna status code.
-            specDiff = numpy.zeros(self.spec.shape[0])
+            specDiff = np.zeros(self.spec.shape[0])
             for i in range(self.spec.shape[0]):
                 specDiff[i] = self.antennas[i].status
 
@@ -237,22 +237,22 @@ class TBW_GUI(object):
             # then evaluated to find its maximum value and that is used as the
             # resonance point.
             if self.resFreq is None:
-                specDiff = numpy.zeros(self.spec.shape[0])
-                toCompare = numpy.where( (self.freq>31e6) & (self.freq<70e6) )[0]
+                specDiff = np.zeros(self.spec.shape[0])
+                toCompare = np.where( (self.freq>31e6) & (self.freq<70e6) )[0]
                 for i in range(self.spec.shape[0]):
                     bestOrder = 0
                     bestRMS = 1e34
                     for j in range(3, 12):
-                        coeff = numpy.polyfit(self.freq[toCompare]/1e6, to_dB(self.spec[i,toCompare]), j)
-                        fit = numpy.polyval(coeff, self.freq[toCompare]/1e6)
+                        coeff = np.polyfit(self.freq[toCompare]/1e6, to_dB(self.spec[i,toCompare]), j)
+                        fit = np.polyval(coeff, self.freq[toCompare]/1e6)
                         rms = ((fit - to_dB(self.spec[i,toCompare]))**2).sum()
                         if rms < bestRMS:
                             bestOrder = j
                             bestRMS = rms
 
-                    coeff = numpy.polyfit(self.freq[toCompare]/1e6, to_dB(self.spec[i,toCompare]), bestOrder)
-                    fit = numpy.polyval(coeff, self.freq[toCompare]/1e6)
-                    specDiff[i] = self.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
+                    coeff = np.polyfit(self.freq[toCompare]/1e6, to_dB(self.spec[i,toCompare]), bestOrder)
+                    fit = np.polyval(coeff, self.freq[toCompare]/1e6)
+                    specDiff[i] = self.freq[toCompare[np.where( fit == fit.max() )[0]]] / 1e6
                 self.resFreq = specDiff
             else:
                 specDiff = self.resFreq
@@ -260,8 +260,8 @@ class TBW_GUI(object):
             cbTitle = 'Est. Resonance Point (MHz)'
 
         # Clip range
-        specDiff = numpy.where( specDiff < self.limits[self.color][1], specDiff, self.limits[self.color][1])
-        specDiff = numpy.where( specDiff > self.limits[self.color][0], specDiff, self.limits[self.color][0])
+        specDiff = np.where( specDiff < self.limits[self.color][1], specDiff, self.limits[self.color][1])
+        specDiff = np.where( specDiff > self.limits[self.color][0], specDiff, self.limits[self.color][0])
 
         self.frame.figure1.clf()
         self.ax1 = self.frame.figure1.gca()
@@ -333,7 +333,7 @@ class TBW_GUI(object):
             ## saved to the bestX and bestX attributes (depending on pol.)
             dist = 1e9
             for ant in self.antennas:
-                cDist = numpy.sqrt( (ant.stand.x - clickX)**2 + (ant.stand.y - clickY)**2 )
+                cDist = np.sqrt( (ant.stand.x - clickX)**2 + (ant.stand.y - clickY)**2 )
                 if cDist <= dist:
                     dist = cDist
                     if ant.pol == 0:
@@ -700,22 +700,22 @@ class MainWindow(tk.Tk):
         ant1 = self.data.antennas[self.data.bestX-1]
         ant2 = self.data.antennas[self.data.bestY-1]
 
-        toCompare = numpy.where( (self.data.freq>31e6) & (self.data.freq<70e6) )[0]
+        toCompare = np.where( (self.data.freq>31e6) & (self.data.freq<70e6) )[0]
 
         i = self.data.bestX-1
         bestOrder = 0
         bestRMS = 1e34
         for j in range(3, 12):
-            coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
-            fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
+            coeff = np.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
+            fit = np.polyval(coeff, self.data.freq[toCompare]/1e6)
             rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()
             if rms < bestRMS:
                 bestOrder = j
                 bestRMS = rms
 
-        coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
-        fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
-        res1 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
+        coeff = np.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
+        fit = np.polyval(coeff, self.data.freq[toCompare]/1e6)
+        res1 = self.data.freq[toCompare[np.where( fit == fit.max() )[0]]] / 1e6
         if len(res1) < 1:
             res1 = 0.0
 
@@ -723,16 +723,16 @@ class MainWindow(tk.Tk):
         bestOrder = 0
         bestRMS = 1e34
         for j in range(3, 12):
-            coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
-            fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
+            coeff = np.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), j)
+            fit = np.polyval(coeff, self.data.freq[toCompare]/1e6)
             rms = ((fit - to_dB(self.data.spec[i,toCompare]))**2).sum()
             if rms < bestRMS:
                 bestOrder = j
                 bestRMS = rms
 
-        coeff = numpy.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
-        fit = numpy.polyval(coeff, self.data.freq[toCompare]/1e6)
-        res2 = self.data.freq[toCompare[numpy.where( fit == fit.max() )[0]]] / 1e6
+        coeff = np.polyfit(self.data.freq[toCompare]/1e6, to_dB(self.data.spec[i,toCompare]), bestOrder)
+        fit = np.polyval(coeff, self.data.freq[toCompare]/1e6)
+        res2 = self.data.freq[toCompare[np.where( fit == fit.max() )[0]]] / 1e6
         if len(res2) < 1:
             res2 = 0.0
 
@@ -785,14 +785,14 @@ Status: %i
 
         std = self.data.antennas[self.data.bestX-1].stand
         if self.data.station == 'LWA1':
-            shlDist = numpy.sqrt( (std.x - 56.965)**2 + (std.y - 86.623)**2 )
+            shlDist = np.sqrt( (std.x - 56.965)**2 + (std.y - 86.623)**2 )
         elif self.data.station == 'LWASV':
-            shlDist = numpy.sqrt( (std.x + 26.790)**2 + (std.y - 48.908)**2 )
+            shlDist = np.sqrt( (std.x + 26.790)**2 + (std.y - 48.908)**2 )
         else:
-            shlDist = numpy.nan
+            shlDist = np.nan
 
         if self.data.station == 'LWA1':
-            fenDistA = numpy.zeros(4)
+            fenDistA = np.zeros(4)
             k = 0
             for p1,p2 in zip([(-59.827,59.752), (59.771,59.864), (60.148,-59.618), (-59.700,-59.948)], [(59.771,59.864), (60.148,-59.618), (-59.700,-59.948), (-59.827,59.752)]):
                 x1 = p1[0]
@@ -809,7 +809,7 @@ Status: %i
                 x4 = (x3/a + y3 - b)*a / (a**2+1)
                 y4 = a*x4 + b
 
-                fenDistA[k] = numpy.sqrt( (x3-x4)**2 + (y3-y4)**2 )
+                fenDistA[k] = np.sqrt( (x3-x4)**2 + (y3-y4)**2 )
                 k += 1
 
             # Catch things outside the fence
@@ -822,14 +822,14 @@ Status: %i
                     x3 = std.x
                     y3 = std.y
 
-                    fenDistA[k] = numpy.sqrt( (x3-x1)**2 + (y3-y1)**2 )
+                    fenDistA[k] = np.sqrt( (x3-x1)**2 + (y3-y1)**2 )
                     k += 1
 
             fenDist = fenDistA.min()
         elif self.data.station == 'LWASV':
-            fenDist = numpy.nan
+            fenDist = np.nan
         else:
-            fenDist = numpy.nan
+            fenDist = np.nan
 
         outString = """Stand: %i
 
@@ -932,9 +932,9 @@ Status: %i
         ant1 = self.data.antennas[self.data.bestX-1]
         ant2 = self.data.antennas[self.data.bestY-1]
 
-        rfi1 = numpy.where( (self.data.freq>45e6) & (self.data.freq<47e6) )[0]
-        rfi2 = numpy.where( (self.data.freq>63e6) & (self.data.freq<65e6) )[0]
-        corr = numpy.where( (self.data.freq>75e6) & (self.data.freq<77e6) )[0]
+        rfi1 = np.where( (self.data.freq>45e6) & (self.data.freq<47e6) )[0]
+        rfi2 = np.where( (self.data.freq>63e6) & (self.data.freq<65e6) )[0]
+        corr = np.where( (self.data.freq>75e6) & (self.data.freq<77e6) )[0]
 
         a1r1 = (self.data.spec[self.data.bestX-1,rfi1] / self.data.specTemplate[rfi1]).max()
         a1r2 = (self.data.spec[self.data.bestX-1,rfi2] / self.data.specTemplate[rfi2]).max()
@@ -1332,7 +1332,7 @@ class AvgPowerDisplay(tk.Toplevel):
         Round a positive value to the next highest multiple of ten.
         """
 
-        return 10*numpy.ceil(value/10.0)
+        return 10*np.ceil(value/10.0)
 
     def initUI(self):
         """
@@ -1381,7 +1381,7 @@ class AvgPowerDisplay(tk.Toplevel):
 
         # Average power plot
         tScale = float(round(avgPower.shape[1] / 61.2244898))
-        t = numpy.arange(0,avgPower.shape[1])/tScale + 0.5/tScale
+        t = np.arange(0,avgPower.shape[1])/tScale + 0.5/tScale
         self.ax1.errorbar(t, avgPower[bestX-1,:], xerr=0.5/tScale, linestyle=' ', marker='+', label='Pol. %i' % ant1.pol, capsize=0)
         self.ax1.errorbar(t, avgPower[bestY-1,:], xerr=0.5/tScale, linestyle=' ', marker='+', label='Pol. %i' % ant2.pol, capsize=0)
 
@@ -1463,7 +1463,7 @@ class DataRangeDisplay(tk.Toplevel):
         Round a positive value to the next highest multiple of ten.
         """
 
-        return 10*numpy.ceil(value/10.0)
+        return 10*np.ceil(value/10.0)
 
     def initUI(self):
         """
@@ -1512,12 +1512,12 @@ class DataRangeDisplay(tk.Toplevel):
 
         # Data Range
         tScale = float(round(dataRange.shape[1] / 61.2244898))
-        t = numpy.arange(0,dataRange.shape[1])/tScale + 0.5/tScale
-        eb1 = numpy.zeros((2,t.size))
+        t = np.arange(0,dataRange.shape[1])/tScale + 0.5/tScale
+        eb1 = np.zeros((2,t.size))
         eb1[0,:] = dataRange[bestX-1,:,1] - dataRange[bestX-1,:,0]
         eb1[1,:] = dataRange[bestX-1,:,2] - dataRange[bestX-1,:,1]
         self.ax1.errorbar(t, dataRange[bestX-1,:,1], xerr=0.5/tScale, yerr=eb1, linestyle=' ', marker='+', label='Pol. %i' % ant1.pol)
-        eb2 = numpy.zeros((2,t.size))
+        eb2 = np.zeros((2,t.size))
         eb2[0,:] = dataRange[bestY-1,:,1] - dataRange[bestY-1,:,0]
         eb2[1,:] = dataRange[bestY-1,:,2] - dataRange[bestY-1,:,1]
         self.ax1.errorbar(t, dataRange[bestY-1,:,1], xerr=0.5/tScale, yerr=eb2, linestyle=' ', marker='+', label='Pol. %i' % ant2.pol)
@@ -1599,7 +1599,7 @@ class ADCHistogramDisplay(tk.Toplevel):
         Round a positive value to the next highest multiple of a thousand.
         """
 
-        return 1000*numpy.ceil(value/1000.0)
+        return 1000*np.ceil(value/1000.0)
 
     def initUI(self):
         """
@@ -1649,16 +1649,16 @@ class ADCHistogramDisplay(tk.Toplevel):
         # Histogram plot
         histBins = list(range(-2048, 2049))
         left, right = histBins[:-1], histBins[1:]
-        v = numpy.array([left,right]).T.flatten()
-        hX = numpy.array([adcHistogram[bestX-1,:], adcHistogram[bestX-1,:]]).T.flatten()
-        hY = numpy.array([adcHistogram[bestY-1,:], adcHistogram[bestY-1,:]]).T.flatten()
+        v = np.array([left,right]).T.flatten()
+        hX = np.array([adcHistogram[bestX-1,:], adcHistogram[bestX-1,:]]).T.flatten()
+        hY = np.array([adcHistogram[bestY-1,:], adcHistogram[bestY-1,:]]).T.flatten()
 
         self.ax1.plot(v, hX, label='Pol. %i' % ant1.pol)
         self.ax1.plot(v, hY, label='Pol. %i' % ant2.pol)
 
         # Calculate and display the RMS
-        rmsX = numpy.sqrt( (numpy.array(histBins[:-1])**2 * adcHistogram[bestX-1,:]).sum() / adcHistogram[bestX-1,:].sum() )
-        rmsY = numpy.sqrt( (numpy.array(histBins[:-1])**2 * adcHistogram[bestY-1,:]).sum() / adcHistogram[bestY-1,:].sum() )
+        rmsX = np.sqrt( (np.array(histBins[:-1])**2 * adcHistogram[bestX-1,:]).sum() / adcHistogram[bestX-1,:].sum() )
+        rmsY = np.sqrt( (np.array(histBins[:-1])**2 * adcHistogram[bestY-1,:]).sum() / adcHistogram[bestY-1,:].sum() )
         self.ax1.text(0.08, 0.90, 'RMS$_%i$=%.1f' % (ant1.pol, rmsX), transform=self.ax1.transAxes)
         self.ax1.text(0.08, 0.85, 'RMS$_%i$=%.1f' % (ant2.pol, rmsY), transform=self.ax1.transAxes)
 
