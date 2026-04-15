@@ -24,7 +24,6 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 
 
-
 def main(args):
     filename = args.filename
     
@@ -34,7 +33,7 @@ def main(args):
     lo.date = idi.date_obs.strftime("%Y/%m/%d %H:%M:%S")
     jd = lo.date + astro.DJD_OFFSET
     lst = str(lo.sidereal_time())
-
+    
     nStand = len(idi.stands)
     nchan = len(idi.freq)
     freq = idi.freq
@@ -81,50 +80,55 @@ def main(args):
         print("Running self cal.")
         simDict.sort()
         dataDict.sort()
-        fixedDataXX, delaysXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX',
-                                                   ref_ant=args.reference,
-                                                   max_iter=args.max_iterations,
-                                                   delay_cutoff=args.delay_cutoff)
-        fixedDataYY, delaysYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY',
-                                                   ref_ant=args.reference,
-                                                   max_iter=args.max_iterations,
-                                                   delay_cutoff=args.delay_cutoff)
-        fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
-        fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
-       
-        cXX = cYY = True 
-        if cXX and cYY:
-            print("    Saving results")
-            outname = os.path.split(filename)[1]
-            outname = os.path.splitext(outname)[0]
-            outname = "%s.sc" % outname
-            with open(outname, 'w') as fh:
-                fh.write("################################\n")
-                fh.write("#                              #\n")
-                fh.write("# Settings:                    #\n")
-                fh.write("#  Method: diffuse             #\n")
-                fh.write(f"#  Ref Ant: {args.reference:4d}               #\n")
-                fh.write(f"#  Lower: {args.lower/1e6:5.1f} MHz            #\n")
-                fh.write(f"#  Upper: {args.upper/1e6:5.1f} MHz            #\n")
-                fh.write(f"#  Max (u,v): {args.max_uv_dist:4.1f} lambda      #\n")
-                fh.write(f"#  Max Iters: {args.max_iterations:3d}              #\n")
-                fh.write(f"#  Delay Cutoff: {args.delay_cutoff:4.2f} ns       #\n")
-                fh.write("#                              #\n")
-                fh.write("################################\n")
-                fh.write("#                              #\n")
-                fh.write("# Columns:                     #\n")
-                fh.write("# 1) Stand number              #\n")
-                fh.write("# 2) X pol. amplitude          #\n")
-                fh.write("# 3) X pol. delay (ns)         #\n")
-                fh.write("# 4) Y pol. amplitude          #\n")
-                fh.write("# 5) Y pol. delay (ns)         #\n")
-                fh.write("#                              #\n")
-                fh.write("################################\n")
-                for i in range(delaysXX.size):
-                    fh.write("%3i  %.6g  %.6g  %.6g  %.6g\n" % (idi.stands[i], 1.0, delaysXX[i], 1.0, delaysYY[i]))
-                    
+        fixedDataXX, delaysXX, convXX = selfcal.delay_only(aa, dataDict, simDict, toWork, 'XX',
+                                                           ref_ant=args.reference,
+                                                           max_iter=args.max_iterations,
+                                                           delay_cutoff=args.delay_cutoff,
+                                                           return_convergence=True)
+        fixedDataYY, delaysYY, convYY = selfcal.delay_only(aa, dataDict, simDict, toWork, 'YY',
+                                                           ref_ant=args.reference,
+                                                           max_iter=args.max_iterations,
+                                                           delay_cutoff=args.delay_cutoff,
+                                                           return_convergence=True)
+        
+        print("    Saving results")
+        outname = os.path.split(filename)[1]
+        outname = os.path.splitext(outname)[0]
+        outname = "%s.sc" % outname
+        with open(outname, 'w') as fh:
+            fh.write("################################\n")
+            fh.write("#                              #\n")
+            fh.write("# Settings:                    #\n")
+            fh.write("#  Method: diffuse             #\n")
+            fh.write(f"#  Ref Ant: {args.reference:4d}               #\n")
+            fh.write(f"#  Lower: {args.lower/1e6:5.1f} MHz            #\n")
+            fh.write(f"#  Upper: {args.upper/1e6:5.1f} MHz            #\n")
+            fh.write(f"#  Max (u,v): {args.max_uv_dist:4.1f} lambda      #\n")
+            fh.write(f"#  Max Iters: {args.max_iterations:3d}              #\n")
+            fh.write(f"#  Delay Cutoff: {args.delay_cutoff:4.2f} ns       #\n")
+            fh.write(f"#  Inv Eps: {args.inv_epsilon:5.2f}                #\n")
+            fh.write("#                              #\n")
+            fh.write(f"#  Converged XX: {str(convXX):5s}         #\n")
+            fh.write(f"#  Converged YY: {str(convYY):5s}         #\n")
+            fh.write("#                              #\n")
+            fh.write("################################\n")
+            fh.write("#                              #\n")
+            fh.write("# Columns:                     #\n")
+            fh.write("# 1) Stand number              #\n")
+            fh.write("# 2) X pol. amplitude          #\n")
+            fh.write("# 3) X pol. delay (ns)         #\n")
+            fh.write("# 4) Y pol. amplitude          #\n")
+            fh.write("# 5) Y pol. delay (ns)         #\n")
+            fh.write("#                              #\n")
+            fh.write("################################\n")
+            for i in range(delaysXX.size):
+                fh.write("%3i  %.6g  %.6g  %.6g  %.6g\n" % (idi.stands[i], 1.0, delaysXX[i], 1.0, delaysYY[i]))
+                
         # Build up the images for each polarization
         if args.plot:
+            fixedFullXX = simVis.scale_data(fullDict, delaysXX*0+1, delaysXX)
+            fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
+            
             print("    Gridding")
             toWork = numpy.where((freq>=30e6) & (freq<=82e6))[0]
             try:
@@ -174,7 +178,7 @@ def main(args):
                     
                     ax.set_title("%s @ %s LST" % (pol, lst))
                     continue
-                
+                    
                 # Display the image and label with the polarization/LST
                 out = img.image(center=(80,80))
                 print(pol, out.min(), out.max())
@@ -205,6 +209,7 @@ def main(args):
                     ax.text(top[0], top[1], name, color='white', size=12)
                     
                 # Add lines of constant RA and dec.
+                overlay.horizon(ax, aa)
                 overlay.graticule_radec(ax, aa)
                 
             plt.show()
@@ -216,7 +221,7 @@ if __name__ == "__main__":
     numpy.seterr(all='ignore')
     
     parser = argparse.ArgumentParser(
-        description="self-calibrate a TBF FITS IDI file using diffuse emission",
+        description="self-calibrate a TBX FITS IDI file using diffuse emission",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, 
@@ -232,7 +237,9 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--max-iterations', type=aph.positive_int, default=60,
                         help="maximum number of self-cal iterations")
     parser.add_argument('-d', '--delay-cutoff', type=aph.positive_float, default=0.2,
-                        help="delay cutoff in ns for the self-cal convergence threshold")       
+                        help="delay cutoff in ns for the self-cal convergence threshold")
+    parser.add_argument('-e', '--inv-epsilon', type=aph.positive_float, default=0.0,
+                        help="Tikhonov regularization strength, zero disables")
     parser.add_argument('-p', '--plot', action='store_true',
                         help='plot the results at the end')
     args = parser.parse_args()

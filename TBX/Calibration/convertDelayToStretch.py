@@ -2,7 +2,7 @@
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 
 from lsl.common.stations import parse_ssmif
@@ -13,7 +13,7 @@ def main(args):
     # Load in the data
     #
     site     = parse_ssmif(args.ssmif)
-    dataFile = [numpy.loadtxt(f) for f in args.filename]
+    dataFile = [np.loadtxt(f) for f in args.filename]
     
     #
     # Gather the station meta-data from its various sources
@@ -55,13 +55,13 @@ def main(args):
         ## Find the current stretch factor/delay
         origX = cableX.stretch*1.0
         origY = cableY.stretch*1.0
-        freq = numpy.linspace(35e6, 85e6, 101)
+        freq = np.linspace(35e6, 85e6, 101)
         baseDelayX = cableX.delay(freq, ns=True)
         baseDelayY = cableY.delay(freq, ns=True)
         
         bestX, bestY = 1e9, 1e9
         stretchX, stretchY = 0.90, 0.90
-        for stretch in numpy.linspace(0.90, 1.10, 2001):
+        for stretch in np.linspace(0.90, 1.10, 2001):
             cableX.stretch = stretch
             cableY.stretch = stretch
             
@@ -71,11 +71,11 @@ def main(args):
             diffX = (newDelayX - baseDelayX).mean() - addDelayX
             diffY = (newDelayY - baseDelayY).mean() - addDelayY
             
-            if numpy.abs(diffX) < bestX:
-                bestX = numpy.abs(diffX)
+            if np.abs(diffX) < bestX:
+                bestX = np.abs(diffX)
                 stretchX = stretch
-            if numpy.abs(diffY) < bestY:
-                bestY = numpy.abs(diffY)
+            if np.abs(diffY) < bestY:
+                bestY = np.abs(diffY)
                 stretchY = stretch
                 
         output[digX-1] = [digX, stretchX, addDelayX, bestX, 9.0]

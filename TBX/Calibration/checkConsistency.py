@@ -13,6 +13,61 @@ from lsl.misc import parser as aph
 from matplotlib import pyplot as plt
 
 
+def parse_sc_header(filename):
+    """
+    Function to parse the text header from a .sc file and return a dictionary
+    of its contents.
+    """
+    
+    header = {}
+    
+    in_settings = False
+    with open(filename, 'r') as fh:
+        for line in fh:
+            line = line.strip()
+            if line.find('Settings:') != -1:
+                in_settings = True
+                continue
+            elif line.find('Columns:') != -1:
+                in_settings = False
+                break
+                
+            if line.startswith('#') and in_settings:
+                try:
+                    key, value = line.split(':', 1)
+                    key = key.split(None, 1)[-1]
+                    value = value.rsplit(None, 1)[0]
+                    value = value.strip()
+                    if value == 'True':
+                        value = True
+                    elif value == 'False':
+                        value = False
+                    else:
+                        try:
+                            value = int(value, 10)
+                        except ValueError:
+                            try:
+                                value = float(value)
+                            except ValueError:
+                                pass
+                    header[key] = value
+                except ValueError as e:
+                    pass
+                    
+    return header
+
+
+def load_sc_file(filename):
+    """
+    Wrapper around parse_sc_header() and np.loadtxt() to get everything out
+    of a .sc file in a single call.
+    """
+    
+    hdr = parse_sc_header(filename)
+    data = np.loadtxt(filename)
+    return hdr, data
+
+
 def main(args):
     # Get the list of .cs filenames to parse
     filenames = args.filename
@@ -29,15 +84,21 @@ def main(args):
         fitsname = filename.replace('.sc', '.FITS_1')
         if not os.path.exists(fitsname):
             fitsname = filename.replace('.sc', '.FITS_CAL_1')
+        if not os.path.exists(fitsname):
+            fitsname = filename.replace('.sc', '.ms_1')
         idi = utils.CorrelatedData(fitsname)
         lo = idi.get_observer()
         lo.date = idi.date_obs.strftime("%Y/%m/%d %H:%M:%S")
-        lst = float(lo.sidereal_time()) * 12.0/numpy.pi
+        lst = float(lo.sidereal_time()) * 12.0/np.pi
         utcs.append(lo.date + DJD_OFFSET)
         lsts.append(lst)
         
         ## Load in the actual file
-        data = numpy.loadtxt(filename)
+        hdr, data = load_sc_file(filename)
+        if args.only_converged:
+            if not (hdr['Converged XX'] and hdr['Converged YY']):
+                continue
+                
         for i in range(data.shape[0]):
             stand, ax, dx, ay, dy = data[i,:]
             stand = int(stand)
@@ -55,36 +116,36 @@ def main(args):
                 
     # Convert to arrays
     for stand in delaysX.keys():
-        delaysX[stand] = numpy.array(delaysX[stand])
-        valid = numpy.where( numpy.isfinite(delaysX[stand]) & (numpy.abs(delaysX[stand]) <= args.max_delay) )[0]
+        delaysX[stand] = np.array(delaysX[stand])
+        valid = np.where( np.isfinite(delaysX[stand]) & (np.abs(delaysX[stand]) <= args.max_delay) )[0]
         if len(valid) < len(delaysX[stand])/2:
             print(stand, 'X')
         if len(valid) > 0:
             try:
                 repl = robust.mean(delaysX[stand][valid])
             except (ValueError, ZeroDivisionError):
-                repl = numpy.mean(delaysX[stand][valid])
-            delaysX[stand][numpy.where(~numpy.isfinite(delaysX[stand]) | (numpy.abs(delaysX[stand]) > args.max_delay))] = repl
+                repl = np.mean(delaysX[stand][valid])
+            delaysX[stand][np.where(~np.isfinite(delaysX[stand]) | (np.abs(delaysX[stand]) > args.max_delay))] = repl
         else:
             delaysX[stand][:] = 0.0
             
-        delaysY[stand] = numpy.array(delaysY[stand])
-        valid = numpy.where( numpy.isfinite(delaysY[stand]) & (numpy.abs(delaysY[stand]) <= args.max_delay) )[0]
+        delaysY[stand] = np.array(delaysY[stand])
+        valid = np.where( np.isfinite(delaysY[stand]) & (np.abs(delaysY[stand]) <= args.max_delay) )[0]
         if len(valid) < len(delaysX[stand])/2:
             print(stand, 'Y')
         if len(valid) > 0:
             try:
                 repl = robust.mean(delaysY[stand][valid])
             except (ValueError, ZeroDivisionError):
-                repl = numpy.mean(delaysY[stand][valid])
-            delaysY[stand][numpy.where(~numpy.isfinite(delaysY[stand]) | (numpy.abs(delaysY[stand]) > args.max_delay))] = repl
+                repl = np.mean(delaysY[stand][valid])
+            delaysY[stand][np.where(~np.isfinite(delaysY[stand]) | (np.abs(delaysY[stand]) > args.max_delay))] = repl
         else:
             delaysY[stand][:] = 0.0
             
         
     # Calculate the mean delay for each capture
-    vsX = numpy.zeros((len(delaysX.keys()), len(filenames)))
-    vsY = numpy.zeros_like(vsX)
+    vsX = np.zeros((len(delaysX.keys()), len(filenames)))
+    vsY = np.zeros_like(vsX)
     for i,stand in enumerate(delaysX.keys()):
         dx = delaysX[stand]
         dy = delaysY[stand]
@@ -101,6 +162,7 @@ def main(args):
         fh.write("# Settings:                    #\n")
         fh.write(f"#  File Count: {len(filenames):4d}            #\n")
         fh.write(f"#  Max Valid Delay: {args.max_delay:6.2f} ns #\n")
+        fh.write(f"#  Converged Only: {str(args.only_converged):5s}  #\n")
         fh.write("#                              #\n")
         fh.write("################################\n")
         fh.write("#                              #\n")
@@ -119,22 +181,22 @@ def main(args):
                 delayX = robust.mean( delaysX[stand] - msX)
                 dstdX  = robust.std(  delaysX[stand] - msX)
             except:
-                delayX = numpy.mean( delaysX[stand] - msX)
-                dstdX  = numpy.std(  delaysX[stand] - msX)
+                delayX = np.mean( delaysX[stand] - msX)
+                dstdX  = np.std(  delaysX[stand] - msX)
             try:
                 delayY = robust.mean( delaysY[stand] - msY)
                 dstdY  = robust.std(  delaysY[stand] - msY)
             except:
-                delayY = numpy.mean( delaysY[stand] - msY)
-                dstdY  = numpy.std(  delaysY[stand] - msY)
+                delayY = np.mean( delaysY[stand] - msY)
+                dstdY  = np.std(  delaysY[stand] - msY)
             fh.write("%3i  %.3f  %.3f  %.3f  %.3f  %.3f  %.3f\n" % (stand, 0.0, delayX, dstdX, 0.0, delayY, dstdY))
             
     if args.plot:
         #
         # By LST
         #
-        lsts = numpy.array(lsts)
-        orderL = numpy.argsort(lsts)
+        lsts = np.array(lsts)
+        orderL = np.argsort(lsts)
         
         figL = plt.figure()
         axLX1 = figL.add_subplot(3, 2, 1)
@@ -175,8 +237,8 @@ def main(args):
         #
         # By JD
         #
-        utcs = numpy.array(utcs)
-        orderJ = numpy.argsort(utcs)
+        utcs = np.array(utcs)
+        orderJ = np.argsort(utcs)
         utcOffset = utcs.min()
         utcs -= utcOffset
         
@@ -205,7 +267,7 @@ def main(args):
         axJY2.set_ylabel("$|\\tau_y|$ [ns]")
         
         tooHighX = []
-        tooHighY = []	
+        tooHighY = []
         for stand in delaysX.keys():
             dx = delaysX[stand] - msX
             dy = delaysY[stand] - msY
@@ -231,11 +293,13 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="given a collection of delay files generated by applySelfCalTBW2.py, check the internal consistency of the results and updated SSMIF",
+        description="given a collection of delay files generated by applySelfCalTBX.py, check the internal consistency of the results and updated SSMIF",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to check')
+    parser.add_arugment('-c', '--only-converged', action='store_true',
+                        help='only consider files where the self cal converted in both pols.')
     parser.add_argument('-d', '--max-delay', type=aph.positive_float, default=1000,
                         help='maximum delay in ns to consider valid')
     parser.add_argument('-p', '--plot', action='store_true',
