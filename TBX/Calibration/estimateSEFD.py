@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, tzinfo
 
 from lsl import astro
 from lsl.common.stations import parse_ssmif
-from lsl.reader.ldp import TBFFile
+from lsl.reader.ldp import TBXFile
 from lsl.misc import beamformer
 from lsl.misc import parser as aph
 from lsl.common.progress import ProgressBarPlus
@@ -57,7 +57,7 @@ def main(args):
         raise RuntimeError(f"Unknown target source '{args.source}'")
         
     # Find the target azimuth/altitude to use
-    idf = TBFFile(filenames[0])
+    idf = TBXFile(filenames[0])
     tStart = idf.get_info('start_time').datetime
     idf.close()
     
@@ -69,7 +69,7 @@ def main(args):
     targetAlt = args.source.alt*180/np.pi
     
     # Preliminary report
-    print(f"Working on {len(filenames)} TBF files using SSMIF '{os.path.basename(ssmif)}'")
+    print(f"Working on {len(filenames)} TBX files using SSMIF '{os.path.basename(ssmif)}'")
     print(f"  Source: '{args.source.name}'")
     print(f"    Transit time: {tTransit}")
     print(f"    Transit azimuth: {targetAz:.2f} degrees")
@@ -80,7 +80,7 @@ def main(args):
     unx, lst, pwrX, pwrY = [], [], [], []
     for filename in filenames:
         ## Get the file reader
-        idf = TBFFile(filename)
+        idf = TBXFile(filename)
         
         ## Pull out some metadata and update the observer
         jd = astro.unix_to_utcjd(idf.get_info('start_time'))
@@ -198,7 +198,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="given an SSMIF and a collection of TBF files, use phase-and-sum beamforming to make a basket weave pattern to estimate the system equivalent flux density (SEFD) and pointing error",
+        description="given an SSMIF and a collection of TBX files, use phase-and-sum beamforming to make a basket weave pattern to estimate the system equivalent flux density (SEFD) and pointing error",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('ssmif', type=str,
