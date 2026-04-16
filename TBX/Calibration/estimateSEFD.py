@@ -40,8 +40,8 @@ def main(args):
     
     # Sort out the integration time
     int_time = args.avg_time
-    if int_time == 0.0:
-        int_time = None
+    if int_time == 0:
+        int_time = 5.0
         
     # Get an observer reader for calculations
     obs = station.get_observer()
@@ -88,12 +88,18 @@ def main(args):
         args.source.compute(obs)
         sample_rate = idf.get_info('sample_rate')
         transitOffset = (obs.date-tTransit)*86400.0
+        if transitOffset > 12*3600:
+            transitOffset -= 86400.0
+            
+        # Get the frequencies in the file as well
+        freqs = idf.get_info('freq1')
         
         ## Metadata report
         print(f"Filename: {os.path.basename(filename)}")
         print(f"  Data type:  {type(idf)}")
         print(f"  Station: {station.name}")
         print(f"  Date observed: {str(obs.date)}")
+        print(f"  Frequency Range: {freqs[0]/1e6:.1f} to {freqs[-1]/1e6:.1f} MHz")
         print(f"  MJD: {jd-astro.MJD_OFFSET:.5f}")
         print(f"  LST: {str(obs.sidereal_time())}")
         print("    %.1f s %s transit" % (abs(transitOffset), 'before' if transitOffset < 0 else 'after'))
@@ -103,11 +109,12 @@ def main(args):
         ## Load in the data
         readT, t, data = idf.read(int_time)
         
-        ## Downselect to 74 +/- 8 MHz
-        freqs = idf.get_info('freq1')
-        valid_freq = np.where((freqs > 66e6) & (freqs < 82e6))[0]
+        ## Downselect to 74 +/- 2 MHz
+        
+        valid_freq = np.where((freqs > (args.freq-2e6)) & (freqs < (args.freq+2e6)))[0]
+        if not len(valid_freq):
+            raise RuntimeError(f"Cannot find data around {args.freq/1e6:.1f} MHz")
         freqs = freqs[valid_freq]
-        freqs.shape = (1,)+freqs.shape+(1,)
         data = data[:,valid_freq,:]
         
         ## Come up with the pattern
@@ -122,17 +129,6 @@ def main(args):
             offset = offset / np.cos(args.source.dec)
             pnts.append( (ephem.hours(args.source._ra+offset*np.pi/180), args.source._dec) )
             
-        # Come up with the antenna gains
-        gains = np.ones((len(antennas),1,1), dtype=np.float32)
-        for i,ant in enumerate(antennas):
-            if ant.combined_status != 33:
-                gains[(i//2)*2+0] = 0
-                gains[(i//2)*2+1] = 0
-        gaiX = gains*1.0
-        gaiX[1::2,:,:] = 0
-        gaiY = gains*1.0
-        gaiY[0::2,:,:] = 0
-        
         unx.append( float(idf.get_info('start_time')) )
         lst.append( obs.sidereal_time() * 12/np.pi )
         pwrX.append( [] )
@@ -145,13 +141,12 @@ def main(args):
             bdy._epoch = ephem.J2000
             bdy.compute(obs)
             
-            dlys = beamformer.calc_delay(antennas, freq=74e6, azimuth=bdy.az*180/np.pi, altitude=bdy.alt*180/np.pi)
-            dlys.shape = dlys.shape+(1,1)
-            dlys -= dlys.min()
-            phs = np.exp(2j*np.pi*freqs*dlys)
-            
-            beamX = (np.abs((gaiX*phs*data).sum(axis=0))**2).sum()
-            beamY = (np.abs((gaiY*phs*data).sum(axis=0))**2).sum()
+            beam = beamformer.phase_and_sum(antennas, data,
+                                            central_freq=freqs,
+                                            azimuth=bdy.az*180/np.pi,
+                                            altitude=bdy.alt*180/np.pi)
+            beam = (np.abs(beam)**2).mean(axis=1).mean(axis=1)
+            beamX, beamY = beam[0], beam[1]
             
             ## Save
             pwrX[-1].append( beamX )
@@ -213,6 +208,8 @@ if __name__ == "__main__":
                         help='number of steps per weave track')
     parser.add_argument('-t', '--avg-time', type=aph.positive_or_zero_float, default=0.0, 
                         help='integration time for the beam pointings; 0 = integrate the entire file')
+    parser.add_argument('-f', '--freq', type=aph.frequency, default='74MHz',
+                        help='frequency to estimate the SEFD at')
     parser.add_argument('-p', '--plots', action='store_true',
                         help='show summary plots at the end')
     args = parser.parse_args()
