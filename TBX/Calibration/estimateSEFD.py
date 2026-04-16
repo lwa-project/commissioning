@@ -37,7 +37,20 @@ def main(args):
     # Setup the LWA station information
     station = parse_ssmif(ssmif)
     antennas = station.antennas
-    
+    if args.cal_file is not None:
+        ## Apply additional calibration as cable clock offsets
+        caldata = np.loadtxt(args.cal_file)
+        calstd = caldata[:,0]
+        caldx = caldata[:,2]*1e-9
+        caldy = caldata[:,4]*1e-9
+        for a in antennas:
+            for s,x,y in zip(calstd, caldx, caldy):
+                if a.stand.id == s:
+                    if a.pol == 0:
+                        a.cable.clock_offset = x
+                    else:
+                        a.cable.clock_offset = y
+                        
     # Sort out the integration time
     int_time = args.avg_time
     if int_time == 0:
@@ -210,6 +223,8 @@ if __name__ == "__main__":
                         help='integration time for the beam pointings; 0 = integrate the entire file')
     parser.add_argument('-f', '--freq', type=aph.frequency, default='74MHz',
                         help='frequency to estimate the SEFD at')
+    parser.add_argument('-c', '--cal-file', type=str,
+                        help='.sc calibration to apply on top of the SSMIF')
     parser.add_argument('-p', '--plots', action='store_true',
                         help='show summary plots at the end')
     args = parser.parse_args()
