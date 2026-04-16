@@ -4,7 +4,7 @@ import os
 import sys
 import aipy
 import copy
-import numpy
+import numpy as np
 import argparse
 from calendar import timegm
 from datetime import datetime
@@ -48,17 +48,39 @@ def main(args):
     print("JD: %.3f" % jd)
     
     # Pull out something reasonable
-    toWork = numpy.where((freq>=args.lower) & (freq<=args.upper))[0]
+    toWork = np.where((freq>=args.lower) & (freq<=args.upper))[0]
     
     print("Reading in FITS IDI data")
     nSets = idi.total_baseline_count // (nStand*(nStand+1)//2)
     for set in range(1, nSets+1):
         print("Set #%i of %i" % (set, nSets))
-        fullDict = idi.get_data_set(set)
+        fullDict = idi.get_data_set(set, include_auto=True)
+        autoDict = fullDict.get_uv_range(max_uv=0.001)
+        
+        if args.filter_autos:
+            # Filter out dead or high power antennas based on the autos
+            auto_pwr = {}
+            for i,(ax,ay) in enumerate(zip(autoDict.XX.data, autoDict.YY.data)):
+                auto_pwr[i] = [np.abs(ax[toWork]), np.abs(ay[toWork])]
+            pwr = np.array(list(auto_pwr.values()))
+            pwr = np.log10(np.clip(pwr, 1e-10, np.inf))
+            med = np.median(pwr, axis=0)
+            mad = np.median(np.abs(pwr-med), axis=0)
+            flg = (np.abs(pwr[:,0,:]-med[0,:]) > 5*mad[0,:]*1.4826).mean(axis=1) * 0.5 \
+                + (np.abs(pwr[:,1,:]-med[1,:]) > 5*mad[1,:]*1.4826).mean(axis=1) * 0.5
+            bad = np.where(flg > 0.3)[0]
+            if len(bad):
+                print(f"Flagging {len(bad)} antennas based off auto-correlations:")
+                for b in bad:
+                    print(f"  Stand {idi.stands[autoDict.baselines[b][0]]} with {flg[b]:.0%} of channels-pols flagged")
+                bad_ants = [autoDict.baselines[b][0] for b in bad]
+                fullDict = fullDict.get_antenna_subset(exclude=bad_ants, indicies=True)
+                
+        # Downselect
         if args.min_uv_dist > 0.0:
             dataDict = fullDict.get_uv_range(min_uv=args.min_uv_dist)
         else:
-            dataDict = fullDict
+            dataDict = fullDict.get_uv_range(min_uv=0.001)
         dataDict.sort()
         
         # Gather up the polarizations and baselines
@@ -102,11 +124,12 @@ def main(args):
             fh.write(f"#  Ref Ant: {args.reference:4d}               #\n")
             fh.write(f"#  Lower: {args.lower/1e6:5.1f} MHz            #\n")
             fh.write(f"#  Upper: {args.upper/1e6:5.1f} MHz            #\n")
+            fh.write(f"#  Filtering: {str(args.filter_autos):5s}            #\n")
             fh.write(f"#  Min (u,v): {args.min_uv_dist:4.1f} lambda      #\n")
             fh.write(f"#  Sun Factor: {args.sun_factor:6.0f}          #\n")
             fh.write(f"#  Max Iters: {args.max_iterations:3d}              #\n")
             fh.write(f"#  Delay Cutoff: {args.delay_cutoff:4.2f} ns       #\n")
-            fh.write(f"#  Inv Eps: {args.inv_epsilon:5.2f}                #\n")
+            fh.write(f"#  Inv Eps: {args.inv_epsilon:5.2f}              #\n")
             fh.write("#                              #\n")
             fh.write(f"#  Converged XX: {str(convXX):5s}         #\n")
             fh.write(f"#  Converged YY: {str(convYY):5s}         #\n")
@@ -121,6 +144,13 @@ def main(args):
             fh.write("# 5) Y pol. delay (ns)         #\n")
             fh.write("#                              #\n")
             fh.write("################################\n")
+            if args.filter_autos:
+                fh.write("#                              #\n")
+                fh.write("# Filtered Stands:             #\n")
+                for b in bad:
+                    fh.write(f"#  Stand {idi.stands[autoDict.baselines[b][0]]:3d}                   #\n")
+                fh.write("#                              #\n")
+                fh.write("################################\n")
             for i in range(delaysXX.size):
                 fh.write("%3i  %.6g  %.6g  %.6g  %.6g\n" % (idi.stands[i], 1.0, delaysXX[i], 1.0, delaysYY[i]))
                 
@@ -130,7 +160,7 @@ def main(args):
             fixedFullYY = simVis.scale_data(fullDict, delaysYY*0+1, delaysYY)
             
             print("    Gridding")
-            toWork = numpy.where((freq>=80e6) & (freq<=82e6))[0]
+            toWork = np.where((freq>=80e6) & (freq<=82e6))[0]
             try:
                 imgXX = utils.build_gridded_image(fullDict, size=80, res=0.5, pol='XX', chan=toWork)
             except:
@@ -183,8 +213,8 @@ def main(args):
                 out = img.image(center=(80,80))
                 print(pol, out.min(), out.max())
                 #if pol == 'scalXX':
-                    #out = numpy.rot90(out)
-                    #out = numpy.rot90(out)
+                    #out = np.rot90(out)
+                    #out = np.rot90(out)
                 cb = ax.imshow(out, extent=(1,-1,-1,1), origin='lower', 
                         vmin=img.image().min(), vmax=img.image().max())
                 fig.colorbar(cb, ax=ax)
@@ -218,7 +248,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    numpy.seterr(all='ignore')
+    np.seterr(all='ignore')
     
     parser = argparse.ArgumentParser(
         description="self-calibrate a TBX FITS IDI file using a point source model",
@@ -232,6 +262,8 @@ if __name__ == "__main__":
                         help='lowest frequency to consider in MHz')
     parser.add_argument('-u', '--upper', type=aph.positive_float, default=85.0,
                         help='highest frequency to consider in MHz')
+    parser.add_argument('-f', '--filter-autos', action='store_true',
+                        help='filter based on the auto-correlation to remove data and weird stands')
     parser.add_argument('-m', '--min-uv-dist', type=aph.positive_or_zero_float, default=14.0,
                         help='minimum baseline (u,v) length to use in wavelengths')
     parser.add_argument('-s', '--sun-factor', type=aph.positive_or_zero_float, default=1.0,
