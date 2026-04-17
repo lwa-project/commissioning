@@ -20,11 +20,18 @@ from lsl.skymap import SkyMapLFSM, ProjectedSkyMap
 from lsl.imaging import utils, selfcal, overlay
 from lsl.sim import vis as simVis
 
+import logging
+from lsl.logger import enable_file_logging, set_log_level
+set_log_level(logging.DEBUG)
+
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 
 
 def main(args):
+    if args.log:
+        enable_file_logging(args.log)
+        
     filename = args.filename
     
     idi = utils.CorrelatedData(filename)
@@ -274,6 +281,8 @@ if __name__ == "__main__":
                         help="Tikhonov regularization strength, zero disables")
     parser.add_argument('-p', '--plot', action='store_true',
                         help='plot the results at the end')
+    parser.add_argument('--log', type=str,
+                        help='save LSL logging output to the specified filename')
     args = parser.parse_args()
     args.lower *= 1e6
     args.upper *= 1e6
