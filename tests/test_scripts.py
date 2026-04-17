@@ -23,11 +23,8 @@ try:
     if MODULE_BUILD is not None:
         run_scripts_tests = True
         
-        # Pre-seed TBF/Calibration/analysis.py
-        os.system("%s ../TBF/Calibration/analysis.py" % sys.executable)
-        
-        # Pre-seed TBN/data.py
-        os.system("%s ../TBN/data.py" % sys.executable)
+        # Pre-seed TBX/Calibration/analysis.py
+        os.system("%s ../TBX/Calibration/analysis.py" % sys.executable)
         
 except ImportError:
     pass
