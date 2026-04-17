@@ -2,7 +2,7 @@
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 
 from lsl.imaging import utils
@@ -78,6 +78,7 @@ def main(args):
     delaysX = {}
     delaysY = {}
     order = []
+    n_used = 0
     for filename in filenames:
         ## Figure out what the corresponding FITS IDI file is so that we can pull 
         ## out the date and LST
@@ -90,15 +91,16 @@ def main(args):
         lo = idi.get_observer()
         lo.date = idi.date_obs.strftime("%Y/%m/%d %H:%M:%S")
         lst = float(lo.sidereal_time()) * 12.0/np.pi
-        utcs.append(lo.date + DJD_OFFSET)
-        lsts.append(lst)
         
         ## Load in the actual file
         hdr, data = load_sc_file(filename)
         if args.only_converged:
             if not (hdr['Converged XX'] and hdr['Converged YY']):
                 continue
-                
+        utcs.append(lo.date + DJD_OFFSET)
+        lsts.append(lst)
+        n_used += 1
+        
         for i in range(data.shape[0]):
             stand, ax, dx, ay, dy = data[i,:]
             stand = int(stand)
@@ -144,7 +146,7 @@ def main(args):
             
         
     # Calculate the mean delay for each capture
-    vsX = np.zeros((len(delaysX.keys()), len(filenames)))
+    vsX = np.zeros((len(delaysX.keys()), n_used))
     vsY = np.zeros_like(vsX)
     for i,stand in enumerate(delaysX.keys()):
         dx = delaysX[stand]
@@ -162,7 +164,7 @@ def main(args):
         fh.write("# Settings:                    #\n")
         fh.write(f"#  File Count: {len(filenames):4d}            #\n")
         fh.write(f"#  Max Valid Delay: {args.max_delay:6.2f} ns #\n")
-        fh.write(f"#  Converged Only: {str(args.only_converged):5s}  #\n")
+        fh.write(f"#  Converged Only: {str(args.only_converged):5s}       #\n")
         fh.write("#                              #\n")
         fh.write("################################\n")
         fh.write("#                              #\n")
@@ -298,8 +300,8 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to check')
-    parser.add_arugment('-c', '--only-converged', action='store_true',
-                        help='only consider files where the self cal converted in both pols.')
+    parser.add_argument('-c', '--only-converged', action='store_true',
+                        help='only consider files where the self cal converged in both pols.')
     parser.add_argument('-d', '--max-delay', type=aph.positive_float, default=1000,
                         help='maximum delay in ns to consider valid')
     parser.add_argument('-p', '--plot', action='store_true',
