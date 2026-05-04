@@ -290,6 +290,41 @@ def main(args):
         
         figJ.tight_layout()
         
+        #
+        # By stand
+        #
+        
+        figS = plt.figure()
+        axSX1 = figS.add_subplot(2, 2, 1)
+        axSY1 = figS.add_subplot(2, 2, 2)
+        axSX2 = figS.add_subplot(2, 2, 3)
+        axSY2 = figS.add_subplot(2, 2, 4)
+        for stand in delaysX.keys():
+            dx = delaysX[stand]
+            dy = delaysY[stand]
+            
+            axSX1.errorbar([stand,], [dx.mean(),], yerr=[[dx.mean()-dx.min(),], [dx.max()-dx.mean(),]], capsize=2)
+            axSY1.errorbar([stand,], [dy.mean(),], yerr=[[dy.mean()-dy.min(),], [dy.max()-dy.mean(),]], capsize=2)
+        axSX1.set_title('X pol.')
+        axSX1.set_xlabel("Stand")
+        axSX1.set_ylabel("$\\tau_X$ [ns]")
+        axSY1.set_title('Y pol.')
+        axSY1.set_xlabel("Stand")
+        axSY1.set_ylabel("$\\tau_Y$ [ns]")
+        
+        for stand in delaysX.keys():
+            dx = delaysX[stand] - msX
+            dy = delaysY[stand] - msY
+            
+            axSX2.errorbar([stand,], [dx.mean(),], yerr=[[dx.mean()-dx.min(),], [dx.max()-dx.mean(),]], capsize=2)
+            axSY2.errorbar([stand,], [dy.mean(),], yerr=[[dy.mean()-dy.min(),], [dy.max()-dy.mean(),]], capsize=2)
+        axJX3.set_xlabel("Stand")
+        axJX3.set_ylabel("$\\tau_X-|\\tau_x|$ [ns]")
+        axJY3.set_xlabel("Stand")
+        axJY3.set_ylabel("$\\tau_Y-|\\tau_y|$ [ns]")
+        
+        figS.tight_layout()
+        
         plt.show()
 
 
