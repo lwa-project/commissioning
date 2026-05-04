@@ -123,8 +123,11 @@ class TBW_GUI(object):
         # Save the filename and data
         path, basename = os.path.split(filename)
         self.filename = basename
-        self.date = dataDict['date']
-        self.date = self.date.tostring().decode()
+        self.date = dataDict['date'].item()
+        try:
+            self.date = self.date.decode()
+        except AttributeError:
+            pass
 
         try:
             self.disconnect()
