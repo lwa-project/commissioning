@@ -303,6 +303,7 @@ def main(args):
             dx = delaysX[stand]
             dy = delaysY[stand]
             
+            ## Default error bars are at min/max
             mx = dx.mean()
             exl = mx - dx.min()
             exu = dx.max() - mx
@@ -310,6 +311,9 @@ def main(args):
             eyl = my - dy.min()
             eyu = dy.max() - my
             if len(dx) > 3:
+                ## If we have four or more delays, switch the error bars over to
+                ## being the IQR (contigent on the 25th-percentile being less than
+                ## the mean and the 75th-percentile being greater than the mean).
                 ix = np.percentile(dx, [25, 75])
                 iy = np.percentile(dy, [25, 75])
                 
@@ -335,6 +339,7 @@ def main(args):
             dx = delaysX[stand] - msX
             dy = delaysY[stand] - msY
             
+            ## Default error bars are at min/max
             mx = dx.mean()
             exl = mx - dx.min()
             exu = dx.max() - mx
@@ -342,6 +347,9 @@ def main(args):
             eyl = my - dy.min()
             eyu = dy.max() - my
             if len(dx) > 3:
+                ## If we have four or more delays, switch the error bars over to
+                ## being the IQR (contigent on the 25th-percentile being less than
+                ## the mean and the 75th-percentile being greater than the mean).
                 ix = np.percentile(dx, [25, 75])
                 iy = np.percentile(dy, [25, 75])
                 
