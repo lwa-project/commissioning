@@ -303,8 +303,27 @@ def main(args):
             dx = delaysX[stand]
             dy = delaysY[stand]
             
-            axSX1.errorbar([stand,], [dx.mean(),], yerr=[[dx.mean()-dx.min(),], [dx.max()-dx.mean(),]], capsize=2)
-            axSY1.errorbar([stand,], [dy.mean(),], yerr=[[dy.mean()-dy.min(),], [dy.max()-dy.mean(),]], capsize=2)
+            mx = dx.mean()
+            exl = mx - dx.min()
+            exu = dx.max() - mx
+            my = dy.mean()
+            eyl = my - dy.min()
+            eyu = dy.max() - my
+            if len(dx) > 3:
+                ix = np.percentile(dx, [25, 75])
+                iy = np.percentile(dy, [25, 75])
+                
+                if ix[0] < mx:
+                    exl = mx - ix[0]
+                if ix[1] > mx:
+                    exu = ix[1] - mx
+                if iy[0] < my:
+                    eyl = my - iy[0]
+                if iy[1] > my:
+                    eyu = iy[1] - my
+                    
+            axSX1.errorbar([stand,], [dx.mean(),], yerr=[[exl,], [exu,]], capsize=2)
+            axSY1.errorbar([stand,], [dy.mean(),], yerr=[[eyl,], [eyu,]], capsize=2)
         axSX1.set_title('X pol.')
         axSX1.set_xlabel("Stand")
         axSX1.set_ylabel("$\\tau_X$ [ns]")
@@ -316,12 +335,31 @@ def main(args):
             dx = delaysX[stand] - msX
             dy = delaysY[stand] - msY
             
-            axSX2.errorbar([stand,], [dx.mean(),], yerr=[[dx.mean()-dx.min(),], [dx.max()-dx.mean(),]], capsize=2)
-            axSY2.errorbar([stand,], [dy.mean(),], yerr=[[dy.mean()-dy.min(),], [dy.max()-dy.mean(),]], capsize=2)
-        axJX3.set_xlabel("Stand")
-        axJX3.set_ylabel("$\\tau_X-|\\tau_x|$ [ns]")
-        axJY3.set_xlabel("Stand")
-        axJY3.set_ylabel("$\\tau_Y-|\\tau_y|$ [ns]")
+            mx = dx.mean()
+            exl = mx - dx.min()
+            exu = dx.max() - mx
+            my = dy.mean()
+            eyl = my - dy.min()
+            eyu = dy.max() - my
+            if len(dx) > 3:
+                ix = np.percentile(dx, [25, 75])
+                iy = np.percentile(dy, [25, 75])
+                
+                if ix[0] < mx:
+                    exl = mx - ix[0]
+                if ix[1] > mx:
+                    exu = ix[1] - mx
+                if iy[0] < my:
+                    eyl = my - iy[0]
+                if iy[1] > my:
+                    eyu = iy[1] - my
+                    
+            axSX2.errorbar([stand,], [dx.mean(),], yerr=[[exl,], [exu,]], capsize=2)
+            axSY2.errorbar([stand,], [dy.mean(),], yerr=[[eyl,], [eyu,]], capsize=2)
+        axSX2.set_xlabel("Stand")
+        axSX2.set_ylabel("$\\tau_X-|\\tau_x|$ [ns]")
+        axSY2.set_xlabel("Stand")
+        axSY2.set_ylabel("$\\tau_Y-|\\tau_y|$ [ns]")
         
         figS.tight_layout()
         
