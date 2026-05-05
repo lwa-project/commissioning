@@ -140,7 +140,7 @@ def fill_minimum(f, obsID, beam, srate, srateUnits='samples/s', station=None):
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv', 'lwana', 'ovrolwa'):
+        if station in ('lwa1', 'lwasv', 'lwana', 'lwacs', 'lwamc', 'lwabb', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
@@ -346,7 +346,7 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
     
     # Station information
     if station is not None:
-        if station in ('lwa1', 'lwasv', 'lwana', 'ovrolwa'):
+        if station in ('lwa1', 'lwasv', 'lwana', 'lwacs', 'lwamc', 'lwabb', 'ovrolwa'):
             f.attrs['StationName'] = station
         else:
             raise ValueError("Unknown station name: %s" % station)
