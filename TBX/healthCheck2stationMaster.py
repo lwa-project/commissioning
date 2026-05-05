@@ -77,7 +77,7 @@ def main(args):
             
         ## Pull out the metadata we need
         try:
-            ssmifContents
+            ssmifContents   # pylint: disable=used-before-assignment
         except NameError:
             ssmifContents = []
             with open(args.metadata, 'r') as mh:
