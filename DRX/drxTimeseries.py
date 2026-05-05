@@ -145,7 +145,7 @@ def main(args):
         for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.read_frame(fh, verbose=False)
+                cFrame = drx.read_frame(fh)
             except errors.EOFError:
                 break
             except errors.SyncError:
@@ -231,4 +231,3 @@ if __name__ == "__main__":
                         help='output file name for timeseries image')
     args = parser.parse_args()
     main(args)
-    

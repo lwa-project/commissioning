@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Given a DRX file, look for glitches in a DRX or TBN data by fitting a sine wave 
+Given a DRX file, look for glitches in a DRX data by fitting a sine wave 
 to the data.
 """
 
@@ -10,7 +10,7 @@ import sys
 import numpy
 import argparse
 
-from lsl.reader import errors, tbn, drx
+from lsl.reader import errors, drx
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -103,7 +103,7 @@ def main(args):
         for f in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = rdr.read_frame(fh, verbose=False)
+                cFrame = rdr.read_frame(fh)
             except errors.EOFError:
                 break
             except errors.SyncError:
@@ -189,7 +189,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="look for glitches in a DRX or TBN data by fitting a sine wave to the data",
+        description="look for glitches in a DRX data by fitting a sine wave to the data",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, 

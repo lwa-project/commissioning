@@ -16,7 +16,7 @@ import argparse
 from astropy.constants import c as speedOfLight
 vLight = speedOfLight.to('m/s').value
 
-from lsl.common.dp import fS
+from lsl.common.ndp import fS
 from lsl.common.stations import parse_ssmif
 from lsl.misc import beamformer
 from lsl.sim.beam import beam_response
@@ -166,4 +166,3 @@ if __name__ == "__main__":
                         help='show plots with a log stretch')
     args = parser.parse_args()
     main(args)
-    

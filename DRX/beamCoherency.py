@@ -10,7 +10,7 @@ import sys
 import numpy
 
 from lsl.reader import drx
-from lsl.common.dp import fS
+from lsl.common.ndp import fS
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 
 from matplotlib import pyplot as plt
@@ -158,4 +158,3 @@ def main(args):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-    

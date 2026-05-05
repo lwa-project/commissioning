@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Create an eye diagram for some portion of a TBN or DRX file.
+Create an eye diagram for some portion of a DRX file.
 """
 
 import os
@@ -9,8 +9,8 @@ import sys
 import numpy
 import argparse
 
-from lsl.common.dp import fS
-from lsl.reader import errors, tbn, drx
+from lsl.common.ndp import fS
+from lsl.reader import errors, drx
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -84,7 +84,7 @@ def main(args):
     for f in range(fInt*nFrames.sum()):
         # Read in the next frame and anticipate any problems that could occur
         try:
-            cFrame = rdr.read_frame(fh, verbose=False)
+            cFrame = rdr.read_frame(fh)
         except errors.EOFError:
             break
         except errors.SyncError:
@@ -168,7 +168,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="create an eye diagram for some portion of a TBN or DRX file",
+        description="create an eye diagram for some portion of a DRX file",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, 
@@ -189,5 +189,3 @@ if __name__ == "__main__":
     args.freq *= 1e6
     args.input_freq *= 1e6
     main(args)
-    
-    

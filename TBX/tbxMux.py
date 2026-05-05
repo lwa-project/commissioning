@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Given a COR filles created by ADP, combine the files together into a single 
-file that can be used like a standard DR-recorded COR file
+Given a TBX filles created by the on-line triggering system on NDP, combine 
+the files together into a single file that can be used like a standard 
+DR-recorded TBX file
 """
 
 import os
@@ -12,18 +13,19 @@ import struct
 import argparse
 from collections import deque
 
-from lsl.reader.ldp import CORFile
-from lsl.reader import cor, errors, buffer
+from lsl.reader.ldp import TBXFile
+from lsl.reader import tbx, errors, buffer
+from lsl.misc import parser as aph
 
 
-class RawCORFrame(object):
+class RawTBXFrame(object):
     """
-    Class to help hold and work with a raw (packed) COR frame.
+    Class to help hold and work with a raw (packed) TBX frame.
     """
     
     def __init__(self, contents):
         self.contents = bytearray(contents)
-        if len(self.contents) != cor.FRAME_SIZE:
+        if len(self.contents) == 0 or len(self.contents) != (self.nchan*self.nstand*2 + 28):
             raise errors.EOFError
         if self.contents[0] != 0xDE or self.contents[1] != 0xC0 or self.contents[2] != 0xDE or self.contents[3] != 0x5c:
             raise errors.SyncError
@@ -35,52 +37,55 @@ class RawCORFrame(object):
         self.contents[key] = value
         
     @property
+    def nstand(self):
+        nstand = 0
+        nstand |= self.contents[16] << 8
+        nstand |= self.contents[17]
+        if nstand == 0:
+            nstand = 256
+        return nstand
+        
+    @property
+    def nchan(self):
+        nchan = 0
+        nchan |= self.contents[18] << 8
+        nchan |= self.contents[19]
+        return nchan
+        
+    @property
     def timetag(self):
         timetag = 0
-        timetag |= self.contents[16] << 56
-        timetag |= self.contents[17] << 48
-        timetag |= self.contents[18] << 40
-        timetag |= self.contents[19] << 32
-        timetag |= self.contents[20] << 24
-        timetag |= self.contents[21] << 16
-        timetag |= self.contents[22] <<  8
-        timetag |= self.contents[23]
+        timetag |= self.contents[20] << 56
+        timetag |= self.contents[21] << 48
+        timetag |= self.contents[22] << 40
+        timetag |= self.contents[23] << 32
+        timetag |= self.contents[24] << 24
+        timetag |= self.contents[25] << 16
+        timetag |= self.contents[26] <<  8
+        timetag |= self.contents[17]
         return timetag
         
     @property
     def first_chan(self):
-        chan0 = (self.contents[12] << 8) | self.contents[13]
+        chan0 = (self.contents[12] << 24) \
+                | (self.contents[13] << 16) \
+                | (self.contents[14] << 8) \
+                | self.contents[15]
         return chan0
-        
-    @property
-    def stand0(self):
-        stand = (self.contents[28] << 8) | self.contents[29]
-        return stand
-        
-    @property
-    def stand1(self):
-        stand = (self.contents[30] << 8) | self.contents[31]
-        return stand
-        
-    def parse_id(self):
-        return (self.stand0, self.stand1)
 
 
-class RawCORFrameBuffer(buffer.FrameBufferBase):
+class RawTBXFrameBuffer(buffer.FrameBufferBase):
     """
-    A sub-type of FrameBufferBase specifically for dealing with raw (packed) COR
+    A sub-type of FrameBufferBase specifically for dealing with raw (packed) TBX
     frames.  See :class:`lsl.reader.buffer.FrameBufferBase` for a description of 
     how the buffering is implemented.
     
     Keywords:
-      stands
-        list of stands to expect baseline data for
-    
-    chans
+      chans
         list of start channel numbers to expect data for
     
       nsegments
-        number of ring segments to use for the buffer (default is 5)
+        number of ring segments to use for the buffer (default is 25)
     
       reorder
         whether or not to reorder frames returned by get() or flush() by 
@@ -92,17 +97,21 @@ class RawCORFrameBuffer(buffer.FrameBufferBase):
     +----------+--------+
     | Segments |  Time  |
     +----------+--------+
-    |     1    |   10   |
+    |    10    | 0.0004 |
     +----------+--------+
-    |     2    |   20   |
+    |    25    | 0.001  |
     +----------+--------+
-    |     5    |   50   |
+    |    50    | 0.002  |
+    +----------+--------+
+    |   100    | 0.004  |
+    +----------+--------+
+    |   200    | 0.008  |
     +----------+--------+
     
     """
     
-    def __init__(self, chans, nsegments=5, reorder=False):
-        super(RawCORFrameBuffer, self).__init__(mode='COR', stands=list(range(1,256+1)), chans=chans, nsegments=nsegments, reorder=reorder)
+    def __init__(self, chans, nsegments=25, reorder=False):
+        super(RawTBXFrameBuffer, self).__init__(mode='TBX', chans=chans, nsegments=nsegments, reorder=reorder)
         
     def get_max_frames(self):
         """
@@ -114,19 +123,15 @@ class RawCORFrameBuffer(buffer.FrameBufferBase):
         nFrames = 0
         frameList = []
         
-        nFrames = len(self.stands)*(len(self.stands)+1)/2 * len(self.chans)
-        for stand0 in self.stands:
-            for stand1 in self.stands:
-                if stand1 < stand0:
-                    continue
-                for chan in self.chans:
-                    frameList.append((stand0,stand1,chan))
-                    
+        nFrames = len(self.chans)
+        for chans in self.chans:
+            frameList.append(chans)
+            
         return (nFrames, frameList)
         
     def get_figure_of_merit(self, frame):
         """
-        Figure of merit for sorting frames.  For COR this is:
+        Figure of merit for sorting frames.  For TBX this is:
         frame.payload.timetag
         """
         
@@ -137,7 +142,7 @@ class RawCORFrameBuffer(buffer.FrameBufferBase):
         ID value or tuple for a given frame.
         """
         
-        return frame.id+(frame.first_chan,)
+        return frame.first_chan
         
     def createFill(self, key, frameParameters):
         """
@@ -146,19 +151,17 @@ class RawCORFrameBuffer(buffer.FrameBufferBase):
         """
 
         # Get a template based on the first frame for the current buffer
-        fillFrame = RawCORFrame( copy.deepcopy(self.buffer[key][0].contents) )
+        fillFrame = RawTBXFrame( copy.deepcopy(self.buffer[key][0].contents) )
         
         # Get out the frame parameters and fix-up the header
-        stand0, stand1, chan = frameParameters
-        fillFrame[12] = (chan & 0xFF00) >> 8
-        fillFrame[13] = (chan & 0x00FF)
-        fillFrame[28] = (stand0 & 0xFF00) >> 8
-        fillFrame[29] = (stand0 & 0x00FF)
-        fillFrame[30] = (stand1 & 0xFF00) >> 8
-        fillFrame[31] = (stand1 & 0x00FF)
+        chan = frameParameters
+        fillFrame[12] = (chan & 0xFF000000) >> 24
+        fillFrame[13] = (chan & 0x00FF0000) >> 16
+        fillFrame[14] = (chan & 0x0000FF00) >> 8
+        fillFrame[15] = (chan & 0x000000FF)
         
         # Zero the data for the fill packet
-        fillFrame[32:] = '\x00'*(72*4*4)
+        fillFrame[28:] = [0,]*(fillFrame.nchan*fillFrame.nstand*2)
         
         return fillFrame
 
@@ -167,23 +170,24 @@ def main(args):
     # Parse the command line
     filenames = args.filename
     filenames.sort()
-    if len(filenames) < 2:
-        raise RuntimeError("Need at least two files to combine")
-        
+    
     # Open them up and make sure we have a continuous range of frequencies
-    idf = [CORFile(filename) for filename in filenames]
-    cor.FRAME_SIZE = idf[0].get_info('frame_size')
-    cor.FRAME_CHANNEL_COUNT = idf[0].get_info('frame_channel_count')
+    idf = [TBXFile(filename) for filename in filenames]
     chans = []
     for i in idf:
+        tbx_frame_size = i.get_info('frame_size')
+        tbx_nchan_frame = i.get_info('frame_channel_count')
         chans.extend( i.buffer.chans )
     chans.sort()
     for i in range(1, len(chans)):
-        if chans[i] != chans[i-1] + cor.FRAME_CHANNEL_COUNT:
-            raise RuntimeError("Unexpected channel increment: %i != %s" % (chans[i]-chans[i-1], cor.FRAME_CHANNEL_COUNT))
+        if chans[i] != chans[i-1] + tbx_nchan_frame:
+            raise RuntimeError(f"Unexpected channel increment: {chans[i]-chans[i-1]} != {tbx_nchan_frame}")
             
+    # Downselect
+    chans = list(filter(lambda x: x >= args.lower and x <= args.upper, chans))
+    
     # Setup the buffer
-    buffer = RawCORFrameBuffer(chans=chans, reorder=False)
+    buffer = RawTBXFrameBuffer(chans=chans, reorder=False)
     
     # Setup the output filename
     if args.output is None:
@@ -203,7 +207,7 @@ def main(args):
             common = common[1:]
         args.output = common
         
-    print("Writing combined file to '%s'" % os.path.basename(args.output))
+    print(f"Writing combined file to '{os.path.basename(args.output)}'")
     oh = open(args.output, 'wb')
     
     # Go!
@@ -214,7 +218,7 @@ def main(args):
         rFrames = deque()
         for i,f in enumerate(fh):
             try:
-                rFrames.append( RawCORFrame(f.read(cor.FRAME_SIZE)) )
+                rFrames.append( RawTBXFrame(f.read(tbx_frame_size)) )
             except errors.EOFError:
                 eofFound[i] = True
                 continue
@@ -243,13 +247,16 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='given a COR files created by ADP, combine the files together into a single file that can be used like a standard DR-recorded COR file', 
+        description='given a TBX files created by the on-line triggering system on NDP, combine the files together into a single file that can be used like a standard DR-recorded TBX file', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to combine')
+    parser.add_argument('-l', '--lower', type=aph.positive_or_zero_int, default=0,
+                        help='minimum channel number to keep')
+    parser.add_argument('-u', '--upper', type=aph.positive_or_zero_int, default=4096,
+                        help='maximum channel number to keep')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the combined file to the provided filename, auto-determine if not provided')
     args = parser.parse_args()
     main(args)
-    

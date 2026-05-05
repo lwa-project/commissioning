@@ -24,7 +24,7 @@ from scipy.signal import savgol_filter as savitzky_golay
 from astropy.time import Time as AstroTime
 
 import lsl
-from lsl.common import dp
+from lsl.common import ndp
 from lsl.common import stations
 from lsl.reader.drx import FILTER_CODES
 from lsl.misc.mathutils import to_dB, from_dB
@@ -652,7 +652,7 @@ class Waterfall_GUI(object):
 
         def getDRXResponse(freq, filterCode=7):
             srate = FILTER_CODES[filterCode]
-            dpf = dp.drx_filter(sample_rate=srate)
+            dpf = ndp.drx_filter(sample_rate=srate)
 
             rDRX = dpf(freq-freq.mean())
 
