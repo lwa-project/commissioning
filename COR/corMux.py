@@ -172,6 +172,8 @@ def main(args):
         
     # Open them up and make sure we have a continuous range of frequencies
     idf = [CORFile(filename) for filename in filenames]
+    cor.FRAME_SIZE = idf[0].get_info('frame_size')
+    cor.FRAME_CHANNEL_COUNT = idf[0].get_info('frame_channel_count')
     chans = []
     for i in idf:
         chans.extend( i.buffer.chans )
