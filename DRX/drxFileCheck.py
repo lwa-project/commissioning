@@ -87,7 +87,7 @@ def main(args):
         for j in range(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.read_frame(fh, verbose=False)
+                cFrame = drx.read_frame(fh)
             except errors.EOFError:
                 done = True
                 break
@@ -157,4 +157,3 @@ if __name__ == "__main__":
                         help='trim level for power analysis with clipping')
     args = parser.parse_args()
     main(args)
-    

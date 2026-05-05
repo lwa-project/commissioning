@@ -11,7 +11,7 @@ import numpy
 import argparse
 
 from lsl.reader import drx, errors
-from lsl.common.dp import fS
+from lsl.common.ndp import fS
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.correlator import fx as fxc
@@ -182,9 +182,9 @@ def main(args):
                         count2[pol] += 1
                         
             # Correlate
-            blList1, freq1, vis1 = fxc.FXMaster(data1, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq1, pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList1, freq1, vis1 = fxc.FXMaster(data1, antennas, LFFT=LFFT, overlap=1, include_auto=True, sample_rate=srate, central_freq=cFreq1, pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
             
-            blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, overlap=1, include_auto=True, verbose=False, sample_rate=srate, central_freq=cFreq2, pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
+            blList2, freq2, vis2 = fxc.FXMaster(data2, antennas, LFFT=LFFT, overlap=1, include_auto=True, sample_rate=srate, central_freq=cFreq2, pol='XX', return_baselines=True, gain_correct=False, clip_level=0)
             
             if nChunks != 1:
                 outfile = os.path.split(filename)[1]

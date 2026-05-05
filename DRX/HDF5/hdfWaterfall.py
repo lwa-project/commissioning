@@ -14,12 +14,11 @@ import argparse
 from datetime import datetime, timezone
 
 from lsl.reader import drx, drspec, errors
-from lsl.reader.ldp import LWA1DataFile
+from lsl.reader.ldp import LWADataFile
 import lsl.correlator.fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common import progress, stations
 from lsl.common import mcs, sdf, metabundle
-from lsl.common import sdfADP, metabundleADP
 from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
@@ -142,7 +141,7 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
             
             l = 0
             for j in range(nBatch):
@@ -153,8 +152,8 @@ def processDataBatchLinear(idf, antennas, tStart, duration, sample_rate, args, d
                 i += 1
                 
         else:
-            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
-            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
+            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=LFFT, window=args.window, sample_rate=srate, clip_level=clip2)
             
             for j in range(nBatch):
                 for l,p in enumerate(data_products):
@@ -281,7 +280,7 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
             
             for j in range(nBatch):
                 for t in (1,2):
@@ -290,8 +289,8 @@ def processDataBatchStokes(idf, antennas, tStart, duration, sample_rate, args, d
                 i += 1
                     
         else:
-            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
-            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
+            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=LFFT, window=args.window, sample_rate=srate, clip_level=clip2)
             
             for j in range(nBatch):
                 for l,p in enumerate(data_products):
@@ -343,7 +342,7 @@ def main(args):
         
     # Good, we seem to have a real DRX file, switch over to the LDP interface
     fh.close()
-    idf = LWA1DataFile(args.filename, ignore_timetag_errors=args.ignore_time_errors)
+    idf = LWADataFile(args.filename, ignore_timetag_errors=args.ignore_time_errors)
 
     # Metadata
     nFramesFile = idf.get_info('nframe')
@@ -444,13 +443,10 @@ def main(args):
     # whole file.
     obsList = {}
     if args.metadata is not None:
-        try:
-            project = metabundle.get_sdf(args.metadata)
-        except Exception as e:
-            project = metabundleADP.get_sdf(args.metadata)
-            
+        project = metabundle.get_sdf(args.metadata)
+        
         sdfBeam  = project.sessions[0].drx_beam
-        spcSetup = project.sessions[0].spcSetup
+        spcSetup = project.sessions[0].spc_setup
         if sdfBeam != beam:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
@@ -471,13 +467,10 @@ def main(args):
         hdfData.fill_from_metabundle(f, args.metadata)
         
     elif args.sdf is not None:
-        try:
-            project = sdf.parse_sdf(args.sdf)
-        except Exception as e:
-            project = sdfADP.parse_sdf(args.sdf)
-            
+        project = sdf.parse_sdf(args.sdf)
+        
         sdfBeam  = project.sessions[0].drx_beam
-        spcSetup = project.sessions[0].spcSetup
+        spcSetup = project.sessions[0].spc_setup
         if sdfBeam != beam:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
@@ -600,4 +593,3 @@ if __name__ == "__main__":
                         help='ignore timetag errors in the file')
     args = parser.parse_args()
     main(args)
-    

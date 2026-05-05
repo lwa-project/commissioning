@@ -40,7 +40,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Plot the changes in cable delays between pairs of SSMIFs'
+        description='Plot the changes in cable delays between pairs of SSMIFs',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('filename', type=str, nargs='+',

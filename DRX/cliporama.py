@@ -11,7 +11,7 @@ import time
 import numpy
 import argparse
 
-from scipy.special import erf
+from scipy import special
 
 from lsl.reader import drx, errors
 from lsl.statistics import robust
@@ -110,7 +110,7 @@ def main(args):
         for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = drx.read_frame(fh, verbose=False)
+                cFrame = drx.read_frame(fh)
             except errors.EOFError:
                 break
             except errors.SyncError:
@@ -141,7 +141,7 @@ def main(args):
             counts = [1,]*data.shape[0]
             while (means[i]+j*stds[i] <= 98) and max(counts) != 0:
                 counts =[len(numpy.where( numpy.abs(data[i,:] - means[i]) >= j*stds[i] )[0]) for i in range(data.shape[0])]
-                print(" %2isigma (%5.1f%%): %s" % (j, 100.0*(1-erf(j/numpy.sqrt(2))), ' '.join(["%7i (%5.1f%%)" % (c, 100.0*c/data.shape[1]) for c in counts])))
+                print(" %2isigma (%5.1f%%): %s" % (j, 100.0*(1-special.erf(j/numpy.sqrt(2))), ' '.join(["%7i (%5.1f%%)" % (c, 100.0*c/data.shape[1]) for c in counts])))
                 j += 1
             
             ## Why j-2?  Well, j is 1 more than the last iteration.  So, that last iteration 

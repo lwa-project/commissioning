@@ -14,9 +14,9 @@ import argparse
 
 from lsl.misc import beamformer
 from lsl.common.stations import parse_ssmif
-from lsl.common import sdf, sdfADP
+from lsl.common import sdf
 from lsl.common.mcs import apply_pointing_correction
-from lsl.common.dp import delay_to_dpd, gain_to_dpg
+from lsl.common.ndp import delay_to_ndpd, gain_to_ndpg
 from lsl.misc import parser as aph
 
 
@@ -26,7 +26,7 @@ metaRE = re.compile(r'\{.*\}')
 
 def twoByteSwap(i):
     """
-    gain_to_dpg and delay_to_dpd return values that are ready for big-
+    gain_to_ndpg and delay_to_ndpd return values that are ready for big-
     endian packing, MCS is expecting little-endian.
     """
 
@@ -70,12 +70,6 @@ def main(args):
     tStart = "%s %s" % (args.date, args.time)
 
     station = parse_ssmif(filename)
-    #Import the right version of the sdf module for the desired station.
-    if station.name == 'LWASV':
-        sdf_module = sdfADP
-    else:
-        sdf_module = sdf
-
     antennas = station.antennas
 
     digs    = numpy.array([ant.digitizer  for ant in antennas])
@@ -123,38 +117,38 @@ def main(args):
         delays = beamformer.calc_delay(antennas, freq=freq, azimuth=az, altitude=el)
         delays *= 1e9
         delays = delays.max() - delays
-        delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
+        delays = [twoByteSwap(delay_to_ndpd(d)) for d in delays]
         
         print("Setting gains for %i good inputs, %i bad inputs" % (len(antennas)-len(bad), len(bad)))
         print("-> Using gain setting of %.4f for the beam" % bgain)
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain] for i in range(int(len(antennas)/2))] # initialize gain list 
+        gains = [[twoByteSwap(gain_to_ndpg(g)) for g in baseBeamGain] for i in range(int(len(antennas)/2))] # initialize gain list 
         
         for d in digs[bad]:
             # Digitizers start at 1, list indicies at 0
             i = d - 1
-            gains[i//2] = [twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain]
+            gains[i//2] = [twoByteSwap(gain_to_ndpg(g)) for g in baseEmptyGain]
             
         for i in range(len(stands)//2):
             # Put the reference stand in there all by itself
             if stands[2*i] == args.reference:
-                gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
+                gains[i] = [twoByteSwap(gain_to_ndpg(g)) for g in baseDipoleGain]
     else:
         print("Setting all delays to zero")
         delays = [0 for i in antennas]
-        delays = [twoByteSwap(delay_to_dpd(d)) for d in delays]
+        delays = [twoByteSwap(delay_to_ndpd(d)) for d in delays]
         
         print("Setting gains for dipoles %i and %i" % (args.dipole, args.reference))
         
-        gains = [[twoByteSwap(gain_to_dpg(g)) for g in baseEmptyGain] for i in range(int(len(antennas)/2))] # initialize gain list
+        gains = [[twoByteSwap(gain_to_ndpg(g)) for g in baseEmptyGain] for i in range(int(len(antennas)/2))] # initialize gain list
         for i in range(len(stands)//2):
             # Put the fringing stand in there all by itself
             if stands[2*i] == args.dipole:
-                gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseBeamGain]
+                gains[i] = [twoByteSwap(gain_to_ndpg(g)) for g in baseBeamGain]
             
             # Put the reference stand in there all by itself
             if stands[2*i] == args.reference:
-                gains[i] = [twoByteSwap(gain_to_dpg(g)) for g in baseDipoleGain]
+                gains[i] = [twoByteSwap(gain_to_ndpg(g)) for g in baseDipoleGain]
     
     # Resort the gains into a list of 2x2 matrices
     newGains = []
@@ -164,11 +158,11 @@ def main(args):
     
     # Create the SDF
     sessionComment = 'Input Pol.: %s; Output Pol.: beam -> X, reference -> Y' % ('X' if not args.y_pol else 'Y',)
-    observer = sdf_module.Observer("fringeSDF.py Observer", 99)
-    session = sdf_module.Session("fringeSDF.py Session", 1, comments=sessionComment)
-    project = sdf_module.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
-    obs = sdf_module.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
-    stp = sdf_module.BeamStep(args.azimuth, args.elevation, str(args.obs_length), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
+    observer = sdf.Observer("fringeSDF.py Observer", 99)
+    session = sdf.Session("fringeSDF.py Session", 1, comments=sessionComment)
+    project = sdf.Project(observer, "fringeSDF.py Project", "FRINGSDF", [session,])
+    obs = sdf.Stepped("fringeSDF.py Target", "Custom", tStart, args.filter, is_radec=False)
+    stp = sdf.BeamStep(args.azimuth, args.elevation, str(args.obs_length), args.frequency1, args.frequency2, is_radec=False, spec_delays=delays, spec_gains=gains)
     obs.append(stp)
     obs.gain = 1
     project.sessions[0].observations.append(obs)
@@ -185,13 +179,13 @@ def main(args):
         else:
             metatag = None
             
-        project.sessions[0].spcSetup = [int(i) for i in args.spec_setup.lstrip().rstrip().split(None, 1)]
-        project.sessions[0].spcMetatag = metatag
+        project.sessions[0].spc_setup = [int(i) for i in args.spec_setup.lstrip().rstrip().split(None, 1)]
+        project.sessions[0].spc_metatag = metatag
         
     # Write it out
     if os.path.exists(args.output):
         raise RuntimeError("File '%s' already exists" % args.output)
-    project.render(verbose=True)
+    project.render()
     fh = open(args.output, 'w')
     fh.write(project.render())
     fh.close()

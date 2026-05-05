@@ -11,7 +11,7 @@ import numpy
 import struct
 import argparse
 
-from lsl.common.dp import dpd_to_delay
+from lsl.common.ndp import ndpd_to_delay
 from lsl.common import stations
 
 
@@ -22,11 +22,11 @@ def main(args):
     data = fh.read()
     fh.close()
     
-    # Unpack the raw delays (520 unsigned short ints)
-    rawDelays = struct.unpack('<520H', data)
+    # Unpack the raw delays (512 unsigned short ints)
+    rawDelays = struct.unpack('<512H', data)
 
     # Convert to delays in ns
-    delays = [dpd_to_delay(d) for d in rawDelays]
+    delays = [ndpd_to_delay(d) for d in rawDelays]
     
     #Build up the station
     if args.lwasv:

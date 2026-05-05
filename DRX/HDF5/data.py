@@ -9,9 +9,8 @@ import warnings
 from datetime import datetime, timezone
 from collections import defaultdict
 
-from lsl.common import dp, mcs, sdf, metabundle
+from lsl.common import ndp, mcs, sdf, metabundle
 from lsl.reader.drx import FILTER_CODES
-from lsl.common import sdfADP, metabundleADP
 
 
 __version__ = "1.1"
@@ -28,7 +27,7 @@ def _valuetoDelay(value):
         return mcs.mcsd_to_delay(value)
     except:
         value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
-        return dp.dpd_to_delay(value)
+        return ndp.ndpd_to_delay(value)
 
 
 def _valuetoGain(value):
@@ -36,7 +35,7 @@ def _valuetoGain(value):
         return mcs.mcsg_to_gain(value)
     except:
         value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
-        return dp.dpg_to_gain(value)
+        return ndp.ndpg_to_gain(value)
 
 
 class _HDFFileRegistry(object):
@@ -185,26 +184,10 @@ def fill_from_metabundle(f, tarball):
     """
     
     # Pull out what we need from the tarball
-    try:
-        mbParser = metabundle
-        project = mbParser.get_sdf(tarball)
-        cds = mbParser.get_command_script(tarball)
-        station = 'lwa1'
-    except Exception as e:
-        mbParser = metabundleADP
-        project = mbParser.get_sdf(tarball)
-        try:
-            cds = mbParser.get_command_script(tarball)
-            station = 'lwasv'
-            
-            ## Check for LWA-NA
-            for cmd in cds:
-                if cmd['subsystem_id'] == 'NDP':
-                    station = 'lwana'
-                    break
-        except Exception as e:
-            station = 'lwana'
-            
+    project = metabundle.get_sdf(tarball)
+    cds = metabundle.get_command_script(tarball)
+    station = metabundle.get_mcs_hostname(tarball)
+    
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
     f.attrs['ObserverName'] = project.observer.name
@@ -219,14 +202,14 @@ def fill_from_metabundle(f, tarball):
     
     # ARX configuration summary
     try:
-        arx = mbParser.get_asp_configuration_summary(tarball)
+        arx = metabundle.get_asp_configuration_summary(tarball)
     except:
-        arx = {'asp_filter': -1, 'asp_atten_1': -1, 'asp_atten_2': -1, 'asp_atten_split': -1}
+        arx = {'asp_filter': -1, 'asp_atten_1': -1, 'asp_atten_2': -1, 'asp_atten_3': -1}
         
     for i,obsS in enumerate(project.sessions[0].observations):
         # Detailed observation information
         try:
-            obsD = mbParser.get_observation_spec(tarball, obs_id=i+1)
+            obsD = metabundle.get_observation_spec(tarball, obs_id=i+1)
         except OSError:
             ## This currently fails on .tgz files from LWA-NA.  Switch over to
             ## SDF mode
@@ -251,7 +234,7 @@ def fill_from_metabundle(f, tarball):
         grp.attrs['ARX_Filter'] = arx['asp_filter']
         grp.attrs['ARX_Gain1'] = arx['asp_atten_1']
         grp.attrs['ARX_Gain2'] = arx['asp_atten_2']
-        grp.attrs['ARX_GainS'] = arx['asp_atten_split']
+        grp.attrs['ARX_Gain3'] = arx['asp_atten_3']
         grp.attrs['Beam'] = obsD['drx_beam']
         grp.attrs['DRX_Gain'] = obsD['drx_gain']
         grp.attrs['sampleRate'] = float(FILTER_CODES[obsD['bw']])
@@ -279,8 +262,8 @@ def fill_from_metabundle(f, tarball):
                 data[i,0] = t
                 data[i,1] = s.OBS_STP_C1
                 data[i,2] = s.OBS_STP_C2
-                data[i,3] = dp.word_to_freq(s.OBS_STP_FREQ1)
-                data[i,4] = dp.word_to_freq(s.OBS_STP_FREQ2)
+                data[i,3] = ndp.word_to_freq(s.OBS_STP_FREQ1)
+                data[i,4] = ndp.word_to_freq(s.OBS_STP_FREQ2)
             
                 ## Update the start time for the next step
                 t += s.OBS_STP_T / 1000.0
@@ -290,15 +273,9 @@ def fill_from_metabundle(f, tarball):
                 
             # Deal with specified delays and gains if needed
             if obsD['steps'][0].OBS_STP_B == 3:
-                nstand = 260
-                label_base = 'DP'
-                if station == 'lwasv':
-                    nstand = 256
-                    label_base = 'ADP'
-                elif station == 'lwana':
-                    nstand = 256
-                    label_base = 'NDP'
-                elif station == 'ovrolwa':
+                nstand = 256
+                label_base = 'NDP'
+                if station == 'ovrolwa':
                     nstand = 352
                     label_base = 'OVR'
                     
@@ -359,11 +336,8 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
         project = sdf_or_sdfFilename
         sdf_or_sdfFilename = 'preparsed_sdf.info'
     else:
-        try:
-            project = sdf.parse_sdf(sdf_or_sdfFilename)
-        except Exception as e:
-            project = sdfADP.parse_sdf(sdf_or_sdfFilename)
-            
+        project = sdf.parse_sdf(sdf_or_sdfFilename)
+        
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
     f.attrs['ObserverName'] = project.observer.name
@@ -381,11 +355,11 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
     f.attrs['InputMetadata'] = os.path.basename(sdf_or_sdfFilename)
     
     # ARX configuration summary
-    arx = {'asp_filter': -1, 'asp_atten_1': -1, 'asp_atten_2': -1, 'asp_atten_split': -1}
+    arx = {'asp_filter': -1, 'asp_atten_1': -1, 'asp_atten_2': -1, 'asp_atten_3': -1}
     arx['asp_filter'] = numpy.median( project.sessions[0].observations[0].asp_filter )
     arx['asp_atten_1'] = numpy.median( project.sessions[0].observations[0].asp_atten_1 )
     arx['asp_atten_2'] = numpy.median( project.sessions[0].observations[0].asp_atten_2 )
-    arx['asp_atten_split'] = numpy.median( project.sessions[0].observations[0].asp_atten_split )
+    arx['asp_atten_3'] = numpy.median( project.sessions[0].observations[0].asp_atten_3 )
     
     for i,obsS in enumerate(project.sessions[0].observations):
         # Get the group or create it if it doesn't exist
@@ -407,7 +381,7 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
         grp.attrs['ARX_Filter'] = arx['asp_filter']
         grp.attrs['ARX_Gain1'] = arx['asp_atten_1']
         grp.attrs['ARX_Gain2'] = arx['asp_atten_2']
-        grp.attrs['ARX_GainS'] = arx['asp_atten_split']
+        grp.attrs['ARX_Gain3'] = arx['asp_atten_3']
         grp.attrs['Beam'] = project.sessions[0].drx_beam
         grp.attrs['DRX_Gain'] = obsS.gain
         grp.attrs['sampleRate'] = float(FILTER_CODES[obsS.filter])
@@ -435,8 +409,8 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
                 data[i,0] = t
                 data[i,1] = s.c1
                 data[i,2] = s.c2
-                data[i,3] = dp.word_to_freq(s.freq1)
-                data[i,4] = dp.word_to_freq(s.freq2)
+                data[i,3] = ndp.word_to_freq(s.freq1)
+                data[i,4] = ndp.word_to_freq(s.freq2)
                 
                 ## Update the start time for the next step
                 t += s.dur / 1000.0
@@ -446,15 +420,9 @@ def fill_from_sdf(f, sdf_or_sdfFilename, station=None):
             
             # Deal with specified delays and gains if needed
             if obsS.steps[0].delays is not None and obsS.steps[0].gains is not None:
-                nstand = 260
-                label_base = 'DP'
-                if station == 'lwasv':
-                    nstand = 256
-                    label_base = 'ADP'
-                elif station == 'lwana':
-                    nstand = 256
-                    label_base = 'NDP'
-                elif station == 'ovrolwa':
+                nstand = 256
+                label_base = 'NDP'
+                if station == 'ovrolwa':
                     nstand = 352
                     label_base = 'OVR'
                     

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import aipy
 
 from lsl.reader import drx
-from lsl.common.dp import fS
+from lsl.common.ndp import fS
 from lsl.common import stations
 from lsl.astro import unix_to_utcjd
 from lsl.sim import vis as simVis
@@ -88,8 +88,8 @@ def main(args):
         dTimes.append( (times[i]-times[0]).seconds )
         
     # Actually run the simulations
-    simDict1 = simVis.build_sim_data(aa1, simVis.SOURCES, jd=jdList, pols=['xx',], verbose=False)
-    simDict2 = simVis.build_sim_data(aa2, simVis.SOURCES, jd=jdList, pols=['xx',], verbose=False)
+    simDict1 = simVis.build_sim_data(aa1, simVis.SOURCES, jd=jdList, pols=['xx',])
+    simDict2 = simVis.build_sim_data(aa2, simVis.SOURCES, jd=jdList, pols=['xx',])
 
     # Plot
     fig = plt.figure()

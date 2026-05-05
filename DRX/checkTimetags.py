@@ -13,7 +13,7 @@ import argparse
 from lsl import astro
 from lsl.reader import drx
 from lsl.reader import errors
-from lsl.common.dp import fS
+from lsl.common.ndp import fS
 from lsl.misc import parser as aph
 
 
@@ -109,4 +109,3 @@ if __name__ == "__main__":
                         help='skip period in seconds between chunks')
     args = parser.parse_args()
     main(args)
-    

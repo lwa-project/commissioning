@@ -11,7 +11,7 @@ import numpy
 import struct
 import argparse
 
-from lsl.common.dp import dpg_to_gain
+from lsl.common.ndp import ndpg_to_gain
 from lsl.common import stations
 
 
@@ -22,11 +22,11 @@ def main(args):
     data = fh.read()
     fh.close()
     
-    # Unpack the raw delays (260*4 signed short ints)
-    rawGains = struct.unpack('<1040h', data)
+    # Unpack the raw delays (256*4 signed short ints)
+    rawGains = struct.unpack('<1024h', data)
 
     # Convert to delays in ns
-    gains = [dpg_to_gain(g) for g in rawGains]
+    gains = [ndpg_to_gain(g) for g in rawGains]
 
     #Build up the station
     if args.lwasv:
