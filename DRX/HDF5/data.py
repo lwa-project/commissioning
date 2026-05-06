@@ -187,6 +187,7 @@ def fill_from_metabundle(f, tarball):
     project = metabundle.get_sdf(tarball)
     cds = metabundle.get_command_script(tarball)
     station = metabundle.get_mcs_hostname(tarball)
+    station = station.split('-', 1)[0]
     
     # Observer and Project Info.
     f.attrs['ObserverID'] = project.observer.id
