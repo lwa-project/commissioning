@@ -184,7 +184,7 @@ def main(args):
         hdfData.fill_from_sdf(f, args.sdf, station=site)
         
     else:
-        obsList[1] = (beginDate, datetime(2222,12,31,23,59,59), nChunks)
+        obsList[1] = (beginDate, datetime(2222,12,31,23,59,59, tzinfo=timezone.utc), nChunks)
         
         hdfData.fill_minimum(f, 1, beam, srate, station=site)
         
@@ -219,7 +219,7 @@ def main(args):
     for i in range(nChunks):
         frame = drspec.read_frame(fh)
         
-        cTime = frame.time.datetime
+        cTime = frame.time.utc_datetime
         if cTime > obsList[o][1]:
             # Increment to the next observation
             o += 1
