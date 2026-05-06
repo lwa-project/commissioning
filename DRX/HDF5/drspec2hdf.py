@@ -147,7 +147,7 @@ def main(args):
                 raise e
                 
         sdfBeam  = project.sessions[0].drx_beam
-        spcSetup = project.sessions[0].spcSetup
+        spcSetup = project.sessions[0].spc_setup
         if sdfBeam != beam:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
@@ -170,7 +170,7 @@ def main(args):
                 raise e
                 
         sdfBeam  = project.sessions[0].drx_beam
-        spcSetup = project.sessions[0].spcSetup
+        spcSetup = project.sessions[0].spc_setup
         if sdfBeam != beam:
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
