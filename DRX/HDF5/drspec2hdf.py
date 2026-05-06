@@ -10,7 +10,7 @@ import sys
 import h5py
 import numpy
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.reader import drx, drspec, errors
 from lsl.common import progress
@@ -152,8 +152,8 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm, tz=timezone.utc)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur, tz=timezone.utc)
             obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.FILTER_CODES[obs.filter] / (spcSetup[0]*spcSetup[1])))
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
@@ -175,8 +175,8 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(project.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm, tz=timezone.utc)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur, tz=timezone.utc)
             obsChunks = int(numpy.ceil(obs.dur/1000.0 * drx.FILTER_CODES[obs.filter] / (spcSetup[0]*spcSetup[1])))
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
