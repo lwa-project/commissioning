@@ -104,7 +104,9 @@ def main(args):
                                                            jys=pm.visibleNormalizedPower[i],
                                                            index=-2.3)
         print(f"Using a source catalog with {len(SOURCES)} entries")
+        set_log_level(logging.INFO)     # Too much info with DEBUG in the next step
         simDict = simVis.build_sim_data(aa, SOURCES, jd=[jdList[0],], pols=pols, baselines=bls)
+        set_log_level(logging.DEBUG)
         
         print("Running self cal.")
         simDict.sort()
