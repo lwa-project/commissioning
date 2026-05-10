@@ -100,7 +100,7 @@ def main(args):
     data_products = junkFrame.data_products
     t0 = junkFrame.time
     tInt = junkFrame.header.nints*LFFT/srate
-    beginDate = junkFrame.time.datetime
+    beginDate = junkFrame.time.utc_datetime
         
     # Report
     print("Filename: %s" % args.filename)
