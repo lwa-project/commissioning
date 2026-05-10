@@ -44,6 +44,11 @@ applyNewStretchFactors.py
 Given an input SSMIF and a collection of stretch factors from 
 convertDelayToStretch.py, apply the new stretch factors and create a new SSMIF.
 
+diffSSMIF.py
+------------
+Given two or more SSMIFs, difference the per antenna delays and create plots
+show what changed when and by how much.
+
 estimateSEFD.py
 ---------------
 Given an SSMIF and a collection of TBX files, use phase-and-sum beamforming to make
@@ -54,3 +59,8 @@ fitEstimatedSEFD.py
 -------------------
 Fit a Gaussian to the results of estimateSEFD.py to determined the SEFD and pointing 
 error.
+
+updateBadStands.py
+------------------
+Script that takes an SSMIF and lists of good, suspect, and bad antennas to generate
+a new SSMIF with updated ANT_STAT entries.
