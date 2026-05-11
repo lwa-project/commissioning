@@ -16,7 +16,7 @@ _srcs = ["CygA,f|J,19:59:28.30,+40:44:02.0,1"]
 _cyg_transit_window = [-1, 1]
 
 # We want diffuse data to be between the transits of Tau and Vir
-_diffuse_lst_window = [6.5, 10.5]
+_diffuse_lst_window = [6.5, 11.5]
 
 
 def main(args):
