@@ -60,7 +60,7 @@ def main(args):
         pwrI = pwrX
     elif args.yy:
         pol = 'YY'
-        pwrY = pwrY
+        pwrI = pwrY
     else:
         pol = 'Stokes I'
         pwrI = pwrX + pwrY
