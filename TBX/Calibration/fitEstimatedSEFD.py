@@ -55,8 +55,16 @@ def main(args):
     dataDict.close()
     
     # Form Stokes I out of X and Y
-    pwrI = pwrX + pwrY
-    
+    if args.xx:
+        pol = 'XX'
+        pwrI = pwrXX
+    elif args.yy:
+        pol = 'YY'
+        pwrY = pwrYY
+    else:
+        pol = 'Stokes I'
+        pwrI = pwrX + pwrY
+        
     # Get an observer
     _, ssmif, _ = os.path.basename(filename).split('-', 2)
     sta = parse_ssmif(ssmif+'.txt')
@@ -149,7 +157,7 @@ def main(args):
     ax11 = fig.add_subplot(2, 1, 1)
     ax12 = fig.add_subplot(2, 1, 2)
     for i,(ax1,ax2),f,pwr in zip((1,), ((ax11,ax12),), (freq,), (pwr1,)):
-        print("Tuning %i @ %.3f MHz" % (i, f/1e6))
+        print("Tuning %i @ %.3f MHz - %s" % (i, f/1e6, pol))
         
         ## Dec
         x = dec[decCut]
@@ -244,6 +252,11 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str,
                         help='filename to process')
+    pgroup = parser.add_mutually_exclusive_group()
+    pgroup.add_argument('-x', '--xx', action='store_true',
+                        help='Fit XX instead of Stokes I')
+    pgroup.add_argument('-y', '--yy', action='store_true',
+                        help='Fit YY instead of Stokes I')
     args = parser.parse_args()
     main(args)
     
