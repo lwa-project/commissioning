@@ -57,10 +57,10 @@ def main(args):
     # Form Stokes I out of X and Y
     if args.xx:
         pol = 'XX'
-        pwrI = pwrXX
+        pwrI = pwrX
     elif args.yy:
         pol = 'YY'
-        pwrY = pwrYY
+        pwrY = pwrY
     else:
         pol = 'Stokes I'
         pwrI = pwrX + pwrY
@@ -253,9 +253,9 @@ if __name__ == "__main__":
     parser.add_argument('filename', type=str,
                         help='filename to process')
     pgroup = parser.add_mutually_exclusive_group()
-    pgroup.add_argument('-x', '--xx', action='store_true',
+    pgroup.add_argument('--xx', action='store_true',
                         help='Fit XX instead of Stokes I')
-    pgroup.add_argument('-y', '--yy', action='store_true',
+    pgroup.add_argument('--yy', action='store_true',
                         help='Fit YY instead of Stokes I')
     args = parser.parse_args()
     main(args)
